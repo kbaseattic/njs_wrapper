@@ -9,6 +9,7 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import us.kbase.common.service.UObject;
 
 
 /**
@@ -22,7 +23,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "app_job_id",
-    "step_job_ids"
+    "step_job_ids",
+    "step_outputs"
 })
 public class AppJobs {
 
@@ -30,6 +32,8 @@ public class AppJobs {
     private java.lang.String appJobId;
     @JsonProperty("step_job_ids")
     private Map<String, String> stepJobIds;
+    @JsonProperty("step_outputs")
+    private Map<String, UObject> stepOutputs;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
     @JsonProperty("app_job_id")
@@ -62,6 +66,21 @@ public class AppJobs {
         return this;
     }
 
+    @JsonProperty("step_outputs")
+    public Map<String, UObject> getStepOutputs() {
+        return stepOutputs;
+    }
+
+    @JsonProperty("step_outputs")
+    public void setStepOutputs(Map<String, UObject> stepOutputs) {
+        this.stepOutputs = stepOutputs;
+    }
+
+    public AppJobs withStepOutputs(Map<String, UObject> stepOutputs) {
+        this.stepOutputs = stepOutputs;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -74,7 +93,7 @@ public class AppJobs {
 
     @Override
     public java.lang.String toString() {
-        return ((((((("AppJobs"+" [appJobId=")+ appJobId)+", stepJobIds=")+ stepJobIds)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("AppJobs"+" [appJobId=")+ appJobId)+", stepJobIds=")+ stepJobIds)+", stepOutputs=")+ stepOutputs)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

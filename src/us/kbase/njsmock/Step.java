@@ -28,7 +28,9 @@ import us.kbase.common.service.UObject;
     "generic",
     "python",
     "script",
-    "input_values"
+    "input_values",
+    "is_long_running",
+    "job_id_output_field"
 })
 public class Step {
 
@@ -59,6 +61,10 @@ public class Step {
     private CommandlineScriptMethod script;
     @JsonProperty("input_values")
     private List<UObject> inputValues;
+    @JsonProperty("is_long_running")
+    private Long isLongRunning;
+    @JsonProperty("job_id_output_field")
+    private String jobIdOutputField;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("step_id")
@@ -181,6 +187,36 @@ public class Step {
         return this;
     }
 
+    @JsonProperty("is_long_running")
+    public Long getIsLongRunning() {
+        return isLongRunning;
+    }
+
+    @JsonProperty("is_long_running")
+    public void setIsLongRunning(Long isLongRunning) {
+        this.isLongRunning = isLongRunning;
+    }
+
+    public Step withIsLongRunning(Long isLongRunning) {
+        this.isLongRunning = isLongRunning;
+        return this;
+    }
+
+    @JsonProperty("job_id_output_field")
+    public String getJobIdOutputField() {
+        return jobIdOutputField;
+    }
+
+    @JsonProperty("job_id_output_field")
+    public void setJobIdOutputField(String jobIdOutputField) {
+        this.jobIdOutputField = jobIdOutputField;
+    }
+
+    public Step withJobIdOutputField(String jobIdOutputField) {
+        this.jobIdOutputField = jobIdOutputField;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -193,7 +229,7 @@ public class Step {
 
     @Override
     public String toString() {
-        return ((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", generic=")+ generic)+", python=")+ python)+", script=")+ script)+", inputValues=")+ inputValues)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", generic=")+ generic)+", python=")+ python)+", script=")+ script)+", inputValues=")+ inputValues)+", isLongRunning=")+ isLongRunning)+", jobIdOutputField=")+ jobIdOutputField)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

@@ -1,5 +1,8 @@
 module NJSMock {
 
+    /* @range [0,1] */
+    typedef int boolean;
+
     typedef structure {
         string service_url;
         string method_name;
@@ -24,6 +27,8 @@ module NJSMock {
         python_backend_method python;
         commandline_script_method script;
         list<UnspecifiedObject> input_values;
+        boolean is_long_running;
+        string job_id_output_field;
     } step;
 
     typedef structure {
@@ -37,6 +42,7 @@ module NJSMock {
     typedef structure {
         string app_job_id;
         mapping<string, string> step_job_ids;
+        mapping<string, UnspecifiedObject> step_outputs;
     } app_jobs;
 
     funcdef run_app(app app) returns (app_jobs) authentication required;
