@@ -91,6 +91,8 @@ step is a reference to a hash where the following keys are defined:
 	python has a value which is an NJSMock.python_backend_method
 	script has a value which is an NJSMock.commandline_script_method
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is an NJSMock.boolean
+	job_id_output_field has a value which is a string
 generic_service_method is a reference to a hash where the following keys are defined:
 	service_url has a value which is a string
 	method_name has a value which is a string
@@ -99,9 +101,11 @@ python_backend_method is a reference to a hash where the following keys are defi
 	method_name has a value which is a string
 commandline_script_method is a reference to a hash where the following keys are defined:
 	script_name has a value which is a string
+boolean is an int
 app_jobs is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 </pre>
 
@@ -121,6 +125,8 @@ step is a reference to a hash where the following keys are defined:
 	python has a value which is an NJSMock.python_backend_method
 	script has a value which is an NJSMock.commandline_script_method
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is an NJSMock.boolean
+	job_id_output_field has a value which is a string
 generic_service_method is a reference to a hash where the following keys are defined:
 	service_url has a value which is a string
 	method_name has a value which is a string
@@ -129,9 +135,11 @@ python_backend_method is a reference to a hash where the following keys are defi
 	method_name has a value which is a string
 commandline_script_method is a reference to a hash where the following keys are defined:
 	script_name has a value which is a string
+boolean is an int
 app_jobs is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 
 =end text
@@ -207,6 +215,7 @@ $return is an NJSMock.app_jobs
 app_jobs is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 </pre>
 
@@ -219,6 +228,7 @@ $return is an NJSMock.app_jobs
 app_jobs is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 
 =end text
@@ -332,6 +342,37 @@ sub _validate_version {
 }
 
 =head1 TYPES
+
+
+
+=head2 boolean
+
+=over 4
+
+
+
+=item Description
+
+@range [0,1]
+
+
+=item Definition
+
+=begin html
+
+<pre>
+an int
+</pre>
+
+=end html
+
+=begin text
+
+an int
+
+=end text
+
+=back
 
 
 
@@ -452,6 +493,8 @@ generic has a value which is an NJSMock.generic_service_method
 python has a value which is an NJSMock.python_backend_method
 script has a value which is an NJSMock.commandline_script_method
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+is_long_running has a value which is an NJSMock.boolean
+job_id_output_field has a value which is a string
 
 </pre>
 
@@ -466,6 +509,8 @@ generic has a value which is an NJSMock.generic_service_method
 python has a value which is an NJSMock.python_backend_method
 script has a value which is an NJSMock.commandline_script_method
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+is_long_running has a value which is an NJSMock.boolean
+job_id_output_field has a value which is a string
 
 
 =end text
@@ -525,6 +570,7 @@ step_jobs - mapping from step_id to job_id.
 a reference to a hash where the following keys are defined:
 app_job_id has a value which is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 </pre>
 
@@ -535,6 +581,7 @@ step_job_ids has a value which is a reference to a hash where the key is a strin
 a reference to a hash where the following keys are defined:
 app_job_id has a value which is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
 
 =end text
