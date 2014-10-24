@@ -153,7 +153,7 @@ public class NJSMockServer extends JsonServerServlet {
     	return taskConfig;
     }
 
-	private static UserAndJobStateClient createJobClient(String jobSrvUrl, String token) throws IOException, JsonClientException {
+	public static UserAndJobStateClient createJobClient(String jobSrvUrl, String token) throws IOException, JsonClientException {
 		try {
 			UserAndJobStateClient ret = new UserAndJobStateClient(new URL(jobSrvUrl), new AuthToken(token));
 			ret.setIsInsecureHttpConnectionAllowed(true);

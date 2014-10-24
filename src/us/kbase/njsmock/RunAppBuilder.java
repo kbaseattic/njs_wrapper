@@ -20,6 +20,6 @@ public class RunAppBuilder extends DefaultTaskBuilder<App> {
 	@Override
 	public void run(String token, App inputData, String jobId, String outRef)
 			throws Exception {
-		
+		System.out.println("Token: " + token);
 	}
 }
