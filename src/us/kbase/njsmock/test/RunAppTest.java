@@ -7,10 +7,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeMap;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -19,12 +21,17 @@ import org.junit.Test;
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple7;
+import us.kbase.common.service.UObject;
 import us.kbase.common.taskqueue.JobStatuses;
 import us.kbase.common.taskqueue.TaskQueue;
 import us.kbase.common.taskqueue.TaskQueueConfig;
 import us.kbase.njsmock.App;
+import us.kbase.njsmock.AppJobs;
+import us.kbase.njsmock.AppStateRegistry;
+import us.kbase.njsmock.GenericServiceMethod;
 import us.kbase.njsmock.NJSMockServer;
 import us.kbase.njsmock.RunAppBuilder;
+import us.kbase.njsmock.Step;
 import us.kbase.njsmock.Util;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
@@ -39,8 +46,52 @@ public class RunAppTest {
 	@Test
 	public void mainTest() throws Exception {
 		String token = token(props(new File("test.cfg")));
-		String jobId = taskHolder.addTask(new App(), token);
+		App app = new App();
+		String appRunId = "BigApp" + System.currentTimeMillis();
+		app.withAppRunId(appRunId);
+		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
+		//		.withGeneric(new GenericServiceMethod()
+		//		.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+		//		.withMethodName("GenomeComparison.get_ncbi_genome_names"));
+		String workspace = "nardevuser1:home";
+		String genome1ncbiName = "Acetobacter pasteurianus 386B";
+		String genome1obj = "Acetobacter_pasteurianus_386B.genome";
+		String genome2ncbiName = "Acetobacter pasteurianus IFO 3283-01";
+		String genome2obj = "Acetobacter_pasteurianus_IFO_3283_01.genome";
+		String comparObj = "Acetobacter_pasteurianus.protcmp";
+		Step step1 = new Step().withStepId("step1").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("genome_name", genome1ncbiName)
+						.put("out_genome_ws", workspace).put("out_genome_id", genome1obj).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+				.withMethodName("GenomeComparison.import_ncbi_genome"));
+		Step step2 = new Step().withStepId("step2").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("genome_name", genome2ncbiName)
+						.put("out_genome_ws", workspace).put("out_genome_id", genome2obj).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+				.withMethodName("GenomeComparison.import_ncbi_genome"));
+		Step step3 = new Step().withStepId("step3").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(new PreMap()
+						.put("genome1ws", workspace).put("genome1id", genome1obj)
+						.put("genome2ws", workspace).put("genome2id", genome2obj)
+						.put("output_ws", workspace).put("output_id", comparObj).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+				.withMethodName("GenomeComparison.blast_proteomes"))
+				.withIsLongRunning(1L);
+		app.withSteps(Arrays.asList(step1, step2, step3));
+        AppJobs appState = new AppJobs().withStepJobIds(new LinkedHashMap<String, String>())
+        		.withStepOutputs(new LinkedHashMap<String, UObject>());
+        String appJson = UObject.transformObjectToString(app);
+        AppStateRegistry.setAppState(appRunId, appState);
+		String jobId = taskHolder.addTask(appJson, token);
+        appState.withAppJobId(jobId);
 		Util.waitForJob(token, ujsUrl, jobId);
+		System.out.println("Jobs: " + AppStateRegistry.getAppState(appRunId).getStepJobIds());
+		System.out.println("Outputs: " + AppStateRegistry.getAppState(appRunId).getStepOutputs());
 	}
 
 	@AfterClass
@@ -52,6 +103,7 @@ public class RunAppTest {
 	public static void prepare() throws Exception {
 		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
 		allConfigProps.put(NJSMockServer.CFG_PROP_SCRATCH, tempDir);
+		allConfigProps.put(NJSMockServer.CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
 		JobStatuses jobStatuses = new JobStatuses() {
 			@Override
 			public String createAndStartJob(String token, String status, String desc,
@@ -111,5 +163,14 @@ public class RunAppTest {
 		props.load(is);
 		is.close();
 		return props;
+	}
+	
+	public static class PreMap {
+		Map<String, Object> map = new TreeMap<String, Object>();
+		
+		public PreMap put(String key, Object value) {
+			map.put(key, value);
+			return this;
+		}
 	}
 }

@@ -16,7 +16,7 @@ public class Util {
 			String status = data.getE3();
     		Long complete = data.getE6();
     		Long wasError = data.getE7();
-			System.out.println("Status (" + iter + "): " + status);
+			//System.out.println("Status (" + iter + "): " + status);
 			if (complete == 1L) {
 				if (wasError == 0L) {
 					break;

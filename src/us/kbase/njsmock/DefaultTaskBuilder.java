@@ -20,11 +20,12 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 	protected File tempDir;
 	//protected File dataDir;
 	protected ObjectStorage storage;
+	protected String ujsUrl;
 
 	@Override
 	public void init(TaskQueueConfig queueCfg, Map<String, String> configParams) {
 		init(getDirParam(configParams, NJSMockServer.CFG_PROP_SCRATCH), //getDirParam(configParams, "data.dir"),
-				createDefaultObjectStorage(queueCfg.getWsUrl()));
+				createDefaultObjectStorage(queueCfg.getWsUrl()), configParams.get(NJSMockServer.CFG_PROP_JOBSTATUS_SRV_URL));
 	}
 
 	public static ObjectStorage createDefaultObjectStorage(final WorkspaceClient client) {
@@ -102,7 +103,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 		};
 	}
 
-	public DefaultTaskBuilder<T> init(File tempDir, /*File dataDir,*/ ObjectStorage ws) {
+	public DefaultTaskBuilder<T> init(File tempDir, /*File dataDir,*/ ObjectStorage ws, String ujsUrl) {
 		this.tempDir = tempDir;
 		if (!tempDir.exists())
 			tempDir.mkdir();
@@ -110,6 +111,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 		if (!dataDir.exists())
 			throw new IllegalStateException("Directory " + dataDir + " doesn't exist");*/
 		this.storage = ws;
+		this.ujsUrl = ujsUrl;
 		return this;
 	}
 
@@ -135,6 +137,10 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 	/*protected File getBinDir() {
 		return new File(dataDir, "bin");
 	}*/
+	
+	protected String getUjsUrl() {
+		return ujsUrl;
+	}
 	
 	protected String getOsSuffix() {
 		String osName = System.getProperty("os.name").toLowerCase();

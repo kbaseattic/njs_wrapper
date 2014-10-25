@@ -1,15 +1,23 @@
 package us.kbase.njsmock;
 
+import us.kbase.auth.AuthToken;
+import us.kbase.common.service.JsonServerMethod;
+import us.kbase.common.service.JsonServerServlet;
+
+//BEGIN_HEADER
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import us.kbase.auth.AuthToken;
+import org.ini4j.Ini;
+
 import us.kbase.auth.TokenFormatException;
 import us.kbase.common.service.JsonClientException;
-import us.kbase.common.service.JsonServerMethod;
-import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.taskqueue.JobStatuses;
 import us.kbase.common.taskqueue.TaskQueue;
@@ -17,13 +25,6 @@ import us.kbase.common.taskqueue.TaskQueueConfig;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
-
-//BEGIN_HEADER
-import java.io.File;
-import java.io.IOException;
-import java.net.URL;
-
-import org.ini4j.Ini;
 //END_HEADER
 
 /**
@@ -196,6 +197,13 @@ public class NJSMockServer extends JsonServerServlet {
     public AppJobs runApp(App app, AuthToken authPart) throws Exception {
         AppJobs returnVal = null;
         //BEGIN run_app
+        String appRunId = app.getAppRunId();
+        AppJobs appState = new AppJobs().withStepJobIds(new LinkedHashMap<String, String>())
+        		.withStepOutputs(new LinkedHashMap<String, UObject>());
+        AppStateRegistry.setAppState(appRunId, appState);
+        String appJobId = taskHolder.addTask(UObject.transformObjectToString(app), authPart.toString());
+        appState.withAppJobId(appJobId);
+        returnVal = appState;
         //END run_app
         return returnVal;
     }
@@ -211,6 +219,7 @@ public class NJSMockServer extends JsonServerServlet {
     public AppJobs checkAppState(String appRunId, AuthToken authPart) throws Exception {
         AppJobs returnVal = null;
         //BEGIN check_app_state
+        returnVal = AppStateRegistry.getAppState(appRunId);
         //END check_app_state
         return returnVal;
     }
