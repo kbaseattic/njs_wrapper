@@ -1,0 +1,98 @@
+{
+  "app_run_id" : "BigApp1414432803354",
+  "steps" : [ {
+    "step_id" : "step1a",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/genome_comparison/jsonrpc",
+      "method_name" : "GenomeComparison.import_ncbi_genome"
+    },
+    "input_values" : [ {
+      "genome_name" : "Acetobacter pasteurianus 386B",
+      "out_genome_id" : "Acetobacter_pasteurianus_386B.genome",
+      "out_genome_ws" : "nardevuser1:home"
+    } ]
+  }, {
+    "step_id" : "step1b",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/genome_comparison/jsonrpc",
+      "method_name" : "GenomeComparison.annotate_genome"
+    },
+    "input_values" : [ {
+      "in_genome_id" : "Acetobacter_pasteurianus_386B.genome",
+      "in_genome_ws" : "nardevuser1:home",
+      "out_genome_id" : "Acetobacter_pasteurianus_386B.genome",
+      "out_genome_ws" : "nardevuser1:home",
+      "seed_annotation_only" : 1
+    } ],
+    "is_long_running" : 1
+  }, {
+    "step_id" : "step1c",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/fba_model_services/",
+      "method_name" : "fbaModelServices.genome_to_fbamodel"
+    },
+    "input_values" : [ {
+      "genome" : "Acetobacter_pasteurianus_386B.genome",
+      "model" : "Acetobacter_pasteurianus_386B.model",
+      "workspace" : "nardevuser1:home"
+    } ]
+  }, {
+    "step_id" : "step2a",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/genome_comparison/jsonrpc",
+      "method_name" : "GenomeComparison.import_ncbi_genome"
+    },
+    "input_values" : [ {
+      "genome_name" : "Acetobacter pasteurianus IFO 3283-01",
+      "out_genome_id" : "Acetobacter_pasteurianus_IFO_3283_01.genome",
+      "out_genome_ws" : "nardevuser1:home"
+    } ]
+  }, {
+    "step_id" : "step2b",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/genome_comparison/jsonrpc",
+      "method_name" : "GenomeComparison.annotate_genome"
+    },
+    "input_values" : [ {
+      "in_genome_id" : "Acetobacter_pasteurianus_IFO_3283_01.genome",
+      "in_genome_ws" : "nardevuser1:home",
+      "out_genome_id" : "Acetobacter_pasteurianus_IFO_3283_01.genome",
+      "out_genome_ws" : "nardevuser1:home",
+      "seed_annotation_only" : 1
+    } ],
+    "is_long_running" : 1
+  }, {
+    "step_id" : "step2c",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/fba_model_services/",
+      "method_name" : "fbaModelServices.genome_to_fbamodel"
+    },
+    "input_values" : [ {
+      "genome" : "Acetobacter_pasteurianus_IFO_3283_01.genome",
+      "model" : "Acetobacter_pasteurianus_IFO_3283_01.model",
+      "workspace" : "nardevuser1:home"
+    } ]
+  }, {
+    "step_id" : "step3",
+    "type" : "generic",
+    "generic" : {
+      "service_url" : "https://kbase.us/services/genome_comparison/jsonrpc",
+      "method_name" : "GenomeComparison.blast_proteomes"
+    },
+    "input_values" : [ {
+      "genome1id" : "Acetobacter_pasteurianus_386B.genome",
+      "genome1ws" : "nardevuser1:home",
+      "genome2id" : "Acetobacter_pasteurianus_IFO_3283_01.genome",
+      "genome2ws" : "nardevuser1:home",
+      "output_id" : "Acetobacter_pasteurianus.protcmp",
+      "output_ws" : "nardevuser1:home"
+    } ],
+    "is_long_running" : 1
+  } ]
+}

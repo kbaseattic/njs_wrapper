@@ -13,6 +13,7 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
+	public static boolean debug = false;
 
 	@Override
 	public Class<String> getInputDataType() {
@@ -33,9 +34,12 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public void run(String token, String appJson, String jobId, String outRef)
 			throws Exception {
 		App app = UObject.transformStringToObject(appJson, App.class);
-		System.out.println("App: " + app);
+		if (debug)
+			System.out.println("App: " + app);
 		AuthToken auth = new AuthToken(token);
 		for (Step step : app.getSteps()) {
+	        AppState appState = AppStateRegistry.getAppState(app.getAppRunId());
+	        appState.setRunningStepId(step.getStepId());
 			if (step.getType() == null || !step.getType().equals("generic"))
 				throw new IllegalStateException("Unsupported type for step [" + step.getStepId() + "]: " + 
 						step.getType());
@@ -48,14 +52,16 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	        List<Object> args = new ArrayList<Object>(values);
 	        TypeReference<List<Object>> retType = new TypeReference<List<Object>>() {};
 	        List<Object> res = null;
-	        System.out.println("Before generic call for step [" + step.getStepId() + "]");
+			if (debug)
+				System.out.println("Before generic call for step [" + step.getStepId() + "]");
 	        try {
 	        	res = caller.jsonrpcCall(srvMethod, args, retType, true, true);
 	        } catch (ServerException ex) {
 	        	if (!ex.getMessage().equals("An unknown server error occured"))
 	        		throw ex;
 	        }
-	        System.out.println("After generic call for step [" + step.getStepId() + "]");
+			if (debug)
+				System.out.println("After generic call for step [" + step.getStepId() + "]");
 	        Object stepOutput = res == null ? null : (res.size() == 1 ? res.get(0) : res);
 	        String stepJobId = null;
 	        if (step.getIsLongRunning() != null && step.getIsLongRunning() == 1L) {
@@ -76,13 +82,20 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	        					"doesn't contain field [" + step.getJobIdOutputField() + "]: " + stepOutput);
 	        	}
 	        }
-	        AppJobs appState = AppStateRegistry.getAppState(app.getAppRunId());
 	        if (stepJobId != null)
 	        	appState.getStepJobIds().put(step.getStepId(), stepJobId);
 	        appState.getStepOutputs().put(step.getStepId(), new UObject(stepOutput));
-	        if (stepJobId != null)
+	        if (stepJobId != null) {
+	    		if (debug)
+	    			System.out.println("Before waiting for job for step [" + step.getStepId() + "]");
 	        	Util.waitForJob(token, ujsUrl, stepJobId);
+	    		if (debug)
+	    			System.out.println("After waiting for job for step [" + step.getStepId() + "]");
+	        }
 		}
-        System.out.println("End of app [" + app.getAppRunId() + "]");
+        AppState appState = AppStateRegistry.getAppState(app.getAppRunId());
+        appState.setRunningStepId(null);
+		if (debug)
+			System.out.println("End of app [" + app.getAppRunId() + "]");
 	}
 }

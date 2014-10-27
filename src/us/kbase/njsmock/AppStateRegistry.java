@@ -4,13 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class AppStateRegistry {
-	private static Map<String, AppJobs> appRunIdToState = new HashMap<String, AppJobs>();
+	private static Map<String, AppState> appRunIdToState = new HashMap<String, AppState>();
 	
-	public static synchronized void setAppState(String appRunId, AppJobs appState) {
+	public static synchronized void setAppState(String appRunId, AppState appState) {
 		appRunIdToState.put(appRunId, appState);
 	}
 	
-	public static synchronized AppJobs getAppState(String appRunId) {
+	public static synchronized AppState getAppState(String appRunId) {
 		return appRunIdToState.get(appRunId);
 	}
 }

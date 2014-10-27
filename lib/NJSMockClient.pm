@@ -80,7 +80,7 @@ sub new
 
 <pre>
 $app is an NJSMock.app
-$return is an NJSMock.app_jobs
+$return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
 	app_run_id has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
@@ -102,8 +102,9 @@ python_backend_method is a reference to a hash where the following keys are defi
 commandline_script_method is a reference to a hash where the following keys are defined:
 	script_name has a value which is a string
 boolean is an int
-app_jobs is a reference to a hash where the following keys are defined:
+app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
+	running_step_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
@@ -114,7 +115,7 @@ app_jobs is a reference to a hash where the following keys are defined:
 =begin text
 
 $app is an NJSMock.app
-$return is an NJSMock.app_jobs
+$return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
 	app_run_id has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
@@ -136,8 +137,9 @@ python_backend_method is a reference to a hash where the following keys are defi
 commandline_script_method is a reference to a hash where the following keys are defined:
 	script_name has a value which is a string
 boolean is an int
-app_jobs is a reference to a hash where the following keys are defined:
+app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
+	running_step_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
@@ -211,9 +213,10 @@ sub run_app
 
 <pre>
 $app_run_id is a string
-$return is an NJSMock.app_jobs
-app_jobs is a reference to a hash where the following keys are defined:
+$return is an NJSMock.app_state
+app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
+	running_step_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
@@ -224,9 +227,10 @@ app_jobs is a reference to a hash where the following keys are defined:
 =begin text
 
 $app_run_id is a string
-$return is an NJSMock.app_jobs
-app_jobs is a reference to a hash where the following keys are defined:
+$return is an NJSMock.app_state
+app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
+	running_step_id has a value which is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
@@ -479,6 +483,9 @@ script_name has a value which is a string
 =item Description
 
 type - 'generic', 'python' or 'script'.
+job_id_output_field - this field is used only in case this step is long running job and
+    output of service method is structure with field having name coded in 
+    'job_id_output_field' rather than just output string with job id.
 
 
 =item Definition
@@ -551,7 +558,7 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 
 
 
-=head2 app_jobs
+=head2 app_state
 
 =over 4
 
@@ -559,7 +566,7 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 
 =item Description
 
-step_jobs - mapping from step_id to job_id.
+step_job_ids - mapping from step_id to job_id.
 
 
 =item Definition
@@ -569,6 +576,7 @@ step_jobs - mapping from step_id to job_id.
 <pre>
 a reference to a hash where the following keys are defined:
 app_job_id has a value which is a string
+running_step_id has a value which is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 
@@ -580,6 +588,7 @@ step_outputs has a value which is a reference to a hash where the key is a strin
 
 a reference to a hash where the following keys are defined:
 app_job_id has a value which is a string
+running_step_id has a value which is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
 

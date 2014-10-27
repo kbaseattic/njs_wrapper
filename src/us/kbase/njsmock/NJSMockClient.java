@@ -126,15 +126,15 @@ public class NJSMockClient {
      * <pre>
      * </pre>
      * @param   app   instance of type {@link us.kbase.njsmock.App App} (original type "app")
-     * @return   instance of type {@link us.kbase.njsmock.AppJobs AppJobs} (original type "app_jobs")
+     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppJobs runApp(App app) throws IOException, JsonClientException {
+    public AppState runApp(App app) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(app);
-        TypeReference<List<AppJobs>> retType = new TypeReference<List<AppJobs>>() {};
-        List<AppJobs> res = caller.jsonrpcCall("NJSMock.run_app", args, retType, true, true);
+        TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
+        List<AppState> res = caller.jsonrpcCall("NJSMock.run_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -143,15 +143,15 @@ public class NJSMockClient {
      * <pre>
      * </pre>
      * @param   appRunId   instance of String
-     * @return   instance of type {@link us.kbase.njsmock.AppJobs AppJobs} (original type "app_jobs")
+     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppJobs checkAppState(String appRunId) throws IOException, JsonClientException {
+    public AppState checkAppState(String appRunId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(appRunId);
-        TypeReference<List<AppJobs>> retType = new TypeReference<List<AppJobs>>() {};
-        List<AppJobs> res = caller.jsonrpcCall("NJSMock.check_app_state", args, retType, true, true);
+        TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
+        List<AppState> res = caller.jsonrpcCall("NJSMock.check_app_state", args, retType, true, true);
         return res.get(0);
     }
 }

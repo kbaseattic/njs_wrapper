@@ -17,6 +17,9 @@ import us.kbase.common.service.UObject;
  * <p>Original spec-file type: step</p>
  * <pre>
  * type - 'generic', 'python' or 'script'.
+ * job_id_output_field - this field is used only in case this step is long running job and
+ *     output of service method is structure with field having name coded in 
+ *     'job_id_output_field' rather than just output string with job id.
  * </pre>
  * 
  */

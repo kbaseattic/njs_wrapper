@@ -19,6 +19,9 @@ module NJSMock {
 
     /*
         type - 'generic', 'python' or 'script'.
+        job_id_output_field - this field is used only in case this step is long running job and
+            output of service method is structure with field having name coded in 
+            'job_id_output_field' rather than just output string with job id.
     */
     typedef structure {
         string step_id;
@@ -37,16 +40,17 @@ module NJSMock {
     } app;
 
     /*
-        step_jobs - mapping from step_id to job_id.
+        step_job_ids - mapping from step_id to job_id.
     */
     typedef structure {
         string app_job_id;
+        string running_step_id;
         mapping<string, string> step_job_ids;
         mapping<string, UnspecifiedObject> step_outputs;
-    } app_jobs;
+    } app_state;
 
-    funcdef run_app(app app) returns (app_jobs) authentication required;
+    funcdef run_app(app app) returns (app_state) authentication required;
 
-    funcdef check_app_state(string app_run_id) returns (app_jobs) authentication required;
+    funcdef check_app_state(string app_run_id) returns (app_state) authentication required;
 
 };

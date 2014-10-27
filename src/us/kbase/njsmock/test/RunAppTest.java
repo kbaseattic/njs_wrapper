@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -18,6 +19,8 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple7;
@@ -26,7 +29,7 @@ import us.kbase.common.taskqueue.JobStatuses;
 import us.kbase.common.taskqueue.TaskQueue;
 import us.kbase.common.taskqueue.TaskQueueConfig;
 import us.kbase.njsmock.App;
-import us.kbase.njsmock.AppJobs;
+import us.kbase.njsmock.AppState;
 import us.kbase.njsmock.AppStateRegistry;
 import us.kbase.njsmock.GenericServiceMethod;
 import us.kbase.njsmock.NJSMockServer;
@@ -56,23 +59,57 @@ public class RunAppTest {
 		String workspace = "nardevuser1:home";
 		String genome1ncbiName = "Acetobacter pasteurianus 386B";
 		String genome1obj = "Acetobacter_pasteurianus_386B.genome";
+		String model1obj = "Acetobacter_pasteurianus_386B.model";
 		String genome2ncbiName = "Acetobacter pasteurianus IFO 3283-01";
 		String genome2obj = "Acetobacter_pasteurianus_IFO_3283_01.genome";
+		String model2obj = "Acetobacter_pasteurianus_IFO_3283_01.model";
 		String comparObj = "Acetobacter_pasteurianus.protcmp";
-		Step step1 = new Step().withStepId("step1").withType("generic")
+		Step step1a = new Step().withStepId("step1a").withType("generic")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("genome_name", genome1ncbiName)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome1obj).map)))
 				.withGeneric(new GenericServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
 				.withMethodName("GenomeComparison.import_ncbi_genome"));
-		Step step2 = new Step().withStepId("step2").withType("generic")
+		Step step1b = new Step().withStepId("step1b").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("in_genome_ws", workspace).put("in_genome_id", genome1obj)
+						.put("out_genome_ws", workspace).put("out_genome_id", genome1obj)
+						.put("seed_annotation_only", 1L).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+				.withMethodName("GenomeComparison.annotate_genome"))
+				.withIsLongRunning(1L);
+		Step step1c = new Step().withStepId("step1c").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("workspace", workspace).put("genome", genome1obj)
+						.put("model", model1obj).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/fba_model_services/")
+				.withMethodName("fbaModelServices.genome_to_fbamodel"));
+		Step step2a = new Step().withStepId("step2a").withType("generic")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("genome_name", genome2ncbiName)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome2obj).map)))
 				.withGeneric(new GenericServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
 				.withMethodName("GenomeComparison.import_ncbi_genome"));
+		Step step2b = new Step().withStepId("step2b").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("in_genome_ws", workspace).put("in_genome_id", genome2obj)
+						.put("out_genome_ws", workspace).put("out_genome_id", genome2obj)
+						.put("seed_annotation_only", 1L).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
+				.withMethodName("GenomeComparison.annotate_genome"))
+				.withIsLongRunning(1L);
+		Step step2c = new Step().withStepId("step2c").withType("generic")
+				.withInputValues(Arrays.asList(new UObject(
+						new PreMap().put("workspace", workspace).put("genome", genome2obj)
+						.put("model", model2obj).map)))
+				.withGeneric(new GenericServiceMethod()
+				.withServiceUrl("https://kbase.us/services/fba_model_services/")
+				.withMethodName("fbaModelServices.genome_to_fbamodel"));
 		Step step3 = new Step().withStepId("step3").withType("generic")
 				.withInputValues(Arrays.asList(new UObject(new PreMap()
 						.put("genome1ws", workspace).put("genome1id", genome1obj)
@@ -82,10 +119,13 @@ public class RunAppTest {
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
 				.withMethodName("GenomeComparison.blast_proteomes"))
 				.withIsLongRunning(1L);
-		app.withSteps(Arrays.asList(step1, step2, step3));
-        AppJobs appState = new AppJobs().withStepJobIds(new LinkedHashMap<String, String>())
+		app.withSteps(Arrays.asList(step1a, step1b, step1c, step2a, step2b, step2c, step3));
+        AppState appState = new AppState().withStepJobIds(new LinkedHashMap<String, String>())
         		.withStepOutputs(new LinkedHashMap<String, UObject>());
         String appJson = UObject.transformObjectToString(app);
+        //System.out.println("Input app data:");
+        //System.out.println(jsonToPretty(UObject.transformStringToObject(appJson, Object.class)));
+        //System.out.println("------------------------------------------------------------------");
         AppStateRegistry.setAppState(appRunId, appState);
 		String jobId = taskHolder.addTask(appJson, token);
         appState.withAppJobId(jobId);
@@ -94,6 +134,11 @@ public class RunAppTest {
 		System.out.println("Outputs: " + AppStateRegistry.getAppState(appRunId).getStepOutputs());
 	}
 
+	private static String jsonToPretty(Object obj) throws Exception {
+		ObjectMapper mpr = new ObjectMapper();
+		return mpr.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
+	}
+	
 	@AfterClass
 	public static void finish() throws Exception {
 		taskHolder.stopAllThreads();

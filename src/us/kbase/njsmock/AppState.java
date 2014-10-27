@@ -13,9 +13,9 @@ import us.kbase.common.service.UObject;
 
 
 /**
- * <p>Original spec-file type: app_jobs</p>
+ * <p>Original spec-file type: app_state</p>
  * <pre>
- * step_jobs - mapping from step_id to job_id.
+ * step_job_ids - mapping from step_id to job_id.
  * </pre>
  * 
  */
@@ -23,13 +23,16 @@ import us.kbase.common.service.UObject;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "app_job_id",
+    "running_step_id",
     "step_job_ids",
     "step_outputs"
 })
-public class AppJobs {
+public class AppState {
 
     @JsonProperty("app_job_id")
     private java.lang.String appJobId;
+    @JsonProperty("running_step_id")
+    private java.lang.String runningStepId;
     @JsonProperty("step_job_ids")
     private Map<String, String> stepJobIds;
     @JsonProperty("step_outputs")
@@ -46,8 +49,23 @@ public class AppJobs {
         this.appJobId = appJobId;
     }
 
-    public AppJobs withAppJobId(java.lang.String appJobId) {
+    public AppState withAppJobId(java.lang.String appJobId) {
         this.appJobId = appJobId;
+        return this;
+    }
+
+    @JsonProperty("running_step_id")
+    public java.lang.String getRunningStepId() {
+        return runningStepId;
+    }
+
+    @JsonProperty("running_step_id")
+    public void setRunningStepId(java.lang.String runningStepId) {
+        this.runningStepId = runningStepId;
+    }
+
+    public AppState withRunningStepId(java.lang.String runningStepId) {
+        this.runningStepId = runningStepId;
         return this;
     }
 
@@ -61,7 +79,7 @@ public class AppJobs {
         this.stepJobIds = stepJobIds;
     }
 
-    public AppJobs withStepJobIds(Map<String, String> stepJobIds) {
+    public AppState withStepJobIds(Map<String, String> stepJobIds) {
         this.stepJobIds = stepJobIds;
         return this;
     }
@@ -76,7 +94,7 @@ public class AppJobs {
         this.stepOutputs = stepOutputs;
     }
 
-    public AppJobs withStepOutputs(Map<String, UObject> stepOutputs) {
+    public AppState withStepOutputs(Map<String, UObject> stepOutputs) {
         this.stepOutputs = stepOutputs;
         return this;
     }
@@ -93,7 +111,7 @@ public class AppJobs {
 
     @Override
     public java.lang.String toString() {
-        return ((((((((("AppJobs"+" [appJobId=")+ appJobId)+", stepJobIds=")+ stepJobIds)+", stepOutputs=")+ stepOutputs)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((("AppState"+" [appJobId=")+ appJobId)+", runningStepId=")+ runningStepId)+", stepJobIds=")+ stepJobIds)+", stepOutputs=")+ stepOutputs)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
