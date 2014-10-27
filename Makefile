@@ -8,7 +8,7 @@ SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
 LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
 WAR_FILE = NJSMock.war
 
-TARGET_PORT = 7123
+TARGET_PORT = 8200
 THREADPOOL_SIZE = 20
 
 default: compile
@@ -41,7 +41,7 @@ deploy-service:
 	cp -f ./dist/$(WAR_FILE) $(SERVICE_DIR)
 	cp -f ./service/glassfish_start_service.sh $(SERVICE_DIR)
 	cp -f ./service/glassfish_stop_service.sh $(SERVICE_DIR)
-	echo 'export $$KB_DEPLOYMENT_CONFIG=$(SERVICE_DIR)/deploy.cfg' > $(SERVICE_DIR)/start_service
+	echo 'export KB_DEPLOYMENT_CONFIG=$(SERVICE_DIR)/deploy.cfg' > $(SERVICE_DIR)/start_service
 	echo "./glassfish_start_service.sh $(SERVICE_DIR)/$(WAR_FILE) $(TARGET_PORT) $(THREADPOOL_SIZE)" >> $(SERVICE_DIR)/start_service
 	chmod +x $(SERVICE_DIR)/start_service
 	echo "./glassfish_stop_service.sh $(TARGET_PORT)" > $(SERVICE_DIR)/stop_service

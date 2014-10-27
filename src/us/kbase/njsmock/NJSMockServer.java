@@ -127,6 +127,7 @@ public class NJSMockServer extends JsonServerServlet {
     		final String ujsUrl = getUJSServiceURL();
     		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
     		allConfigProps.put(CFG_PROP_SCRATCH, getTempDir().getAbsolutePath());
+    		allConfigProps.put(CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
     		JobStatuses jobStatuses = new JobStatuses() {
 				@Override
 				public String createAndStartJob(String token, String status, String desc,
