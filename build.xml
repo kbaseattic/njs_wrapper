@@ -1,0 +1,86 @@
+<project name="NJS Mock Service" default="compile" basedir=".">
+
+  <description>
+      Build war-file for the NJS Mock Service
+  </description>
+
+  <!-- set global properties for this build -->
+  <property name="src" location="src"/>
+  <property name="dist" location="dist"/>
+  <property name="classes" location="classes"/>
+  <property name="jar.file" value="NJSMock.jar"/>
+  <property name="war.file" value="NJSMock.war"/>
+  <property name="war" value="war"/>
+  <property name="war.lib" value="${war}/lib"/>
+  <property name="docs" value="docs"/>
+  <property name="jarsdir" value="../jars/lib/jars"/>
+  <property name="deploycfg" value=""/>
+
+  <fileset dir="${jarsdir}" id="serverlib">
+    <include name="ini4j/ini4j-0.5.2.jar"/>
+    <include name="jetty/jetty-all-7.0.0.jar"/>
+    <include name="jna/jna-3.4.0.jar"/>
+    <include name="servlet/servlet-api-2.5.jar"/>
+    <include name="syslog4j/syslog4j-0.9.46.jar"/>
+    <include name="junit/junit-4.9.jar"/>
+    <include name="kbase/auth/kbase-auth-1398468950-3552bb2.jar"/>
+    <include name="jackson/jackson-annotations-2.2.3.jar"/>
+    <include name="jackson/jackson-core-2.2.3.jar"/>
+    <include name="jackson/jackson-databind-2.2.3.jar"/>
+    <include name="kbase/common/kbase-common-0.0.6.jar"/>
+    <include name="junit/junit-4.9.jar"/>
+    <include name="kbase/workspace/WorkspaceClient-0.2.0.jar"/>
+    <include name="derby/derby-10.10.1.1.jar"/>
+  </fileset>
+
+  <path id="compile.classpath">
+    <fileset refid="serverlib"/>
+  </path>
+
+  <target name="init" description="make directories">
+    <!-- Create the output directory structure-->
+    <mkdir dir="${classes}"/>
+    <mkdir dir="${dist}"/>
+  </target>
+
+  <target name="compile" depends="init" description="compile the source">
+    <!-- Compile class files-->
+    <javac destdir="${classes}" includeantruntime="false" target="1.7" source="1.7" debug="true" classpathref="compile.classpath">
+      <src path="${src}"/>
+    </javac>
+    <!-- Copy resource files-->
+    <copy todir="${classes}">
+      <fileset dir="${src}">
+      </fileset>
+    </copy>
+    <jar destfile="${dist}/${jar.file}" basedir="${classes}"/>
+    <delete dir="${classes}"/>
+  </target>
+
+  <target name="war" depends="compile" description="build the WAR file. Assumes compile has been run">
+    <!-- make the war file for the server-->
+    <mkdir dir="${war.lib}"/>
+    <copy todir="${war.lib}/" flatten="true">
+      <fileset refid="serverlib"/>
+      <resources>
+        <file file="${dist}/${jar.file}"/>
+      </resources>
+    </copy>
+    <war destfile="${dist}/${war.file}" webxml="${war}/web.xml">
+      <lib dir="${war.lib}"/>
+    </war>
+    <delete dir="${war.lib}"/>
+    <delete dir="${classes}"/>
+  </target>
+
+  <target name="docs" description="prepare documentation">
+    <mkdir dir="${docs}"/>
+  </target>
+
+  <target name="clean" description="clean up" >
+    <!-- Clean up internal temporary files and folders-->
+    <delete dir="${classes}"/>
+    <delete dir="${dist}"/>
+  </target>
+</project>
+

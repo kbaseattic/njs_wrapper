@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app>
+    <listener>
+        <listener-class>us.kbase.njsmock.AppEventListener</listener-class>
+    </listener>
+    <servlet>
+        <servlet-name>RootServlet</servlet-name>
+        <servlet-class>us.kbase.njsmock.NJSMockServer</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>RootServlet</servlet-name>
+        <url-pattern>/*</url-pattern>
+    </servlet-mapping>
+</web-app>
+
