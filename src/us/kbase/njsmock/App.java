@@ -20,31 +20,13 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "app_run_id",
     "steps"
 })
 public class App {
 
-    @JsonProperty("app_run_id")
-    private String appRunId;
     @JsonProperty("steps")
     private List<Step> steps;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
-
-    @JsonProperty("app_run_id")
-    public String getAppRunId() {
-        return appRunId;
-    }
-
-    @JsonProperty("app_run_id")
-    public void setAppRunId(String appRunId) {
-        this.appRunId = appRunId;
-    }
-
-    public App withAppRunId(String appRunId) {
-        this.appRunId = appRunId;
-        return this;
-    }
 
     @JsonProperty("steps")
     public List<Step> getSteps() {
@@ -73,7 +55,7 @@ public class App {
 
     @Override
     public String toString() {
-        return ((((((("App"+" [appRunId=")+ appRunId)+", steps=")+ steps)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((("App"+" [steps=")+ steps)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

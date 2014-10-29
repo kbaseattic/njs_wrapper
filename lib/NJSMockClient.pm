@@ -82,7 +82,6 @@ sub new
 $app is an NJSMock.app
 $return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
-	app_run_id has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
@@ -117,7 +116,6 @@ app_state is a reference to a hash where the following keys are defined:
 $app is an NJSMock.app
 $return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
-	app_run_id has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
@@ -203,7 +201,7 @@ sub run_app
 
 =head2 check_app_state
 
-  $return = $obj->check_app_state($app_run_id)
+  $return = $obj->check_app_state($app_job_id)
 
 =over 4
 
@@ -212,7 +210,7 @@ sub run_app
 =begin html
 
 <pre>
-$app_run_id is a string
+$app_job_id is a string
 $return is an NJSMock.app_state
 app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
@@ -226,7 +224,7 @@ app_state is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$app_run_id is a string
+$app_job_id is a string
 $return is an NJSMock.app_state
 app_state is a reference to a hash where the following keys are defined:
 	app_job_id has a value which is a string
@@ -257,10 +255,10 @@ sub check_app_state
 							       "Invalid argument count for function check_app_state (received $n, expecting 1)");
     }
     {
-	my($app_run_id) = @args;
+	my($app_job_id) = @args;
 
 	my @_bad_arguments;
-        (!ref($app_run_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"app_run_id\" (value was \"$app_run_id\")");
+        (!ref($app_job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"app_job_id\" (value was \"$app_job_id\")");
         if (@_bad_arguments) {
 	    my $msg = "Invalid arguments passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
@@ -538,7 +536,6 @@ job_id_output_field has a value which is a string
 
 <pre>
 a reference to a hash where the following keys are defined:
-app_run_id has a value which is a string
 steps has a value which is a reference to a list where each element is an NJSMock.step
 
 </pre>
@@ -548,7 +545,6 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 =begin text
 
 a reference to a hash where the following keys are defined:
-app_run_id has a value which is a string
 steps has a value which is a reference to a list where each element is an NJSMock.step
 
 

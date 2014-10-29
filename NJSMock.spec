@@ -35,7 +35,6 @@ module NJSMock {
     } step;
 
     typedef structure {
-        string app_run_id;
         list<step> steps;
     } app;
 
@@ -51,6 +50,6 @@ module NJSMock {
 
     funcdef run_app(app app) returns (app_state) authentication required;
 
-    funcdef check_app_state(string app_run_id) returns (app_state) authentication required;
+    funcdef check_app_state(string app_job_id) returns (app_state) authentication required;
 
 };

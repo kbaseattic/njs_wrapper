@@ -22,13 +22,11 @@ public class RemoteAppTester {
 	public static void main(String[] args) throws Exception {
 		String token = token(props(new File("test.cfg")));
 		App app = UObject.getMapper().readValue(RemoteAppTester.class.getResourceAsStream("app1.json.properties"), App.class);
-		String appRunId = "BigApp" + System.currentTimeMillis();
-		app.withAppRunId(appRunId);
 		NJSMockClient cl = new NJSMockClient(new URL("http://140.221.67.204:8200/"), new AuthToken(token));
 		cl.setIsInsecureHttpConnectionAllowed(true);
 		AppState appState = cl.runApp(app);
 		Util.waitForJob(token, ujsUrl, appState.getAppJobId());
-		appState = cl.checkAppState(appRunId);
+		appState = cl.checkAppState(appState.getAppJobId());
 		System.out.println("Jobs: " + appState.getStepJobIds());
 		System.out.println("Outputs: " + appState.getStepOutputs());
 	}

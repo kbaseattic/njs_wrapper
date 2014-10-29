@@ -40,7 +40,7 @@ class NJSMock:
         # return the results
         return [returnVal]
 
-    def check_app_state(self, app_run_id):
+    def check_app_state(self, app_job_id):
         # self.ctx is set by the wsgi application class
         # return variables are: returnVal
         #BEGIN check_app_state

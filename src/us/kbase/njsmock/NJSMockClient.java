@@ -142,14 +142,14 @@ public class NJSMockClient {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   appRunId   instance of String
+     * @param   appJobId   instance of String
      * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppState checkAppState(String appRunId) throws IOException, JsonClientException {
+    public AppState checkAppState(String appJobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
-        args.add(appRunId);
+        args.add(appJobId);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
         List<AppState> res = caller.jsonrpcCall("NJSMock.check_app_state", args, retType, true, true);
         return res.get(0);

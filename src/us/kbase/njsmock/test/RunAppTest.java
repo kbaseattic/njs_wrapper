@@ -5,8 +5,6 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.PrintWriter;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -27,7 +25,6 @@ import us.kbase.common.taskqueue.JobStatuses;
 import us.kbase.common.taskqueue.TaskQueue;
 import us.kbase.common.taskqueue.TaskQueueConfig;
 import us.kbase.njsmock.App;
-import us.kbase.njsmock.AppState;
 import us.kbase.njsmock.AppStateRegistry;
 import us.kbase.njsmock.GenericServiceMethod;
 import us.kbase.njsmock.NJSMockServer;
@@ -48,8 +45,6 @@ public class RunAppTest {
 	public void mainTest() throws Exception {
 		String token = token(props(new File("test.cfg")));
 		App app = new App();
-		String appRunId = "BigApp" + System.currentTimeMillis();
-		app.withAppRunId(appRunId);
 		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
 		//		.withGeneric(new GenericServiceMethod()
 		//		.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
@@ -118,18 +113,15 @@ public class RunAppTest {
 				.withMethodName("GenomeComparison.blast_proteomes"))
 				.withIsLongRunning(1L);
 		app.withSteps(Arrays.asList(step1a, step1b, step1c, step2a, step2b, step2c, step3));
-        AppState appState = new AppState().withStepJobIds(new LinkedHashMap<String, String>())
-        		.withStepOutputs(new LinkedHashMap<String, UObject>());
         String appJson = UObject.transformObjectToString(app);
         //System.out.println("Input app data:");
         //System.out.println(jsonToPretty(UObject.transformStringToObject(appJson, Object.class)));
         //System.out.println("------------------------------------------------------------------");
-        AppStateRegistry.setAppState(appRunId, appState);
 		String jobId = taskHolder.addTask(appJson, token);
-        appState.withAppJobId(jobId);
+        AppStateRegistry.initAppState(jobId);
 		Util.waitForJob(token, ujsUrl, jobId);
-		System.out.println("Jobs: " + AppStateRegistry.getAppState(appRunId).getStepJobIds());
-		System.out.println("Outputs: " + AppStateRegistry.getAppState(appRunId).getStepOutputs());
+		System.out.println("Jobs: " + AppStateRegistry.getAppState(jobId).getStepJobIds());
+		System.out.println("Outputs: " + AppStateRegistry.getAppState(jobId).getStepOutputs());
 	}
 
 	private static String jsonToPretty(Object obj) throws Exception {
@@ -144,6 +136,7 @@ public class RunAppTest {
 	
 	@BeforeClass
 	public static void prepare() throws Exception {
+		RunAppBuilder.debug = true;
 		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
 		allConfigProps.put(NJSMockServer.CFG_PROP_SCRATCH, tempDir);
 		allConfigProps.put(NJSMockServer.CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);

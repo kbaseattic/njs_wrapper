@@ -170,7 +170,7 @@ class NJSMock(object):
                           [app])
         return resp[0]
 
-    def check_app_state(self, app_run_id):
+    def check_app_state(self, app_job_id):
         resp = self._call('NJSMock.check_app_state',
-                          [app_run_id])
+                          [app_job_id])
         return resp[0]

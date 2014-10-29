@@ -198,13 +198,8 @@ public class NJSMockServer extends JsonServerServlet {
     public AppState runApp(App app, AuthToken authPart) throws Exception {
         AppState returnVal = null;
         //BEGIN run_app
-        String appRunId = app.getAppRunId();
-        AppState appState = new AppState().withStepJobIds(new LinkedHashMap<String, String>())
-        		.withStepOutputs(new LinkedHashMap<String, UObject>());
-        AppStateRegistry.setAppState(appRunId, appState);
         String appJobId = taskHolder.addTask(UObject.transformObjectToString(app), authPart.toString());
-        appState.withAppJobId(appJobId);
-        returnVal = appState;
+        returnVal = AppStateRegistry.initAppState(appJobId);
         //END run_app
         return returnVal;
     }
@@ -213,14 +208,14 @@ public class NJSMockServer extends JsonServerServlet {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   appRunId   instance of String
+     * @param   appJobId   instance of String
      * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
      */
     @JsonServerMethod(rpc = "NJSMock.check_app_state")
-    public AppState checkAppState(String appRunId, AuthToken authPart) throws Exception {
+    public AppState checkAppState(String appJobId, AuthToken authPart) throws Exception {
         AppState returnVal = null;
         //BEGIN check_app_state
-        returnVal = AppStateRegistry.getAppState(appRunId);
+        returnVal = AppStateRegistry.getAppState(appJobId);
         //END check_app_state
         return returnVal;
     }
