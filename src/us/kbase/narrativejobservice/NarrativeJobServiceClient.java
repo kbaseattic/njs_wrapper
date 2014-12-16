@@ -13,7 +13,7 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.UnauthorizedException;
 
 /**
- * <p>Original spec-file module name: NJSMock</p>
+ * <p>Original spec-file module name: NarrativeJobService</p>
  * <pre>
  * </pre>
  */

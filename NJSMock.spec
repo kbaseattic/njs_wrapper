@@ -1,4 +1,4 @@
-module NJSMock {
+module NarrativeJobService {
 
     /* @range [0,1] */
     typedef int boolean;

@@ -38,8 +38,8 @@ def get_config():
 
 config = get_config()
 
-from NJSMockImpl import NJSMock
-impl_NJSMock = NJSMock(config)
+from NarrativeJobServiceImpl import NarrativeJobService
+impl_NarrativeJobService = NarrativeJobService(config)
 
 
 class JSONObjectEncoder(json.JSONEncoder):
@@ -218,7 +218,7 @@ class Application(object):
                              context['method'], context['call_id'])
 
     def __init__(self):
-        submod = get_service_name() or 'NJSMock'
+        submod = get_service_name() or 'NarrativeJobService'
         self.userlog = log.log(
             submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, changecallback=self.logcallback,
@@ -229,34 +229,34 @@ class Application(object):
         self.serverlog.set_log_level(6)
         self.rpc_service = JSONRPCServiceCustom()
         self.method_authentication = dict()
-        self.rpc_service.add(impl_NJSMock.run_app,
-                             name='NJSMock.run_app',
+        self.rpc_service.add(impl_NarrativeJobService.run_app,
+                             name='NarrativeJobService.run_app',
                              types=[dict])
-        self.method_authentication['NJSMock.run_app'] = 'required'
-        self.rpc_service.add(impl_NJSMock.check_app_state,
-                             name='NJSMock.check_app_state',
+        self.method_authentication['NarrativeJobService.run_app'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.check_app_state,
+                             name='NarrativeJobService.check_app_state',
                              types=[basestring])
-        self.method_authentication['NJSMock.check_app_state'] = 'required'
-        self.rpc_service.add(impl_NJSMock.run_step,
-                             name='NJSMock.run_step',
+        self.method_authentication['NarrativeJobService.check_app_state'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.run_step,
+                             name='NarrativeJobService.run_step',
                              types=[dict])
-        self.method_authentication['NJSMock.run_step'] = 'required'
-        self.rpc_service.add(impl_NJSMock.suspend_app,
-                             name='NJSMock.suspend_app',
+        self.method_authentication['NarrativeJobService.run_step'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.suspend_app,
+                             name='NarrativeJobService.suspend_app',
                              types=[basestring])
-        self.method_authentication['NJSMock.suspend_app'] = 'required'
-        self.rpc_service.add(impl_NJSMock.resume_app,
-                             name='NJSMock.resume_app',
+        self.method_authentication['NarrativeJobService.suspend_app'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.resume_app,
+                             name='NarrativeJobService.resume_app',
                              types=[basestring])
-        self.method_authentication['NJSMock.resume_app'] = 'required'
-        self.rpc_service.add(impl_NJSMock.delete_app,
-                             name='NJSMock.delete_app',
+        self.method_authentication['NarrativeJobService.resume_app'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.delete_app,
+                             name='NarrativeJobService.delete_app',
                              types=[basestring])
-        self.method_authentication['NJSMock.delete_app'] = 'required'
-        self.rpc_service.add(impl_NJSMock.list_config,
-                             name='NJSMock.list_config',
+        self.method_authentication['NarrativeJobService.delete_app'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.list_config,
+                             name='NarrativeJobService.list_config',
                              types=[])
-        self.method_authentication['NJSMock.list_config'] = 'optional'
+        self.method_authentication['NarrativeJobService.list_config'] = 'optional'
         self.auth_client = biokbase.nexus.Client(
             config={'server': 'nexus.api.globusonline.org',
                     'verify_ssl': False,
@@ -302,7 +302,7 @@ class Application(object):
                         if token is None and auth_req == 'required':
                             err = ServerError()
                             err.data = "Authentication required for " + \
-                                "NJSMock but no authentication header was passed"
+                                "NarrativeJobService but no authentication header was passed"
                             raise err
                         elif token is None and auth_req == 'optional':
                             pass
@@ -321,7 +321,7 @@ class Application(object):
                                     raise err
                     # push the context object into the implementation
                     # instance's namespace
-                    impl_NJSMock.ctx = ctx
+                    impl_NarrativeJobService.ctx = ctx
                     self.log(log.INFO, ctx, 'start method')
                     rpc_result = self.rpc_service.call(request_body)
                     self.log(log.INFO, ctx, 'end method')

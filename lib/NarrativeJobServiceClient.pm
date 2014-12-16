@@ -1,4 +1,4 @@
-package NJSMockClient;
+package NarrativeJobServiceClient;
 
 use JSON::RPC::Client;
 use strict;
@@ -14,7 +14,7 @@ our $VERSION = "0.1.0";
 
 =head1 NAME
 
-NJSMockClient
+NarrativeJobServiceClient
 
 =head1 DESCRIPTION
 
@@ -30,7 +30,7 @@ sub new
     
 
     my $self = {
-	client => NJSMockClient::RpcClient->new,
+	client => NarrativeJobServiceClient::RpcClient->new,
 	url => $url,
     };
 
@@ -71,19 +71,19 @@ sub new
 =begin html
 
 <pre>
-$app is an NJSMock.app
-$return is an NJSMock.app_state
+$app is a NarrativeJobService.app
+$return is a NarrativeJobService.app_state
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
-	steps has a value which is a reference to a list where each element is an NJSMock.step
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	service has a value which is an NJSMock.service_method
-	script has a value which is an NJSMock.script_method
-	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is an NJSMock.boolean
+	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
@@ -92,18 +92,18 @@ service_method is a reference to a hash where the following keys are defined:
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
-	has_files has a value which is an NJSMock.boolean
+	has_files has a value which is a NarrativeJobService.boolean
 boolean is an int
 step_parameter is a reference to a hash where the following keys are defined:
 	label has a value which is a string
 	value has a value which is a string
 	step_source has a value which is a string
-	is_workspace_id has a value which is an NJSMock.boolean
-	ws_object has a value which is an NJSMock.workspace_object
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
 workspace_object is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	object_type has a value which is a string
-	is_input has a value which is an NJSMock.boolean
+	is_input has a value which is a NarrativeJobService.boolean
 app_state is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	job_state has a value which is a string
@@ -117,19 +117,19 @@ app_state is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$app is an NJSMock.app
-$return is an NJSMock.app_state
+$app is a NarrativeJobService.app
+$return is a NarrativeJobService.app_state
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
-	steps has a value which is a reference to a list where each element is an NJSMock.step
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	service has a value which is an NJSMock.service_method
-	script has a value which is an NJSMock.script_method
-	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is an NJSMock.boolean
+	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
@@ -138,18 +138,18 @@ service_method is a reference to a hash where the following keys are defined:
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
-	has_files has a value which is an NJSMock.boolean
+	has_files has a value which is a NarrativeJobService.boolean
 boolean is an int
 step_parameter is a reference to a hash where the following keys are defined:
 	label has a value which is a string
 	value has a value which is a string
 	step_source has a value which is a string
-	is_workspace_id has a value which is an NJSMock.boolean
-	ws_object has a value which is an NJSMock.workspace_object
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
 workspace_object is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	object_type has a value which is a string
-	is_input has a value which is an NJSMock.boolean
+	is_input has a value which is a NarrativeJobService.boolean
 app_state is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	job_state has a value which is a string
@@ -192,7 +192,7 @@ sub run_app
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.run_app",
+	method => "NarrativeJobService.run_app",
 	params => \@args,
     });
     if ($result) {
@@ -227,7 +227,7 @@ sub run_app
 
 <pre>
 $job_id is a string
-$return is an NJSMock.app_state
+$return is a NarrativeJobService.app_state
 app_state is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	job_state has a value which is a string
@@ -242,7 +242,7 @@ app_state is a reference to a hash where the following keys are defined:
 =begin text
 
 $job_id is a string
-$return is an NJSMock.app_state
+$return is a NarrativeJobService.app_state
 app_state is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	job_state has a value which is a string
@@ -285,7 +285,7 @@ sub check_app_state
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.check_app_state",
+	method => "NarrativeJobService.check_app_state",
 	params => \@args,
     });
     if ($result) {
@@ -319,16 +319,16 @@ sub check_app_state
 =begin html
 
 <pre>
-$step is an NJSMock.step
+$step is a NarrativeJobService.step
 $ujs_job_id is a string
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	service has a value which is an NJSMock.service_method
-	script has a value which is an NJSMock.script_method
-	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is an NJSMock.boolean
+	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
@@ -337,18 +337,18 @@ service_method is a reference to a hash where the following keys are defined:
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
-	has_files has a value which is an NJSMock.boolean
+	has_files has a value which is a NarrativeJobService.boolean
 boolean is an int
 step_parameter is a reference to a hash where the following keys are defined:
 	label has a value which is a string
 	value has a value which is a string
 	step_source has a value which is a string
-	is_workspace_id has a value which is an NJSMock.boolean
-	ws_object has a value which is an NJSMock.workspace_object
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
 workspace_object is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	object_type has a value which is a string
-	is_input has a value which is an NJSMock.boolean
+	is_input has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -356,16 +356,16 @@ workspace_object is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$step is an NJSMock.step
+$step is a NarrativeJobService.step
 $ujs_job_id is a string
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	service has a value which is an NJSMock.service_method
-	script has a value which is an NJSMock.script_method
-	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is an NJSMock.boolean
+	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
@@ -374,18 +374,18 @@ service_method is a reference to a hash where the following keys are defined:
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
-	has_files has a value which is an NJSMock.boolean
+	has_files has a value which is a NarrativeJobService.boolean
 boolean is an int
 step_parameter is a reference to a hash where the following keys are defined:
 	label has a value which is a string
 	value has a value which is a string
 	step_source has a value which is a string
-	is_workspace_id has a value which is an NJSMock.boolean
-	ws_object has a value which is an NJSMock.workspace_object
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
 workspace_object is a reference to a hash where the following keys are defined:
 	workspace_name has a value which is a string
 	object_type has a value which is a string
-	is_input has a value which is an NJSMock.boolean
+	is_input has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -422,7 +422,7 @@ sub run_step
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.run_step",
+	method => "NarrativeJobService.run_step",
 	params => \@args,
     });
     if ($result) {
@@ -503,7 +503,7 @@ sub suspend_app
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.suspend_app",
+	method => "NarrativeJobService.suspend_app",
 	params => \@args,
     });
     if ($result) {
@@ -584,7 +584,7 @@ sub resume_app
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.resume_app",
+	method => "NarrativeJobService.resume_app",
 	params => \@args,
     });
     if ($result) {
@@ -665,7 +665,7 @@ sub delete_app
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.delete_app",
+	method => "NarrativeJobService.delete_app",
 	params => \@args,
     });
     if ($result) {
@@ -733,7 +733,7 @@ sub list_config
     }
 
     my $result = $self->{client}->call($self->{url}, {
-	method => "NJSMock.list_config",
+	method => "NarrativeJobService.list_config",
 	params => \@args,
     });
     if ($result) {
@@ -759,7 +759,7 @@ sub list_config
 sub version {
     my ($self) = @_;
     my $result = $self->{client}->call($self->{url}, {
-        method => "NJSMock.version",
+        method => "NarrativeJobService.version",
         params => [],
     });
     if ($result) {
@@ -802,10 +802,10 @@ sub _validate_version {
         );
     }
     if ($sMinor > $cMinor) {
-        warn "New client version available for NJSMockClient\n";
+        warn "New client version available for NarrativeJobServiceClient\n";
     }
     if ($sMajor == 0) {
-        warn "NJSMockClient version is $svr_version. API subject to change.\n";
+        warn "NarrativeJobServiceClient version is $svr_version. API subject to change.\n";
     }
 }
 
@@ -892,7 +892,7 @@ service_url has a value which is a string
 a reference to a hash where the following keys are defined:
 service_name has a value which is a string
 method_name has a value which is a string
-has_files has a value which is an NJSMock.boolean
+has_files has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -903,7 +903,7 @@ has_files has a value which is an NJSMock.boolean
 a reference to a hash where the following keys are defined:
 service_name has a value which is a string
 method_name has a value which is a string
-has_files has a value which is an NJSMock.boolean
+has_files has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -938,7 +938,7 @@ is_workspace_id - parameter is a workspace id (value is object name)
 a reference to a hash where the following keys are defined:
 workspace_name has a value which is a string
 object_type has a value which is a string
-is_input has a value which is an NJSMock.boolean
+is_input has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -949,7 +949,7 @@ is_input has a value which is an NJSMock.boolean
 a reference to a hash where the following keys are defined:
 workspace_name has a value which is a string
 object_type has a value which is a string
-is_input has a value which is an NJSMock.boolean
+is_input has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -973,8 +973,8 @@ a reference to a hash where the following keys are defined:
 label has a value which is a string
 value has a value which is a string
 step_source has a value which is a string
-is_workspace_id has a value which is an NJSMock.boolean
-ws_object has a value which is an NJSMock.workspace_object
+is_workspace_id has a value which is a NarrativeJobService.boolean
+ws_object has a value which is a NarrativeJobService.workspace_object
 
 </pre>
 
@@ -986,8 +986,8 @@ a reference to a hash where the following keys are defined:
 label has a value which is a string
 value has a value which is a string
 step_source has a value which is a string
-is_workspace_id has a value which is an NJSMock.boolean
-ws_object has a value which is an NJSMock.workspace_object
+is_workspace_id has a value which is a NarrativeJobService.boolean
+ws_object has a value which is a NarrativeJobService.workspace_object
 
 
 =end text
@@ -1018,11 +1018,11 @@ job_id_output_field - this field is used only in case this step is long running 
 a reference to a hash where the following keys are defined:
 step_id has a value which is a string
 type has a value which is a string
-service has a value which is an NJSMock.service_method
-script has a value which is an NJSMock.script_method
-parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+service has a value which is a NarrativeJobService.service_method
+script has a value which is a NarrativeJobService.script_method
+parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-is_long_running has a value which is an NJSMock.boolean
+is_long_running has a value which is a NarrativeJobService.boolean
 job_id_output_field has a value which is a string
 
 </pre>
@@ -1034,11 +1034,11 @@ job_id_output_field has a value which is a string
 a reference to a hash where the following keys are defined:
 step_id has a value which is a string
 type has a value which is a string
-service has a value which is an NJSMock.service_method
-script has a value which is an NJSMock.script_method
-parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+service has a value which is a NarrativeJobService.service_method
+script has a value which is a NarrativeJobService.script_method
+parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-is_long_running has a value which is an NJSMock.boolean
+is_long_running has a value which is a NarrativeJobService.boolean
 job_id_output_field has a value which is a string
 
 
@@ -1061,7 +1061,7 @@ job_id_output_field has a value which is a string
 <pre>
 a reference to a hash where the following keys are defined:
 name has a value which is a string
-steps has a value which is a reference to a list where each element is an NJSMock.step
+steps has a value which is a reference to a list where each element is a NarrativeJobService.step
 
 </pre>
 
@@ -1071,7 +1071,7 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 
 a reference to a hash where the following keys are defined:
 name has a value which is a string
-steps has a value which is a reference to a list where each element is an NJSMock.step
+steps has a value which is a reference to a list where each element is a NarrativeJobService.step
 
 
 =end text
@@ -1125,7 +1125,7 @@ step_errors has a value which is a reference to a hash where the key is a string
 
 =cut
 
-package NJSMockClient::RpcClient;
+package NarrativeJobServiceClient::RpcClient;
 use base 'JSON::RPC::Client';
 
 #

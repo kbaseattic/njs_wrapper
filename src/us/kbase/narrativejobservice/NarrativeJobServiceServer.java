@@ -28,7 +28,7 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 //END_HEADER
 
 /**
- * <p>Original spec-file module name: NJSMock</p>
+ * <p>Original spec-file module name: NarrativeJobService</p>
  * <pre>
  * </pre>
  */

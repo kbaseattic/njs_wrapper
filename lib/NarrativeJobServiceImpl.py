@@ -2,10 +2,10 @@
 #END_HEADER
 
 
-class NJSMock:
+class NarrativeJobService:
     '''
     Module Name:
-    NJSMock
+    NarrativeJobService
 
     Module Description:
     

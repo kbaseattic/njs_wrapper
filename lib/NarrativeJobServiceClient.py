@@ -103,7 +103,7 @@ class _JSONObjectEncoder(_json.JSONEncoder):
         return _json.JSONEncoder.default(self, obj)
 
 
-class NJSMock(object):
+class NarrativeJobService(object):
 
     def __init__(self, url=None, timeout=30 * 60, user_id=None,
                  password=None, token=None, ignore_authrc=False,
@@ -166,36 +166,36 @@ class NJSMock(object):
         return resp['result']
 
     def run_app(self, app):
-        resp = self._call('NJSMock.run_app',
+        resp = self._call('NarrativeJobService.run_app',
                           [app])
         return resp[0]
 
     def check_app_state(self, job_id):
-        resp = self._call('NJSMock.check_app_state',
+        resp = self._call('NarrativeJobService.check_app_state',
                           [job_id])
         return resp[0]
 
     def run_step(self, step):
-        resp = self._call('NJSMock.run_step',
+        resp = self._call('NarrativeJobService.run_step',
                           [step])
         return resp[0]
 
     def suspend_app(self, job_id):
-        resp = self._call('NJSMock.suspend_app',
+        resp = self._call('NarrativeJobService.suspend_app',
                           [job_id])
         return resp[0]
 
     def resume_app(self, job_id):
-        resp = self._call('NJSMock.resume_app',
+        resp = self._call('NarrativeJobService.resume_app',
                           [job_id])
         return resp[0]
 
     def delete_app(self, job_id):
-        resp = self._call('NJSMock.delete_app',
+        resp = self._call('NarrativeJobService.delete_app',
                           [job_id])
         return resp[0]
 
     def list_config(self):
-        resp = self._call('NJSMock.list_config',
+        resp = self._call('NarrativeJobService.list_config',
                           [])
         return resp[0]

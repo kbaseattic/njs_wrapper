@@ -1,4 +1,4 @@
-package NJSMockServer;
+package NarrativeJobServiceServer;
 
 use Data::Dumper;
 use Moose;
@@ -94,7 +94,7 @@ sub log
 sub _build_loggers
 {
     my ($self) = @_;
-    my $submod = $self->get_service_name() || 'NJSMock';
+    my $submod = $self->get_service_name() || 'NarrativeJobService';
     my $loggers = {};
     my $callback = sub {$self->logcallback();};
     $loggers->{userlog} = Bio::KBase::Log->new(
@@ -165,7 +165,7 @@ sub call_method {
 
     my ($module, $method, $modname) = @$method_info{qw(module method modname)};
     
-    my $ctx = NJSMockServerContext->new($self->{loggers}->{userlog},
+    my $ctx = NarrativeJobServiceServerContext->new($self->{loggers}->{userlog},
                            client_ip => $self->_plack_req->address);
     $ctx->module($modname);
     $ctx->method($method);
@@ -174,7 +174,7 @@ sub call_method {
     my $args = $data->{arguments};
 
 {
-    # Service NJSMock requires authentication.
+    # Service NarrativeJobService requires authentication.
 
     my $method_auth = $method_authentication{$method};
     $ctx->authenticated(0);
@@ -188,7 +188,7 @@ sub call_method {
 
 	if (!$token && $method_auth eq 'required')
 	{
-	    $self->exception('PerlError', "Authentication required for NJSMock but no authentication header was passed");
+	    $self->exception('PerlError', "Authentication required for NarrativeJobService but no authentication header was passed");
 	}
 
 	my $auth_token = Bio::KBase::AuthToken->new(token => $token, ignore_authrc => 1);
@@ -272,7 +272,7 @@ sub get_method
     if (!$self->valid_methods->{$method})
     {
 	$self->exception('NoSuchMethod',
-			 "'$method' is not a valid method in service NJSMock.");
+			 "'$method' is not a valid method in service NarrativeJobService.");
     }
 	
     my $inst = $self->instance_dispatch->{$package};
@@ -301,13 +301,13 @@ sub get_method
     return { module => $module, method => $method, modname => $package };
 }
 
-package NJSMockServerContext;
+package NarrativeJobServiceServerContext;
 
 use strict;
 
 =head1 NAME
 
-NJSMockServerContext
+NarrativeJobServiceServerContext
 
 head1 DESCRIPTION
 
