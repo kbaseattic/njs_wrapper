@@ -19,12 +19,22 @@ our $CallContext;
 our %return_counts = (
         'run_app' => 1,
         'check_app_state' => 1,
+        'run_step' => 1,
+        'suspend_app' => 1,
+        'resume_app' => 1,
+        'delete_app' => 1,
+        'list_config' => 1,
         'version' => 1,
 );
 
 our %method_authentication = (
         'run_app' => 'required',
         'check_app_state' => 'required',
+        'run_step' => 'required',
+        'suspend_app' => 'required',
+        'resume_app' => 'required',
+        'delete_app' => 'required',
+        'list_config' => 'optional',
 );
 
 
@@ -34,6 +44,11 @@ sub _build_valid_methods
     my $methods = {
         'run_app' => 1,
         'check_app_state' => 1,
+        'run_step' => 1,
+        'suspend_app' => 1,
+        'resume_app' => 1,
+        'delete_app' => 1,
+        'list_config' => 1,
         'version' => 1,
     };
     return $methods;

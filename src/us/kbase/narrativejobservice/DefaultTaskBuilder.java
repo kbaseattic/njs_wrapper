@@ -1,4 +1,4 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.io.File;
 import java.net.URL;
@@ -21,11 +21,15 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 	//protected File dataDir;
 	protected ObjectStorage storage;
 	protected String ujsUrl;
+	protected String njsUrl;
 
 	@Override
 	public void init(TaskQueueConfig queueCfg, Map<String, String> configParams) {
-		init(getDirParam(configParams, NJSMockServer.CFG_PROP_SCRATCH), //getDirParam(configParams, "data.dir"),
-				createDefaultObjectStorage(queueCfg.getWsUrl()), configParams.get(NJSMockServer.CFG_PROP_JOBSTATUS_SRV_URL));
+		init(getDirParam(configParams, NarrativeJobServiceServer.CFG_PROP_SCRATCH), 
+				//getDirParam(configParams, "data.dir"),
+				createDefaultObjectStorage(queueCfg.getWsUrl()), 
+				configParams.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
+				configParams.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL));
 	}
 
 	public static ObjectStorage createDefaultObjectStorage(final WorkspaceClient client) {
@@ -103,7 +107,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 		};
 	}
 
-	public DefaultTaskBuilder<T> init(File tempDir, /*File dataDir,*/ ObjectStorage ws, String ujsUrl) {
+	public DefaultTaskBuilder<T> init(File tempDir, /*File dataDir,*/ ObjectStorage ws, String ujsUrl, String njsUrl) {
 		this.tempDir = tempDir;
 		if (!tempDir.exists())
 			tempDir.mkdir();
@@ -112,6 +116,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 			throw new IllegalStateException("Directory " + dataDir + " doesn't exist");*/
 		this.storage = ws;
 		this.ujsUrl = ujsUrl;
+		this.njsUrl = njsUrl;
 		return this;
 	}
 
@@ -140,6 +145,10 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 	
 	protected String getUjsUrl() {
 		return ujsUrl;
+	}
+	
+	protected String getNjsUrl() {
+		return njsUrl;
 	}
 	
 	protected String getOsSuffix() {

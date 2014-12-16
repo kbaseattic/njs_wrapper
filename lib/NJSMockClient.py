@@ -170,7 +170,32 @@ class NJSMock(object):
                           [app])
         return resp[0]
 
-    def check_app_state(self, app_job_id):
+    def check_app_state(self, job_id):
         resp = self._call('NJSMock.check_app_state',
-                          [app_job_id])
+                          [job_id])
+        return resp[0]
+
+    def run_step(self, step):
+        resp = self._call('NJSMock.run_step',
+                          [step])
+        return resp[0]
+
+    def suspend_app(self, job_id):
+        resp = self._call('NJSMock.suspend_app',
+                          [job_id])
+        return resp[0]
+
+    def resume_app(self, job_id):
+        resp = self._call('NJSMock.resume_app',
+                          [job_id])
+        return resp[0]
+
+    def delete_app(self, job_id):
+        resp = self._call('NJSMock.delete_app',
+                          [job_id])
+        return resp[0]
+
+    def list_config(self):
+        resp = self._call('NJSMock.list_config',
+                          [])
         return resp[0]

@@ -1,5 +1,5 @@
 
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,7 +16,7 @@ import us.kbase.common.service.UObject;
 /**
  * <p>Original spec-file type: step</p>
  * <pre>
- * type - 'generic', 'python' or 'script'.
+ * type - 'service' or 'script'.
  * job_id_output_field - this field is used only in case this step is long running job and
  *     output of service method is structure with field having name coded in 
  *     'job_id_output_field' rather than just output string with job id.
@@ -28,9 +28,9 @@ import us.kbase.common.service.UObject;
 @JsonPropertyOrder({
     "step_id",
     "type",
-    "generic",
-    "python",
+    "service",
     "script",
+    "parameters",
     "input_values",
     "is_long_running",
     "job_id_output_field"
@@ -42,26 +42,21 @@ public class Step {
     @JsonProperty("type")
     private String type;
     /**
-     * <p>Original spec-file type: generic_service_method</p>
+     * <p>Original spec-file type: service_method</p>
      * 
      * 
      */
-    @JsonProperty("generic")
-    private GenericServiceMethod generic;
+    @JsonProperty("service")
+    private ServiceMethod service;
     /**
-     * <p>Original spec-file type: python_backend_method</p>
-     * 
-     * 
-     */
-    @JsonProperty("python")
-    private PythonBackendMethod python;
-    /**
-     * <p>Original spec-file type: commandline_script_method</p>
+     * <p>Original spec-file type: script_method</p>
      * 
      * 
      */
     @JsonProperty("script")
-    private CommandlineScriptMethod script;
+    private ScriptMethod script;
+    @JsonProperty("parameters")
+    private List<StepParameter> parameters;
     @JsonProperty("input_values")
     private List<UObject> inputValues;
     @JsonProperty("is_long_running")
@@ -101,77 +96,67 @@ public class Step {
     }
 
     /**
-     * <p>Original spec-file type: generic_service_method</p>
+     * <p>Original spec-file type: service_method</p>
      * 
      * 
      */
-    @JsonProperty("generic")
-    public GenericServiceMethod getGeneric() {
-        return generic;
+    @JsonProperty("service")
+    public ServiceMethod getService() {
+        return service;
     }
 
     /**
-     * <p>Original spec-file type: generic_service_method</p>
+     * <p>Original spec-file type: service_method</p>
      * 
      * 
      */
-    @JsonProperty("generic")
-    public void setGeneric(GenericServiceMethod generic) {
-        this.generic = generic;
+    @JsonProperty("service")
+    public void setService(ServiceMethod service) {
+        this.service = service;
     }
 
-    public Step withGeneric(GenericServiceMethod generic) {
-        this.generic = generic;
+    public Step withService(ServiceMethod service) {
+        this.service = service;
         return this;
     }
 
     /**
-     * <p>Original spec-file type: python_backend_method</p>
-     * 
-     * 
-     */
-    @JsonProperty("python")
-    public PythonBackendMethod getPython() {
-        return python;
-    }
-
-    /**
-     * <p>Original spec-file type: python_backend_method</p>
-     * 
-     * 
-     */
-    @JsonProperty("python")
-    public void setPython(PythonBackendMethod python) {
-        this.python = python;
-    }
-
-    public Step withPython(PythonBackendMethod python) {
-        this.python = python;
-        return this;
-    }
-
-    /**
-     * <p>Original spec-file type: commandline_script_method</p>
+     * <p>Original spec-file type: script_method</p>
      * 
      * 
      */
     @JsonProperty("script")
-    public CommandlineScriptMethod getScript() {
+    public ScriptMethod getScript() {
         return script;
     }
 
     /**
-     * <p>Original spec-file type: commandline_script_method</p>
+     * <p>Original spec-file type: script_method</p>
      * 
      * 
      */
     @JsonProperty("script")
-    public void setScript(CommandlineScriptMethod script) {
+    public void setScript(ScriptMethod script) {
         this.script = script;
     }
 
-    public Step withScript(CommandlineScriptMethod script) {
+    public Step withScript(ScriptMethod script) {
         this.script = script;
+        return this;
+    }
+
+    @JsonProperty("parameters")
+    public List<StepParameter> getParameters() {
+        return parameters;
+    }
+
+    @JsonProperty("parameters")
+    public void setParameters(List<StepParameter> parameters) {
+        this.parameters = parameters;
+    }
+
+    public Step withParameters(List<StepParameter> parameters) {
+        this.parameters = parameters;
         return this;
     }
 
@@ -232,7 +217,7 @@ public class Step {
 
     @Override
     public String toString() {
-        return ((((((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", generic=")+ generic)+", python=")+ python)+", script=")+ script)+", inputValues=")+ inputValues)+", isLongRunning=")+ isLongRunning)+", jobIdOutputField=")+ jobIdOutputField)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", service=")+ service)+", script=")+ script)+", parameters=")+ parameters)+", inputValues=")+ inputValues)+", isLongRunning=")+ isLongRunning)+", jobIdOutputField=")+ jobIdOutputField)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

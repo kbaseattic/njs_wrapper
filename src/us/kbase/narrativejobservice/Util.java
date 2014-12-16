@@ -1,4 +1,4 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.net.URL;
 
@@ -12,6 +12,7 @@ public class Util {
 		jscl.setAllSSLCertificatesTrusted(true);
 		jscl.setIsInsecureHttpConnectionAllowed(true);
 		for (int iter = 0; ; iter++) {
+			Thread.sleep(5000);
 			Tuple7<String, String, String, Long, String, Long, Long> data = jscl.getJobStatus(jobId);
 			String status = data.getE3();
     		Long complete = data.getE6();
@@ -22,12 +23,11 @@ public class Util {
 					break;
 				} else {
 					String error = jscl.getDetailedError(jobId);
-					System.out.println("Detailed error:");
-					System.out.println(error);
-					throw new IllegalStateException("Job was failed: " + error);
+					//System.out.println("Detailed error:");
+					//System.out.println(error);
+					throw new IllegalStateException(error);
 				}
 			}
-			Thread.sleep(1000);
 		}
 	}
 }

@@ -1,5 +1,5 @@
 
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,36 +12,39 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * <p>Original spec-file type: python_backend_method</p>
+ * <p>Original spec-file type: service_method</p>
  * 
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "python_class",
-    "method_name"
+    "service_name",
+    "method_name",
+    "service_url"
 })
-public class PythonBackendMethod {
+public class ServiceMethod {
 
-    @JsonProperty("python_class")
-    private String pythonClass;
+    @JsonProperty("service_name")
+    private String serviceName;
     @JsonProperty("method_name")
     private String methodName;
+    @JsonProperty("service_url")
+    private String serviceUrl;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
-    @JsonProperty("python_class")
-    public String getPythonClass() {
-        return pythonClass;
+    @JsonProperty("service_name")
+    public String getServiceName() {
+        return serviceName;
     }
 
-    @JsonProperty("python_class")
-    public void setPythonClass(String pythonClass) {
-        this.pythonClass = pythonClass;
+    @JsonProperty("service_name")
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 
-    public PythonBackendMethod withPythonClass(String pythonClass) {
-        this.pythonClass = pythonClass;
+    public ServiceMethod withServiceName(String serviceName) {
+        this.serviceName = serviceName;
         return this;
     }
 
@@ -55,8 +58,23 @@ public class PythonBackendMethod {
         this.methodName = methodName;
     }
 
-    public PythonBackendMethod withMethodName(String methodName) {
+    public ServiceMethod withMethodName(String methodName) {
         this.methodName = methodName;
+        return this;
+    }
+
+    @JsonProperty("service_url")
+    public String getServiceUrl() {
+        return serviceUrl;
+    }
+
+    @JsonProperty("service_url")
+    public void setServiceUrl(String serviceUrl) {
+        this.serviceUrl = serviceUrl;
+    }
+
+    public ServiceMethod withServiceUrl(String serviceUrl) {
+        this.serviceUrl = serviceUrl;
         return this;
     }
 
@@ -72,7 +90,7 @@ public class PythonBackendMethod {
 
     @Override
     public String toString() {
-        return ((((((("PythonBackendMethod"+" [pythonClass=")+ pythonClass)+", methodName=")+ methodName)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("ServiceMethod"+" [serviceName=")+ serviceName)+", methodName=")+ methodName)+", serviceUrl=")+ serviceUrl)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

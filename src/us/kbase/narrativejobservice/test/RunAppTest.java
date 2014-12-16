@@ -1,4 +1,4 @@
-package us.kbase.njsmock.test;
+package us.kbase.narrativejobservice.test;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,19 +24,23 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.taskqueue.JobStatuses;
 import us.kbase.common.taskqueue.TaskQueue;
 import us.kbase.common.taskqueue.TaskQueueConfig;
-import us.kbase.njsmock.App;
-import us.kbase.njsmock.AppStateRegistry;
-import us.kbase.njsmock.GenericServiceMethod;
-import us.kbase.njsmock.NJSMockServer;
-import us.kbase.njsmock.RunAppBuilder;
-import us.kbase.njsmock.Step;
-import us.kbase.njsmock.Util;
+import us.kbase.narrativejobservice.App;
+import us.kbase.narrativejobservice.AppStateRegistry;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RunAppBuilder;
+import us.kbase.narrativejobservice.ScriptMethod;
+import us.kbase.narrativejobservice.ServiceMethod;
+import us.kbase.narrativejobservice.Step;
+import us.kbase.narrativejobservice.StepParameter;
+import us.kbase.narrativejobservice.Util;
+import us.kbase.narrativejobservice.WorkspaceObject;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 
 public class RunAppTest {
 	private static final String wsUrl = "https://kbase.us/services/ws";
 	private static final String ujsUrl = "https://kbase.us/services/userandjobstate/";
+	private static final String njsUrl = "http://140.221.66.246:7080";
 	private static final String tempDir = "temp_files";
 	
 	private static TaskQueue taskHolder = null;
@@ -44,7 +48,12 @@ public class RunAppTest {
 	@Test
 	public void mainTest() throws Exception {
 		String token = token(props(new File("test.cfg")));
-		App app = new App();
+		//runServiceApp(token);
+		runScriptMethod(token);
+	}
+	
+	private void runServiceApp(String token) throws Exception {
+		App app = new App().withName("test");
 		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
 		//		.withGeneric(new GenericServiceMethod()
 		//		.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
@@ -57,60 +66,67 @@ public class RunAppTest {
 		String genome2obj = "Acetobacter_pasteurianus_IFO_3283_01.genome";
 		String model2obj = "Acetobacter_pasteurianus_IFO_3283_01.model";
 		String comparObj = "Acetobacter_pasteurianus.protcmp";
-		Step step1a = new Step().withStepId("step1a").withType("generic")
+		Step step1a = new Step().withStepId("step1a").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("genome_name", genome1ncbiName)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome1obj).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
-				.withMethodName("GenomeComparison.import_ncbi_genome"));
-		Step step1b = new Step().withStepId("step1b").withType("generic")
+				.withServiceName("GenomeComparison")
+				.withMethodName("import_ncbi_genome"));
+		Step step1b = new Step().withStepId("step1b").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("in_genome_ws", workspace).put("in_genome_id", genome1obj)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome1obj)
 						.put("seed_annotation_only", 1L).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
-				.withMethodName("GenomeComparison.annotate_genome"))
+				.withServiceName("GenomeComparison")
+				.withMethodName("annotate_genome"))
 				.withIsLongRunning(1L);
-		Step step1c = new Step().withStepId("step1c").withType("generic")
+		Step step1c = new Step().withStepId("step1c").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("workspace", workspace).put("genome", genome1obj)
 						.put("model", model1obj).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/fba_model_services/")
-				.withMethodName("fbaModelServices.genome_to_fbamodel"));
-		Step step2a = new Step().withStepId("step2a").withType("generic")
+				.withServiceName("fbaModelServices")
+				.withMethodName("genome_to_fbamodel"));
+		Step step2a = new Step().withStepId("step2a").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("genome_name", genome2ncbiName)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome2obj).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
-				.withMethodName("GenomeComparison.import_ncbi_genome"));
-		Step step2b = new Step().withStepId("step2b").withType("generic")
+				.withServiceName("GenomeComparison")
+				.withMethodName("import_ncbi_genome"));
+		Step step2b = new Step().withStepId("step2b").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("in_genome_ws", workspace).put("in_genome_id", genome2obj)
 						.put("out_genome_ws", workspace).put("out_genome_id", genome2obj)
 						.put("seed_annotation_only", 1L).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
-				.withMethodName("GenomeComparison.annotate_genome"))
+				.withServiceName("GenomeComparison")
+				.withMethodName("annotate_genome"))
 				.withIsLongRunning(1L);
-		Step step2c = new Step().withStepId("step2c").withType("generic")
+		Step step2c = new Step().withStepId("step2c").withType("service")
 				.withInputValues(Arrays.asList(new UObject(
 						new PreMap().put("workspace", workspace).put("genome", genome2obj)
 						.put("model", model2obj).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/fba_model_services/")
-				.withMethodName("fbaModelServices.genome_to_fbamodel"));
-		Step step3 = new Step().withStepId("step3").withType("generic")
+				.withServiceName("fbaModelServices")
+				.withMethodName("genome_to_fbamodel"));
+		Step step3 = new Step().withStepId("step3").withType("service")
 				.withInputValues(Arrays.asList(new UObject(new PreMap()
 						.put("genome1ws", workspace).put("genome1id", genome1obj)
 						.put("genome2ws", workspace).put("genome2id", genome2obj)
 						.put("output_ws", workspace).put("output_id", comparObj).map)))
-				.withGeneric(new GenericServiceMethod()
+				.withService(new ServiceMethod()
 				.withServiceUrl("https://kbase.us/services/genome_comparison/jsonrpc")
-				.withMethodName("GenomeComparison.blast_proteomes"))
+				.withServiceName("GenomeComparison")
+				.withMethodName("blast_proteomes"))
 				.withIsLongRunning(1L);
 		app.withSteps(Arrays.asList(step1a, step1b, step1c, step2a, step2b, step2c, step3));
         String appJson = UObject.transformObjectToString(app);
@@ -120,10 +136,36 @@ public class RunAppTest {
 		String jobId = taskHolder.addTask(appJson, token);
         AppStateRegistry.initAppState(jobId);
 		Util.waitForJob(token, ujsUrl, jobId);
-		System.out.println("Jobs: " + AppStateRegistry.getAppState(jobId).getStepJobIds());
 		System.out.println("Outputs: " + AppStateRegistry.getAppState(jobId).getStepOutputs());
+		System.out.println("Errors: " + AppStateRegistry.getAppState(jobId).getStepErrors());
 	}
 
+	private void runScriptMethod(String token) throws Exception {
+		String wsName = "nardevuser1:home";
+		WorkspaceObject emptyWO = new WorkspaceObject().withWorkspaceName("").withObjectType("").withIsInput(0L);
+		Step step = new Step().withStepId("contigset_assembly")
+				.withService(new ServiceMethod())
+				.withScript(new ScriptMethod().withServiceName("assembly")
+						.withMethodName("assemble_contigset_from_reads").withHasFiles(1L))
+				.withType("script")
+				.withIsLongRunning(0L)
+				.withParameters(Arrays.asList(
+						new StepParameter().withWsObject(new WorkspaceObject().withWorkspaceName(wsName)
+								.withObjectType("KBaseAssembly.AssemblyInput").withIsInput(1L)
+								).withIsWorkspaceId(1L).withStepSource("").withValue("toy").withLabel("assembly_input"),
+						new StepParameter().withWsObject(emptyWO).withIsWorkspaceId(0L).withStepSource("")
+								.withValue("asdfasdfa").withLabel("description"),
+						new StepParameter().withWsObject(emptyWO).withIsWorkspaceId(0L).withStepSource("")
+								.withValue("auto").withLabel("recipe"),
+						new StepParameter().withWsObject(new WorkspaceObject().withWorkspaceName(wsName)
+								.withObjectType("KBaseGenomes.ContigSet").withIsInput(0L)
+								).withIsWorkspaceId(1L).withStepSource("").withValue("contigset.8").withLabel("output_contigset")
+				));
+        String stepJson = UObject.transformObjectToString(step);
+		String jobId = taskHolder.addTask(stepJson, token);
+		Util.waitForJob(token, ujsUrl, jobId);
+	}
+	
 	private static String jsonToPretty(Object obj) throws Exception {
 		ObjectMapper mpr = new ObjectMapper();
 		return mpr.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
@@ -138,19 +180,20 @@ public class RunAppTest {
 	public static void prepare() throws Exception {
 		RunAppBuilder.debug = true;
 		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
-		allConfigProps.put(NJSMockServer.CFG_PROP_SCRATCH, tempDir);
-		allConfigProps.put(NJSMockServer.CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
+		allConfigProps.put(NarrativeJobServiceServer.CFG_PROP_SCRATCH, tempDir);
+		allConfigProps.put(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
+		allConfigProps.put(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL, njsUrl);
 		JobStatuses jobStatuses = new JobStatuses() {
 			@Override
 			public String createAndStartJob(String token, String status, String desc,
 					String initProgressPtype, String estComplete) throws Exception {
-				return NJSMockServer.createJobClient(ujsUrl, token).createAndStartJob(token, status, desc, 
+				return NarrativeJobServiceServer.createJobClient(ujsUrl, token).createAndStartJob(token, status, desc, 
 						new InitProgress().withPtype(initProgressPtype), estComplete);
 			}
 			@Override
 			public void updateJob(String job, String token, String status,
 					String estComplete) throws Exception {
-				NJSMockServer.createJobClient(ujsUrl, token).updateJob(job, token, status, estComplete);
+				NarrativeJobServiceServer.createJobClient(ujsUrl, token).updateJob(job, token, status, estComplete);
 			}
 			@Override
 			public void completeJob(String job, String token, String status,
@@ -158,7 +201,7 @@ public class RunAppTest {
 				List<String> refs = new ArrayList<String>();
 				if (outRef != null)
 					refs.add(outRef);
-				NJSMockServer.createJobClient(ujsUrl, token).completeJob(job, token, status, error, 
+				NarrativeJobServiceServer.createJobClient(ujsUrl, token).completeJob(job, token, status, error, 
 						new Results().withWorkspaceurl(wsUrl).withWorkspaceids(refs));
 			}
 		};

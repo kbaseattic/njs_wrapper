@@ -237,6 +237,26 @@ class Application(object):
                              name='NJSMock.check_app_state',
                              types=[basestring])
         self.method_authentication['NJSMock.check_app_state'] = 'required'
+        self.rpc_service.add(impl_NJSMock.run_step,
+                             name='NJSMock.run_step',
+                             types=[dict])
+        self.method_authentication['NJSMock.run_step'] = 'required'
+        self.rpc_service.add(impl_NJSMock.suspend_app,
+                             name='NJSMock.suspend_app',
+                             types=[basestring])
+        self.method_authentication['NJSMock.suspend_app'] = 'required'
+        self.rpc_service.add(impl_NJSMock.resume_app,
+                             name='NJSMock.resume_app',
+                             types=[basestring])
+        self.method_authentication['NJSMock.resume_app'] = 'required'
+        self.rpc_service.add(impl_NJSMock.delete_app,
+                             name='NJSMock.delete_app',
+                             types=[basestring])
+        self.method_authentication['NJSMock.delete_app'] = 'required'
+        self.rpc_service.add(impl_NJSMock.list_config,
+                             name='NJSMock.list_config',
+                             types=[])
+        self.method_authentication['NJSMock.list_config'] = 'optional'
         self.auth_client = biokbase.nexus.Client(
             config={'server': 'nexus.api.globusonline.org',
                     'verify_ssl': False,

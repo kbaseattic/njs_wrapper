@@ -1,4 +1,4 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.List;
 import java.util.Map;

@@ -1,5 +1,5 @@
 
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -12,36 +12,39 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * <p>Original spec-file type: generic_service_method</p>
+ * <p>Original spec-file type: script_method</p>
  * 
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "service_url",
-    "method_name"
+    "service_name",
+    "method_name",
+    "has_files"
 })
-public class GenericServiceMethod {
+public class ScriptMethod {
 
-    @JsonProperty("service_url")
-    private String serviceUrl;
+    @JsonProperty("service_name")
+    private String serviceName;
     @JsonProperty("method_name")
     private String methodName;
+    @JsonProperty("has_files")
+    private Long hasFiles;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
-    @JsonProperty("service_url")
-    public String getServiceUrl() {
-        return serviceUrl;
+    @JsonProperty("service_name")
+    public String getServiceName() {
+        return serviceName;
     }
 
-    @JsonProperty("service_url")
-    public void setServiceUrl(String serviceUrl) {
-        this.serviceUrl = serviceUrl;
+    @JsonProperty("service_name")
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 
-    public GenericServiceMethod withServiceUrl(String serviceUrl) {
-        this.serviceUrl = serviceUrl;
+    public ScriptMethod withServiceName(String serviceName) {
+        this.serviceName = serviceName;
         return this;
     }
 
@@ -55,8 +58,23 @@ public class GenericServiceMethod {
         this.methodName = methodName;
     }
 
-    public GenericServiceMethod withMethodName(String methodName) {
+    public ScriptMethod withMethodName(String methodName) {
         this.methodName = methodName;
+        return this;
+    }
+
+    @JsonProperty("has_files")
+    public Long getHasFiles() {
+        return hasFiles;
+    }
+
+    @JsonProperty("has_files")
+    public void setHasFiles(Long hasFiles) {
+        this.hasFiles = hasFiles;
+    }
+
+    public ScriptMethod withHasFiles(Long hasFiles) {
+        this.hasFiles = hasFiles;
         return this;
     }
 
@@ -72,7 +90,7 @@ public class GenericServiceMethod {
 
     @Override
     public String toString() {
-        return ((((((("GenericServiceMethod"+" [serviceUrl=")+ serviceUrl)+", methodName=")+ methodName)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("ScriptMethod"+" [serviceName=")+ serviceName)+", methodName=")+ methodName)+", hasFiles=")+ hasFiles)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

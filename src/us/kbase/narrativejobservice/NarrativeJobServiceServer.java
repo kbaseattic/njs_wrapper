@@ -1,5 +1,6 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
+import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
@@ -11,7 +12,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.ini4j.Ini;
 
@@ -32,7 +32,7 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
  * <pre>
  * </pre>
  */
-public class NJSMockServer extends JsonServerServlet {
+public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
 
     //BEGIN_CLASS_HEADER
@@ -44,8 +44,9 @@ public class NJSMockServer extends JsonServerServlet {
     public static final String CFG_PROP_JOBSTATUS_SRV_URL = "jobstatus.srv.url";
     public static final String CFG_PROP_QUEUE_DB_DIR = "queue.db.dir";
     public static final String CFG_PROP_THREAD_COUNT = "thread.count";
+    public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
     
-    public static final String VERSION = "0.0.1";
+    public static final String VERSION = "0.1.0";
     
     private static Throwable configError = null;
     private static Map<String, String> config = null;
@@ -64,11 +65,11 @@ public class NJSMockServer extends JsonServerServlet {
 		if (configPath == null) {
 			configError = new IllegalStateException("Configuration file was not defined");
 		} else {
-			System.out.println(NJSMockServer.class.getName() + ": Deployment config path was defined: " + configPath);
+			System.out.println(NarrativeJobServiceServer.class.getName() + ": Deployment config path was defined: " + configPath);
 			try {
 				config = new Ini(new File(configPath)).get(SERVICE_DEPLOYMENT_NAME);
 			} catch (Throwable ex) {
-				System.out.println(NJSMockServer.class.getName() + ": Error loading deployment config-file: " + ex.getMessage());
+				System.out.println(NarrativeJobServiceServer.class.getName() + ": Error loading deployment config-file: " + ex.getMessage());
 				configError = ex;
 			}
 		}
@@ -118,7 +119,14 @@ public class NJSMockServer extends JsonServerServlet {
     		throw new IllegalStateException("Parameter " + CFG_PROP_THREAD_COUNT + " is not defined in configuration");
     	return Integer.parseInt(ret);
     }
-    
+
+    public static String getNJSServiceURL() {
+    	String ret = config().get(CFG_PROP_NJS_SRV_URL);
+    	if (ret == null)
+    		throw new IllegalStateException("Parameter " + CFG_PROP_NJS_SRV_URL + " is not defined in configuration");
+    	return ret;
+    }
+
     public static synchronized TaskQueueConfig getTaskConfig() throws Exception {
     	if (taskConfig == null) {
     		int threadCount = getThreadCount();
@@ -128,6 +136,7 @@ public class NJSMockServer extends JsonServerServlet {
     		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
     		allConfigProps.put(CFG_PROP_SCRATCH, getTempDir().getAbsolutePath());
     		allConfigProps.put(CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
+    		allConfigProps.put(CFG_PROP_NJS_SRV_URL, getNJSServiceURL());
     		JobStatuses jobStatuses = new JobStatuses() {
 				@Override
 				public String createAndStartJob(String token, String status, String desc,
@@ -179,10 +188,17 @@ public class NJSMockServer extends JsonServerServlet {
     	}
     	return taskHolder;
     }
+    
+    private static NarrativeJobServiceClient getForwardClient(AuthToken authPart) throws Exception {
+    	NarrativeJobServiceClient ret = new NarrativeJobServiceClient(new URL(getNJSServiceURL()), authPart);
+    	ret.setAllSSLCertificatesTrusted(true);
+    	ret.setIsInsecureHttpConnectionAllowed(true);
+    	return ret;
+    }
     //END_CLASS_HEADER
 
-    public NJSMockServer() throws Exception {
-        super("NJSMock");
+    public NarrativeJobServiceServer() throws Exception {
+        super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
         //END_CONSTRUCTOR
     }
@@ -191,15 +207,26 @@ public class NJSMockServer extends JsonServerServlet {
      * <p>Original spec-file function name: run_app</p>
      * <pre>
      * </pre>
-     * @param   app   instance of type {@link us.kbase.njsmock.App App} (original type "app")
-     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
+     * @param   app   instance of type {@link us.kbase.narrativejobservice.App App} (original type "app")
+     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
-    @JsonServerMethod(rpc = "NJSMock.run_app")
+    @JsonServerMethod(rpc = "NarrativeJobService.run_app")
     public AppState runApp(App app, AuthToken authPart) throws Exception {
         AppState returnVal = null;
         //BEGIN run_app
-        String appJobId = taskHolder.addTask(UObject.transformObjectToString(app), authPart.toString());
-        returnVal = AppStateRegistry.initAppState(appJobId);
+        boolean forward = true;
+        for (Step step : app.getSteps()) {
+        	if (step.getParameters() == null || step.getInputValues() != null) {
+        		forward = false;
+        		break;
+        	}
+        }
+        if (forward) {
+        	returnVal = getForwardClient(authPart).runApp(app);
+        } else {
+        	String appJobId = taskHolder.addTask(UObject.transformObjectToString(app), authPart.toString());
+        	returnVal = AppStateRegistry.initAppState(appJobId);
+        }
         //END run_app
         return returnVal;
     }
@@ -208,15 +235,98 @@ public class NJSMockServer extends JsonServerServlet {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   appJobId   instance of String
-     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
+     * @param   jobId   instance of String
+     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
-    @JsonServerMethod(rpc = "NJSMock.check_app_state")
-    public AppState checkAppState(String appJobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.check_app_state")
+    public AppState checkAppState(String jobId, AuthToken authPart) throws Exception {
         AppState returnVal = null;
         //BEGIN check_app_state
-        returnVal = AppStateRegistry.getAppState(appJobId);
+        returnVal = AppStateRegistry.getAppState(jobId);
+        if (returnVal == null) {
+        	returnVal = getForwardClient(authPart).checkAppState(jobId);
+        }
         //END check_app_state
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: run_step</p>
+     * <pre>
+     * </pre>
+     * @param   step   instance of type {@link us.kbase.narrativejobservice.Step Step} (original type "step")
+     * @return   parameter "ujs_job_id" of String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.run_step")
+    public String runStep(Step step, AuthToken authPart) throws Exception {
+        String returnVal = null;
+        //BEGIN run_step
+        returnVal = taskHolder.addTask(UObject.transformObjectToString(step), authPart.toString());
+        //END run_step
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: suspend_app</p>
+     * <pre>
+     * status - 'success' or 'failure' of action
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.suspend_app")
+    public String suspendApp(String jobId, AuthToken authPart) throws Exception {
+        String returnVal = null;
+        //BEGIN suspend_app
+        returnVal = getForwardClient(authPart).suspendApp(jobId);
+        //END suspend_app
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: resume_app</p>
+     * <pre>
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.resume_app")
+    public String resumeApp(String jobId, AuthToken authPart) throws Exception {
+        String returnVal = null;
+        //BEGIN resume_app
+        returnVal = getForwardClient(authPart).resumeApp(jobId);
+        //END resume_app
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: delete_app</p>
+     * <pre>
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.delete_app")
+    public String deleteApp(String jobId, AuthToken authPart) throws Exception {
+        String returnVal = null;
+        //BEGIN delete_app
+        returnVal = getForwardClient(authPart).deleteApp(jobId);
+        //END delete_app
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: list_config</p>
+     * <pre>
+     * </pre>
+     * @return   instance of mapping from String to String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.list_config", authOptional=true)
+    public Map<String,String> listConfig(AuthToken authPart) throws Exception {
+        Map<String,String> returnVal = null;
+        //BEGIN list_config
+        returnVal = getForwardClient(authPart).listConfig();
+        //END list_config
         return returnVal;
     }
 
@@ -225,6 +335,6 @@ public class NJSMockServer extends JsonServerServlet {
             System.out.println("Usage: <program> <server_port>");
             return;
         }
-        new NJSMockServer().startupServer(Integer.parseInt(args[0]));
+        new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
     }
 }

@@ -1,10 +1,8 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
-import us.kbase.common.service.UObject;
 
 public class AppStateRegistry {
 	private static Map<String, AppState> appJobIdToState = new HashMap<String, AppState>();
@@ -12,8 +10,9 @@ public class AppStateRegistry {
 	public static synchronized AppState initAppState(String appJobId) {
 		if (appJobIdToState.containsKey(appJobId))
 			return appJobIdToState.get(appJobId);
-        AppState appState = new AppState().withStepJobIds(new LinkedHashMap<String, String>())
-        		.withStepOutputs(new LinkedHashMap<String, UObject>()).withAppJobId(appJobId);
+        AppState appState = new AppState().withStepErrors(new LinkedHashMap<String, String>())
+        		.withStepOutputs(new LinkedHashMap<String, String>())
+        		.withJobId(appJobId).withJobState(RunAppBuilder.APP_STATE_QUEUED);
 		appJobIdToState.put(appJobId, appState);
 		return appState;
 	}

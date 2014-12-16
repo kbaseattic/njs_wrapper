@@ -1,7 +1,8 @@
 
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Generated;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
@@ -12,33 +13,51 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * <p>Original spec-file type: commandline_script_method</p>
+ * <p>Original spec-file type: app</p>
  * 
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "script_name"
+    "name",
+    "steps"
 })
-public class CommandlineScriptMethod {
+public class App {
 
-    @JsonProperty("script_name")
-    private String scriptName;
+    @JsonProperty("name")
+    private String name;
+    @JsonProperty("steps")
+    private List<Step> steps;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
-    @JsonProperty("script_name")
-    public String getScriptName() {
-        return scriptName;
+    @JsonProperty("name")
+    public String getName() {
+        return name;
     }
 
-    @JsonProperty("script_name")
-    public void setScriptName(String scriptName) {
-        this.scriptName = scriptName;
+    @JsonProperty("name")
+    public void setName(String name) {
+        this.name = name;
     }
 
-    public CommandlineScriptMethod withScriptName(String scriptName) {
-        this.scriptName = scriptName;
+    public App withName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    @JsonProperty("steps")
+    public List<Step> getSteps() {
+        return steps;
+    }
+
+    @JsonProperty("steps")
+    public void setSteps(List<Step> steps) {
+        this.steps = steps;
+    }
+
+    public App withSteps(List<Step> steps) {
+        this.steps = steps;
         return this;
     }
 
@@ -54,7 +73,7 @@ public class CommandlineScriptMethod {
 
     @Override
     public String toString() {
-        return ((((("CommandlineScriptMethod"+" [scriptName=")+ scriptName)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((("App"+" [name=")+ name)+", steps=")+ steps)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

@@ -52,30 +52,42 @@ sub new
 $app is an NJSMock.app
 $return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	generic has a value which is an NJSMock.generic_service_method
-	python has a value which is an NJSMock.python_backend_method
-	script has a value which is an NJSMock.commandline_script_method
+	service has a value which is an NJSMock.service_method
+	script has a value which is an NJSMock.script_method
+	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 	is_long_running has a value which is an NJSMock.boolean
 	job_id_output_field has a value which is a string
-generic_service_method is a reference to a hash where the following keys are defined:
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
 	service_url has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
 	method_name has a value which is a string
-python_backend_method is a reference to a hash where the following keys are defined:
-	python_class has a value which is a string
-	method_name has a value which is a string
-commandline_script_method is a reference to a hash where the following keys are defined:
-	script_name has a value which is a string
+	has_files has a value which is an NJSMock.boolean
 boolean is an int
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is an NJSMock.boolean
+	ws_object has a value which is an NJSMock.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is an NJSMock.boolean
 app_state is a reference to a hash where the following keys are defined:
-	app_job_id has a value which is a string
+	job_id has a value which is a string
+	job_state has a value which is a string
 	running_step_id has a value which is a string
-	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 </pre>
 
@@ -86,30 +98,42 @@ app_state is a reference to a hash where the following keys are defined:
 $app is an NJSMock.app
 $return is an NJSMock.app_state
 app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
 	steps has a value which is a reference to a list where each element is an NJSMock.step
 step is a reference to a hash where the following keys are defined:
 	step_id has a value which is a string
 	type has a value which is a string
-	generic has a value which is an NJSMock.generic_service_method
-	python has a value which is an NJSMock.python_backend_method
-	script has a value which is an NJSMock.commandline_script_method
+	service has a value which is an NJSMock.service_method
+	script has a value which is an NJSMock.script_method
+	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 	is_long_running has a value which is an NJSMock.boolean
 	job_id_output_field has a value which is a string
-generic_service_method is a reference to a hash where the following keys are defined:
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
 	service_url has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
 	method_name has a value which is a string
-python_backend_method is a reference to a hash where the following keys are defined:
-	python_class has a value which is a string
-	method_name has a value which is a string
-commandline_script_method is a reference to a hash where the following keys are defined:
-	script_name has a value which is a string
+	has_files has a value which is an NJSMock.boolean
 boolean is an int
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is an NJSMock.boolean
+	ws_object has a value which is an NJSMock.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is an NJSMock.boolean
 app_state is a reference to a hash where the following keys are defined:
-	app_job_id has a value which is a string
+	job_id has a value which is a string
+	job_state has a value which is a string
 	running_step_id has a value which is a string
-	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 
 =end text
@@ -156,7 +180,7 @@ sub run_app
 
 =head2 check_app_state
 
-  $return = $obj->check_app_state($app_job_id)
+  $return = $obj->check_app_state($job_id)
 
 =over 4
 
@@ -165,13 +189,14 @@ sub run_app
 =begin html
 
 <pre>
-$app_job_id is a string
+$job_id is a string
 $return is an NJSMock.app_state
 app_state is a reference to a hash where the following keys are defined:
-	app_job_id has a value which is a string
+	job_id has a value which is a string
+	job_state has a value which is a string
 	running_step_id has a value which is a string
-	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 </pre>
 
@@ -179,13 +204,14 @@ app_state is a reference to a hash where the following keys are defined:
 
 =begin text
 
-$app_job_id is a string
+$job_id is a string
 $return is an NJSMock.app_state
 app_state is a reference to a hash where the following keys are defined:
-	app_job_id has a value which is a string
+	job_id has a value which is a string
+	job_state has a value which is a string
 	running_step_id has a value which is a string
-	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-	step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 
 =end text
@@ -203,10 +229,10 @@ app_state is a reference to a hash where the following keys are defined:
 sub check_app_state
 {
     my $self = shift;
-    my($app_job_id) = @_;
+    my($job_id) = @_;
 
     my @_bad_arguments;
-    (!ref($app_job_id)) or push(@_bad_arguments, "Invalid type for argument \"app_job_id\" (value was \"$app_job_id\")");
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
     if (@_bad_arguments) {
 	my $msg = "Invalid arguments passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_arguments);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
@@ -223,6 +249,381 @@ sub check_app_state
 	my $msg = "Invalid returns passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_returns);
 	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
 							       method_name => 'check_app_state');
+    }
+    return($return);
+}
+
+
+
+
+=head2 run_step
+
+  $ujs_job_id = $obj->run_step($step)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$step is an NJSMock.step
+$ujs_job_id is a string
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is an NJSMock.service_method
+	script has a value which is an NJSMock.script_method
+	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is an NJSMock.boolean
+	job_id_output_field has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is an NJSMock.boolean
+boolean is an int
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is an NJSMock.boolean
+	ws_object has a value which is an NJSMock.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is an NJSMock.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+$step is an NJSMock.step
+$ujs_job_id is a string
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is an NJSMock.service_method
+	script has a value which is an NJSMock.script_method
+	parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is an NJSMock.boolean
+	job_id_output_field has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is an NJSMock.boolean
+boolean is an int
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is an NJSMock.boolean
+	ws_object has a value which is an NJSMock.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is an NJSMock.boolean
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub run_step
+{
+    my $self = shift;
+    my($step) = @_;
+
+    my @_bad_arguments;
+    (ref($step) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"step\" (value was \"$step\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to run_step:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'run_step');
+    }
+
+    my $ctx = $NJSMockServer::CallContext;
+    my($ujs_job_id);
+    #BEGIN run_step
+    #END run_step
+    my @_bad_returns;
+    (!ref($ujs_job_id)) or push(@_bad_returns, "Invalid type for return variable \"ujs_job_id\" (value was \"$ujs_job_id\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to run_step:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'run_step');
+    }
+    return($ujs_job_id);
+}
+
+
+
+
+=head2 suspend_app
+
+  $status = $obj->suspend_app($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a string
+$status is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a string
+$status is a string
+
+
+=end text
+
+
+
+=item Description
+
+status - 'success' or 'failure' of action
+
+=back
+
+=cut
+
+sub suspend_app
+{
+    my $self = shift;
+    my($job_id) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to suspend_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'suspend_app');
+    }
+
+    my $ctx = $NJSMockServer::CallContext;
+    my($status);
+    #BEGIN suspend_app
+    #END suspend_app
+    my @_bad_returns;
+    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to suspend_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'suspend_app');
+    }
+    return($status);
+}
+
+
+
+
+=head2 resume_app
+
+  $status = $obj->resume_app($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a string
+$status is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a string
+$status is a string
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub resume_app
+{
+    my $self = shift;
+    my($job_id) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to resume_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'resume_app');
+    }
+
+    my $ctx = $NJSMockServer::CallContext;
+    my($status);
+    #BEGIN resume_app
+    #END resume_app
+    my @_bad_returns;
+    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to resume_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'resume_app');
+    }
+    return($status);
+}
+
+
+
+
+=head2 delete_app
+
+  $status = $obj->delete_app($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a string
+$status is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a string
+$status is a string
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub delete_app
+{
+    my $self = shift;
+    my($job_id) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to delete_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'delete_app');
+    }
+
+    my $ctx = $NJSMockServer::CallContext;
+    my($status);
+    #BEGIN delete_app
+    #END delete_app
+    my @_bad_returns;
+    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to delete_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'delete_app');
+    }
+    return($status);
+}
+
+
+
+
+=head2 list_config
+
+  $return = $obj->list_config()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a reference to a hash where the key is a string and the value is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a reference to a hash where the key is a string and the value is a string
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub list_config
+{
+    my $self = shift;
+
+    my $ctx = $NJSMockServer::CallContext;
+    my($return);
+    #BEGIN list_config
+    #END list_config
+    my @_bad_returns;
+    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to list_config:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'list_config');
     }
     return($return);
 }
@@ -299,7 +700,7 @@ an int
 
 
 
-=head2 generic_service_method
+=head2 service_method
 
 =over 4
 
@@ -311,8 +712,9 @@ an int
 
 <pre>
 a reference to a hash where the following keys are defined:
-service_url has a value which is a string
+service_name has a value which is a string
 method_name has a value which is a string
+service_url has a value which is a string
 
 </pre>
 
@@ -321,8 +723,9 @@ method_name has a value which is a string
 =begin text
 
 a reference to a hash where the following keys are defined:
-service_url has a value which is a string
+service_name has a value which is a string
 method_name has a value which is a string
+service_url has a value which is a string
 
 
 =end text
@@ -331,7 +734,7 @@ method_name has a value which is a string
 
 
 
-=head2 python_backend_method
+=head2 script_method
 
 =over 4
 
@@ -343,8 +746,9 @@ method_name has a value which is a string
 
 <pre>
 a reference to a hash where the following keys are defined:
-python_class has a value which is a string
+service_name has a value which is a string
 method_name has a value which is a string
+has_files has a value which is an NJSMock.boolean
 
 </pre>
 
@@ -353,8 +757,9 @@ method_name has a value which is a string
 =begin text
 
 a reference to a hash where the following keys are defined:
-python_class has a value which is a string
+service_name has a value which is a string
 method_name has a value which is a string
+has_files has a value which is an NJSMock.boolean
 
 
 =end text
@@ -363,7 +768,53 @@ method_name has a value which is a string
 
 
 
-=head2 commandline_script_method
+=head2 workspace_object
+
+=over 4
+
+
+
+=item Description
+
+label - label of parameter, can be empty string for positional parameters
+value - value of parameter
+step_source - step_id that parameter derives from
+is_workspace_id - parameter is a workspace id (value is object name)
+# the below are only used if is_workspace_id is true
+    is_input - parameter is an input (true) or output (false)
+    workspace_name - name of workspace
+    object_type - name of object type
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+workspace_name has a value which is a string
+object_type has a value which is a string
+is_input has a value which is an NJSMock.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+workspace_name has a value which is a string
+object_type has a value which is a string
+is_input has a value which is an NJSMock.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 step_parameter
 
 =over 4
 
@@ -375,7 +826,11 @@ method_name has a value which is a string
 
 <pre>
 a reference to a hash where the following keys are defined:
-script_name has a value which is a string
+label has a value which is a string
+value has a value which is a string
+step_source has a value which is a string
+is_workspace_id has a value which is an NJSMock.boolean
+ws_object has a value which is an NJSMock.workspace_object
 
 </pre>
 
@@ -384,7 +839,11 @@ script_name has a value which is a string
 =begin text
 
 a reference to a hash where the following keys are defined:
-script_name has a value which is a string
+label has a value which is a string
+value has a value which is a string
+step_source has a value which is a string
+is_workspace_id has a value which is an NJSMock.boolean
+ws_object has a value which is an NJSMock.workspace_object
 
 
 =end text
@@ -401,7 +860,7 @@ script_name has a value which is a string
 
 =item Description
 
-type - 'generic', 'python' or 'script'.
+type - 'service' or 'script'.
 job_id_output_field - this field is used only in case this step is long running job and
     output of service method is structure with field having name coded in 
     'job_id_output_field' rather than just output string with job id.
@@ -415,9 +874,9 @@ job_id_output_field - this field is used only in case this step is long running 
 a reference to a hash where the following keys are defined:
 step_id has a value which is a string
 type has a value which is a string
-generic has a value which is an NJSMock.generic_service_method
-python has a value which is an NJSMock.python_backend_method
-script has a value which is an NJSMock.commandline_script_method
+service has a value which is an NJSMock.service_method
+script has a value which is an NJSMock.script_method
+parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 is_long_running has a value which is an NJSMock.boolean
 job_id_output_field has a value which is a string
@@ -431,9 +890,9 @@ job_id_output_field has a value which is a string
 a reference to a hash where the following keys are defined:
 step_id has a value which is a string
 type has a value which is a string
-generic has a value which is an NJSMock.generic_service_method
-python has a value which is an NJSMock.python_backend_method
-script has a value which is an NJSMock.commandline_script_method
+service has a value which is an NJSMock.service_method
+script has a value which is an NJSMock.script_method
+parameters has a value which is a reference to a list where each element is an NJSMock.step_parameter
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 is_long_running has a value which is an NJSMock.boolean
 job_id_output_field has a value which is a string
@@ -457,6 +916,7 @@ job_id_output_field has a value which is a string
 
 <pre>
 a reference to a hash where the following keys are defined:
+name has a value which is a string
 steps has a value which is a reference to a list where each element is an NJSMock.step
 
 </pre>
@@ -466,6 +926,7 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 =begin text
 
 a reference to a hash where the following keys are defined:
+name has a value which is a string
 steps has a value which is a reference to a list where each element is an NJSMock.step
 
 
@@ -483,7 +944,7 @@ steps has a value which is a reference to a list where each element is an NJSMoc
 
 =item Description
 
-step_job_ids - mapping from step_id to job_id.
+mapping<string, string> step_job_ids;
 
 
 =item Definition
@@ -492,10 +953,11 @@ step_job_ids - mapping from step_id to job_id.
 
 <pre>
 a reference to a hash where the following keys are defined:
-app_job_id has a value which is a string
+job_id has a value which is a string
+job_state has a value which is a string
 running_step_id has a value which is a string
-step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 </pre>
 
@@ -504,10 +966,11 @@ step_outputs has a value which is a reference to a hash where the key is a strin
 =begin text
 
 a reference to a hash where the following keys are defined:
-app_job_id has a value which is a string
+job_id has a value which is a string
+job_state has a value which is a string
 running_step_id has a value which is a string
-step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
-step_outputs has a value which is a reference to a hash where the key is a string and the value is an UnspecifiedObject, which can hold any non-null object
+step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 
 
 =end text

@@ -1,4 +1,4 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import java.io.File;
@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
@@ -16,14 +17,14 @@ import us.kbase.common.service.UnauthorizedException;
  * <pre>
  * </pre>
  */
-public class NJSMockClient {
+public class NarrativeJobServiceClient {
     private JsonClientCaller caller;
 
 
     /** Constructs a client with a custom URL and no user credentials.
      * @param url the URL of the service.
      */
-    public NJSMockClient(URL url) {
+    public NarrativeJobServiceClient(URL url) {
         caller = new JsonClientCaller(url);
     }
     /** Constructs a client with a custom URL.
@@ -33,7 +34,7 @@ public class NJSMockClient {
      * @throws IOException if an IOException occurs when checking the token's
      * validity.
      */
-    public NJSMockClient(URL url, AuthToken token) throws UnauthorizedException, IOException {
+    public NarrativeJobServiceClient(URL url, AuthToken token) throws UnauthorizedException, IOException {
         caller = new JsonClientCaller(url, token);
     }
 
@@ -45,7 +46,7 @@ public class NJSMockClient {
      * @throws IOException if an IOException occurs when checking the user's
      * credentials.
      */
-    public NJSMockClient(URL url, String user, String password) throws UnauthorizedException, IOException {
+    public NarrativeJobServiceClient(URL url, String user, String password) throws UnauthorizedException, IOException {
         caller = new JsonClientCaller(url, user, password);
     }
 
@@ -125,8 +126,8 @@ public class NJSMockClient {
      * <p>Original spec-file function name: run_app</p>
      * <pre>
      * </pre>
-     * @param   app   instance of type {@link us.kbase.njsmock.App App} (original type "app")
-     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
+     * @param   app   instance of type {@link us.kbase.narrativejobservice.App App} (original type "app")
+     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
@@ -134,7 +135,7 @@ public class NJSMockClient {
         List<Object> args = new ArrayList<Object>();
         args.add(app);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NJSMock.run_app", args, retType, true, true);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.run_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -142,16 +143,100 @@ public class NJSMockClient {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   appJobId   instance of String
-     * @return   instance of type {@link us.kbase.njsmock.AppState AppState} (original type "app_state")
+     * @param   jobId   instance of String
+     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppState checkAppState(String appJobId) throws IOException, JsonClientException {
+    public AppState checkAppState(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
-        args.add(appJobId);
+        args.add(jobId);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NJSMock.check_app_state", args, retType, true, true);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.check_app_state", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: run_step</p>
+     * <pre>
+     * </pre>
+     * @param   step   instance of type {@link us.kbase.narrativejobservice.Step Step} (original type "step")
+     * @return   parameter "ujs_job_id" of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String runStep(Step step) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(step);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_step", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: suspend_app</p>
+     * <pre>
+     * status - 'success' or 'failure' of action
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String suspendApp(String jobId) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(jobId);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.suspend_app", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: resume_app</p>
+     * <pre>
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String resumeApp(String jobId) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(jobId);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.resume_app", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: delete_app</p>
+     * <pre>
+     * </pre>
+     * @param   jobId   instance of String
+     * @return   parameter "status" of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String deleteApp(String jobId) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(jobId);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.delete_app", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: list_config</p>
+     * <pre>
+     * </pre>
+     * @return   instance of mapping from String to String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public Map<String,String> listConfig() throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<Map<String,String>>> retType = new TypeReference<List<Map<String,String>>>() {};
+        List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false);
         return res.get(0);
     }
 }

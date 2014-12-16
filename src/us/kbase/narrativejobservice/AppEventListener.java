@@ -1,4 +1,4 @@
-package us.kbase.njsmock;
+package us.kbase.narrativejobservice;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
@@ -8,7 +8,7 @@ public class AppEventListener implements ServletContextListener {
 	@Override
 	public void contextInitialized(ServletContextEvent arg0) {
 		try {
-			NJSMockServer.getTaskQueue();
+			NarrativeJobServiceServer.getTaskQueue();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
@@ -17,7 +17,7 @@ public class AppEventListener implements ServletContextListener {
 	@Override
 	public void contextDestroyed(ServletContextEvent arg0) {
 		try {
-			NJSMockServer.getTaskQueue().stopAllThreads();
+			NarrativeJobServiceServer.getTaskQueue().stopAllThreads();
 		} catch (Exception ex) {
 			ex.printStackTrace();
 		}
