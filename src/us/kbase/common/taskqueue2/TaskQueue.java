@@ -114,7 +114,7 @@ public class TaskQueue {
 		});
 		for (Task task : tasks)
 			addTask(task);
-		if (tasks.size() > 0) {
+		if (tasks.size() > 0 && !rCheck.isInRestartMode()) {
 			synchronized (idleMonitor) {
 				idleMonitor.notifyAll();
 			}
@@ -135,15 +135,11 @@ public class TaskQueue {
 	}
 	
 	private synchronized String addTask(Object params, String authToken, String description, String outRef) throws Exception {
-		if (rCheck.isInRestartMode()) {
-			stopAllThreads();
-			throw new IllegalStateException("Task queue is in reboot mode");
-		}
 		String jobId = createQueuedTaskJob(description, authToken);
 		Task task = new Task(jobId, params, authToken, outRef);
 		addTask(task);
 		storeTaskInDb(task);
-		if (!needToStop) {
+		if (!rCheck.isInRestartMode()) {
 			synchronized (idleMonitor) {
 				idleMonitor.notifyAll();
 			}
@@ -163,7 +159,7 @@ public class TaskQueue {
 				task.getJobId(), type, params, task.getAuthToken(), task.getOutRef());
 	}
 	
-	private void deleteTaskFromDb(String jobId) throws SQLException {
+	public void deleteTaskFromDb(String jobId) throws SQLException {
 		conn.exec("delete from " + QUEUE_TABLE_NAME + " where jobid=?", jobId);
 	}
 	
@@ -199,6 +195,8 @@ public class TaskQueue {
 	}
 	
 	private synchronized Task gainNewTask() {
+		if (rCheck.isInRestartMode())
+			return null;
 		if (taskQueue.size() > 0) {
 			Task ret = null;
 			int limit = config.getRunningTasksPerUser();
@@ -236,12 +234,12 @@ public class TaskQueue {
 			runner.run(token, params, task.getJobId(), task.getOutRef());
 			completeTaskState(task, token, null, null);
 		} catch (Throwable e) {
-			if (!needToStop) {
-				if (rCheck.isInRestartMode())
-					stopAllThreads();
-			}
 			if (needToStop) {
 				System.out.println("Task " + task.getJobId() + " was left for next server start");
+				return false;
+			}
+			if (rCheck.isInRestartMode()) {
+				System.out.println("Task " + task.getJobId() + " was left until reboot mode is switched off");
 				return false;
 			}
 			try {

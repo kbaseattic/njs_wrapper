@@ -59,7 +59,7 @@ public class TaskQueueTest extends EasyMockSupport {
 	
 	@Test
 	public void testGood() throws Exception {
-		String token = "secret";
+		String token = "goodSecret";
 		String jobId = "jobGood";
 		JobStatuses jbst = createStrictMock(JobStatuses.class);
 		expect(jbst.createAndStartJob(eq(token), eq("queued"), anyObject(String.class), 
@@ -114,7 +114,7 @@ public class TaskQueueTest extends EasyMockSupport {
 
 	@Test
 	public void testUserTaskLimit() throws Exception {
-		String token = "secret";
+		String token = "limitSecret";
 		final String job1Id = "jobGood1";
 		final String job2Id = "jobGood2";
 		final int[] jobNum = {0}; 
@@ -182,7 +182,7 @@ public class TaskQueueTest extends EasyMockSupport {
 
 	@Test
 	public void testBad() throws Exception {
-		String token = "secret";
+		String token = "badSecret";
 		String jobId = "jobBad";
 		final String errorMsg = "Super error!";
 		JobStatuses jbst = createStrictMock(JobStatuses.class);
@@ -245,8 +245,25 @@ public class TaskQueueTest extends EasyMockSupport {
 
 	@Test
 	public void testReboot() throws Exception {
-		String token = "secret";
-		JobStatuses jbst = createStrictMock(JobStatuses.class);
+		String token = "rebootSecret";
+		final String jobId = "jobReboot";
+		JobStatuses jbst = new JobStatuses() {
+			@Override
+			public void updateJob(String job, String token, String status,
+					String estComplete) throws Exception {
+				throw new IllegalStateException();
+			}
+			@Override
+			public String createAndStartJob(String token, String status, String desc,
+					String initProgressPtype, String estComplete) throws Exception {
+				return jobId;
+			}
+			@Override
+		    public void completeJob(String job, String token, String status, String error, String wsUrl, 
+		    		String outRef) throws Exception {
+				throw new IllegalStateException();
+		    }
+		};
 		final TaskQueue tq = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, 0, null), 
 				new RestartChecker() {
 					@Override
@@ -260,13 +277,12 @@ public class TaskQueueTest extends EasyMockSupport {
 						throw new IllegalStateException("Task is running");
 					}
 				});
-		try { 
-			tq.addTask(new TestTask("something-saved"), token);
-			Assert.fail();
-		} catch (Exception ex) {
-			Assert.assertTrue(ex.getMessage().contains("reboot"));
-		}
+		tq.addTask(new TestTask("something-saved"), token);
+		Thread.sleep(1000);
+		Assert.assertEquals(1, tq.getQueuedTasks());
+		Assert.assertEquals(0, tq.getRunningTasksPerUser().size());
 		tq.stopAllThreads();
+		tq.deleteTaskFromDb(jobId);
 		checkForEmptyDbQueue();
 	}
 
