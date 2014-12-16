@@ -9,7 +9,7 @@ LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
 WAR_FILE = NJSMock.war
 
 TARGET_PORT = 8200
-THREADPOOL_SIZE = 20
+THREADPOOL_SIZE = 50
 
 default: compile
 
