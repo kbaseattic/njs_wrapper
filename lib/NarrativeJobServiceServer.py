@@ -257,6 +257,14 @@ class Application(object):
                              name='NarrativeJobService.list_config',
                              types=[])
         self.method_authentication['NarrativeJobService.list_config'] = 'optional'
+        self.rpc_service.add(impl_NarrativeJobService.ver,
+                             name='NarrativeJobService.ver',
+                             types=[])
+        self.method_authentication['NarrativeJobService.ver'] = 'none'
+        self.rpc_service.add(impl_NarrativeJobService.status,
+                             name='NarrativeJobService.status',
+                             types=[])
+        self.method_authentication['NarrativeJobService.status'] = 'none'
         self.auth_client = biokbase.nexus.Client(
             config={'server': 'nexus.api.globusonline.org',
                     'verify_ssl': False,

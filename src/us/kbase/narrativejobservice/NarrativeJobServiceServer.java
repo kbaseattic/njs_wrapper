@@ -19,9 +19,10 @@ import us.kbase.auth.TokenFormatException;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
-import us.kbase.common.taskqueue.JobStatuses;
-import us.kbase.common.taskqueue.TaskQueue;
-import us.kbase.common.taskqueue.TaskQueueConfig;
+import us.kbase.common.taskqueue2.JobStatuses;
+import us.kbase.common.taskqueue2.RestartChecker;
+import us.kbase.common.taskqueue2.TaskQueue;
+import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -45,10 +46,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_QUEUE_DB_DIR = "queue.db.dir";
     public static final String CFG_PROP_THREAD_COUNT = "thread.count";
     public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
+    public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
+    public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
     
     public static final String VERSION = "0.1.0";
     
     private static Throwable configError = null;
+    private static String configPath = null;
     private static Map<String, String> config = null;
     
     private static TaskQueue taskHolder = null;
@@ -67,7 +71,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 		} else {
 			System.out.println(NarrativeJobServiceServer.class.getName() + ": Deployment config path was defined: " + configPath);
 			try {
-				config = new Ini(new File(configPath)).get(SERVICE_DEPLOYMENT_NAME);
+				NarrativeJobServiceServer.configPath = configPath;
+				config = loadConfigFromDisk();
 			} catch (Throwable ex) {
 				System.out.println(NarrativeJobServiceServer.class.getName() + ": Error loading deployment config-file: " + ex.getMessage());
 				configError = ex;
@@ -79,6 +84,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 		return config;
     }
 
+    private static Map<String, String> loadConfigFromDisk() throws Exception {
+    	return new Ini(new File(configPath)).get(SERVICE_DEPLOYMENT_NAME);
+    }
+    
     public static File getTempDir() {
     	String ret = config().get(CFG_PROP_SCRATCH);
     	if (ret == null)
@@ -127,12 +136,32 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	return ret;
     }
 
+    public static int getRunningTasksPerUser() {
+    	String ret = config().get(CFG_PROP_RUNNING_TASKS_PER_USER);
+    	if (ret == null)
+    		throw new IllegalStateException("Parameter " + CFG_PROP_RUNNING_TASKS_PER_USER + " is not defined in configuration");
+    	return Integer.parseInt(ret);
+    }
+
+    public static boolean getRebootMode() {
+    	try {
+    		String ret = loadConfigFromDisk().get(CFG_PROP_REBOOT_MODE);
+    		if (ret == null)
+    			return false;
+    		ret = ret.toLowerCase();
+    		return ret.equals("true") || ret.equals("1");
+    	} catch (Exception ex) {
+    		return false;
+    	}
+    }
+    
     public static synchronized TaskQueueConfig getTaskConfig() throws Exception {
     	if (taskConfig == null) {
     		int threadCount = getThreadCount();
     		File queueDbDir = getQueueDbDir();
     		final String wsUrl = getWorkspaceServiceURL();
     		final String ujsUrl = getUJSServiceURL();
+    		final int runningTasksPerUser = getRunningTasksPerUser();
     		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
     		allConfigProps.put(CFG_PROP_SCRATCH, getTempDir().getAbsolutePath());
     		allConfigProps.put(CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
@@ -159,7 +188,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     						new Results().withWorkspaceurl(wsUrl).withWorkspaceids(refs));
 				}
 			};
-			taskConfig = new TaskQueueConfig(threadCount, queueDbDir, jobStatuses, wsUrl, allConfigProps);
+			taskConfig = new TaskQueueConfig(threadCount, queueDbDir, jobStatuses, wsUrl, 
+					runningTasksPerUser, allConfigProps);
     	}
     	return taskConfig;
     }
@@ -180,7 +210,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static synchronized TaskQueue getTaskQueue() throws Exception {
     	if (taskHolder == null) {
     		TaskQueueConfig cfg = getTaskConfig();
-			taskHolder = new TaskQueue(cfg, new RunAppBuilder());
+			taskHolder = new TaskQueue(cfg, new RestartChecker() {
+				@Override
+				public boolean isInRestartMode() {
+					return getRebootMode();
+				}
+			}, new RunAppBuilder());
 			System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
 					"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new us.kbase.common.utils.DbConn.SqlLoader<Integer>() {
 				public Integer collectRow(java.sql.ResultSet rs) throws java.sql.SQLException { return rs.getInt(1); }
@@ -327,6 +362,48 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //BEGIN list_config
         returnVal = getForwardClient(authPart).listConfig();
         //END list_config
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: ver</p>
+     * <pre>
+     * Returns the current running version of the NarrativeJobService.
+     * </pre>
+     * @return   instance of String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.ver")
+    public String ver() throws Exception {
+        String returnVal = null;
+        //BEGIN ver
+        returnVal = VERSION;
+        if (taskHolder.getStoppingMode())
+        	returnVal += ", task-queue is in stopping mode";
+        if (getRebootMode())
+        	returnVal += ", service is in reboot mode";
+        //END ver
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: status</p>
+     * <pre>
+     * Simply check the status of this service to see queue details
+     * </pre>
+     * @return   instance of type {@link us.kbase.narrativejobservice.Status Status}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.status")
+    public Status status() throws Exception {
+        Status returnVal = null;
+        //BEGIN status
+        int queued = taskHolder.getQueuedTasks();
+        int running = taskHolder.getAllTasks() - queued;
+        returnVal = new Status().withRebootMode(getRebootMode() ? 1L : 0L)
+        		.withStoppingMode(taskHolder.getStoppingMode() ? 1L : 0L)
+        		.withRunningTasksTotal((long)running)
+        		.withRunningTasksPerUser(taskHolder.getRunningTasksPerUser())
+        		.withTasksInQueue((long)queued);
+        //END status
         return returnVal;
     }
 

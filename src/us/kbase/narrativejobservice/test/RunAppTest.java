@@ -21,9 +21,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.AuthService;
 import us.kbase.common.service.UObject;
-import us.kbase.common.taskqueue.JobStatuses;
-import us.kbase.common.taskqueue.TaskQueue;
-import us.kbase.common.taskqueue.TaskQueueConfig;
+import us.kbase.common.taskqueue2.JobStatuses;
+import us.kbase.common.taskqueue2.RestartChecker;
+import us.kbase.common.taskqueue2.TaskQueue;
+import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppStateRegistry;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
@@ -209,8 +210,13 @@ public class RunAppTest {
 		if (queueDir.exists()) {
 			deleteRecursively(queueDir);
 		}
-		TaskQueueConfig cfg = new TaskQueueConfig(1, queueDir, jobStatuses, wsUrl, allConfigProps);
-		taskHolder = new TaskQueue(cfg, new RunAppBuilder());
+		TaskQueueConfig cfg = new TaskQueueConfig(1, queueDir, jobStatuses, wsUrl, 0, allConfigProps);
+		taskHolder = new TaskQueue(cfg, new RestartChecker() {
+			@Override
+			public boolean isInRestartMode() {
+				return false;
+			}
+		}, new RunAppBuilder());
 		System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
 				"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new us.kbase.common.utils.DbConn.SqlLoader<Integer>() {
 			public Integer collectRow(java.sql.ResultSet rs) throws java.sql.SQLException { return rs.getInt(1); }

@@ -199,3 +199,13 @@ class NarrativeJobService(object):
         resp = self._call('NarrativeJobService.list_config',
                           [])
         return resp[0]
+
+    def ver(self):
+        resp = self._call('NarrativeJobService.ver',
+                          [])
+        return resp[0]
+
+    def status(self):
+        resp = self._call('NarrativeJobService.status',
+                          [])
+        return resp[0]

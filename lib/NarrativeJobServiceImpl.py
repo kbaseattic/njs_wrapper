@@ -117,3 +117,29 @@ class NarrativeJobService:
                              'returnVal is not type dict as required.')
         # return the results
         return [returnVal]
+
+    def ver(self):
+        # self.ctx is set by the wsgi application class
+        # return variables are: returnVal
+        #BEGIN ver
+        #END ver
+
+        #At some point might do deeper type checking...
+        if not isinstance(returnVal, basestring):
+            raise ValueError('Method ver return value ' +
+                             'returnVal is not type basestring as required.')
+        # return the results
+        return [returnVal]
+
+    def status(self):
+        # self.ctx is set by the wsgi application class
+        # return variables are: returnVal
+        #BEGIN status
+        #END status
+
+        #At some point might do deeper type checking...
+        if not isinstance(returnVal, dict):
+            raise ValueError('Method status return value ' +
+                             'returnVal is not type dict as required.')
+        # return the results
+        return [returnVal]

@@ -756,6 +756,156 @@ sub list_config
 
 
 
+=head2 ver
+
+  $return = $obj->ver()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a string
+
+
+=end text
+
+=item Description
+
+Returns the current running version of the NarrativeJobService.
+
+=back
+
+=cut
+
+sub ver
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function ver (received $n, expecting 0)");
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "NarrativeJobService.ver",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'ver',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method ver",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'ver',
+				       );
+    }
+}
+
+
+
+=head2 status
+
+  $return = $obj->status()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a NarrativeJobService.Status
+Status is a reference to a hash where the following keys are defined:
+	reboot_mode has a value which is a NarrativeJobService.boolean
+	stopping_mode has a value which is a NarrativeJobService.boolean
+	running_tasks_total has a value which is an int
+	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+	tasks_in_queue has a value which is an int
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a NarrativeJobService.Status
+Status is a reference to a hash where the following keys are defined:
+	reboot_mode has a value which is a NarrativeJobService.boolean
+	stopping_mode has a value which is a NarrativeJobService.boolean
+	running_tasks_total has a value which is an int
+	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+	tasks_in_queue has a value which is an int
+boolean is an int
+
+
+=end text
+
+=item Description
+
+Simply check the status of this service to see queue details
+
+=back
+
+=cut
+
+sub status
+{
+    my($self, @args) = @_;
+
+# Authentication: none
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function status (received $n, expecting 0)");
+    }
+
+    my $result = $self->{client}->call($self->{url}, {
+	method => "NarrativeJobService.status",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'status',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method status",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'status',
+				       );
+    }
+}
+
+
+
 sub version {
     my ($self) = @_;
     my $result = $self->{client}->call($self->{url}, {
@@ -767,16 +917,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'list_config',
+                method_name => 'status',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method list_config",
+            error => "Error invoking method status",
             status_line => $self->{client}->status_line,
-            method_name => 'list_config',
+            method_name => 'status',
         );
     }
 }
@@ -1115,6 +1265,44 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 Status
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+reboot_mode has a value which is a NarrativeJobService.boolean
+stopping_mode has a value which is a NarrativeJobService.boolean
+running_tasks_total has a value which is an int
+running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+tasks_in_queue has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+reboot_mode has a value which is a NarrativeJobService.boolean
+stopping_mode has a value which is a NarrativeJobService.boolean
+running_tasks_total has a value which is an int
+running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+tasks_in_queue has a value which is an int
 
 
 =end text

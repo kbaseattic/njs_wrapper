@@ -24,6 +24,8 @@ our %return_counts = (
         'resume_app' => 1,
         'delete_app' => 1,
         'list_config' => 1,
+        'ver' => 1,
+        'status' => 1,
         'version' => 1,
 );
 
@@ -35,6 +37,8 @@ our %method_authentication = (
         'resume_app' => 'required',
         'delete_app' => 'required',
         'list_config' => 'optional',
+        'ver' => 'none',
+        'status' => 'none',
 );
 
 
@@ -49,6 +53,8 @@ sub _build_valid_methods
         'resume_app' => 1,
         'delete_app' => 1,
         'list_config' => 1,
+        'ver' => 1,
+        'status' => 1,
         'version' => 1,
     };
     return $methods;

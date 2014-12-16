@@ -7,8 +7,8 @@ import java.util.Map;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple11;
-import us.kbase.common.taskqueue.TaskQueueConfig;
-import us.kbase.common.taskqueue.TaskRunner;
+import us.kbase.common.taskqueue2.TaskQueueConfig;
+import us.kbase.common.taskqueue2.TaskRunner;
 import us.kbase.workspace.ListObjectsParams;
 import us.kbase.workspace.ObjectData;
 import us.kbase.workspace.ObjectIdentity;

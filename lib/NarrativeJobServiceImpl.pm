@@ -631,6 +631,130 @@ sub list_config
 
 
 
+=head2 ver
+
+  $return = $obj->ver()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a string
+
+
+=end text
+
+
+
+=item Description
+
+Returns the current running version of the NarrativeJobService.
+
+=back
+
+=cut
+
+sub ver
+{
+    my $self = shift;
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($return);
+    #BEGIN ver
+    #END ver
+    my @_bad_returns;
+    (!ref($return)) or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to ver:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'ver');
+    }
+    return($return);
+}
+
+
+
+
+=head2 status
+
+  $return = $obj->status()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a NarrativeJobService.Status
+Status is a reference to a hash where the following keys are defined:
+	reboot_mode has a value which is a NarrativeJobService.boolean
+	stopping_mode has a value which is a NarrativeJobService.boolean
+	running_tasks_total has a value which is an int
+	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+	tasks_in_queue has a value which is an int
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a NarrativeJobService.Status
+Status is a reference to a hash where the following keys are defined:
+	reboot_mode has a value which is a NarrativeJobService.boolean
+	stopping_mode has a value which is a NarrativeJobService.boolean
+	running_tasks_total has a value which is an int
+	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+	tasks_in_queue has a value which is an int
+boolean is an int
+
+
+=end text
+
+
+
+=item Description
+
+Simply check the status of this service to see queue details
+
+=back
+
+=cut
+
+sub status
+{
+    my $self = shift;
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($return);
+    #BEGIN status
+    #END status
+    my @_bad_returns;
+    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to status:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'status');
+    }
+    return($return);
+}
+
+
+
+
 =head2 version 
 
   $return = $obj->version()
@@ -971,6 +1095,44 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 Status
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+reboot_mode has a value which is a NarrativeJobService.boolean
+stopping_mode has a value which is a NarrativeJobService.boolean
+running_tasks_total has a value which is an int
+running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+tasks_in_queue has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+reboot_mode has a value which is a NarrativeJobService.boolean
+stopping_mode has a value which is a NarrativeJobService.boolean
+running_tasks_total has a value which is an int
+running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
+tasks_in_queue has a value which is an int
 
 
 =end text

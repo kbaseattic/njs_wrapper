@@ -239,4 +239,36 @@ public class NarrativeJobServiceClient {
         List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false);
         return res.get(0);
     }
+
+    /**
+     * <p>Original spec-file function name: ver</p>
+     * <pre>
+     * Returns the current running version of the NarrativeJobService.
+     * </pre>
+     * @return   instance of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String ver() throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.ver", args, retType, true, false);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: status</p>
+     * <pre>
+     * Simply check the status of this service to see queue details
+     * </pre>
+     * @return   instance of type {@link us.kbase.narrativejobservice.Status Status}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public Status status() throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<Status>> retType = new TypeReference<List<Status>>() {};
+        List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false);
+        return res.get(0);
+    }
 }

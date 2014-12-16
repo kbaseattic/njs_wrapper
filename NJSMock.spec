@@ -94,4 +94,19 @@ module NarrativeJobService {
     funcdef delete_app(string job_id) returns (string status) authentication required;
 
     funcdef list_config() returns (mapping<string, string>) authentication optional;
+    
+    /* Returns the current running version of the NarrativeJobService. */
+    funcdef ver() returns (string);
+    
+    typedef structure {
+    	boolean reboot_mode;
+    	boolean stopping_mode;
+    	int running_tasks_total;
+    	mapping<string, int> running_tasks_per_user;
+    	int tasks_in_queue;
+    } Status;
+    
+    /* Simply check the status of this service to see queue details */
+    funcdef status() returns (Status);
+    
 };
