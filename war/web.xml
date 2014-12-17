@@ -5,7 +5,7 @@
     </listener>
     <servlet>
         <servlet-name>RootServlet</servlet-name>
-        <servlet-class>us.kbase.narrativejobservice.NJSMockServer</servlet-class>
+        <servlet-class>us.kbase.narrativejobservice.NarrativeJobServiceServer</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>RootServlet</servlet-name>
