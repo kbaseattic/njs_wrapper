@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <web-app>
     <listener>
-        <listener-class>us.kbase.njsmock.AppEventListener</listener-class>
+        <listener-class>us.kbase.narrativejobservice.AppEventListener</listener-class>
     </listener>
     <servlet>
         <servlet-name>RootServlet</servlet-name>
-        <servlet-class>us.kbase.njsmock.NJSMockServer</servlet-class>
+        <servlet-class>us.kbase.narrativejobservice.NJSMockServer</servlet-class>
     </servlet>
     <servlet-mapping>
         <servlet-name>RootServlet</servlet-name>
