@@ -1,5 +1,6 @@
 package us.kbase.narrativejobservice;
 
+import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
@@ -48,6 +49,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
     public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
     public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
+    public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
     
     public static final String VERSION = "0.1.0";
     
@@ -141,6 +143,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	if (ret == null)
     		throw new IllegalStateException("Parameter " + CFG_PROP_RUNNING_TASKS_PER_USER + " is not defined in configuration");
     	return Integer.parseInt(ret);
+    }
+
+    public static String getAdminUser() {
+    	String ret = config().get(CFG_PROP_ADMIN_USER_NAME);
+    	if (ret == null)
+    		throw new IllegalStateException("Parameter " + CFG_PROP_ADMIN_USER_NAME + " is not defined in configuration");
+    	return ret;
     }
 
     public static boolean getRebootMode() {
@@ -286,22 +295,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
 
     /**
-     * <p>Original spec-file function name: run_step</p>
-     * <pre>
-     * </pre>
-     * @param   step   instance of type {@link us.kbase.narrativejobservice.Step Step} (original type "step")
-     * @return   parameter "ujs_job_id" of String
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.run_step")
-    public String runStep(Step step, AuthToken authPart) throws Exception {
-        String returnVal = null;
-        //BEGIN run_step
-        returnVal = taskHolder.addTask(UObject.transformObjectToString(step), authPart.toString());
-        //END run_step
-        return returnVal;
-    }
-
-    /**
      * <p>Original spec-file function name: suspend_app</p>
      * <pre>
      * status - 'success' or 'failure' of action
@@ -345,7 +338,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String deleteApp(String jobId, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN delete_app
-        returnVal = getForwardClient(authPart).deleteApp(jobId);
+        AppState appState = AppStateRegistry.getAppState(jobId);
+        if (appState == null) {
+        	returnVal = getForwardClient(authPart).deleteApp(jobId);
+        } else {
+        	appState.setIsDeleted(1L);
+        	returnVal = "App " + jobId + " was marked for deletion";
+        }
         //END delete_app
         return returnVal;
     }
@@ -404,6 +403,23 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         		.withRunningTasksPerUser(taskHolder.getRunningTasksPerUser())
         		.withTasksInQueue((long)queued);
         //END status
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: list_running_apps</p>
+     * <pre>
+     * </pre>
+     * @return   instance of list of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.list_running_apps", authOptional=true)
+    public List<AppState> listRunningApps(AuthToken authPart) throws Exception {
+        List<AppState> returnVal = null;
+        //BEGIN list_running_apps
+        if (!authPart.getClientId().equals(getAdminUser()))
+        	throw new IllegalStateException("Only admin of service can list internal apps");
+        returnVal = AppStateRegistry.listRunningApps();
+        //END list_running_apps
         return returnVal;
     }
 

@@ -175,11 +175,6 @@ class NarrativeJobService(object):
                           [job_id])
         return resp[0]
 
-    def run_step(self, step):
-        resp = self._call('NarrativeJobService.run_step',
-                          [step])
-        return resp[0]
-
     def suspend_app(self, job_id):
         resp = self._call('NarrativeJobService.suspend_app',
                           [job_id])
@@ -207,5 +202,10 @@ class NarrativeJobService(object):
 
     def status(self):
         resp = self._call('NarrativeJobService.status',
+                          [])
+        return resp[0]
+
+    def list_running_apps(self):
+        resp = self._call('NarrativeJobService.list_running_apps',
                           [])
         return resp[0]

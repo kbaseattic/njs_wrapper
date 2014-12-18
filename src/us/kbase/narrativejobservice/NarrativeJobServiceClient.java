@@ -157,23 +157,6 @@ public class NarrativeJobServiceClient {
     }
 
     /**
-     * <p>Original spec-file function name: run_step</p>
-     * <pre>
-     * </pre>
-     * @param   step   instance of type {@link us.kbase.narrativejobservice.Step Step} (original type "step")
-     * @return   parameter "ujs_job_id" of String
-     * @throws IOException if an IO exception occurs
-     * @throws JsonClientException if a JSON RPC exception occurs
-     */
-    public String runStep(Step step) throws IOException, JsonClientException {
-        List<Object> args = new ArrayList<Object>();
-        args.add(step);
-        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_step", args, retType, true, true);
-        return res.get(0);
-    }
-
-    /**
      * <p>Original spec-file function name: suspend_app</p>
      * <pre>
      * status - 'success' or 'failure' of action
@@ -269,6 +252,21 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Status>> retType = new TypeReference<List<Status>>() {};
         List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: list_running_apps</p>
+     * <pre>
+     * </pre>
+     * @return   instance of list of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public List<AppState> listRunningApps() throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<List<AppState>>> retType = new TypeReference<List<List<AppState>>>() {};
+        List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false);
         return res.get(0);
     }
 }

@@ -12,7 +12,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
+import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static boolean debug = false;
@@ -103,10 +105,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	private void runApp(String token, App app, AppState appState, String jobId, String outRef) throws Exception {
 		if (debug)
 			System.out.println("App [" + jobId + "]: " + app);
+		appState.getAdditionalProperties().put("original_app", app);
 		appState.setJobState(APP_STATE_STARTED);
 		AuthToken auth = new AuthToken(token);
 		for (Step step : app.getSteps()) {
 	        appState.setRunningStepId(step.getStepId());
+			if (appState.getIsDeleted() != null && appState.getIsDeleted() == 1L)
+				throw new IllegalStateException("App was deleted");
 			if (step.getType() == null || !step.getType().equals("service"))
 				throw new IllegalStateException("Unsupported type for step [" + step.getStepId() + "]: " + 
 						step.getType());
@@ -155,7 +160,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	        if (stepJobId != null) {
 	    		if (debug)
 	    			System.out.println("Before waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
-	        	Util.waitForJob(token, ujsUrl, stepJobId);
+	        	waitForJob(token, ujsUrl, stepJobId, appState);
 	    		if (debug)
 	    			System.out.println("After waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
 	        }
@@ -165,5 +170,27 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         appState.setJobState(APP_STATE_DONE);
 		if (debug)
 			System.out.println("End of app [" + jobId + "]");
+	}
+	
+	private static void waitForJob(String token, String ujsUrl, String jobId, AppState appState) throws Exception {
+		UserAndJobStateClient jscl = new UserAndJobStateClient(new URL(ujsUrl), new AuthToken(token));
+		jscl.setAllSSLCertificatesTrusted(true);
+		jscl.setIsInsecureHttpConnectionAllowed(true);
+		for (int iter = 0; ; iter++) {
+			Thread.sleep(5000);
+			Tuple7<String, String, String, Long, String, Long, Long> data = jscl.getJobStatus(jobId);
+    		Long complete = data.getE6();
+    		Long wasError = data.getE7();
+			if (complete == 1L) {
+				if (wasError == 0L) {
+					break;
+				} else {
+					String error = jscl.getDetailedError(jobId);
+					throw new IllegalStateException(error);
+				}
+			}
+			if (appState.getIsDeleted() != null && appState.getIsDeleted() == 1L)
+				throw new IllegalStateException("App was deleted");
+		}
 	}
 }

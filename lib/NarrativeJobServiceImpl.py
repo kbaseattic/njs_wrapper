@@ -53,19 +53,6 @@ class NarrativeJobService:
         # return the results
         return [returnVal]
 
-    def run_step(self, step):
-        # self.ctx is set by the wsgi application class
-        # return variables are: ujs_job_id
-        #BEGIN run_step
-        #END run_step
-
-        #At some point might do deeper type checking...
-        if not isinstance(ujs_job_id, basestring):
-            raise ValueError('Method run_step return value ' +
-                             'ujs_job_id is not type basestring as required.')
-        # return the results
-        return [ujs_job_id]
-
     def suspend_app(self, job_id):
         # self.ctx is set by the wsgi application class
         # return variables are: status
@@ -141,5 +128,18 @@ class NarrativeJobService:
         if not isinstance(returnVal, dict):
             raise ValueError('Method status return value ' +
                              'returnVal is not type dict as required.')
+        # return the results
+        return [returnVal]
+
+    def list_running_apps(self):
+        # self.ctx is set by the wsgi application class
+        # return variables are: returnVal
+        #BEGIN list_running_apps
+        #END list_running_apps
+
+        #At some point might do deeper type checking...
+        if not isinstance(returnVal, list):
+            raise ValueError('Method list_running_apps return value ' +
+                             'returnVal is not type list as required.')
         # return the results
         return [returnVal]

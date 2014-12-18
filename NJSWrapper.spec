@@ -76,13 +76,22 @@ module NarrativeJobService {
         /*mapping<string, string> step_job_ids;*/
         mapping<string, string> step_outputs;
         mapping<string, string> step_errors;
+        boolean is_deleted;
     } app_state;
+
+    typedef structure {
+    	boolean reboot_mode;
+    	boolean stopping_mode;
+    	int running_tasks_total;
+    	mapping<string, int> running_tasks_per_user;
+    	int tasks_in_queue;
+    } Status;
 
     funcdef run_app(app app) returns (app_state) authentication required;
 
     funcdef check_app_state(string job_id) returns (app_state) authentication required;
 
-    funcdef run_step(step step) returns (string ujs_job_id) authentication required;
+    /*funcdef run_step(step step) returns (string ujs_job_id) authentication required;*/
 
     /*
         status - 'success' or 'failure' of action
@@ -98,15 +107,8 @@ module NarrativeJobService {
     /* Returns the current running version of the NarrativeJobService. */
     funcdef ver() returns (string);
     
-    typedef structure {
-    	boolean reboot_mode;
-    	boolean stopping_mode;
-    	int running_tasks_total;
-    	mapping<string, int> running_tasks_per_user;
-    	int tasks_in_queue;
-    } Status;
-    
     /* Simply check the status of this service to see queue details */
     funcdef status() returns (Status);
-    
+
+    funcdef list_running_apps() returns (list<app_state>) authentication optional;
 };

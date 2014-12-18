@@ -237,10 +237,6 @@ class Application(object):
                              name='NarrativeJobService.check_app_state',
                              types=[basestring])
         self.method_authentication['NarrativeJobService.check_app_state'] = 'required'
-        self.rpc_service.add(impl_NarrativeJobService.run_step,
-                             name='NarrativeJobService.run_step',
-                             types=[dict])
-        self.method_authentication['NarrativeJobService.run_step'] = 'required'
         self.rpc_service.add(impl_NarrativeJobService.suspend_app,
                              name='NarrativeJobService.suspend_app',
                              types=[basestring])
@@ -265,6 +261,10 @@ class Application(object):
                              name='NarrativeJobService.status',
                              types=[])
         self.method_authentication['NarrativeJobService.status'] = 'none'
+        self.rpc_service.add(impl_NarrativeJobService.list_running_apps,
+                             name='NarrativeJobService.list_running_apps',
+                             types=[])
+        self.method_authentication['NarrativeJobService.list_running_apps'] = 'optional'
         self.auth_client = biokbase.nexus.Client(
             config={'server': 'nexus.api.globusonline.org',
                     'verify_ssl': False,

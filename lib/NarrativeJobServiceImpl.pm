@@ -88,6 +88,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -134,6 +135,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -197,6 +199,8 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
+boolean is an int
 
 </pre>
 
@@ -212,6 +216,8 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
+boolean is an int
 
 
 =end text
@@ -251,128 +257,6 @@ sub check_app_state
 							       method_name => 'check_app_state');
     }
     return($return);
-}
-
-
-
-
-=head2 run_step
-
-  $ujs_job_id = $obj->run_step($step)
-
-=over 4
-
-=item Parameter and return types
-
-=begin html
-
-<pre>
-$step is a NarrativeJobService.step
-$ujs_job_id is a string
-step is a reference to a hash where the following keys are defined:
-	step_id has a value which is a string
-	type has a value which is a string
-	service has a value which is a NarrativeJobService.service_method
-	script has a value which is a NarrativeJobService.script_method
-	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
-	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is a NarrativeJobService.boolean
-	job_id_output_field has a value which is a string
-service_method is a reference to a hash where the following keys are defined:
-	service_name has a value which is a string
-	method_name has a value which is a string
-	service_url has a value which is a string
-script_method is a reference to a hash where the following keys are defined:
-	service_name has a value which is a string
-	method_name has a value which is a string
-	has_files has a value which is a NarrativeJobService.boolean
-boolean is an int
-step_parameter is a reference to a hash where the following keys are defined:
-	label has a value which is a string
-	value has a value which is a string
-	step_source has a value which is a string
-	is_workspace_id has a value which is a NarrativeJobService.boolean
-	ws_object has a value which is a NarrativeJobService.workspace_object
-workspace_object is a reference to a hash where the following keys are defined:
-	workspace_name has a value which is a string
-	object_type has a value which is a string
-	is_input has a value which is a NarrativeJobService.boolean
-
-</pre>
-
-=end html
-
-=begin text
-
-$step is a NarrativeJobService.step
-$ujs_job_id is a string
-step is a reference to a hash where the following keys are defined:
-	step_id has a value which is a string
-	type has a value which is a string
-	service has a value which is a NarrativeJobService.service_method
-	script has a value which is a NarrativeJobService.script_method
-	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
-	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
-	is_long_running has a value which is a NarrativeJobService.boolean
-	job_id_output_field has a value which is a string
-service_method is a reference to a hash where the following keys are defined:
-	service_name has a value which is a string
-	method_name has a value which is a string
-	service_url has a value which is a string
-script_method is a reference to a hash where the following keys are defined:
-	service_name has a value which is a string
-	method_name has a value which is a string
-	has_files has a value which is a NarrativeJobService.boolean
-boolean is an int
-step_parameter is a reference to a hash where the following keys are defined:
-	label has a value which is a string
-	value has a value which is a string
-	step_source has a value which is a string
-	is_workspace_id has a value which is a NarrativeJobService.boolean
-	ws_object has a value which is a NarrativeJobService.workspace_object
-workspace_object is a reference to a hash where the following keys are defined:
-	workspace_name has a value which is a string
-	object_type has a value which is a string
-	is_input has a value which is a NarrativeJobService.boolean
-
-
-=end text
-
-
-
-=item Description
-
-
-
-=back
-
-=cut
-
-sub run_step
-{
-    my $self = shift;
-    my($step) = @_;
-
-    my @_bad_arguments;
-    (ref($step) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"step\" (value was \"$step\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to run_step:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_step');
-    }
-
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($ujs_job_id);
-    #BEGIN run_step
-    #END run_step
-    my @_bad_returns;
-    (!ref($ujs_job_id)) or push(@_bad_returns, "Invalid type for return variable \"ujs_job_id\" (value was \"$ujs_job_id\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to run_step:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_step');
-    }
-    return($ujs_job_id);
 }
 
 
@@ -755,6 +639,77 @@ sub status
 
 
 
+=head2 list_running_apps
+
+  $return = $obj->list_running_apps()
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$return is a reference to a list where each element is a NarrativeJobService.app_state
+app_state is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	job_state has a value which is a string
+	running_step_id has a value which is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$return is a reference to a list where each element is a NarrativeJobService.app_state
+app_state is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	job_state has a value which is a string
+	running_step_id has a value which is a string
+	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
+	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	is_deleted has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub list_running_apps
+{
+    my $self = shift;
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($return);
+    #BEGIN list_running_apps
+    #END list_running_apps
+    my @_bad_returns;
+    (ref($return) eq 'ARRAY') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to list_running_apps:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'list_running_apps');
+    }
+    return($return);
+}
+
+
+
+
 =head2 version 
 
   $return = $obj->version()
@@ -1082,6 +1037,7 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+is_deleted has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -1095,6 +1051,7 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+is_deleted has a value which is a NarrativeJobService.boolean
 
 
 =end text
