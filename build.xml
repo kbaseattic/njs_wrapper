@@ -1,15 +1,15 @@
-<project name="NJS Mock Service" default="compile" basedir=".">
+<project name="NJS Wrapper Service" default="compile" basedir=".">
 
   <description>
-      Build war-file for the NJS Mock Service
+      Build war-file for the NJS Wrapper Service
   </description>
 
   <!-- set global properties for this build -->
   <property name="src" location="src"/>
   <property name="dist" location="dist"/>
   <property name="classes" location="classes"/>
-  <property name="jar.file" value="NJSMock.jar"/>
-  <property name="war.file" value="NJSMock.war"/>
+  <property name="jar.file" value="NJSWrapper.jar"/>
+  <property name="war.file" value="NJSWrapper.war"/>
   <property name="war" value="war"/>
   <property name="war.lib" value="${war}/lib"/>
   <property name="docs" value="docs"/>

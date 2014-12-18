@@ -6,7 +6,7 @@ CURR_DIR = $(shell pwd)
 SERVICE_NAME = $(shell basename $(CURR_DIR))
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
 LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
-WAR_FILE = NJSMock.war
+WAR_FILE = NJSWrapper.war
 
 TARGET_PORT = 8200
 THREADPOOL_SIZE = 50
