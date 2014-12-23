@@ -50,6 +50,13 @@ public class NarrativeJobServiceClient {
         caller = new JsonClientCaller(url, user, password);
     }
 
+    /** Get the token this client uses to communicate with the server.
+     * @return the authorization token.
+     */
+    public AuthToken getToken() {
+        return caller.getToken();
+    }
+
     /** Get the URL of the service with which this client communicates.
      * @return the service URL.
      */
@@ -110,12 +117,20 @@ public class NarrativeJobServiceClient {
     public boolean isAllSSLCertificatesTrusted() {
         return caller.isAllSSLCertificatesTrusted();
     }
-
-    /** Get the token this client uses to communicate with the server.
-     * @return the authorization token.
+    /** Sets streaming mode on. In this case, the data will be streamed to
+     * the server in chunks as it is read from disk rather than buffered in
+     * memory. Many servers are not compatible with this feature.
+     * @param streamRequest true to set streaming mode on, false otherwise.
      */
-    public AuthToken getToken() {
-        return caller.getToken();
+    public void setStreamingModeOn(boolean streamRequest) {
+        caller.setStreamingModeOn(streamRequest);
+    }
+
+    /** Returns true if streaming mode is on.
+     * @return true if streaming mode is on.
+     */
+    public boolean isStreamingModeOn() {
+        return caller.isStreamingModeOn();
     }
 
     public void _setFileForNextRpcResponse(File f) {

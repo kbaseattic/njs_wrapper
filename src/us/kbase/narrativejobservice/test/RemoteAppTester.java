@@ -29,14 +29,16 @@ import us.kbase.narrativejobservice.test.RunAppTest.PreMap;
 public class RemoteAppTester {
 	private static final String ujsUrl = "https://kbase.us/services/userandjobstate/";
 	//private static final String njsUrl = "http://140.221.66.246:7080/";
-	private static final String njsUrl = "http://dev06.berkeley.kbase.us:8200/";
+	//private static final String njsUrl = "http://dev06.berkeley.kbase.us:8200/";
+	private static final String njsUrl = "http://narrative-dev.kbase.us:8200/";
 	
 	public static void main(String[] args) throws Exception {
 		//checkJob("545a7b6ee4b0d82af0eafa16");
 		//checkApp("5492173f60b22dcad90498d4");
 		//runApp(makeScriptApp());
 		//runApp(makeServiceApp());
-		runApp(loadAppFromResource("app2"));
+		//runApp(loadAppFromResource("app2"));
+		runCmds();
 	}
 
 	private static void checkJob(String jobId) throws Exception {
@@ -57,7 +59,14 @@ public class RemoteAppTester {
 		AppState appState = cl.runApp(app);
 		checkApp(appState.getJobId());
 	}
-	
+
+	private static void runCmds() throws Exception {
+		String token = AuthService.login("rsutormin", "*****").getToken().toString();
+		NarrativeJobServiceClient cl = client(token);
+		System.out.println(cl.status());
+		System.out.println(cl.listRunningApps());
+	}
+
 	public static void checkApp(String jobId) throws Exception {
 		String token = token(props(new File("test.cfg")));
 		NarrativeJobServiceClient cl = client(token);
