@@ -1,6 +1,7 @@
 package us.kbase.narrativejobservice;
 
 import java.net.URL;
+import java.util.UUID;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple7;
@@ -29,5 +30,20 @@ public class Util {
 				}
 			}
 		}
+	}
+	
+	public static boolean isAweJobId(String jobId) {
+		// xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+		try {
+			UUID uuid = UUID.fromString(jobId);
+			return uuid.version() == 4;
+		} catch (IllegalArgumentException ex) {
+			return false;
+		}
+	}
+	
+	public static boolean isUjsJobId(String jobId) {
+		// 545a7b6ee4b0d82af0eafa16
+		return jobId.length() == 24;
 	}
 }

@@ -15,6 +15,7 @@ public class AppStateRegistry {
         AppState appState = new AppState().withStepErrors(new LinkedHashMap<String, String>())
         		.withStepOutputs(new LinkedHashMap<String, String>()).withIsDeleted(0L)
         		.withJobId(appJobId).withJobState(RunAppBuilder.APP_STATE_QUEUED);
+        appState.getAdditionalProperties().put("start_timestamp", System.currentTimeMillis());
 		appJobIdToState.put(appJobId, appState);
 		return appState;
 	}

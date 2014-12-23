@@ -34,7 +34,7 @@ public class RemoteAppTester {
 	
 	public static void main(String[] args) throws Exception {
 		//checkJob("545a7b6ee4b0d82af0eafa16");
-		//checkApp("5492173f60b22dcad90498d4");
+		//checkApp("8f0f5e49-7ddf-46d1-9f11-0b95440dd4b4");
 		//runApp(makeScriptApp());
 		//runApp(makeServiceApp());
 		//runApp(loadAppFromResource("app2"));
@@ -61,7 +61,7 @@ public class RemoteAppTester {
 	}
 
 	private static void runCmds() throws Exception {
-		String token = AuthService.login("rsutormin", "*****").getToken().toString();
+		String token = AuthService.login("rsutormin", "2qz3gm7c").getToken().toString();
 		NarrativeJobServiceClient cl = client(token);
 		System.out.println(cl.status());
 		System.out.println(cl.listRunningApps());

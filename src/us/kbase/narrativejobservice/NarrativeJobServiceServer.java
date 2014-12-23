@@ -286,9 +286,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public AppState checkAppState(String jobId, AuthToken authPart) throws Exception {
         AppState returnVal = null;
         //BEGIN check_app_state
-        returnVal = AppStateRegistry.getAppState(jobId);
-        if (returnVal == null) {
+        if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).checkAppState(jobId);
+        } else {
+        	returnVal = AppStateRegistry.getAppState(jobId);
+        	if (returnVal == null)
+        		throw new IllegalStateException("Information is not available");
         }
         //END check_app_state
         return returnVal;
@@ -306,7 +309,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String suspendApp(String jobId, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN suspend_app
-        returnVal = getForwardClient(authPart).suspendApp(jobId);
+        if (Util.isAweJobId(jobId)) {
+        	returnVal = getForwardClient(authPart).suspendApp(jobId);
+        } else {
+        	throw new IllegalStateException("This function is not supported for service calling APPs");
+        }
         //END suspend_app
         return returnVal;
     }
@@ -322,7 +329,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String resumeApp(String jobId, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN resume_app
-        returnVal = getForwardClient(authPart).resumeApp(jobId);
+        if (Util.isAweJobId(jobId)) {
+        	returnVal = getForwardClient(authPart).resumeApp(jobId);
+        } else {
+        	throw new IllegalStateException("This function is not supported for service calling APPs");
+        }
         //END resume_app
         return returnVal;
     }
@@ -338,12 +349,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String deleteApp(String jobId, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN delete_app
-        AppState appState = AppStateRegistry.getAppState(jobId);
-        if (appState == null) {
+        if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).deleteApp(jobId);
         } else {
-        	appState.setIsDeleted(1L);
-        	returnVal = "App " + jobId + " was marked for deletion";
+        	AppState appState = AppStateRegistry.getAppState(jobId);
+        	if (appState != null) {
+        		appState.setIsDeleted(1L);
+        		returnVal = "App " + jobId + " was marked for deletion";
+        	}
         }
         //END delete_app
         return returnVal;
