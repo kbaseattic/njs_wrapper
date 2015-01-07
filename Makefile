@@ -43,7 +43,7 @@ deploy-service:
 	cp -f ./service/glassfish_stop_service.sh $(SERVICE_DIR)
 	echo 'if [ -z "$$KB_DEPLOYMENT_CONFIG" ]' > $(SERVICE_DIR)/start_service
 	echo 'then' >> $(SERVICE_DIR)/start_service
-	echo '    export KB_DEPLOYMENT_CONFIG=$(SERVICE_DIR)/deploy.cfg' >> $(SERVICE_DIR)/start_service
+	echo '    export KB_DEPLOYMENT_CONFIG=$$KB_TOP/deployment.cfg' >> $(SERVICE_DIR)/start_service
 	echo 'fi' >> $(SERVICE_DIR)/start_service
 	echo "./glassfish_start_service.sh $(SERVICE_DIR)/$(WAR_FILE) $(TARGET_PORT) $(THREADPOOL_SIZE)" >> $(SERVICE_DIR)/start_service
 	chmod +x $(SERVICE_DIR)/start_service
