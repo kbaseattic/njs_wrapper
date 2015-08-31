@@ -4,11 +4,13 @@ DEPLOY_RUNTIME ?= $(KB_RUNTIME)
 TARGET ?= /kb/deployment
 CURR_DIR = $(shell pwd)
 SERVICE_NAME = $(shell basename $(CURR_DIR))
+SERVICE_CAPS = NarrativeJobService
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
-LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
 WAR_FILE = NJSWrapper.war
 
-TARGET_PORT = 8200
+ASADMIN = $(GLASSFISH_HOME)/glassfish/bin/asadmin
+
+SERVICE_PORT = 8200
 THREADPOOL_SIZE = 50
 
 default: compile
@@ -39,15 +41,14 @@ deploy-service:
 	mkdir -p $(SERVICE_DIR)
 	cp -f ./deploy.cfg $(SERVICE_DIR)
 	cp -f ./dist/$(WAR_FILE) $(SERVICE_DIR)
-	cp -f ./service/glassfish_start_service.sh $(SERVICE_DIR)
-	cp -f ./service/glassfish_stop_service.sh $(SERVICE_DIR)
-	echo 'if [ -z "$$KB_DEPLOYMENT_CONFIG" ]' > $(SERVICE_DIR)/start_service
-	echo 'then' >> $(SERVICE_DIR)/start_service
-	echo '    export KB_DEPLOYMENT_CONFIG=$$KB_TOP/deployment.cfg' >> $(SERVICE_DIR)/start_service
-	echo 'fi' >> $(SERVICE_DIR)/start_service
-	echo "./glassfish_start_service.sh $(SERVICE_DIR)/$(WAR_FILE) $(TARGET_PORT) $(THREADPOOL_SIZE)" >> $(SERVICE_DIR)/start_service
+	mkdir $(SERVICE_DIR)/webapps
+	cp ./dist/$(WAR_FILE) $(SERVICE_DIR)/webapps/root.war
+	cp server_scripts/jetty.xml $(SERVICE_DIR)
+	server_scripts/build_server_control_scripts.py $(SERVICE_DIR) $(WAR_FILE)\
+		$(TARGET) $(JAVA_HOME) deploy.cfg $(ASADMIN) $(SERVICE_CAPS)\
+		$(SERVICE_PORT)
+
 	chmod +x $(SERVICE_DIR)/start_service
-	echo "./glassfish_stop_service.sh $(TARGET_PORT)" > $(SERVICE_DIR)/stop_service
 	chmod +x $(SERVICE_DIR)/stop_service
 
 deploy-scripts:
