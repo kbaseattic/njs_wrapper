@@ -83,12 +83,13 @@ workspace_object is a reference to a hash where the following keys are defined:
 	object_type has a value which is a string
 	is_input has a value which is a NarrativeJobService.boolean
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
+job_id is a string
 
 </pre>
 
@@ -130,12 +131,13 @@ workspace_object is a reference to a hash where the following keys are defined:
 	object_type has a value which is a string
 	is_input has a value which is a NarrativeJobService.boolean
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
+job_id is a string
 
 
 =end text
@@ -191,10 +193,11 @@ sub run_app
 =begin html
 
 <pre>
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $return is a NarrativeJobService.app_state
+job_id is a string
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
@@ -208,10 +211,11 @@ boolean is an int
 
 =begin text
 
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $return is a NarrativeJobService.app_state
+job_id is a string
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
@@ -273,8 +277,9 @@ sub check_app_state
 =begin html
 
 <pre>
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 </pre>
 
@@ -282,8 +287,9 @@ $status is a string
 
 =begin text
 
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 
 =end text
@@ -339,8 +345,9 @@ sub suspend_app
 =begin html
 
 <pre>
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 </pre>
 
@@ -348,8 +355,9 @@ $status is a string
 
 =begin text
 
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 
 =end text
@@ -405,8 +413,9 @@ sub resume_app
 =begin html
 
 <pre>
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 </pre>
 
@@ -414,8 +423,9 @@ $status is a string
 
 =begin text
 
-$job_id is a string
+$job_id is a NarrativeJobService.job_id
 $status is a string
+job_id is a string
 
 
 =end text
@@ -588,6 +598,8 @@ Status is a reference to a hash where the following keys are defined:
 	running_tasks_total has a value which is an int
 	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
 	tasks_in_queue has a value which is an int
+	config has a value which is a reference to a hash where the key is a string and the value is a string
+	git_commit has a value which is a string
 boolean is an int
 
 </pre>
@@ -603,6 +615,8 @@ Status is a reference to a hash where the following keys are defined:
 	running_tasks_total has a value which is an int
 	running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
 	tasks_in_queue has a value which is an int
+	config has a value which is a reference to a hash where the key is a string and the value is a string
+	git_commit has a value which is a string
 boolean is an int
 
 
@@ -652,12 +666,13 @@ sub status
 <pre>
 $return is a reference to a list where each element is a NarrativeJobService.app_state
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
+job_id is a string
 boolean is an int
 
 </pre>
@@ -668,12 +683,13 @@ boolean is an int
 
 $return is a reference to a list where each element is a NarrativeJobService.app_state
 app_state is a reference to a hash where the following keys are defined:
-	job_id has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
 	job_state has a value which is a string
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
+job_id is a string
 boolean is an int
 
 
@@ -705,6 +721,197 @@ sub list_running_apps
 							       method_name => 'list_running_apps');
     }
     return($return);
+}
+
+
+
+
+=head2 run_job
+
+  $job_id = $obj->run_job($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.RunJobParams
+$job_id is a NarrativeJobService.job_id
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+job_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.RunJobParams
+$job_id is a NarrativeJobService.job_id
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+job_id is a string
+
+
+=end text
+
+
+
+=item Description
+
+Start a new job (long running method of service registered in ServiceRegistery).
+Such job runs Docker image for this service in script mode.
+
+=back
+
+=cut
+
+sub run_job
+{
+    my $self = shift;
+    my($params) = @_;
+
+    my @_bad_arguments;
+    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to run_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'run_job');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($job_id);
+    #BEGIN run_job
+    #END run_job
+    my @_bad_returns;
+    (!ref($job_id)) or push(@_bad_returns, "Invalid type for return variable \"job_id\" (value was \"$job_id\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to run_job:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'run_job');
+    }
+    return($job_id);
+}
+
+
+
+
+=head2 check_job
+
+  $job_state = $obj->check_job($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$job_state is a NarrativeJobService.JobState
+job_id is a string
+JobState is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	finished has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+	status has a value which is an UnspecifiedObject, which can hold any non-null object
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+boolean is an int
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$job_state is a NarrativeJobService.JobState
+job_id is a string
+JobState is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	finished has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+	status has a value which is an UnspecifiedObject, which can hold any non-null object
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+boolean is an int
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+
+=end text
+
+
+
+=item Description
+
+Check if a job is finished and get results/error
+
+=back
+
+=cut
+
+sub check_job
+{
+    my $self = shift;
+    my($job_id) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to check_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'check_job');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($job_state);
+    #BEGIN check_job
+    #END check_job
+    my @_bad_returns;
+    (ref($job_state) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"job_state\" (value was \"$job_state\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to check_job:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'check_job');
+    }
+    return($job_state);
 }
 
 
@@ -772,6 +979,73 @@ an int
 =begin text
 
 an int
+
+=end text
+
+=back
+
+
+
+=head2 timestamp
+
+=over 4
+
+
+
+=item Description
+
+A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is either the
+character Z (representing the UTC timezone) or the difference
+in time to UTC in the format +/-HHMM, eg:
+    2012-12-17T23:24:06-0500 (EST time)
+    2013-04-03T08:56:32+0000 (UTC time)
+    2013-04-03T08:56:32Z (UTC time)
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
+=head2 job_id
+
+=over 4
+
+
+
+=item Description
+
+A job id.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
 
 =end text
 
@@ -1023,7 +1297,12 @@ steps has a value which is a reference to a list where each element is a Narrati
 
 =item Description
 
-mapping<string, string> step_job_ids;
+job_id - id of job running app
+job_state - 'queued', 'running', 'completed', or 'error'
+running_step_id - id of step currently running
+step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
+step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
+step_job_ids - mapping from step_id to job_id.
 
 
 =item Definition
@@ -1032,7 +1311,7 @@ mapping<string, string> step_job_ids;
 
 <pre>
 a reference to a hash where the following keys are defined:
-job_id has a value which is a string
+job_id has a value which is a NarrativeJobService.job_id
 job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
@@ -1046,7 +1325,7 @@ is_deleted has a value which is a NarrativeJobService.boolean
 =begin text
 
 a reference to a hash where the following keys are defined:
-job_id has a value which is a string
+job_id has a value which is a NarrativeJobService.job_id
 job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
@@ -1077,6 +1356,8 @@ stopping_mode has a value which is a NarrativeJobService.boolean
 running_tasks_total has a value which is an int
 running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
 tasks_in_queue has a value which is an int
+config has a value which is a reference to a hash where the key is a string and the value is a string
+git_commit has a value which is a string
 
 </pre>
 
@@ -1090,6 +1371,279 @@ stopping_mode has a value which is a NarrativeJobService.boolean
 running_tasks_total has a value which is an int
 running_tasks_per_user has a value which is a reference to a hash where the key is a string and the value is an int
 tasks_in_queue has a value which is an int
+config has a value which is a reference to a hash where the key is a string and the value is a string
+git_commit has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 MethodCall
+
+=over 4
+
+
+
+=item Description
+
+time - the time the call was started;
+method - service defined in standard JSON RPC way, typically it's
+    module name from spec-file followed by '.' and name of funcdef
+    from spec-file corresponding to running method (e.g.
+    'KBaseTrees.construct_species_tree' from trees service);
+job_id - job id if method is asynchronous (optional field).
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+time has a value which is a NarrativeJobService.timestamp
+method has a value which is a string
+job_id has a value which is a NarrativeJobService.job_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+time has a value which is a NarrativeJobService.timestamp
+method has a value which is a string
+job_id has a value which is a NarrativeJobService.job_id
+
+
+=end text
+
+=back
+
+
+
+=head2 RpcContext
+
+=over 4
+
+
+
+=item Description
+
+call_stack - upstream calls details including nested service calls and 
+    parent jobs where calls are listed in order from outer to inner.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+run_id has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+run_id has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 RunJobParams
+
+=over 4
+
+
+
+=item Description
+
+method - service defined in standard JSON RPC way, typically it's
+    module name from spec-file followed by '.' and name of funcdef 
+    from spec-file corresponding to running method (e.g.
+    'KBaseTrees.construct_species_tree' from trees service);
+params - the parameters of the method that performed this call;
+service_ver - specific version of deployed service, last version is used 
+    if this parameter is not defined (optional field);
+rpc_context - context of current method call including nested call history
+    (optional field, could be omitted in case there is no call history);
+remote_url - optional field determining remote service call instead of
+    local command line execution.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+method has a value which is a string
+params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+service_ver has a value which is a string
+rpc_context has a value which is a NarrativeJobService.RpcContext
+remote_url has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+method has a value which is a string
+params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+service_ver has a value which is a string
+rpc_context has a value which is a NarrativeJobService.RpcContext
+remote_url has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 JsonRpcError
+
+=over 4
+
+
+
+=item Description
+
+Error block of JSON RPC response
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+name has a value which is a string
+code has a value which is an int
+message has a value which is a string
+error has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+name has a value which is a string
+code has a value which is an int
+message has a value which is a string
+error has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 FinishJobParams
+
+=over 4
+
+
+
+=item Description
+
+Either 'result' or 'error' field should be defined;
+result - keeps exact copy of what original server method puts
+    in result block of JSON RPC response;
+error - keeps exact copy of what original server method puts
+    in error block of JSON RPC response.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+result has a value which is an UnspecifiedObject, which can hold any non-null object
+error has a value which is a NarrativeJobService.JsonRpcError
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+result has a value which is an UnspecifiedObject, which can hold any non-null object
+error has a value which is a NarrativeJobService.JsonRpcError
+
+
+=end text
+
+=back
+
+
+
+=head2 JobState
+
+=over 4
+
+
+
+=item Description
+
+job_id - id of job running method
+finished - indicates whether job is done (including error cases) or not,
+    if the value is true then either of 'returned_data' or 'detailed_error'
+    should be defined;
+ujs_url - url of UserAndJobState service used by job service
+status - tuple returned by UserAndJobState.get_job_status method
+result - keeps exact copy of what original server method puts
+    in result block of JSON RPC response;
+error - keeps exact copy of what original server method puts
+    in error block of JSON RPC response.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a string
+finished has a value which is a NarrativeJobService.boolean
+ujs_url has a value which is a string
+status has a value which is an UnspecifiedObject, which can hold any non-null object
+result has a value which is an UnspecifiedObject, which can hold any non-null object
+error has a value which is a NarrativeJobService.JsonRpcError
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a string
+finished has a value which is a NarrativeJobService.boolean
+ujs_url has a value which is a string
+status has a value which is an UnspecifiedObject, which can hold any non-null object
+result has a value which is an UnspecifiedObject, which can hold any non-null object
+error has a value which is a NarrativeJobService.JsonRpcError
 
 
 =end text

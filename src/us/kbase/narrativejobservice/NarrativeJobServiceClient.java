@@ -158,7 +158,7 @@ public class NarrativeJobServiceClient {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
@@ -176,7 +176,7 @@ public class NarrativeJobServiceClient {
      * <pre>
      * status - 'success' or 'failure' of action
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
@@ -193,7 +193,7 @@ public class NarrativeJobServiceClient {
      * <p>Original spec-file function name: resume_app</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
@@ -210,7 +210,7 @@ public class NarrativeJobServiceClient {
      * <p>Original spec-file function name: delete_app</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
@@ -282,6 +282,43 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<List<AppState>>> retType = new TypeReference<List<List<AppState>>>() {};
         List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: run_job</p>
+     * <pre>
+     * Start a new job (long running method of service registered in ServiceRegistery).
+     * Such job runs Docker image for this service in script mode.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.RunJobParams RunJobParams}
+     * @return   parameter "job_id" of original type "job_id" (A job id.)
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String runJob(RunJobParams params) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_job", args, retType, true, true);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: check_job</p>
+     * <pre>
+     * Check if a job is finished and get results/error
+     * </pre>
+     * @param   jobId   instance of original type "job_id" (A job id.)
+     * @return   parameter "job_state" of type {@link us.kbase.narrativejobservice.JobState JobState}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public JobState checkJob(String jobId) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(jobId);
+        TypeReference<List<JobState>> retType = new TypeReference<List<JobState>>() {};
+        List<JobState> res = caller.jsonrpcCall("NarrativeJobService.check_job", args, retType, true, true);
         return res.get(0);
     }
 }

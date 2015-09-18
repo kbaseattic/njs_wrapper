@@ -27,119 +27,145 @@ class NarrativeJobService:
         #END_CONSTRUCTOR
         pass
 
-    def run_app(self, app):
-        # self.ctx is set by the wsgi application class
+    def run_app(self, ctx, app):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN run_app
         #END run_app
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, dict):
             raise ValueError('Method run_app return value ' +
                              'returnVal is not type dict as required.')
         # return the results
         return [returnVal]
 
-    def check_app_state(self, job_id):
-        # self.ctx is set by the wsgi application class
+    def check_app_state(self, ctx, job_id):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN check_app_state
         #END check_app_state
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, dict):
             raise ValueError('Method check_app_state return value ' +
                              'returnVal is not type dict as required.')
         # return the results
         return [returnVal]
 
-    def suspend_app(self, job_id):
-        # self.ctx is set by the wsgi application class
+    def suspend_app(self, ctx, job_id):
+        # ctx is the context object
         # return variables are: status
         #BEGIN suspend_app
         #END suspend_app
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(status, basestring):
             raise ValueError('Method suspend_app return value ' +
                              'status is not type basestring as required.')
         # return the results
         return [status]
 
-    def resume_app(self, job_id):
-        # self.ctx is set by the wsgi application class
+    def resume_app(self, ctx, job_id):
+        # ctx is the context object
         # return variables are: status
         #BEGIN resume_app
         #END resume_app
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(status, basestring):
             raise ValueError('Method resume_app return value ' +
                              'status is not type basestring as required.')
         # return the results
         return [status]
 
-    def delete_app(self, job_id):
-        # self.ctx is set by the wsgi application class
+    def delete_app(self, ctx, job_id):
+        # ctx is the context object
         # return variables are: status
         #BEGIN delete_app
         #END delete_app
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(status, basestring):
             raise ValueError('Method delete_app return value ' +
                              'status is not type basestring as required.')
         # return the results
         return [status]
 
-    def list_config(self):
-        # self.ctx is set by the wsgi application class
+    def list_config(self, ctx):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN list_config
         #END list_config
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, dict):
             raise ValueError('Method list_config return value ' +
                              'returnVal is not type dict as required.')
         # return the results
         return [returnVal]
 
-    def ver(self):
-        # self.ctx is set by the wsgi application class
+    def ver(self, ctx):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN ver
         #END ver
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, basestring):
             raise ValueError('Method ver return value ' +
                              'returnVal is not type basestring as required.')
         # return the results
         return [returnVal]
 
-    def status(self):
-        # self.ctx is set by the wsgi application class
+    def status(self, ctx):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN status
         #END status
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, dict):
             raise ValueError('Method status return value ' +
                              'returnVal is not type dict as required.')
         # return the results
         return [returnVal]
 
-    def list_running_apps(self):
-        # self.ctx is set by the wsgi application class
+    def list_running_apps(self, ctx):
+        # ctx is the context object
         # return variables are: returnVal
         #BEGIN list_running_apps
         #END list_running_apps
 
-        #At some point might do deeper type checking...
+        # At some point might do deeper type checking...
         if not isinstance(returnVal, list):
             raise ValueError('Method list_running_apps return value ' +
                              'returnVal is not type list as required.')
         # return the results
         return [returnVal]
+
+    def run_job(self, ctx, params):
+        # ctx is the context object
+        # return variables are: job_id
+        #BEGIN run_job
+        #END run_job
+
+        # At some point might do deeper type checking...
+        if not isinstance(job_id, basestring):
+            raise ValueError('Method run_job return value ' +
+                             'job_id is not type basestring as required.')
+        # return the results
+        return [job_id]
+
+    def check_job(self, ctx, job_id):
+        # ctx is the context object
+        # return variables are: job_state
+        #BEGIN check_job
+        #END check_job
+
+        # At some point might do deeper type checking...
+        if not isinstance(job_state, dict):
+            raise ValueError('Method check_job return value ' +
+                             'job_state is not type dict as required.')
+        # return the results
+        return [job_state]

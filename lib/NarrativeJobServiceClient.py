@@ -46,10 +46,10 @@ def _get_token(user_id, password,
 def _read_rcfile(file=_os.environ['HOME'] + '/.authrc'):  # @ReservedAssignment
     # Another bandaid to read in the ~/.authrc file if one is present
     authdata = None
-    if os.path.exists(file):
+    if _os.path.exists(file):
         try:
             with open(file) as authrc:
-                rawdata = json.load(authrc)
+                rawdata = _json.load(authrc)
                 # strip down whatever we read to only what is legit
                 authdata = {x: rawdata.get(x) for x in (
                     'user_id', 'token', 'client_secret', 'keyfile',
@@ -60,8 +60,8 @@ def _read_rcfile(file=_os.environ['HOME'] + '/.authrc'):  # @ReservedAssignment
 
 
 def _read_inifile(file=_os.environ.get(  # @ReservedAssignment
-                      'KB_DEPLOYMENT_CONFIG', _os.environ['HOME'] +
-                      '/.kbase_config')):
+                  'KB_DEPLOYMENT_CONFIG', _os.environ['HOME'] +
+                  '/.kbase_config')):
     # Another bandaid to read in the ~/.kbase_config file if one is present
     authdata = None
     if _os.path.exists(file):
@@ -71,9 +71,9 @@ def _read_inifile(file=_os.environ.get(  # @ReservedAssignment
             # strip down whatever we read to only what is legit
             authdata = {x: config.get('authentication', x)
                         if config.has_option('authentication', x)
-                        else None for x in
-                           ('user_id', 'token', 'client_secret',
-                            'keyfile', 'keyfile_passphrase', 'password')}
+                        else None for x in ('user_id', 'token',
+                                            'client_secret', 'keyfile',
+                                            'keyfile_passphrase', 'password')}
         except Exception, e:
             print "Error while reading INI file %s: %s" % (file, e)
     return authdata
@@ -147,8 +147,8 @@ class NarrativeJobService(object):
 
         body = _json.dumps(arg_hash, cls=_JSONObjectEncoder)
         ret = _requests.post(self.url, data=body, headers=self._headers,
-                                timeout=self.timeout,
-                                verify=not self.trust_all_ssl_certificates)
+                             timeout=self.timeout,
+                             verify=not self.trust_all_ssl_certificates)
         if ret.status_code == _requests.codes.server_error:
             if _CT in ret.headers and ret.headers[_CT] == _AJ:
                 err = _json.loads(ret.text)
@@ -208,4 +208,14 @@ class NarrativeJobService(object):
     def list_running_apps(self):
         resp = self._call('NarrativeJobService.list_running_apps',
                           [])
+        return resp[0]
+
+    def run_job(self, params):
+        resp = self._call('NarrativeJobService.run_job',
+                          [params])
+        return resp[0]
+
+    def check_job(self, job_id):
+        resp = self._call('NarrativeJobService.check_job',
+                          [job_id])
         return resp[0]

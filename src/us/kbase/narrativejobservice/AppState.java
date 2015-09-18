@@ -14,7 +14,12 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 /**
  * <p>Original spec-file type: app_state</p>
  * <pre>
- * mapping<string, string> step_job_ids;
+ * job_id - id of job running app
+ * job_state - 'queued', 'running', 'completed', or 'error'
+ * running_step_id - id of step currently running
+ * step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
+ * step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
+ * step_job_ids - mapping from step_id to job_id.
  * </pre>
  * 
  */

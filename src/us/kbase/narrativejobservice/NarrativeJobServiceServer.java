@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 
 import org.ini4j.Ini;
 
@@ -50,8 +49,16 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
     public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
     public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
+    public static final String CFG_PROP_SHOCK_URL = "shock.url";
+    public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
+    public static final String CFG_PROP_MAX_JOB_SIZE = "max.job.size";
+    public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
+    public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
+    public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
     
     public static final String VERSION = "0.1.0";
+    
+    public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
     
     private static Throwable configError = null;
     private static String configPath = null;
@@ -59,7 +66,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     
     private static TaskQueue taskHolder = null;
     private static TaskQueueConfig taskConfig = null;
-
+    
     public static Map<String, String> config() {
     	if (config != null)
     		return config;
@@ -239,6 +246,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	ret.setIsInsecureHttpConnectionAllowed(true);
     	return ret;
     }
+
+    private long getMaxJobSize() {
+        String ret = config.get(CFG_PROP_MAX_JOB_SIZE);
+        if (ret == null)
+            return 1000000L;
+        return Long.parseLong(ret);
+    }
+    
     //END_CLASS_HEADER
 
     public NarrativeJobServiceServer() throws Exception {
@@ -279,7 +294,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * <p>Original spec-file function name: check_app_state</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
     @JsonServerMethod(rpc = "NarrativeJobService.check_app_state")
@@ -302,7 +317,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * <pre>
      * status - 'success' or 'failure' of action
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
     @JsonServerMethod(rpc = "NarrativeJobService.suspend_app")
@@ -322,7 +337,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * <p>Original spec-file function name: resume_app</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
     @JsonServerMethod(rpc = "NarrativeJobService.resume_app")
@@ -342,7 +357,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * <p>Original spec-file function name: delete_app</p>
      * <pre>
      * </pre>
-     * @param   jobId   instance of String
+     * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
     @JsonServerMethod(rpc = "NarrativeJobService.delete_app")
@@ -433,6 +448,41 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         	throw new IllegalStateException("Only admin of service can list internal apps");
         returnVal = AppStateRegistry.listRunningApps();
         //END list_running_apps
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: run_job</p>
+     * <pre>
+     * Start a new job (long running method of service registered in ServiceRegistery).
+     * Such job runs Docker image for this service in script mode.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.RunJobParams RunJobParams}
+     * @return   parameter "job_id" of original type "job_id" (A job id.)
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.run_job")
+    public String runJob(RunJobParams params, AuthToken authPart) throws Exception {
+        String returnVal = null;
+        //BEGIN run_job
+        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), config());
+        //END run_job
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: check_job</p>
+     * <pre>
+     * Check if a job is finished and get results/error
+     * </pre>
+     * @param   jobId   instance of original type "job_id" (A job id.)
+     * @return   parameter "job_state" of type {@link us.kbase.narrativejobservice.JobState JobState}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.check_job")
+    public JobState checkJob(String jobId, AuthToken authPart) throws Exception {
+        JobState returnVal = null;
+        //BEGIN check_job
+        returnVal = RunAppBuilder.checkJob(jobId, authPart.toString(), config());
+        //END check_job
         return returnVal;
     }
 
