@@ -7,6 +7,9 @@ SERVICE_NAME = $(shell basename $(CURR_DIR))
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
 LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
 WAR_FILE = NJSWrapper.war
+ANT = ant
+BIN = $(TARGET)/bin
+JAVA_HOME ?= $(KB_RUNTIME)/java
 
 TARGET_PORT = 8200
 THREADPOOL_SIZE = 50
@@ -29,12 +32,11 @@ test-scripts:
 	@echo "No tests for scripts"
 
 compile: src
-	ant war
+	$(ANT) war
 
-deploy-client:
-	@echo "No deployment for client"
+deploy-client: deploy-scripts
 
-deploy-service:
+deploy-service: deploy-scripts
 	@echo "Service folder: $(SERVICE_DIR)"
 	mkdir -p $(SERVICE_DIR)
 	cp -f ./deploy.cfg $(SERVICE_DIR)
@@ -51,10 +53,10 @@ deploy-service:
 	chmod +x $(SERVICE_DIR)/stop_service
 
 deploy-scripts:
-	@echo "No deployment for scripts"
+	$(ANT) script -Djardir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
 
 deploy-docs:
 	@echo "No documentation"
 
 clean:
-	ant clean
+	$(ANT) clean

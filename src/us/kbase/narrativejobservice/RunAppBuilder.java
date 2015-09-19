@@ -263,7 +263,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             String aweJobId = getAweTaskAweJobId(jobId, config);
             String aweState;
             try {
-                InputStream is = new URL(config.get(getAweServerURL(config)) + "/job/" + 
+                InputStream is = new URL(getAweServerURL(config) + "/job/" + 
                         aweJobId).openStream();
                 ObjectMapper mapper = new ObjectMapper();
                 @SuppressWarnings("unchecked")

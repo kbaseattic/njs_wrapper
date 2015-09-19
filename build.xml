@@ -15,6 +15,11 @@
   <property name="docs" value="docs"/>
   <property name="jarsdir" value="../jars/lib/jars"/>
   <property name="deploycfg" value=""/>
+  <property name="cmd.file" value="run_async_srv_method.sh"/>
+
+  <condition property="java.home" value="${env.JAVA_HOME}" else="/kb/runtime/java">
+    <isset property="env.JAVA_HOME" />
+  </condition>
 
   <fileset dir="${jarsdir}" id="serverlib">
     <include name="ini4j/ini4j-0.5.2.jar"/>
@@ -84,7 +89,14 @@
   </target>
 
   <target name="compile" depends="init" description="compile the source">
-    <!-- Compile class files-->
+    <exec executable="git" outputproperty="git.url"><arg line="config --get remote.origin.url"/></exec>
+    <exec executable="git" outputproperty="git.branch"><arg line="rev-parse --abbrev-ref HEAD"/></exec>
+    <exec executable="git" outputproperty="git.commit"><arg line="rev-parse HEAD"/></exec>
+    <echo file="${src}/us/kbase/narrativejobservice/git.properties">### PLEASE DO NOT CHANGE THIS FILE MANUALLY! ###
+giturl=${git.url}
+branch=${git.branch}
+commit=${git.commit}</echo>
+  	<!-- Compile class files-->
     <javac destdir="${classes}" includeantruntime="false" target="1.7" source="1.7" debug="true" classpathref="compile.classpath">
       <src path="${src}"/>
     </javac>
@@ -111,6 +123,18 @@
     </war>
     <delete dir="${war.lib}"/>
     <delete dir="${classes}"/>
+  </target>
+
+  <target name="script" depends="compile" description="create AWE command-line script">
+  	<copy file="${dist}/${jar.file}" todir="${jardir}"/>
+    <property name="jar.absolute.path" location="${jardir}/${jar.file}"/>
+    <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
+    <echo file="${bindir}/${cmd.file}">#!/bin/sh
+export JAVA_HOME=${java.home}
+export PATH=${java.home}/bin:$PATH
+java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.AweClientDockerJobScript $1 $2 $3 $4
+    </echo>
+    <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
 
   <target name="docs" description="prepare documentation">
