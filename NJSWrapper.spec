@@ -16,10 +16,15 @@ module NarrativeJobService {
     /* A job id. */
     typedef string job_id;
 
+    /*
+        service_url could be empty in case of docker image of service loaded from registry,
+        service_version - optional parameter defining version of service docker image.
+    */
     typedef structure {
         string service_name;
         string method_name;
         string service_url;
+        string service_version;
     } service_method;
 
     typedef structure {

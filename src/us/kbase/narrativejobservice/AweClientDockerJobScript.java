@@ -11,6 +11,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,7 +40,9 @@ public class AweClientDockerJobScript {
     
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
-            System.err.print("Usage: <program> <job_id> <input_shock_id> <output_shock_id> <configuration_json_hex_string>");
+            System.err.println("Usage: <program> <job_id> <input_shock_id> <output_shock_id> <configuration_json_hex_string>");
+            for (int i = 0; i < args.length; i++)
+                System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
         String jobId = args[0];
@@ -81,8 +84,23 @@ public class AweClientDockerJobScript {
             File outputFile = new File(jobDir, "output.json");
             ujsClient.updateJob(jobId, token, "running", null);
             String imageName = decamelize(moduleName);
-            new DockerRunner(getDockerRegistryURL(config)).run(imageName, "latest", moduleName, 
+            String imageVersion = job.getServiceVer();
+            if (imageVersion == null || imageVersion.isEmpty())
+                imageVersion = "latest";
+            new DockerRunner(getDockerRegistryURL(config)).run(imageName, imageVersion, moduleName, 
                     inputFile, token, new StringBuilder(), outputFile, false);
+            FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
+            Object data = result.getResult().asClassInstance(Object.class);
+            if (data instanceof List) {
+                Object dataItem = ((List)data).get(0);
+                if (dataItem instanceof Map) {
+                    Map<String, Object> dataItemMap = (Map)dataItem;
+                    if (dataItemMap.containsKey("token"))
+                        dataItemMap.remove("token");
+                    result.setResult(new UObject(data));
+                    UObject.getMapper().writeValue(outputFile, result);
+                }
+            }
             InputStream is = new FileInputStream(outputFile);
             // save result into outputShockId;
             updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");

@@ -130,6 +130,7 @@ service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
 	service_url has a value which is a string
+	service_version has a value which is a string
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
@@ -178,6 +179,7 @@ service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
 	service_url has a value which is a string
+	service_version has a value which is a string
 script_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
@@ -1298,6 +1300,12 @@ a string
 
 
 
+=item Description
+
+service_url could be empty in case of docker image of service loaded from registry,
+service_version - optional parameter defining version of service docker image.
+
+
 =item Definition
 
 =begin html
@@ -1307,6 +1315,7 @@ a reference to a hash where the following keys are defined:
 service_name has a value which is a string
 method_name has a value which is a string
 service_url has a value which is a string
+service_version has a value which is a string
 
 </pre>
 
@@ -1318,6 +1327,7 @@ a reference to a hash where the following keys are defined:
 service_name has a value which is a string
 method_name has a value which is a string
 service_url has a value which is a string
+service_version has a value which is a string
 
 
 =end text

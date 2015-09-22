@@ -88,12 +88,17 @@ public class AweClientDockerJobScriptTest {
                         "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
         String jobId = client.runJob(params);
         for (int i = 0; i < 100; i++) {
-            JobState ret = client.checkJob(jobId);
-            System.out.println(UObject.getMapper().writeValueAsString(ret));
-            if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                break;
+            try {
+                JobState ret = client.checkJob(jobId);
+                System.out.println(UObject.getMapper().writeValueAsString(ret));
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    break;
+                }
+                Thread.sleep(1000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
             }
-            Thread.sleep(1000);
         }
         /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);

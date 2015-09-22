@@ -43,7 +43,10 @@ public class Step {
     private String type;
     /**
      * <p>Original spec-file type: service_method</p>
-     * 
+     * <pre>
+     * service_url could be empty in case of docker image of service loaded from registry,
+     * service_version - optional parameter defining version of service docker image.
+     * </pre>
      * 
      */
     @JsonProperty("service")
@@ -97,7 +100,10 @@ public class Step {
 
     /**
      * <p>Original spec-file type: service_method</p>
-     * 
+     * <pre>
+     * service_url could be empty in case of docker image of service loaded from registry,
+     * service_version - optional parameter defining version of service docker image.
+     * </pre>
      * 
      */
     @JsonProperty("service")
@@ -107,7 +113,10 @@ public class Step {
 
     /**
      * <p>Original spec-file type: service_method</p>
-     * 
+     * <pre>
+     * service_url could be empty in case of docker image of service loaded from registry,
+     * service_version - optional parameter defining version of service docker image.
+     * </pre>
      * 
      */
     @JsonProperty("service")

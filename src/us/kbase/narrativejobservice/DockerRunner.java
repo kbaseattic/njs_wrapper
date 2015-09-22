@@ -8,8 +8,6 @@ import java.io.InputStreamReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import us.kbase.auth.AuthService;
-
 import ch.qos.logback.classic.Level;
 
 import com.github.dockerjava.api.DockerClient;

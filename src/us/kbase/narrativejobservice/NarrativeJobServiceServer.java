@@ -2,6 +2,7 @@ package us.kbase.narrativejobservice;
 
 import java.util.List;
 import java.util.Map;
+
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
@@ -9,9 +10,11 @@ import us.kbase.common.service.JsonServerServlet;
 //BEGIN_HEADER
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Properties;
 
 import org.ini4j.Ini;
 
@@ -246,14 +249,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	ret.setIsInsecureHttpConnectionAllowed(true);
     	return ret;
     }
-
-    private long getMaxJobSize() {
-        String ret = config.get(CFG_PROP_MAX_JOB_SIZE);
-        if (ret == null)
-            return 1000000L;
-        return Long.parseLong(ret);
-    }
-    
     //END_CLASS_HEADER
 
     public NarrativeJobServiceServer() throws Exception {
@@ -425,11 +420,36 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //BEGIN status
         int queued = taskHolder.getQueuedTasks();
         int running = taskHolder.getAllTasks() - queued;
+        Map<String, String> safeConfig = new LinkedHashMap<String, String>();
+        String[] keys = {CFG_PROP_AWE_SRV_URL, CFG_PROP_DOCKER_REGISTRY_URL, 
+                CFG_PROP_JOBSTATUS_SRV_URL, CFG_PROP_NJS_SRV_URL, 
+                CFG_PROP_QUEUE_DB_DIR, CFG_PROP_REBOOT_MODE, 
+                CFG_PROP_RUNNING_TASKS_PER_USER, CFG_PROP_SCRATCH,
+                CFG_PROP_SHOCK_URL, CFG_PROP_THREAD_COUNT,
+                CFG_PROP_WORKSPACE_SRV_URL};
+        for (String key : keys) {
+            String value = config.get(key);
+            if (value == null)
+                value = "<not-defined>";
+            safeConfig.put(key, value);
+        }
+        String gitCommit = null;
+        try {
+            Properties gitProps = new Properties();
+            InputStream is = this.getClass().getResourceAsStream("git.properties");
+            gitProps.load(is);
+            is.close();
+            gitCommit = gitProps.getProperty("commit");
+        } catch (Exception ex) {
+            gitCommit = "Error: " + ex.getMessage();
+        }
         returnVal = new Status().withRebootMode(getRebootMode() ? 1L : 0L)
         		.withStoppingMode(taskHolder.getStoppingMode() ? 1L : 0L)
         		.withRunningTasksTotal((long)running)
         		.withRunningTasksPerUser(taskHolder.getRunningTasksPerUser())
-        		.withTasksInQueue((long)queued);
+        		.withTasksInQueue((long)queued)
+        		.withConfig(safeConfig)
+        		.withGitCommit(gitCommit);
         //END status
         return returnVal;
     }

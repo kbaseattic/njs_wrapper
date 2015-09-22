@@ -3,7 +3,6 @@ package us.kbase.narrativejobservice;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.InputStream;
 import java.net.URL;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -16,7 +15,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
@@ -137,51 +135,71 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			String srvMethod = step.getService().getMethodName();
 			if (srvName != null && !srvName.isEmpty())
 				srvMethod = srvName + "." + srvMethod;
-			List<UObject> values = step.getInputValues();
-			JsonClientCaller caller = new JsonClientCaller(new URL(srvUrl), auth);
-	        caller.setInsecureHttpConnectionAllowed(true);
-	        caller.setAllSSLCertificatesTrusted(true);
-	        List<Object> args = new ArrayList<Object>(values);
-	        TypeReference<List<Object>> retType = new TypeReference<List<Object>>() {};
-	        List<Object> res = null;
-			if (debug)
-				System.out.println("Before generic call for app [" + jobId + "] step [" + step.getStepId() + "]");
-	        try {
-	        	res = caller.jsonrpcCall(srvMethod, args, retType, true, true);
-	        } catch (ServerException ex) {
-	        	if (!ex.getMessage().equals("An unknown server error occured"))
-	        		throw ex;
-	        }
-			if (debug)
-				System.out.println("After generic call for app [" + jobId + "] step [" + step.getStepId() + "]");
-	        Object stepOutput = res == null ? "" : (res.size() == 1 ? res.get(0) : res);
-	        String stepJobId = null;
-	        if (step.getIsLongRunning() != null && step.getIsLongRunning() == 1L) {
-	        	if (step.getJobIdOutputField() == null) {
-	        		if (stepOutput == null || !(stepOutput instanceof String))
-	        			throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
-	        					"is not a string value: " + stepOutput);
-	        		stepJobId = (String)stepOutput;
-	        	} else {
-	        		if (!(stepOutput instanceof Map))
-	        			throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
-	        					"is not a mapping: " + stepOutput);
-	        		@SuppressWarnings("unchecked")
-					Map<String, Object> map = (Map<String, Object>)stepOutput;
-	        		stepJobId = (String)map.get(step.getJobIdOutputField());
-	        		if (stepJobId == null)
-	        			throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
-	        					"doesn't contain field [" + step.getJobIdOutputField() + "]: " + stepOutput);
-	        	}
-	        }
-	        if (stepJobId != null) {
-	    		if (debug)
-	    			System.out.println("Before waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
-	        	waitForJob(token, ujsUrl, stepJobId, appState);
-	    		if (debug)
-	    			System.out.println("After waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
-	        }
-	        appState.getStepOutputs().put(step.getStepId(), UObject.transformObjectToString(stepOutput));
+			if (step.getIsLongRunning() != null && step.getIsLongRunning() == 1L &&
+			        srvUrl.isEmpty()) {
+			    RunJobParams params = new RunJobParams().withMethod(srvMethod)
+			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
+			    String stepJobId = runAweDockerScript(params, token, config);
+			    JobState jobState = null;
+			    while (true) {
+			        Thread.sleep(5000);
+			        jobState = checkJob(stepJobId, token, config);
+			        if (jobState.getFinished() != null && jobState.getFinished() == 1L)
+			            break;
+			    }
+			    if (jobState.getError() != null) {
+			        JsonRpcError retError = jobState.getError();
+	                throw new ServerException(retError.getMessage(), retError.getCode().intValue(), 
+	                        retError.getName(), retError.getError());
+			    }
+                appState.getStepOutputs().put(step.getStepId(), UObject.transformObjectToString(jobState.getResult()));
+			} else {
+			    List<UObject> values = step.getInputValues();
+			    JsonClientCaller caller = new JsonClientCaller(new URL(srvUrl), auth);
+			    caller.setInsecureHttpConnectionAllowed(true);
+			    caller.setAllSSLCertificatesTrusted(true);
+			    List<Object> args = new ArrayList<Object>(values);
+			    TypeReference<List<Object>> retType = new TypeReference<List<Object>>() {};
+			    List<Object> res = null;
+			    if (debug)
+			        System.out.println("Before generic call for app [" + jobId + "] step [" + step.getStepId() + "]");
+			    try {
+			        res = caller.jsonrpcCall(srvMethod, args, retType, true, true);
+			    } catch (ServerException ex) {
+			        if (!ex.getMessage().equals("An unknown server error occured"))
+			            throw ex;
+			    }
+			    if (debug)
+			        System.out.println("After generic call for app [" + jobId + "] step [" + step.getStepId() + "]");
+			    Object stepOutput = res == null ? "" : (res.size() == 1 ? res.get(0) : res);
+			    String stepJobId = null;
+			    if (step.getIsLongRunning() != null && step.getIsLongRunning() == 1L) {
+			        if (step.getJobIdOutputField() == null) {
+			            if (stepOutput == null || !(stepOutput instanceof String))
+			                throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
+			                        "is not a string value: " + stepOutput);
+			            stepJobId = (String)stepOutput;
+			        } else {
+			            if (!(stepOutput instanceof Map))
+			                throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
+			                        "is not a mapping: " + stepOutput);
+			            @SuppressWarnings("unchecked")
+			            Map<String, Object> map = (Map<String, Object>)stepOutput;
+			            stepJobId = (String)map.get(step.getJobIdOutputField());
+			            if (stepJobId == null)
+			                throw new IllegalStateException("Output of step [" + step.getStepId() + "] " +
+			                        "doesn't contain field [" + step.getJobIdOutputField() + "]: " + stepOutput);
+			        }
+			    }
+			    if (stepJobId != null) {
+			        if (debug)
+			            System.out.println("Before waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
+			        waitForJob(token, ujsUrl, stepJobId, appState);
+			        if (debug)
+			            System.out.println("After waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
+			    }
+			    appState.getStepOutputs().put(step.getStepId(), UObject.transformObjectToString(stepOutput));
+			}
 		}
         appState.setRunningStepId(null);
         appState.setJobState(APP_STATE_DONE);
@@ -198,7 +216,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			Tuple7<String, String, String, Long, String, Long, Long> data = jscl.getJobStatus(jobId);
     		Long complete = data.getE6();
     		Long wasError = data.getE7();
-			if (complete == 1L) {
+			if (complete != null && complete == 1L) {
 				if (wasError == 0L) {
 					break;
 				} else {
@@ -236,7 +254,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 clientScriptConfig.put(key, value);
         }
         String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", 
-                params.getMethod(), ujsJobId + " " + inputShockId + " " + outputShockId +
+                params.getMethod(), ujsJobId + " " + inputShockId + " " + outputShockId + " " +
                 TextUtils.stringToHex(UObject.getMapper().writeValueAsString(clientScriptConfig)), 
                 NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart.toString());
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, config);
@@ -263,20 +281,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             String aweJobId = getAweTaskAweJobId(jobId, config);
             String aweState;
             try {
-                InputStream is = new URL(getAweServerURL(config) + "/job/" + 
-                        aweJobId).openStream();
-                ObjectMapper mapper = new ObjectMapper();
-                @SuppressWarnings("unchecked")
-                Map<String, Object> aweJob = mapper.readValue(is, Map.class);
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = (Map<String, Object>)aweJob.get("data");
-                aweState = (String)data.get("state");
+                aweState = AweUtils.getAweJobState(getAweServerURL(config), aweJobId, token);
             } catch (Exception ex) {
                 throw new IllegalStateException("Error checking AWE job for ujs-id=" + jobId + 
                         " (" + ex.getMessage() + ")", ex);
             }
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
-                    (!aweState.equals("in-progress")) && (!aweState.equals("completed"))) {
+                    (!aweState.equals("in-progress"))) {
                 throw new IllegalStateException("Unexpected job state: " + aweState);
             }
             returnVal.setFinished(0L);
@@ -287,7 +298,6 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             returnVal.setResult(result.getResult());
             returnVal.setError(result.getError());
         }
-        //END check_job
         return returnVal;
     }
     
@@ -381,6 +391,19 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return rows.get(0);
     }
 
+    public static boolean isAweTask(String ujsJobId, Map<String, String> config) throws Exception {
+        List<Integer> rows = getDbConnection(config).collect(
+                "select count(*) " +
+                "from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " " +
+                "where ujs_job_id=?", new DbConn.SqlLoader<Integer>() {
+            @Override
+            public Integer collectRow(ResultSet rs) throws SQLException {
+                return rs.getInt(1);
+            }
+        }, ujsJobId);
+        return rows.size() == 1 && rows.get(0) > 0;
+    }
+    
     private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
         return getAweTaskDescription(ujsJobId, config)[1];
     }
