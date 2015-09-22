@@ -1,8 +1,6 @@
 package us.kbase.narrativejobservice.test;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -17,7 +15,6 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -39,14 +36,16 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ProcessHelper;
-import us.kbase.common.utils.TextUtils;
-import us.kbase.narrativejobservice.AweClientDockerJobScript;
+import us.kbase.narrativejobservice.App;
+import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
+import us.kbase.narrativejobservice.ServiceMethod;
+import us.kbase.narrativejobservice.Step;
 import us.kbase.shock.client.BasicShockClient;
-import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 @SuppressWarnings("unchecked")
@@ -71,17 +70,10 @@ public class AweClientDockerJobScriptTest {
     private static final String ujsUrl = "https://ci.kbase.us/services/userandjobstate/";
     private static final String shockUrl = "https://ci.kbase.us/services/shock-api";
     private static final String dockerRegUrl = "dockerhub-ci.kbase.us";
+    private static final String realNjsUrl = "https://ci.kbase.us/services/narrative_job_service";
     
     @Test
-    public void mainTest() throws Exception {
-        /*Map<String, String> config = new LinkedHashMap<String, String>();
-        config.put(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL, dockerRegUrl);
-        config.put(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, njsServiceDir.getAbsolutePath());
-        config.put(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
-        config.put(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL, shockUrl);
-        UserAndJobStateClient ujsClient = getUjsClient(token, config);
-        BasicShockClient shockClient = getShockClient(token, config);
-        */
+    public void testOneJob() throws Exception {
         RunJobParams params = new RunJobParams().withMethod(
                 "GenomeFeatureComparator.compare_genome_features")
                 .withParams(Arrays.asList(UObject.fromJsonString(
@@ -90,7 +82,7 @@ public class AweClientDockerJobScriptTest {
         for (int i = 0; i < 100; i++) {
             try {
                 JobState ret = client.checkJob(jobId);
-                System.out.println(UObject.getMapper().writeValueAsString(ret));
+                System.out.println("Job state: " + UObject.getMapper().writeValueAsString(ret));
                 if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     break;
                 }
@@ -100,21 +92,37 @@ public class AweClientDockerJobScriptTest {
                 throw ex;
             }
         }
-        /*ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        UObject.getMapper().writeValue(baos, params);
-        ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-        String inputShockId = shockClient.addNode(bais, "job.json", "json").getId().getId();
-        String ujsJobId = ujsClient.createJob();
-        String outputShockId = shockClient.addNode().getId().getId();
-        System.setProperty("KB_AUTH_TOKEN", token.toString());
-        AweClientDockerJobScript.main(new String[] {ujsJobId, inputShockId, outputShockId, 
-                TextUtils.stringToHex(UObject.getMapper().writeValueAsString(config))});
-        baos = new ByteArrayOutputStream();
-        shockClient.getFile(new ShockNodeId(outputShockId), baos);
-        baos.close();
-        System.out.println(new String(baos.toByteArray()));*/
+        // Job state: {"finished":1,"result":[{"params":{"genomeB":"myws.mygenome2","genomeA":"myws.mygenome1"}}]}
     }
 
+    @Test
+    public void testApp() throws Exception {
+        App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                        .withServiceName("GenomeFeatureComparator")
+                        .withMethodName("compare_genome_features"))
+                        .withInputValues(Arrays.asList(UObject.fromJsonString(
+                                "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
+                                .withIsLongRunning(1L)));
+        AppState st = client.runApp(app);
+        String jobId = st.getJobId();
+        for (int i = 0; i < 100; i++) {
+            try {
+                st = client.checkAppState(jobId);
+                System.out.println("App state: " + UObject.getMapper().writeValueAsString(st));
+                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                    break;
+                }
+                Thread.sleep(1000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        // App state: {"job_id":"5601c8eae4b065fa5a8d7ebc","job_state":"completed","step_outputs":{"step1":"[{\"params\":{\"genomeB\":\"myws.mygenome2\",\"genomeA\":\"myws.mygenome1\"}}]"},"step_errors":{},"is_deleted":0,"original_app":{"name":"fake","steps":[{"step_id":"step1","type":"service","service":{"service_name":"GenomeFeatureComparator","method_name":"compare_genome_features","service_url":""},"input_values":[{"genomeA":"myws.mygenome1","genomeB":"myws.mygenome2"}],"is_long_running":1}]},"start_timestamp":1442957561791}
+    }
+    
     private static UserAndJobStateClient getUjsClient(AuthToken auth, 
             Map<String, String> config) throws Exception {
         String jobSrvUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
@@ -479,7 +487,8 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_THREAD_COUNT + "=2",
                 NarrativeJobServiceServer.CFG_PROP_REBOOT_MODE + "=false",
                 NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest",
-                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + wsUrl
+                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + wsUrl,
+                NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + realNjsUrl
                 ), configFile);
         System.setProperty("KB_DEPLOYMENT_CONFIG", configFile.getAbsolutePath());
         Server jettyServer = new Server(port);
@@ -587,5 +596,11 @@ public class AweClientDockerJobScriptTest {
             for (File f : fileOrDir.listFiles()) 
                 deleteRecursively(f);
         fileOrDir.delete();
+    }
+    
+    public static void main(String[] args) throws Exception {
+        beforeClass();
+        int port = njsService.getConnectors()[0].getLocalPort();
+        System.out.println("NarrativeJobService was started up on port: " + port);
     }
 }

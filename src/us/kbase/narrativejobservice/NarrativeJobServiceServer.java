@@ -59,7 +59,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
     
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.2.0";
     
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
     
@@ -181,10 +181,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     		final String wsUrl = getWorkspaceServiceURL();
     		final String ujsUrl = getUJSServiceURL();
     		final int runningTasksPerUser = getRunningTasksPerUser();
-    		Map<String, String> allConfigProps = new LinkedHashMap<String, String>();
-    		allConfigProps.put(CFG_PROP_SCRATCH, getTempDir().getAbsolutePath());
-    		allConfigProps.put(CFG_PROP_JOBSTATUS_SRV_URL, ujsUrl);
-    		allConfigProps.put(CFG_PROP_NJS_SRV_URL, getNJSServiceURL());
+    		Map<String, String> allConfigProps = new LinkedHashMap<String, String>(config());
     		JobStatuses jobStatuses = new JobStatuses() {
 				@Override
 				public String createAndStartJob(String token, String status, String desc,
@@ -278,7 +275,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (forward) {
         	returnVal = getForwardClient(authPart).runApp(app);
         } else {
-        	String appJobId = taskHolder.addTask(UObject.transformObjectToString(app), authPart.toString());
+        	String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
         	returnVal = AppStateRegistry.initAppState(appJobId);
         }
         //END run_app
@@ -399,7 +396,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         String returnVal = null;
         //BEGIN ver
         returnVal = VERSION;
-        if (taskHolder.getStoppingMode())
+        if (getTaskQueue().getStoppingMode())
         	returnVal += ", task-queue is in stopping mode";
         if (getRebootMode())
         	returnVal += ", service is in reboot mode";
@@ -418,8 +415,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Status status() throws Exception {
         Status returnVal = null;
         //BEGIN status
-        int queued = taskHolder.getQueuedTasks();
-        int running = taskHolder.getAllTasks() - queued;
+        int queued = getTaskQueue().getQueuedTasks();
+        int running = getTaskQueue().getAllTasks() - queued;
         Map<String, String> safeConfig = new LinkedHashMap<String, String>();
         String[] keys = {CFG_PROP_AWE_SRV_URL, CFG_PROP_DOCKER_REGISTRY_URL, 
                 CFG_PROP_JOBSTATUS_SRV_URL, CFG_PROP_NJS_SRV_URL, 
@@ -444,9 +441,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             gitCommit = "Error: " + ex.getMessage();
         }
         returnVal = new Status().withRebootMode(getRebootMode() ? 1L : 0L)
-        		.withStoppingMode(taskHolder.getStoppingMode() ? 1L : 0L)
+        		.withStoppingMode(getTaskQueue().getStoppingMode() ? 1L : 0L)
         		.withRunningTasksTotal((long)running)
-        		.withRunningTasksPerUser(taskHolder.getRunningTasksPerUser())
+        		.withRunningTasksPerUser(getTaskQueue().getRunningTasksPerUser())
         		.withTasksInQueue((long)queued)
         		.withConfig(safeConfig)
         		.withGitCommit(gitCommit);

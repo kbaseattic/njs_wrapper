@@ -5,7 +5,6 @@ TARGET ?= /kb/deployment
 CURR_DIR = $(shell pwd)
 SERVICE_NAME = $(shell basename $(CURR_DIR))
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
-LIB_JARS_DIR = $(KB_TOP)/modules/jars/lib/jars
 WAR_FILE = NJSWrapper.war
 ANT = ant
 BIN = $(TARGET)/bin
@@ -53,7 +52,7 @@ deploy-service: deploy-scripts
 	chmod +x $(SERVICE_DIR)/stop_service
 
 deploy-scripts:
-	$(ANT) script -Djardir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
+	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
 
 deploy-docs:
 	@echo "No documentation"
