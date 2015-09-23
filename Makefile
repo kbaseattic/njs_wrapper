@@ -28,7 +28,7 @@ test-service:
 	@echo "No tests for service"
 
 test-scripts:
-	@echo "No tests for scripts"
+	$(ANT) test
 
 compile: src
 	$(ANT) war

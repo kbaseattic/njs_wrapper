@@ -15,6 +15,7 @@ import java.util.TreeMap;
 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,6 +39,7 @@ import us.kbase.narrativejobservice.WorkspaceObject;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 
+@Ignore
 public class RunAppTest {
 	private static final String wsUrl = "https://kbase.us/services/ws";
 	private static final String ujsUrl = "https://kbase.us/services/userandjobstate/";
