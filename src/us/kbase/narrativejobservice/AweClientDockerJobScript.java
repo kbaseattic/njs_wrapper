@@ -38,6 +38,7 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScript {
     
+    @SuppressWarnings("rawtypes")
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
             System.err.println("Usage: <program> <job_id> <input_shock_id> <output_shock_id> <configuration_json_hex_string>");
@@ -106,18 +107,19 @@ public class AweClientDockerJobScript {
             updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");
             ujsClient.completeJob(jobId, token, "done", null, new Results());
         } catch (Exception ex) {
+            StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw);
+            ex.printStackTrace(pw);
+            pw.close();
+            String stacktrace = sw.toString();
             try {
                 FinishJobParams result = new FinishJobParams().withError(new JsonRpcError().withCode(-1L)
-                        .withName("JSONRPCError").withMessage("Job service side error: " + ex.getMessage()));
+                        .withName("JSONRPCError").withMessage("Job service side error: " + ex.getMessage())
+                        .withError(stacktrace));
                 ByteArrayInputStream bais = new ByteArrayInputStream(UObject.getMapper().writeValueAsBytes(result));
                 updateShockNode(getShockURL(config), token, outputShockId, bais, "output.json", "json");
             } catch (Exception ignore) {}
             if (ujsClient != null) {
-                StringWriter sw = new StringWriter();
-                PrintWriter pw = new PrintWriter(sw);
-                ex.printStackTrace(pw);
-                pw.close();
-                String stacktrace = sw.toString();
                 String status = "Error: " + ex.getMessage();
                 if (status.length() > 200)
                     status = status.substring(0, 197) + "...";

@@ -265,6 +265,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
         JobState returnVal = new JobState();
+        String aweJobId = getAweTaskAweJobId(jobId, config);
+        returnVal.getAdditionalProperties().put("awe_job_id", aweJobId);
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         Tuple7<String, String, String, Long, String, Long, Long> jobStatus = 
                 ujsClient.getJobStatus(jobId);
@@ -278,7 +280,6 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         baos.close();
         if (baos.size() == 0) {
             // We should consult AWE for case the job was killed or gone with no reason.
-            String aweJobId = getAweTaskAweJobId(jobId, config);
             String aweState;
             try {
                 aweState = AweUtils.getAweJobState(getAweServerURL(config), aweJobId, token);

@@ -573,7 +573,7 @@ public class AweClientDockerJobScriptTest {
         throw new IllegalStateException("Can not find available port in system");
     }
     
-    private static File prepareWorkDir(String testName) throws IOException {
+    public static File prepareWorkDir(String testName) throws IOException {
         File tempDir = new File("temp_files").getCanonicalFile();
         if (!tempDir.exists())
             tempDir.mkdirs();
