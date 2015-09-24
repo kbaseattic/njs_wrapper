@@ -56,6 +56,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_MAX_JOB_SIZE = "max.job.size";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
+    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI = "awe.client.docker.uri";
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
     

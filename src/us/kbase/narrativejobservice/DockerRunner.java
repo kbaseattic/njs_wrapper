@@ -29,13 +29,13 @@ public class DockerRunner {
     
     public File run(String imageName, String version, String moduleName, 
             File inputData, String token, StringBuilder log, File outputFile, 
-            boolean removeImage) throws Exception {
+            boolean removeImage, String dockerURI) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
-        DockerClient cl = createDockerClient();
+        DockerClient cl = createDockerClient(dockerURI);
         String fullImgName = checkImagePulled(cl, imageName, version);
         String cntName = null;
         try {
@@ -171,50 +171,19 @@ public class DockerRunner {
         return null;
     }
     
-    private DockerClient createDockerClient() throws Exception {
+    private DockerClient createDockerClient(String dockerURI) throws Exception {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
         if (log instanceof ch.qos.logback.classic.Logger) {
             ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger)log;
             log2.setLevel(Level.ERROR);
         }
-        DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
-                .withUri("unix:///var/run/docker.sock")
-                .build();
-        return DockerClientBuilder.getInstance(config).build();
+        if (dockerURI != null && !dockerURI.isEmpty()) {
+            DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
+                    .withUri(dockerURI).build();
+            return DockerClientBuilder.getInstance(config).build();
+        } else {
+            return DockerClientBuilder.getInstance().build();
+        }
     }
 }
-/*
-javax.ws.rs.ProcessingException: org.apache.http.conn.UnsupportedSchemeException: https protocol is not supported
-        at org.glassfish.jersey.apache.connector.ApacheConnector.apply(ApacheConnector.java:513)
-        at org.glassfish.jersey.client.ClientRuntime.invoke(ClientRuntime.java:246)
-        at org.glassfish.jersey.client.JerseyInvocation$3.call(JerseyInvocation.java:705)
-        at org.glassfish.jersey.internal.Errors.process(Errors.java:315)
-        at org.glassfish.jersey.internal.Errors.process(Errors.java:297)
-        at org.glassfish.jersey.internal.Errors.process(Errors.java:228)
-        at org.glassfish.jersey.process.internal.RequestScope.runInScope(RequestScope.java:424)
-        at org.glassfish.jersey.client.JerseyInvocation.invoke(JerseyInvocation.java:701)
-        at org.glassfish.jersey.client.JerseyInvocation$Builder.method(JerseyInvocation.java:417)
-        at org.glassfish.jersey.client.JerseyInvocation$Builder.get(JerseyInvocation.java:313)
-        at com.github.dockerjava.jaxrs.ListImagesCmdExec.execute(ListImagesCmdExec.java:39)
-        at com.github.dockerjava.jaxrs.ListImagesCmdExec.execute(ListImagesCmdExec.java:17)
-        at com.github.dockerjava.jaxrs.AbstrDockerCmdExec.exec(AbstrDockerCmdExec.java:57)
-        at com.github.dockerjava.core.command.AbstrDockerCmd.exec(AbstrDockerCmd.java:29)
-        at us.kbase.narrativejobservice.DockerRunner.findImageId(DockerRunner.java:152)
-        at us.kbase.narrativejobservice.DockerRunner.findImageId(DockerRunner.java:148)
-        at us.kbase.narrativejobservice.DockerRunner.checkImagePulled(DockerRunner.java:128)
-        at us.kbase.narrativejobservice.DockerRunner.run(DockerRunner.java:38)
-        at us.kbase.narrativejobservice.AweClientDockerJobScript.main(AweClientDockerJobScript.java:91)
-Caused by: org.apache.http.conn.UnsupportedSchemeException: https protocol is not supported
-        at org.apache.http.impl.conn.HttpClientConnectionOperator.connect(HttpClientConnectionOperator.java:99)
-        at org.apache.http.impl.conn.PoolingHttpClientConnectionManager.connect(PoolingHttpClientConnectionManager.java:314)
-        at org.apache.http.impl.execchain.MainClientExec.establishRoute(MainClientExec.java:357)
-        at org.apache.http.impl.execchain.MainClientExec.execute(MainClientExec.java:218)
-        at org.apache.http.impl.execchain.ProtocolExec.execute(ProtocolExec.java:194)
-        at org.apache.http.impl.execchain.RetryExec.execute(RetryExec.java:85)
-        at org.apache.http.impl.execchain.RedirectExec.execute(RedirectExec.java:108)
-        at org.apache.http.impl.client.InternalHttpClient.doExecute(InternalHttpClient.java:186)
-        at org.apache.http.impl.client.CloseableHttpClient.execute(CloseableHttpClient.java:72)
-        at org.glassfish.jersey.apache.connector.ApacheConnector.apply(ApacheConnector.java:465)
-        ... 18 more
-*/

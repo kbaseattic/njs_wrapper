@@ -19,11 +19,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import junit.framework.Assert;
+
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
+import org.ini4j.Ini;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -61,17 +64,11 @@ public class AweClientDockerJobScriptTest {
     private static Server njsService = null;
     private static String testWsName = null;
     
-    private static int mongoInitWaitSeconds = 120;
+    private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
-    
-    private static final String wsUrl = "https://ci.kbase.us/services/ws/";
-    private static final String ujsUrl = "https://ci.kbase.us/services/userandjobstate/";
-    private static final String shockUrl = "https://ci.kbase.us/services/shock-api";
-    private static final String dockerRegUrl = "dockerhub-ci.kbase.us";
-    private static final String realNjsUrl = "https://ci.kbase.us/services/narrative_job_service";
-    
+
     @Test
     public void testOneJob() throws Exception {
         RunJobParams params = new RunJobParams().withMethod(
@@ -79,20 +76,30 @@ public class AweClientDockerJobScriptTest {
                 .withParams(Arrays.asList(UObject.fromJsonString(
                         "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
         String jobId = client.runJob(params);
-        for (int i = 0; i < 100; i++) {
+        JobState ret = null;
+        for (int i = 0; i < 300; i++) {
             try {
-                JobState ret = client.checkJob(jobId);
-                System.out.println("Job state: " + UObject.getMapper().writeValueAsString(ret));
+                ret = client.checkJob(jobId);
+                System.out.println("Job finished: " + ret.getFinished());
                 if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     break;
                 }
-                Thread.sleep(1000);
+                Thread.sleep(5000);
             } catch (ServerException ex) {
                 System.out.println(ex.getData());
                 throw ex;
             }
         }
-        // Job state: {"finished":1,"result":[{"params":{"genomeB":"myws.mygenome2","genomeA":"myws.mygenome1"}}]}
+        Assert.assertNotNull(ret);
+        String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+        Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+        Assert.assertNotNull(errMsg, ret.getResult());
+        List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
+        Assert.assertEquals(errMsg, 1, data.size());
+        Map<String, String> outParams = data.get(0).get("params");
+        Assert.assertNotNull(errMsg, outParams);
+        Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
+        Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
     }
 
     @Test
@@ -106,21 +113,31 @@ public class AweClientDockerJobScriptTest {
                                 .withIsLongRunning(1L)));
         AppState st = client.runApp(app);
         String jobId = st.getJobId();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 300; i++) {
             try {
                 st = client.checkAppState(jobId);
-                System.out.println("App state: " + UObject.getMapper().writeValueAsString(st));
+                System.out.println("App state: " + st.getJobState());
                 if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
                         st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
                     break;
                 }
-                Thread.sleep(1000);
+                Thread.sleep(5000);
             } catch (ServerException ex) {
                 System.out.println(ex.getData());
                 throw ex;
             }
         }
-        // App state: {"job_id":"5601c8eae4b065fa5a8d7ebc","job_state":"completed","step_outputs":{"step1":"[{\"params\":{\"genomeB\":\"myws.mygenome2\",\"genomeA\":\"myws.mygenome1\"}}]"},"step_errors":{},"is_deleted":0,"original_app":{"name":"fake","steps":[{"step_id":"step1","type":"service","service":{"service_name":"GenomeFeatureComparator","method_name":"compare_genome_features","service_url":""},"input_values":[{"genomeA":"myws.mygenome1","genomeB":"myws.mygenome2"}],"is_long_running":1}]},"start_timestamp":1442957561791}
+        String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+        Assert.assertEquals(errMsg, "completed", st.getJobState());
+        Assert.assertNotNull(errMsg, st.getStepOutputs());
+        String step1output = st.getStepOutputs().get("step1");
+        Assert.assertNotNull(errMsg, step1output);
+        List<Map<String, Map<String, String>>> data = UObject.getMapper().readValue(step1output, List.class);
+        Assert.assertEquals(errMsg, 1, data.size());
+        Map<String, String> outParams = data.get(0).get("params");
+        Assert.assertNotNull(errMsg, outParams);
+        Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
+        Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
     }
     
     private static UserAndJobStateClient getUjsClient(AuthToken auth, 
@@ -475,20 +492,23 @@ public class AweClientDockerJobScriptTest {
         });
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
+        Ini ini = new Ini(new File("deploy.cfg"));
+        Map<String, String> origConfig = ini.get(NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
         writeFileLines(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "=" + ujsUrl,
-                NarrativeJobServiceServer.CFG_PROP_SHOCK_URL + "=" + shockUrl,
+                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
+                NarrativeJobServiceServer.CFG_PROP_SHOCK_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL),
                 NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + "=" + new File(dir, "queue").getAbsolutePath(),
                 NarrativeJobServiceServer.CFG_PROP_AWE_SRV_URL + "=http://localhost:" + awePort + "/",
-                NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL + "=" + dockerRegUrl,
+                NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL),
                 NarrativeJobServiceServer.CFG_PROP_RUNNING_TASKS_PER_USER + "=5",
                 NarrativeJobServiceServer.CFG_PROP_THREAD_COUNT + "=2",
                 NarrativeJobServiceServer.CFG_PROP_REBOOT_MODE + "=false",
                 NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest",
-                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + wsUrl,
-                NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + realNjsUrl
+                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL),
+                NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL),
+                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI)
                 ), configFile);
         System.setProperty("KB_DEPLOYMENT_CONFIG", configFile.getAbsolutePath());
         Server jettyServer = new Server(port);
