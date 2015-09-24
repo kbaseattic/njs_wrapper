@@ -22,20 +22,22 @@ import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
     private final String dockerRegistry;
+    private final String dockerURI;
     
-    public DockerRunner(String dockerRegistry) {
+    public DockerRunner(String dockerRegistry, String dockerURI) {
         this.dockerRegistry = dockerRegistry;
+        this.dockerURI = dockerURI;
     }
     
     public File run(String imageName, String version, String moduleName, 
             File inputData, String token, StringBuilder log, File outputFile, 
-            boolean removeImage, String dockerURI) throws Exception {
+            boolean removeImage) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
-        DockerClient cl = createDockerClient(dockerURI);
+        DockerClient cl = createDockerClient();
         String fullImgName = checkImagePulled(cl, imageName, version);
         String cntName = null;
         try {
@@ -123,7 +125,7 @@ public class DockerRunner {
         }
     }
     
-    private String checkImagePulled(DockerClient cl, String imageName, String version)
+    public String checkImagePulled(DockerClient cl, String imageName, String version)
             throws Exception {
         String requestedTag = dockerRegistry + "/" + imageName + ":" + version;
         if (findImageId(cl, requestedTag) == null) {
@@ -133,7 +135,7 @@ public class DockerRunner {
                     String l = br.readLine();
                     if (l == null)
                         break;
-                    //System.out.println(l);
+                    //System.out.println("[DEBUG] DockerRunner.checkImagePulled: " + l);
                 }
             } finally {
                 br.close();
@@ -171,7 +173,7 @@ public class DockerRunner {
         return null;
     }
     
-    private DockerClient createDockerClient(String dockerURI) throws Exception {
+    public DockerClient createDockerClient() throws Exception {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
         if (log instanceof ch.qos.logback.classic.Logger) {

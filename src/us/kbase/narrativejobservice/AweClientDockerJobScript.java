@@ -87,8 +87,8 @@ public class AweClientDockerJobScript {
             if (imageVersion == null || imageVersion.isEmpty())
                 imageVersion = "latest";
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
-            new DockerRunner(getDockerRegistryURL(config)).run(imageName, imageVersion, moduleName, 
-                    inputFile, token, new StringBuilder(), outputFile, false, dockerURI);
+            new DockerRunner(getDockerRegistryURL(config), dockerURI).run(imageName, imageVersion, 
+                    moduleName, inputFile, token, new StringBuilder(), outputFile, false);
             InputStream is = new FileInputStream(outputFile);
             // save result into outputShockId;
             updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");
