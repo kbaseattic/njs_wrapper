@@ -8,6 +8,8 @@ import java.io.InputStreamReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import us.kbase.common.utils.ProcessHelper;
+
 import ch.qos.logback.classic.Level;
 
 import com.github.dockerjava.api.DockerClient;
@@ -129,7 +131,7 @@ public class DockerRunner {
             throws Exception {
         String requestedTag = dockerRegistry + "/" + imageName + ":" + version;
         if (findImageId(cl, requestedTag) == null) {
-            BufferedReader br = new BufferedReader(new InputStreamReader(cl.pullImageCmd(requestedTag).exec()));
+            /*BufferedReader br = new BufferedReader(new InputStreamReader(cl.pullImageCmd(requestedTag).exec()));
             try {
                 while (true) {
                     String l = br.readLine();
@@ -139,7 +141,10 @@ public class DockerRunner {
                 }
             } finally {
                 br.close();
-            }
+            }*/
+            System.out.println("[DEBUG] DockerRunner: before pulling " + requestedTag);
+            ProcessHelper.cmd("docker", "pull", requestedTag).exec(new File("."));
+            System.out.println("[DEBUG] DockerRunner: after pulling " + requestedTag);
         }
         if (findImageId(cl, requestedTag) == null) {
             throw new IllegalStateException("Image was not found: " + requestedTag);
