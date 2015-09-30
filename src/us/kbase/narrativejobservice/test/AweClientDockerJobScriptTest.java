@@ -72,7 +72,7 @@ public class AweClientDockerJobScriptTest {
     @Test
     public void testOneJob() throws Exception {
         RunJobParams params = new RunJobParams().withMethod(
-                "GenomeFeatureComparator.compare_genome_features")
+                "onerepotest.send_data")
                 .withParams(Arrays.asList(UObject.fromJsonString(
                         "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
         String jobId = client.runJob(params);
@@ -106,8 +106,8 @@ public class AweClientDockerJobScriptTest {
     public void testApp() throws Exception {
         App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
                 .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                        .withServiceName("GenomeFeatureComparator")
-                        .withMethodName("compare_genome_features"))
+                        .withServiceName("onerepotest")
+                        .withMethodName("send_data"))
                         .withInputValues(Arrays.asList(UObject.fromJsonString(
                                 "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
                                 .withIsLongRunning(1L)));

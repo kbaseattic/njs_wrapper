@@ -56,9 +56,9 @@ public class DockerRunner {
                 suffix++;
             }
             CreateContainerResponse resp = cl.createContainerCmd(fullImgName)
-                    .withName(cntName).withBinds(new Bind(workDir.getAbsolutePath(), 
-                            new Volume("/kb/deployment/services/" + moduleName + 
-                                    "/work"))).exec();
+                    .withName(cntName).withCmd("async").withBinds(
+                            new Bind(workDir.getAbsolutePath(), new Volume(
+                                    "/kb/module/work"))).exec();
             String cntId = resp.getId();
             cl.startContainerCmd(cntId).exec();
             cl.waitContainerCmd(cntId).exec();
