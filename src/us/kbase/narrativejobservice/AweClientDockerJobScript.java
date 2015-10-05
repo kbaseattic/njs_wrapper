@@ -81,6 +81,12 @@ public class AweClientDockerJobScript {
             File inputFile = new File(jobDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(jobDir, "output.json");
+            File configFile = new File(jobDir, "config.properties");
+            PrintWriter pw = new PrintWriter(configFile);
+            pw.println("[global]");
+            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
+            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.close();
             ujsClient.updateJob(jobId, token, "running", null);
             String imageName = decamelize(moduleName);
             String imageVersion = job.getServiceVer();

@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.zip.GZIPInputStream;
 
 import junit.framework.Assert;
 
@@ -27,6 +28,7 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.ini4j.Ini;
+import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -50,6 +52,10 @@ import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.shock.client.BasicShockClient;
 import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.SaveObjectsParams;
+import us.kbase.workspace.WorkspaceClient;
 
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScriptTest {
@@ -63,6 +69,7 @@ public class AweClientDockerJobScriptTest {
     private static File njsServiceDir = null;
     private static Server njsService = null;
     private static String testWsName = null;
+    private static final String testContigsetObjName = "temp_contigset.1";
     
     private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
@@ -140,6 +147,46 @@ public class AweClientDockerJobScriptTest {
         Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
     }
     
+    @Test
+    public void testContigCount() throws Exception {
+        RunJobParams params = new RunJobParams().withMethod(
+                "contigcount.count_contigs")
+                .withParams(Arrays.asList(UObject.fromJsonString("\"" + testWsName + "\""),
+                        UObject.fromJsonString("\"" + testContigsetObjName + "\"")));
+        String jobId = client.runJob(params);
+        JobState ret = null;
+        for (int i = 0; i < 300; i++) {
+            try {
+                ret = client.checkJob(jobId);
+                System.out.println("Job finished: " + ret.getFinished());
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        Assert.assertNotNull(ret);
+        String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+        Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+        Assert.assertNotNull(errMsg, ret.getResult());
+        List<Map<String, Object>> data = ret.getResult().asClassInstance(List.class);
+        Assert.assertEquals(errMsg, 1, data.size());
+        Assert.assertNotNull(errMsg, data.get(0).get("contig_count"));
+        int contigCount = (Integer)data.get(0).get("contig_count");
+        Assert.assertEquals(7, contigCount);
+    }
+
+    private static WorkspaceClient getWsClient(AuthToken auth, 
+            Map<String, String> config) throws Exception {
+        String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+        WorkspaceClient ret = new WorkspaceClient(new URL(wsUrl), auth);
+        ret.setAuthAllowedForHttp(true);
+        return ret;
+    }
+
     private static UserAndJobStateClient getUjsClient(AuthToken auth, 
             Map<String, String> config) throws Exception {
         String jobSrvUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
@@ -199,10 +246,10 @@ public class AweClientDockerJobScriptTest {
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
         client.setIsInsecureHttpConnectionAllowed(true);
-        /*String machineName = java.net.InetAddress.getLocalHost().getHostName();
+        String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();
-        WorkspaceClient wscl = getWsClient();
+        WorkspaceClient wscl = getWsClient(token, loadConfig());
         Exception error = null;
         for (int i = 0; i < 5; i++) {
             testWsName = "test_feature_values_" + machineName + "_" + suf;
@@ -216,7 +263,22 @@ public class AweClientDockerJobScriptTest {
             }
         }
         if (error != null)
-            throw error;*/
+            throw error;
+        File dir = new File("test_data");
+        GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
+        Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
+        is.close();
+        wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
+                new ObjectSaveData().withName(testContigsetObjName).withType("KBaseGenomes.ContigSet")
+                .withData(new UObject(contigsetData)))));
+        /*is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.genome.json.gz")));
+        Map<String, Object> genomeData = UObject.getMapper().readValue(is, Map.class);
+        is.close();
+        String genomeObjName = "temp_contigset.1";
+        genomeData.put("contigset_ref", testWsName + "/" + testContigsetObjName);
+        wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
+                new ObjectSaveData().withName(genomeObjName).withType("KBaseGenomes.Genome")
+                .withData(new UObject(genomeData)))));*/
     }
     
     private static String findAweBinary(File dir, String program) throws Exception {
@@ -492,8 +554,7 @@ public class AweClientDockerJobScriptTest {
         });
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
-        Ini ini = new Ini(new File("deploy.cfg"));
-        Map<String, String> origConfig = ini.get(NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
+        Map<String, String> origConfig = loadConfig();
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -542,6 +603,13 @@ public class AweClientDockerJobScriptTest {
                     njsJobWaitSeconds + " seconds (" + err.getMessage() + ")", err);
         System.out.println(dir.getName() + " was started up");
         return jettyServer;
+    }
+
+    public static Map<String, String> loadConfig() throws IOException,
+            InvalidFileFormatException {
+        Ini ini = new Ini(new File("deploy.cfg"));
+        Map<String, String> origConfig = ini.get(NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
+        return origConfig;
     }
 
     private static void killPid(File dir) {
