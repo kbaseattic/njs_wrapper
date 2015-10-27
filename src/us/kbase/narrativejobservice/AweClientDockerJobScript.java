@@ -86,9 +86,10 @@ public class AweClientDockerJobScript {
             pw.println("[global]");
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
             pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
             pw.close();
             ujsClient.updateJob(jobId, token, "running", null);
-            String imageName = decamelize(moduleName);
+            String imageName = moduleName.toLowerCase();  //decamelize(moduleName);
             String imageVersion = job.getServiceVer();
             if (imageVersion == null || imageVersion.isEmpty())
                 imageVersion = "latest";
@@ -100,6 +101,7 @@ public class AweClientDockerJobScript {
             updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");
             ujsClient.completeJob(jobId, token, "done", null, new Results());
         } catch (Exception ex) {
+            ex.printStackTrace();
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             ex.printStackTrace(pw);
@@ -111,7 +113,9 @@ public class AweClientDockerJobScript {
                         .withError(stacktrace));
                 ByteArrayInputStream bais = new ByteArrayInputStream(UObject.getMapper().writeValueAsBytes(result));
                 updateShockNode(getShockURL(config), token, outputShockId, bais, "output.json", "json");
-            } catch (Exception ignore) {}
+            } catch (Exception ex2) {
+                ex2.printStackTrace();
+            }
             if (ujsClient != null) {
                 String status = "Error: " + ex.getMessage();
                 if (status.length() > 200)
