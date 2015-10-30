@@ -72,7 +72,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 				}
 				String prevError = appState.getStepErrors().get(stepId);
 				if (prevError == null) {
-					appState.getStepErrors().put(stepId, ex.getMessage());
+				    String message;
+				    if (ex instanceof ServerException) { 
+				        message = ((ServerException)ex).getData();
+				    } else {
+				        message = ex.getMessage();
+				    }
+					appState.getStepErrors().put(stepId, message);
 				}
 				throw ex;
 			}
