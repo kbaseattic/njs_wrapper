@@ -4,8 +4,10 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URL;
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScript {
+    private static final long MAX_OUTPUT_SIZE = 10 * 1024 * 1024;
     
     public static void main(String[] args) throws Exception {
         if (args.length != 4) {
@@ -96,6 +99,15 @@ public class AweClientDockerJobScript {
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             new DockerRunner(getDockerRegistryURL(config), dockerURI).run(imageName, imageVersion, 
                     moduleName, inputFile, token, new StringBuilder(), outputFile, false);
+            if (outputFile.length() > MAX_OUTPUT_SIZE) {
+                Reader r = new FileReader(outputFile);
+                char[] chars = new char[1000];
+                r.read(chars);
+                r.close();
+                String error = "Output response is longer than " + MAX_OUTPUT_SIZE + ", " +
+                		"starting with \"" + new String(chars) + "...\"";
+                throw new IllegalStateException(error);
+            }
             InputStream is = new FileInputStream(outputFile);
             // save result into outputShockId;
             updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");
