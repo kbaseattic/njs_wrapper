@@ -1030,6 +1030,416 @@ sub run_job
 
 
 
+=head2 get_job_params
+
+  $params, $config = $obj->get_job_params($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.RunJobParams
+$config is a reference to a hash where the key is a string and the value is a string
+job_id is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.RunJobParams
+$config is a reference to a hash where the key is a string and the value is a string
+job_id is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+
+
+=end text
+
+=item Description
+
+Get job params necessary for job execution
+
+=back
+
+=cut
+
+sub get_job_params
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_job_params (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_job_params');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.get_job_params",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'get_job_params',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_job_params",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_job_params',
+				       );
+    }
+}
+
+
+
+=head2 add_job_logs
+
+  $line_number = $obj->add_job_logs($job_id, $lines)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$lines is a reference to a list where each element is a NarrativeJobService.LogLine
+$line_number is an int
+job_id is a string
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$lines is a reference to a list where each element is a NarrativeJobService.LogLine
+$line_number is an int
+job_id is a string
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub add_job_logs
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 2)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function add_job_logs (received $n, expecting 2)");
+    }
+    {
+	my($job_id, $lines) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        (ref($lines) eq 'ARRAY') or push(@_bad_arguments, "Invalid type for argument 2 \"lines\" (value was \"$lines\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'add_job_logs');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.add_job_logs",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'add_job_logs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method add_job_logs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'add_job_logs',
+				       );
+    }
+}
+
+
+
+=head2 get_job_logs
+
+  $return = $obj->get_job_logs($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.GetJobLogsParams
+$return is a NarrativeJobService.GetJobLogsResults
+GetJobLogsParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	skip_lines has a value which is an int
+job_id is a string
+GetJobLogsResults is a reference to a hash where the following keys are defined:
+	lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+	last_line_number has a value which is an int
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.GetJobLogsParams
+$return is a NarrativeJobService.GetJobLogsResults
+GetJobLogsParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	skip_lines has a value which is an int
+job_id is a string
+GetJobLogsResults is a reference to a hash where the following keys are defined:
+	lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+	last_line_number has a value which is an int
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub get_job_logs
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_job_logs (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_job_logs');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.get_job_logs",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'get_job_logs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_job_logs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_job_logs',
+				       );
+    }
+}
+
+
+
+=head2 finish_job
+
+  $obj->finish_job($job_id, $params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.FinishJobParams
+job_id is a string
+FinishJobParams is a reference to a hash where the following keys are defined:
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.FinishJobParams
+job_id is a string
+FinishJobParams is a reference to a hash where the following keys are defined:
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+
+=end text
+
+=item Description
+
+Register results of already started job
+
+=back
+
+=cut
+
+sub finish_job
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 2)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function finish_job (received $n, expecting 2)");
+    }
+    {
+	my($job_id, $params) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 2 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to finish_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'finish_job');
+	}
+    }
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.finish_job",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'finish_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return;
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method finish_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'finish_job',
+				       );
+    }
+}
+
+
+
 =head2 check_job
 
   $job_state = $obj->check_job($job_id)
@@ -1757,6 +2167,115 @@ params has a value which is a reference to a list where each element is an Unspe
 service_ver has a value which is a string
 rpc_context has a value which is a NarrativeJobService.RpcContext
 remote_url has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 LogLine
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+line has a value which is a string
+is_error has a value which is a NarrativeJobService.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+line has a value which is a string
+is_error has a value which is a NarrativeJobService.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 GetJobLogsParams
+
+=over 4
+
+
+
+=item Description
+
+skip_lines - optional parameter, number of lines to skip (in case they were 
+    already loaded before).
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+skip_lines has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+skip_lines has a value which is an int
+
+
+=end text
+
+=back
+
+
+
+=head2 GetJobLogsResults
+
+=over 4
+
+
+
+=item Description
+
+last_line_number - common number of lines (including those in skip_lines 
+    parameter), this number can be used as next skip_lines value to
+    skip already loaded lines next time.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+last_line_number has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+last_line_number has a value which is an int
 
 
 =end text

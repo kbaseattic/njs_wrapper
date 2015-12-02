@@ -3,7 +3,10 @@ package us.kbase.narrativejobservice;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +35,7 @@ public class DockerRunner {
     }
     
     public File run(String imageName, String version, String moduleName, 
-            File inputData, String token, StringBuilder log, File outputFile, 
+            File inputData, String token, final LineLogger log, File outputFile, 
             boolean removeImage) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
@@ -56,12 +59,42 @@ public class DockerRunner {
                 suffix++;
             }
             CreateContainerResponse resp = cl.createContainerCmd(fullImgName)
-                    .withName(cntName).withCmd("async").withBinds(
+                    .withName(cntName).withTty(true).withCmd("async").withBinds(
                             new Bind(workDir.getAbsolutePath(), new Volume(
                                     "/kb/module/work"))).exec();
             String cntId = resp.getId();
-            cl.startContainerCmd(cntId).exec();
+            //cl.startContainerCmd(cntId).exec();
+            Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
+            List<Thread> workers = new ArrayList<Thread>();
+            InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
+            for (int i = 0; i < inputStreams.length; i++) {
+                final InputStream is = inputStreams[i];
+                final boolean isError = i == 1;
+                Thread ret = new Thread(new Runnable() {
+                    public void run() {
+                        try {
+                            BufferedReader br = new BufferedReader(new InputStreamReader(is));
+                            while (true) {
+                                String line = br.readLine();
+                                if (line == null)
+                                    break;
+                                log.logNextLine(line, isError);
+                            }
+                            br.close();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            throw new IllegalStateException("Error reading data from executed container", e);
+                        }
+                    }
+                });
+                ret.start();
+                workers.add(ret);
+            }
+            for (Thread t : workers)
+                t.join();
+            p.waitFor();
             cl.waitContainerCmd(cntId).exec();
+            //--------------------------------------------------
             InspectContainerResponse resp2 = cl.inspectContainerCmd(cntId).exec();
             if (resp2.getState().isRunning()) {
                 try {
@@ -72,30 +105,20 @@ public class DockerRunner {
                 }
                 throw new IllegalStateException("Container was still running");
             }
-            int exitCode = resp2.getState().getExitCode();
-            BufferedReader br = new BufferedReader(new InputStreamReader(
-                    cl.logContainerCmd(cntId).withStdOut(true).exec()));
-            while (true) {
-                String l = br.readLine();
-                if (l == null)
-                    break;
-                log.append(l).append("\n");
-            }
-            br.close();
-            StringBuilder err = new StringBuilder();
-            br = new BufferedReader(new InputStreamReader(
-                    cl.logContainerCmd(cntId).withStdErr(true).exec()));
-            while (true) {
-                String l = br.readLine();
-                if (l == null)
-                    break;
-                log.append(l).append("\n");
-                err.append(l).append("\n");
-            }
-            br.close();
             if (outputFile.exists()) {
                 return outputFile;
             } else {
+                int exitCode = resp2.getState().getExitCode();
+                StringBuilder err = new StringBuilder();
+                BufferedReader br = new BufferedReader(new InputStreamReader(
+                        cl.logContainerCmd(cntId).withStdErr(true).exec()));
+                while (true) {
+                    String l = br.readLine();
+                    if (l == null)
+                        break;
+                    err.append(l).append("\n");
+                }
+                br.close();
                 String msg = "Output file is not found, exit code is " + exitCode;
                 if (err.length() > 0)
                     msg += ", errors: " + err;
@@ -192,5 +215,9 @@ public class DockerRunner {
         } else {
             return DockerClientBuilder.getInstance().build();
         }
+    }
+    
+    public interface LineLogger {
+        public void logNextLine(String line, boolean isError) throws Exception;
     }
 }

@@ -825,6 +825,349 @@ sub run_job
 
 
 
+=head2 get_job_params
+
+  $params, $config = $obj->get_job_params($job_id)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.RunJobParams
+$config is a reference to a hash where the key is a string and the value is a string
+job_id is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.RunJobParams
+$config is a reference to a hash where the key is a string and the value is a string
+job_id is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+
+
+=end text
+
+
+
+=item Description
+
+Get job params necessary for job execution
+
+=back
+
+=cut
+
+sub get_job_params
+{
+    my $self = shift;
+    my($job_id) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'get_job_params');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($params, $config);
+    #BEGIN get_job_params
+    #END get_job_params
+    my @_bad_returns;
+    (ref($params) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"params\" (value was \"$params\")");
+    (ref($config) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"config\" (value was \"$config\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'get_job_params');
+    }
+    return($params, $config);
+}
+
+
+
+
+=head2 add_job_logs
+
+  $line_number = $obj->add_job_logs($job_id, $lines)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$lines is a reference to a list where each element is a NarrativeJobService.LogLine
+$line_number is an int
+job_id is a string
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$lines is a reference to a list where each element is a NarrativeJobService.LogLine
+$line_number is an int
+job_id is a string
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub add_job_logs
+{
+    my $self = shift;
+    my($job_id, $lines) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    (ref($lines) eq 'ARRAY') or push(@_bad_arguments, "Invalid type for argument \"lines\" (value was \"$lines\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'add_job_logs');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($line_number);
+    #BEGIN add_job_logs
+    #END add_job_logs
+    my @_bad_returns;
+    (!ref($line_number)) or push(@_bad_returns, "Invalid type for return variable \"line_number\" (value was \"$line_number\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'add_job_logs');
+    }
+    return($line_number);
+}
+
+
+
+
+=head2 get_job_logs
+
+  $return = $obj->get_job_logs($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.GetJobLogsParams
+$return is a NarrativeJobService.GetJobLogsResults
+GetJobLogsParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	skip_lines has a value which is an int
+job_id is a string
+GetJobLogsResults is a reference to a hash where the following keys are defined:
+	lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+	last_line_number has a value which is an int
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.GetJobLogsParams
+$return is a NarrativeJobService.GetJobLogsResults
+GetJobLogsParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	skip_lines has a value which is an int
+job_id is a string
+GetJobLogsResults is a reference to a hash where the following keys are defined:
+	lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+	last_line_number has a value which is an int
+LogLine is a reference to a hash where the following keys are defined:
+	line has a value which is a string
+	is_error has a value which is a NarrativeJobService.boolean
+boolean is an int
+
+
+=end text
+
+
+
+=item Description
+
+
+
+=back
+
+=cut
+
+sub get_job_logs
+{
+    my $self = shift;
+    my($params) = @_;
+
+    my @_bad_arguments;
+    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'get_job_logs');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    my($return);
+    #BEGIN get_job_logs
+    #END get_job_logs
+    my @_bad_returns;
+    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
+    if (@_bad_returns) {
+	my $msg = "Invalid returns passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_returns);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'get_job_logs');
+    }
+    return($return);
+}
+
+
+
+
+=head2 finish_job
+
+  $obj->finish_job($job_id, $params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.FinishJobParams
+job_id is a string
+FinishJobParams is a reference to a hash where the following keys are defined:
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$job_id is a NarrativeJobService.job_id
+$params is a NarrativeJobService.FinishJobParams
+job_id is a string
+FinishJobParams is a reference to a hash where the following keys are defined:
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+
+
+=end text
+
+
+
+=item Description
+
+Register results of already started job
+
+=back
+
+=cut
+
+sub finish_job
+{
+    my $self = shift;
+    my($job_id, $params) = @_;
+
+    my @_bad_arguments;
+    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
+    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
+    if (@_bad_arguments) {
+	my $msg = "Invalid arguments passed to finish_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+							       method_name => 'finish_job');
+    }
+
+    my $ctx = $NarrativeJobServiceServer::CallContext;
+    #BEGIN finish_job
+    #END finish_job
+    return();
+}
+
+
+
+
 =head2 check_job
 
   $job_state = $obj->check_job($job_id)
@@ -1518,6 +1861,115 @@ params has a value which is a reference to a list where each element is an Unspe
 service_ver has a value which is a string
 rpc_context has a value which is a NarrativeJobService.RpcContext
 remote_url has a value which is a string
+
+
+=end text
+
+=back
+
+
+
+=head2 LogLine
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+line has a value which is a string
+is_error has a value which is a NarrativeJobService.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+line has a value which is a string
+is_error has a value which is a NarrativeJobService.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 GetJobLogsParams
+
+=over 4
+
+
+
+=item Description
+
+skip_lines - optional parameter, number of lines to skip (in case they were 
+    already loaded before).
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+skip_lines has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+skip_lines has a value which is an int
+
+
+=end text
+
+=back
+
+
+
+=head2 GetJobLogsResults
+
+=over 4
+
+
+
+=item Description
+
+last_line_number - common number of lines (including those in skip_lines 
+    parameter), this number can be used as next skip_lines value to
+    skip already loaded lines next time.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+last_line_number has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+lines has a value which is a reference to a list where each element is a NarrativeJobService.LogLine
+last_line_number has a value which is an int
 
 
 =end text

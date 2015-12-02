@@ -1,70 +1,56 @@
 package us.kbase.narrativejobservice;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileReader;
-import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
-
 import us.kbase.auth.AuthToken;
+import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
-import us.kbase.common.utils.TextUtils;
 import us.kbase.common.utils.UTCDateFormat;
-import us.kbase.shock.client.BasicShockClient;
-import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
-@SuppressWarnings("unchecked")
 public class AweClientDockerJobScript {
     private static final long MAX_OUTPUT_SIZE = 10 * 1024 * 1024;
     
     public static void main(String[] args) throws Exception {
-        if (args.length != 4) {
-            System.err.println("Usage: <program> <job_id> <input_shock_id> <output_shock_id> <configuration_json_hex_string>");
+        if (args.length != 2) {
+            System.err.println("Usage: <program> <job_id> <job_service_url>");
             for (int i = 0; i < args.length; i++)
                 System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
-        String jobId = args[0];
-        String inputShockId = args[1];
-        String outputShockId = args[2];
+        final String jobId = args[0];
+        String jobSrvUrl = args[1];
         String token = System.getenv("KB_AUTH_TOKEN");
         if (token == null || token.isEmpty())
             token = System.getProperty("KB_AUTH_TOKEN");  // For tests
+        if (token == null || token.isEmpty())
+            throw new IllegalStateException("Token is not defined");
+        final NarrativeJobServiceClient jobSrvClient = new NarrativeJobServiceClient(new URL(jobSrvUrl), 
+                new AuthToken(token));
+        jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
         UserAndJobStateClient ujsClient = null;
-        Map<String, String> config = UObject.getMapper().readValue(
-                TextUtils.hexToString(args[3]), Map.class);
+        Thread logFlusher = null;
+        final List<LogLine> logLines = new ArrayList<LogLine>();
         try {
+            Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
+            Map<String, String> config = jobInput.getE2();
             ujsClient = getUjsClient(config, token);
-            if (token == null || token.isEmpty())
-                throw new IllegalStateException("Token is not defined");
-            BasicShockClient shockClient = getShockClient(config, token);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            shockClient.getFile(new ShockNodeId(inputShockId), baos);
-            baos.close();
-            RunJobParams job = UObject.getMapper().readValue(baos.toByteArray(), RunJobParams.class);
+            RunJobParams job = jobInput.getE1();
             ujsClient.startJob(jobId, token, "running", "AWE job for " + job.getMethod(), 
                     new InitProgress().withPtype("none"), null);
             File jobDir = getJobDir(config, jobId);
@@ -90,15 +76,41 @@ public class AweClientDockerJobScript {
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
             pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
             pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
+            String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+            if (kbaseEndpoint != null)
+                pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             ujsClient.updateJob(jobId, token, "running", null);
-            String imageName = moduleName.toLowerCase();  //decamelize(moduleName);
+            String imageName = moduleName.toLowerCase();
             String imageVersion = job.getServiceVer();
             if (imageVersion == null || imageVersion.isEmpty())
                 imageVersion = "latest";
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
+            DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
+                @Override
+                public void logNextLine(String line, boolean isError) throws Exception {
+                    addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
+                }
+            };
+            logFlusher = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException ex) {
+                            break;
+                        }
+                        flushLog(jobSrvClient, jobId, logLines);
+                        if (Thread.currentThread().isInterrupted())
+                            break;
+                    }
+                }
+            });
+            logFlusher.setDaemon(true);
+            logFlusher.start();
             new DockerRunner(getDockerRegistryURL(config), dockerURI).run(imageName, imageVersion, 
-                    moduleName, inputFile, token, new StringBuilder(), outputFile, false);
+                    moduleName, inputFile, token, log, outputFile, false);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -108,23 +120,29 @@ public class AweClientDockerJobScript {
                 		"starting with \"" + new String(chars) + "...\"";
                 throw new IllegalStateException(error);
             }
-            InputStream is = new FileInputStream(outputFile);
+            FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
             // save result into outputShockId;
-            updateShockNode(getShockURL(config), token, outputShockId, is, "output.json", "json");
+            jobSrvClient.finishJob(jobId, result);
             ujsClient.completeJob(jobId, token, "done", null, new Results());
+            flushLog(jobSrvClient, jobId, logLines);
+            logFlusher.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
+            try {
+                flushLog(jobSrvClient, jobId, logLines);
+                logFlusher.interrupt();
+            } catch (Exception ignore) {}
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             ex.printStackTrace(pw);
             pw.close();
             String stacktrace = sw.toString();
             try {
-                FinishJobParams result = new FinishJobParams().withError(new JsonRpcError().withCode(-1L)
-                        .withName("JSONRPCError").withMessage("Job service side error: " + ex.getMessage())
+                FinishJobParams result = new FinishJobParams().withError(
+                        new JsonRpcError().withCode(-1L).withName("JSONRPCError")
+                        .withMessage("Job service side error: " + ex.getMessage())
                         .withError(stacktrace));
-                ByteArrayInputStream bais = new ByteArrayInputStream(UObject.getMapper().writeValueAsBytes(result));
-                updateShockNode(getShockURL(config), token, outputShockId, bais, "output.json", "json");
+                jobSrvClient.finishJob(jobId, result);
             } catch (Exception ex2) {
                 ex2.printStackTrace();
             }
@@ -137,43 +155,25 @@ public class AweClientDockerJobScript {
         }
     }
 
+    private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
+            String jobId, List<LogLine> logLines, LogLine line) throws Exception {
+        logLines.add(line);
+        System.out.println(line);
+    }
+    
+    private static synchronized void flushLog(NarrativeJobServiceClient jobSrvClient,
+            String jobId, List<LogLine> logLines) {
+        try {
+            jobSrvClient.addJobLogs(jobId, logLines);
+            logLines.clear();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
     public static String decamelize(final String s) {
         final Matcher m = Pattern.compile("([A-Z])").matcher(s.substring(1));
         return (s.substring(0, 1) + m.replaceAll("_$1")).toLowerCase();
-    }
-    
-    private static String updateShockNode(String shockUrl, String token, String shockNodeId, 
-            InputStream file, final String filename, final String format) throws Exception {
-        String nodeurl = shockUrl;
-        if (!nodeurl.endsWith("/"))
-            nodeurl += "/";
-        nodeurl += "node/" + shockNodeId;
-        final HttpPut htp = new HttpPut(nodeurl);
-            final MultipartEntityBuilder mpeb = MultipartEntityBuilder.create();
-            if (file != null) {
-                mpeb.addBinaryBody("upload", file, ContentType.DEFAULT_BINARY,
-                        filename);
-            }
-            if (format != null) {
-                mpeb.addTextBody("format", format);
-            }
-            htp.setEntity(mpeb.build());
-        PoolingHttpClientConnectionManager cm =
-                new PoolingHttpClientConnectionManager();
-        cm.setMaxTotal(1000);
-        cm.setDefaultMaxPerRoute(1000);
-        CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
-        htp.setHeader("Authorization", "OAuth " + token);
-        final CloseableHttpResponse response = client.execute(htp);
-        try {
-            String resp = EntityUtils.toString(response.getEntity());
-            Map<String, String> node = (Map<String, String>)UObject.getMapper()
-                    .readValue(resp, Map.class).get("data");
-            return node.get("id");
-        } finally {
-            response.close();
-            file.close();
-        }
     }
     
     private static File getJobDir(Map<String, String> config, String jobId) {
@@ -196,21 +196,6 @@ public class AweClientDockerJobScript {
         UserAndJobStateClient ret = new UserAndJobStateClient(new URL(ujsUrl), new AuthToken(token));
         ret.setIsInsecureHttpConnectionAllowed(true);
         return ret;
-    }
-
-    private static BasicShockClient getShockClient(Map<String, String> config, 
-            String token) throws Exception {
-        String shockUrl = getShockURL(config);
-        BasicShockClient ret = new BasicShockClient(new URL(shockUrl), new AuthToken(token));
-        return ret;
-    }
-
-    private static String getShockURL(Map<String, String> config) {
-        String shockUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
-        if (shockUrl == null)
-            throw new IllegalStateException("Parameter '" + NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
-                    "' is not defined in configuration");
-        return shockUrl;
     }
 
     private static String getDockerRegistryURL(Map<String, String> config) {

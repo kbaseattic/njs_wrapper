@@ -2,10 +2,10 @@ package us.kbase.narrativejobservice;
 
 import java.util.List;
 import java.util.Map;
-
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.Tuple2;
 
 //BEGIN_HEADER
 import java.io.File;
@@ -59,10 +59,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI = "awe.client.docker.uri";
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
+    public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
+    public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
+    public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     
     public static final String VERSION = "0.2.0";
     
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
+    public static final String AWE_LOGS_TABLE_NAME = "awe_logs";
     
     private static Throwable configError = null;
     private static String configPath = null;
@@ -247,6 +251,19 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	ret.setIsInsecureHttpConnectionAllowed(true);
     	return ret;
     }
+    
+    public static String getKBaseEndpoint() throws Exception {
+        String ret = config().get(CFG_PROP_KBASE_ENDPOINT);
+        if (ret == null) {
+            String wsUrl = getWorkspaceServiceURL();
+            if (!wsUrl.endsWith("/ws"))
+                throw new IllegalStateException("Parameter " + 
+                        NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
+                        " is not defined in configuration");
+            ret = wsUrl.replace("/ws", "");
+        }
+        return ret;
+    }
     //END_CLASS_HEADER
 
     public NarrativeJobServiceServer() throws Exception {
@@ -424,7 +441,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 CFG_PROP_QUEUE_DB_DIR, CFG_PROP_REBOOT_MODE, 
                 CFG_PROP_RUNNING_TASKS_PER_USER, CFG_PROP_SCRATCH,
                 CFG_PROP_SHOCK_URL, CFG_PROP_THREAD_COUNT,
-                CFG_PROP_WORKSPACE_SRV_URL};
+                CFG_PROP_WORKSPACE_SRV_URL, CFG_PROP_KBASE_ENDPOINT};
         for (String key : keys) {
             String value = config.get(key);
             if (value == null)
@@ -485,6 +502,77 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), config());
         //END run_job
         return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: get_job_params</p>
+     * <pre>
+     * Get job params necessary for job execution
+     * </pre>
+     * @param   jobId   instance of original type "job_id" (A job id.)
+     * @return   multiple set: (1) parameter "params" of type {@link us.kbase.narrativejobservice.RunJobParams RunJobParams}, (2) parameter "config" of mapping from String to String
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.get_job_params", tuple = true)
+    public Tuple2<RunJobParams, Map<String,String>> getJobParams(String jobId, AuthToken authPart) throws Exception {
+        RunJobParams return1 = null;
+        Map<String,String> return2 = null;
+        //BEGIN get_job_params
+        return2 = new LinkedHashMap<String, String>();
+        return1 = RunAppBuilder.getAweDockerScriptInput(jobId, authPart.toString(), config(), return2);
+        //END get_job_params
+        Tuple2<RunJobParams, Map<String,String>> returnVal = new Tuple2<RunJobParams, Map<String,String>>();
+        returnVal.setE1(return1);
+        returnVal.setE2(return2);
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: add_job_logs</p>
+     * <pre>
+     * </pre>
+     * @param   jobId   instance of original type "job_id" (A job id.)
+     * @param   lines   instance of list of type {@link us.kbase.narrativejobservice.LogLine LogLine}
+     * @return   parameter "line_number" of Long
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.add_job_logs")
+    public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart) throws Exception {
+        Long returnVal = null;
+        //BEGIN add_job_logs
+        returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config);
+        //END add_job_logs
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: get_job_logs</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.GetJobLogsParams GetJobLogsParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.GetJobLogsResults GetJobLogsResults}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.get_job_logs")
+    public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart) throws Exception {
+        GetJobLogsResults returnVal = null;
+        //BEGIN get_job_logs
+        returnVal = RunAppBuilder.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
+                authPart.toString(), config());
+        //END get_job_logs
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: finish_job</p>
+     * <pre>
+     * Register results of already started job
+     * </pre>
+     * @param   jobId   instance of original type "job_id" (A job id.)
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.FinishJobParams FinishJobParams}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.finish_job")
+    public void finishJob(String jobId, FinishJobParams params, AuthToken authPart) throws Exception {
+        //BEGIN finish_job
+        RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), config());
+        //END finish_job
     }
 
     /**

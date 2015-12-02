@@ -215,6 +215,25 @@ class NarrativeJobService(object):
                           [params])
         return resp[0]
 
+    def get_job_params(self, job_id):
+        resp = self._call('NarrativeJobService.get_job_params',
+                          [job_id])
+        return resp
+
+    def add_job_logs(self, job_id, lines):
+        resp = self._call('NarrativeJobService.add_job_logs',
+                          [job_id, lines])
+        return resp[0]
+
+    def get_job_logs(self, params):
+        resp = self._call('NarrativeJobService.get_job_logs',
+                          [params])
+        return resp[0]
+
+    def finish_job(self, job_id, params):
+        self._call('NarrativeJobService.finish_job',
+                   [job_id, params])
+
     def check_job(self, job_id):
         resp = self._call('NarrativeJobService.check_job',
                           [job_id])

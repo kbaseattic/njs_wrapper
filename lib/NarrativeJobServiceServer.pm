@@ -37,6 +37,10 @@ our %return_counts = (
         'status' => 1,
         'list_running_apps' => 1,
         'run_job' => 1,
+        'get_job_params' => 2,
+        'add_job_logs' => 1,
+        'get_job_logs' => 1,
+        'finish_job' => 0,
         'check_job' => 1,
         'version' => 1,
 );
@@ -52,6 +56,10 @@ our %method_authentication = (
         'status' => 'none',
         'list_running_apps' => 'optional',
         'run_job' => 'required',
+        'get_job_params' => 'required',
+        'add_job_logs' => 'required',
+        'get_job_logs' => 'required',
+        'finish_job' => 'required',
         'check_job' => 'required',
 );
 
@@ -70,6 +78,10 @@ sub _build_valid_methods
         'status' => 1,
         'list_running_apps' => 1,
         'run_job' => 1,
+        'get_job_params' => 1,
+        'add_job_logs' => 1,
+        'get_job_logs' => 1,
+        'finish_job' => 1,
         'check_job' => 1,
         'version' => 1,
     };

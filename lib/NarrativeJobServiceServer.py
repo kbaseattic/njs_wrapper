@@ -304,6 +304,22 @@ class Application(object):
                              name='NarrativeJobService.run_job',
                              types=[dict])
         self.method_authentication['NarrativeJobService.run_job'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.get_job_params,
+                             name='NarrativeJobService.get_job_params',
+                             types=[basestring])
+        self.method_authentication['NarrativeJobService.get_job_params'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.add_job_logs,
+                             name='NarrativeJobService.add_job_logs',
+                             types=[basestring, list])
+        self.method_authentication['NarrativeJobService.add_job_logs'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.get_job_logs,
+                             name='NarrativeJobService.get_job_logs',
+                             types=[dict])
+        self.method_authentication['NarrativeJobService.get_job_logs'] = 'required'
+        self.rpc_service.add(impl_NarrativeJobService.finish_job,
+                             name='NarrativeJobService.finish_job',
+                             types=[basestring, dict])
+        self.method_authentication['NarrativeJobService.finish_job'] = 'required'
         self.rpc_service.add(impl_NarrativeJobService.check_job,
                              name='NarrativeJobService.check_job',
                              types=[basestring])

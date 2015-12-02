@@ -184,6 +184,42 @@ module NarrativeJobService {
     */
     funcdef run_job(RunJobParams params) returns (job_id job_id) authentication required;
 
+    /*
+        Get job params necessary for job execution
+    */
+    funcdef get_job_params(job_id job_id) returns (RunJobParams params, 
+        mapping<string, string> config) authentication required;
+
+    typedef structure {
+        string line;
+        boolean is_error;
+    } LogLine;
+
+    funcdef add_job_logs(job_id job_id, list<LogLine> lines) 
+        returns (int line_number) authentication required;
+
+    /*
+        skip_lines - optional parameter, number of lines to skip (in case they were 
+            already loaded before).
+    */
+    typedef structure {
+        job_id job_id;
+        int skip_lines;
+    } GetJobLogsParams;
+
+    /*
+        last_line_number - common number of lines (including those in skip_lines 
+            parameter), this number can be used as next skip_lines value to
+            skip already loaded lines next time.
+    */
+    typedef structure {
+        list<LogLine> lines;
+        int last_line_number;
+    } GetJobLogsResults;
+
+    funcdef get_job_logs(GetJobLogsParams params) returns (GetJobLogsResults)
+        authentication required;
+
     /* Error block of JSON RPC response */
     typedef structure {
         string name;
@@ -203,6 +239,11 @@ module NarrativeJobService {
         UnspecifiedObject result;
         JsonRpcError error;
     } FinishJobParams;
+
+    /*
+        Register results of already started job
+    */
+    funcdef finish_job(job_id job_id, FinishJobParams params) returns () authentication required;
 
     /*
         job_id - id of job running method

@@ -157,6 +157,53 @@ class NarrativeJobService:
         # return the results
         return [job_id]
 
+    def get_job_params(self, ctx, job_id):
+        # ctx is the context object
+        # return variables are: params, config
+        #BEGIN get_job_params
+        #END get_job_params
+
+        # At some point might do deeper type checking...
+        if not isinstance(params, dict):
+            raise ValueError('Method get_job_params return value ' +
+                             'params is not type dict as required.')
+        if not isinstance(config, dict):
+            raise ValueError('Method get_job_params return value ' +
+                             'config is not type dict as required.')
+        # return the results
+        return [params, config]
+
+    def add_job_logs(self, ctx, job_id, lines):
+        # ctx is the context object
+        # return variables are: line_number
+        #BEGIN add_job_logs
+        #END add_job_logs
+
+        # At some point might do deeper type checking...
+        if not isinstance(line_number, int):
+            raise ValueError('Method add_job_logs return value ' +
+                             'line_number is not type int as required.')
+        # return the results
+        return [line_number]
+
+    def get_job_logs(self, ctx, params):
+        # ctx is the context object
+        # return variables are: returnVal
+        #BEGIN get_job_logs
+        #END get_job_logs
+
+        # At some point might do deeper type checking...
+        if not isinstance(returnVal, dict):
+            raise ValueError('Method get_job_logs return value ' +
+                             'returnVal is not type dict as required.')
+        # return the results
+        return [returnVal]
+
+    def finish_job(self, ctx, job_id, params):
+        # ctx is the context object
+        #BEGIN finish_job
+        #END finish_job
+
     def check_job(self, ctx, job_id):
         # ctx is the context object
         # return variables are: job_state

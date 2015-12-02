@@ -3,16 +3,25 @@ package us.kbase.narrativejobservice;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.InputStream;
 import java.net.URL;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
@@ -24,7 +33,6 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.DbConn;
-import us.kbase.common.utils.TextUtils;
 import us.kbase.shock.client.BasicShockClient;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -213,7 +221,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			System.out.println("End of app [" + jobId + "]");
 	}
 	
-	private static void waitForJob(String token, String ujsUrl, String jobId, AppState appState) throws Exception {
+	@SuppressWarnings("unused")
+    private static void waitForJob(String token, String ujsUrl, String jobId, AppState appState) throws Exception {
 		UserAndJobStateClient jscl = new UserAndJobStateClient(new URL(ujsUrl), new AuthToken(token));
 		jscl.setAllSSLCertificatesTrusted(true);
 		jscl.setIsInsecureHttpConnectionAllowed(true);
@@ -246,7 +255,34 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         final String ujsJobId = ujsClient.createJob();
         String outputShockId = shockClient.addNode().getId().getId();
-        Map<String, String> clientScriptConfig = new LinkedHashMap<String, String>();
+        String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+        if (kbaseEndpoint == null) {
+            String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+            if (!wsUrl.endsWith("/ws"))
+                throw new IllegalStateException("Parameter " + 
+                        NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
+                        " is not defined in configuration");
+            kbaseEndpoint = wsUrl.replace("/ws", "");
+        }
+        String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+        if (selfExternalUrl == null)
+            selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
+        String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
+                ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
+                authPart.toString());
+        addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, config);
+        return ujsJobId;
+    }
+    
+    public static RunJobParams getAweDockerScriptInput(String ujsJobId, String token, 
+            Map<String, String> config, Map<String,String> resultConfig) throws Exception {
+        AuthToken authPart = new AuthToken(token);
+        String inputShockId = getAweTaskInputShockId(ujsJobId, config);
+        BasicShockClient shockClient = getShockClient(authPart, config);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        shockClient.getFile(new ShockNodeId(inputShockId), baos);
+        baos.close();
+        RunJobParams input = UObject.getMapper().readValue(baos.toByteArray(), RunJobParams.class);
         String[] propsToSend = {
                 NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
                 NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
@@ -258,16 +294,114 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         for (String key : propsToSend) {
             String value = config.get(key);
             if (value != null)
-                clientScriptConfig.put(key, value);
+                resultConfig.put(key, value);
         }
-        String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", 
-                params.getMethod(), ujsJobId + " " + inputShockId + " " + outputShockId + " " +
-                TextUtils.stringToHex(UObject.getMapper().writeValueAsString(clientScriptConfig)), 
-                NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart.toString());
-        addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, config);
-        return ujsJobId;
+        String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+        if (kbaseEndpoint == null) {
+            String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+            if (!wsUrl.endsWith("/ws"))
+                throw new IllegalStateException("Parameter " + 
+                        NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
+                        " is not defined in configuration");
+            kbaseEndpoint = wsUrl.replace("/ws", "");
+        }
+        resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
+        String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+        if (selfExternalUrl == null)
+            selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
+        resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
+        return input;
     }
     
+    public static void finishAweDockerScript(String ujsJobId, FinishJobParams params, 
+            String token, Map<String, String> config) throws Exception {
+        String outputShockId = getAweTaskOutputShockId(ujsJobId, config);
+        String shockUrl = getShockUrl(config);
+        ByteArrayInputStream bais = new ByteArrayInputStream(
+                UObject.getMapper().writeValueAsBytes(params));
+        updateShockNode(shockUrl, token, outputShockId, bais, "output.json", "json");
+    }
+    
+    public static int addAweDockerScriptLogs(String ujsJobId, List<LogLine> lines,
+            String token, Map<String, String> config) throws Exception {
+        AuthToken authPart = new AuthToken(token);
+        UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+        ujsClient.getJobStatus(ujsJobId);
+        DbConn conn = getDbConnection(config);
+        List<Integer> r1 = conn.collect("select count(*) from " + 
+                NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + " where ujs_job_id=?", 
+                new DbConn.SqlLoader<Integer>() {
+            @Override
+            public Integer collectRow(ResultSet rs) throws SQLException {
+                return rs.getInt(1);
+            }
+        }, ujsJobId);
+        int linePos = r1.size() == 1 ? r1.get(0) : 0;
+        for (LogLine line : lines) {
+            String text = line.getLine();
+            if (text.length() > 10000)
+                text = text.substring(0, 9997) + "...";
+            conn.exec("insert into " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
+                    " (ujs_job_id,line_pos,line,is_error) values (?,?,?,?)", 
+                    ujsJobId, linePos, text, line.getIsError());
+            linePos++;
+        }
+        return linePos;
+    }
+    
+    public static GetJobLogsResults getAweDockerScriptLogs(String ujsJobId, Long skipLines,
+            String token, Map<String, String> config) throws Exception {
+        AuthToken authPart = new AuthToken(token);
+        UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+        ujsClient.getJobStatus(ujsJobId);
+        DbConn conn = getDbConnection(config);
+        String sql = "select line,is_error from " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
+                " where ujs_job_id=?" + (skipLines == null ? "" : " and line_pos>=" + skipLines) + 
+                " order by line_pos";
+        List<LogLine> lines = conn.collect(sql, new DbConn.SqlLoader<LogLine>() {
+            @Override
+            public LogLine collectRow(ResultSet rs) throws SQLException {
+                return new LogLine().withLine(rs.getString(1)).withIsError(rs.getLong(2));
+            }
+        }, ujsJobId);
+        return new GetJobLogsResults().withLines(lines)
+                .withLastLineNumber((long)lines.size() + (skipLines == null ? 0L : skipLines));
+    }
+    
+    @SuppressWarnings("unchecked")
+    private static String updateShockNode(String shockUrl, String token, String shockNodeId, 
+            InputStream file, final String filename, final String format) throws Exception {
+        String nodeurl = shockUrl;
+        if (!nodeurl.endsWith("/"))
+            nodeurl += "/";
+        nodeurl += "node/" + shockNodeId;
+        final HttpPut htp = new HttpPut(nodeurl);
+        final MultipartEntityBuilder mpeb = MultipartEntityBuilder.create();
+        if (file != null) {
+            mpeb.addBinaryBody("upload", file, ContentType.DEFAULT_BINARY,
+                    filename);
+        }
+        if (format != null) {
+            mpeb.addTextBody("format", format);
+        }
+        htp.setEntity(mpeb.build());
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(1000);
+        cm.setDefaultMaxPerRoute(1000);
+        CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
+        htp.setHeader("Authorization", "OAuth " + token);
+        final CloseableHttpResponse response = client.execute(htp);
+        try {
+            String resp = EntityUtils.toString(response.getEntity());
+            Map<String, String> node = (Map<String, String>)UObject.getMapper()
+                    .readValue(resp, Map.class).get("data");
+            return node.get("id");
+        } finally {
+            response.close();
+            file.close();
+        }
+    }
+
     public static JobState checkJob(String jobId, String token, 
             Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
@@ -322,14 +456,18 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return ret;
     }
 
-    private static BasicShockClient getShockClient(AuthToken auth, 
-            Map<String, String> config) throws Exception {
+    private static String getShockUrl(Map<String, String> config) throws Exception {
         String shockUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
         if (shockUrl == null)
             throw new IllegalStateException("Parameter '" + 
                     NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
                     "' is not defined in configuration");
-        BasicShockClient ret = new BasicShockClient(new URL(shockUrl), auth);
+        return shockUrl;
+    }
+    
+    private static BasicShockClient getShockClient(AuthToken auth, 
+            Map<String, String> config) throws Exception {
+        BasicShockClient ret = new BasicShockClient(new URL(getShockUrl(config)), auth);
         return ret;
     }
 
@@ -368,7 +506,24 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     "ujs_job_id varchar(100) primary key," +
                     "awe_job_id varchar(100)," +
                     "input_shock_id varchar(100)," +
-                    "output_shock_id varchar(100)" +
+                    "output_shock_id varchar(100)," +
+                    "creation_time bigint" +
+                    ")");
+        }
+        try {
+            conn.exec("select count(creation_time) from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
+        } catch (SQLException ex) {
+            System.err.println(ex.getMessage());
+            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
+                    " add column creation_time bigint with default " + System.currentTimeMillis());
+        }
+        if (!conn.checkTable(NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME)) {
+            conn.exec("create table " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + " (" +
+            		"ujs_job_id varchar(100)," +
+            		"line_pos integer," +
+            		"line long varchar," +
+            		"is_error smallint," +
+            		"primary key (ujs_job_id, line_pos)" +
                     ")");
         }
         return conn;
@@ -378,8 +533,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             String outputShockId, Map<String, String> config) throws Exception {
         DbConn conn = getDbConnection(config);
         conn.exec("insert into " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                " (ujs_job_id,awe_job_id,input_shock_id,output_shock_id) values (?,?,?,?)", 
-                ujsJobId, aweJobId, inputShockId, outputShockId);
+                " (ujs_job_id,awe_job_id,input_shock_id,output_shock_id,creation_time) values (?,?,?,?,?)", 
+                ujsJobId, aweJobId, inputShockId, outputShockId, System.currentTimeMillis());
     }
 
     private static String[] getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
@@ -416,9 +571,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return getAweTaskDescription(ujsJobId, config)[1];
     }
 
-    /*private static String getAweTaskInputShockId(String ujsJobId, Map<String, String> config) throws Exception {
+    private static String getAweTaskInputShockId(String ujsJobId, Map<String, String> config) throws Exception {
         return getAweTaskDescription(ujsJobId, config)[2];
-    }*/
+    }
 
     private static String getAweTaskOutputShockId(String ujsJobId, Map<String, String> config) throws Exception {
         return getAweTaskDescription(ujsJobId, config)[3];
