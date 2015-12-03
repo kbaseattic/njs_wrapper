@@ -93,6 +93,7 @@ module NarrativeJobService {
         string running_step_id;
         mapping<string, string> step_outputs;
         mapping<string, string> step_errors;
+        mapping<string, string> step_job_ids;
         boolean is_deleted;
     } app_state;
 

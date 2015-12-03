@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.sql.DriverManager;
@@ -10,8 +11,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -68,7 +71,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 		Map<String, Object> data = UObject.transformStringToObject(json, new TypeReference<Map<String, Object>>() {});
 		if (data.get("step_id") == null) {		// APP
 			App app = UObject.transformStringToObject(json, App.class);
-	        AppState appState = AppStateRegistry.initAppState(jobId);
+	        AppState appState = initAppState(jobId, config);
 			try {
 				runApp(token, app, appState, jobId, outRef);
 			} catch (Exception ex) {
@@ -88,12 +91,81 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 				    }
 					appState.getStepErrors().put(stepId, message);
 				}
+				try {
+				    updateAppState(jobId, appState, config);
+				} catch (Exception ignore) {}
 				throw ex;
 			}
 		} else {		// STEP
 			Step step = UObject.transformStringToObject(json, Step.class);
 			runStep(token, step, jobId, outRef);
 		}
+	}
+
+	public static synchronized AppState initAppState(String appJobId, Map<String, String> config) 
+	        throws Exception {
+	    AppState appState = loadAppState(appJobId, config);
+	    if (appState != null)
+	        return appState;
+	    appState = new AppState().withStepErrors(new LinkedHashMap<String, String>())
+	            .withStepOutputs(new LinkedHashMap<String, String>())
+	            .withStepJobIds(new LinkedHashMap<String, String>()).withIsDeleted(0L)
+	            .withJobId(appJobId).withJobState(RunAppBuilder.APP_STATE_QUEUED);
+	    long startTime = System.currentTimeMillis();
+	    appState.getAdditionalProperties().put("start_timestamp", startTime);
+	    DbConn conn = getDbConnection(config);
+	    conn.exec("insert into " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " " +
+	    		"(app_job_id,app_job_state,app_state_data,creation_time, modification_time) " +
+	    		"values (?,?,?,?,?)", appJobId, appState.getJobState(),
+	    		UObject.getMapper().writeValueAsString(appState), startTime, startTime);
+	    return appState;
+	}
+
+	public static synchronized AppState loadAppState(String appJobId, Map<String, String> config)
+	        throws Exception {
+	    DbConn conn = getDbConnection(config);
+	    List<AppState> ret = conn.collect("select app_state_data from " + 
+	            NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " where app_job_id=?", 
+	            new DbConn.SqlLoader<AppState>() {
+	        @Override
+	        public AppState collectRow(ResultSet rs) throws SQLException {
+	            try {
+	                return UObject.getMapper().readValue(rs.getString(1), AppState.class);
+	            } catch (IOException ex) {
+	                throw new IllegalStateException(ex);
+	            }
+	        }
+	    }, appJobId);
+	    return ret.size() > 0 ? ret.get(0) : null;
+	}
+
+	public static synchronized void updateAppState(String appJobId, AppState appState,
+	        Map<String, String> config) throws Exception {
+	    DbConn conn = getDbConnection(config);
+	    conn.exec("update " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " set " +
+	    		"app_job_state=?, app_state_data=?, modification_time=? where " +
+	    		"app_job_id=?", appState.getJobState(), 
+	    		UObject.getMapper().writeValueAsString(appState), 
+	    		System.currentTimeMillis(), appJobId);
+	}
+	
+	public static synchronized List<AppState> listRunningApps(Map<String, String> config) 
+	        throws Exception {
+        DbConn conn = getDbConnection(config);
+        List<AppState> ret = conn.collect("select app_state_data from " +
+                NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " where app_job_state=?", 
+                new DbConn.SqlLoader<AppState>() {
+            @Override
+            public AppState collectRow(ResultSet rs)
+                    throws SQLException {
+                try {
+                    return UObject.getMapper().readValue(rs.getString(1), AppState.class);
+                } catch (IOException ex) {
+                    throw new IllegalStateException(ex);
+                }
+            }
+        }, RunAppBuilder.APP_STATE_STARTED);
+        return ret;
 	}
 
     private NarrativeJobServiceClient getForwardClient(String token) throws Exception {
@@ -136,9 +208,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			System.out.println("App [" + jobId + "]: " + app);
 		appState.getAdditionalProperties().put("original_app", app);
 		appState.setJobState(APP_STATE_STARTED);
+		updateAppState(jobId, appState, config);
 		AuthToken auth = new AuthToken(token);
 		for (Step step : app.getSteps()) {
 	        appState.setRunningStepId(step.getStepId());
+	        updateAppState(jobId, appState, config);
 			if (appState.getIsDeleted() != null && appState.getIsDeleted() == 1L)
 				throw new IllegalStateException("App was deleted");
 			if (step.getType() == null || !step.getType().equals("service"))
@@ -153,7 +227,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			        srvUrl.isEmpty()) {
 			    RunJobParams params = new RunJobParams().withMethod(srvMethod)
 			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
-			    String stepJobId = runAweDockerScript(params, token, config);
+			    String stepJobId = runAweDockerScript(params, token, jobId, config);
+			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
+	            updateAppState(jobId, appState, config);
 			    JobState jobState = null;
 			    while (true) {
 			        Thread.sleep(5000);
@@ -206,6 +282,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			        }
 			    }
 			    if (stepJobId != null) {
+		             appState.getStepJobIds().put(step.getStepId(), stepJobId);
+		                updateAppState(jobId, appState, config);
 			        if (debug)
 			            System.out.println("Before waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
 			        waitForJob(token, ujsUrl, stepJobId, appState);
@@ -214,9 +292,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			    }
 			    appState.getStepOutputs().put(step.getStepId(), UObject.transformObjectToString(stepOutput));
 			}
+	        updateAppState(jobId, appState, config);			
 		}
         appState.setRunningStepId(null);
         appState.setJobState(APP_STATE_DONE);
+        updateAppState(jobId, appState, config);
 		if (debug)
 			System.out.println("End of app [" + jobId + "]");
 	}
@@ -245,7 +325,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	}
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
-            Map<String, String> config) throws Exception {
+            String appJobId, Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);
@@ -270,7 +350,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
                 ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
                 authPart.toString());
-        addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, config);
+        addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
         return ujsJobId;
     }
     
@@ -350,10 +430,14 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
     }
     
     public static GetJobLogsResults getAweDockerScriptLogs(String ujsJobId, Long skipLines,
-            String token, Map<String, String> config) throws Exception {
+            String token, Set<String> admins, Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
-        UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-        ujsClient.getJobStatus(ujsJobId);
+        boolean isAdmin = admins != null && admins.contains(authPart.getClientId());
+        if (!isAdmin) {
+            // If it's not admin then let's check if there is permission in UJS
+            UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+            ujsClient.getJobStatus(ujsJobId);
+        }
         DbConn conn = getDbConnection(config);
         String sql = "select line,is_error from " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
                 " where ujs_job_id=?" + (skipLines == null ? "" : " and line_pos>=" + skipLines) + 
@@ -507,15 +591,23 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     "awe_job_id varchar(100)," +
                     "input_shock_id varchar(100)," +
                     "output_shock_id varchar(100)," +
-                    "creation_time bigint" +
+                    "creation_time bigint," +
+                    "app_job_id varchar(100)" +
                     ")");
+            conn.exec("create index " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + "_app_job_id on " + 
+                    NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " (app_job_id)");
         }
-        try {
-            conn.exec("select count(creation_time) from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
-        } catch (SQLException ex) {
-            System.err.println(ex.getMessage());
+        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "creation_time")) {
+            System.out.println("Adding column creation_time into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
             conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
                     " add column creation_time bigint with default " + System.currentTimeMillis());
+        }
+        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "app_job_id")) {
+            System.out.println("Adding column app_job_id into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
+            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
+                    " add column app_job_id varchar(100)");
+            conn.exec("create index " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + "_app_job_id on " + 
+                    NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " (app_job_id)");
         }
         if (!conn.checkTable(NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME)) {
             conn.exec("create table " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + " (" +
@@ -526,15 +618,44 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             		"primary key (ujs_job_id, line_pos)" +
                     ")");
         }
+        if (!conn.checkTable(NarrativeJobServiceServer.AWE_APPS_TABLE_NAME)) {
+            conn.exec("create table " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " (" +
+                    "app_job_id varchar(100) primary key," +
+                    "app_job_state varchar(100)," +
+                    "app_state_data long varchar," +
+                    "creation_time bigint," +
+                    "modification_time bigint" +
+                    ")");
+            conn.exec("create index " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + "_app_job_state on " + 
+                    NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " (app_job_state)");
+        }
         return conn;
+    }
+    
+    private static boolean checkColumn(DbConn conn, String tableName, final String columnName) throws Exception {
+        try {
+            conn.collect("select " + columnName + " from " + tableName + " FETCH FIRST 1 ROWS ONLY", 
+                    new DbConn.SqlLoader<Boolean>() {
+                @Override
+                public Boolean collectRow(ResultSet rs) throws SQLException {
+                    return true;
+                }
+            });
+            return true;
+        } catch (SQLException ex) {
+            if (ex.getMessage().toLowerCase().contains(columnName.toLowerCase()))
+                return false;
+            throw ex;
+        }
     }
 
     private static void addAweTaskDescription(String ujsJobId, String aweJobId, String inputShockId, 
-            String outputShockId, Map<String, String> config) throws Exception {
+            String outputShockId, String appJobId, Map<String, String> config) throws Exception {
         DbConn conn = getDbConnection(config);
         conn.exec("insert into " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                " (ujs_job_id,awe_job_id,input_shock_id,output_shock_id,creation_time) values (?,?,?,?,?)", 
-                ujsJobId, aweJobId, inputShockId, outputShockId, System.currentTimeMillis());
+                " (ujs_job_id,awe_job_id,input_shock_id,output_shock_id,creation_time," +
+                "app_job_id) values (?,?,?,?,?,?)", 
+                ujsJobId, aweJobId, inputShockId, outputShockId, System.currentTimeMillis(), appJobId);
     }
 
     private static String[] getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {

@@ -152,6 +152,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 job_id is a string
 
@@ -201,6 +202,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 job_id is a string
 
@@ -282,6 +284,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 boolean is an int
 
@@ -300,6 +303,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 boolean is an int
 
@@ -850,6 +854,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 job_id is a string
 boolean is an int
@@ -867,6 +872,7 @@ app_state is a reference to a hash where the following keys are defined:
 	running_step_id has a value which is a string
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 	is_deleted has a value which is a NarrativeJobService.boolean
 job_id is a string
 boolean is an int
@@ -1975,6 +1981,7 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 is_deleted has a value which is a NarrativeJobService.boolean
 
 </pre>
@@ -1989,6 +1996,7 @@ job_state has a value which is a string
 running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
+step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
 is_deleted has a value which is a NarrativeJobService.boolean
 
 

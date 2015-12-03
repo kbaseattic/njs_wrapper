@@ -70,6 +70,10 @@ public class TaskQueue {
 		return taskQueue.size();
 	}
 	
+	public TaskQueueConfig getConfig() {
+        return config;
+    }
+	
 	public synchronized Map<String, Long> getRunningTasksPerUser() {
 		Map<String, Long> ret = new TreeMap<String, Long>();
 		for (String user : userToRunningTaskCount.keySet()) {

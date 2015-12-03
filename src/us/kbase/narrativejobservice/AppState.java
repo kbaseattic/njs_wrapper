@@ -31,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "running_step_id",
     "step_outputs",
     "step_errors",
+    "step_job_ids",
     "is_deleted"
 })
 public class AppState {
@@ -45,6 +46,8 @@ public class AppState {
     private Map<String, String> stepOutputs;
     @JsonProperty("step_errors")
     private Map<String, String> stepErrors;
+    @JsonProperty("step_job_ids")
+    private Map<String, String> stepJobIds;
     @JsonProperty("is_deleted")
     private Long isDeleted;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
@@ -124,6 +127,21 @@ public class AppState {
         return this;
     }
 
+    @JsonProperty("step_job_ids")
+    public Map<String, String> getStepJobIds() {
+        return stepJobIds;
+    }
+
+    @JsonProperty("step_job_ids")
+    public void setStepJobIds(Map<String, String> stepJobIds) {
+        this.stepJobIds = stepJobIds;
+    }
+
+    public AppState withStepJobIds(Map<String, String> stepJobIds) {
+        this.stepJobIds = stepJobIds;
+        return this;
+    }
+
     @JsonProperty("is_deleted")
     public Long getIsDeleted() {
         return isDeleted;
@@ -151,7 +169,7 @@ public class AppState {
 
     @Override
     public java.lang.String toString() {
-        return ((((((((((((((("AppState"+" [jobId=")+ jobId)+", jobState=")+ jobState)+", runningStepId=")+ runningStepId)+", stepOutputs=")+ stepOutputs)+", stepErrors=")+ stepErrors)+", isDeleted=")+ isDeleted)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((("AppState"+" [jobId=")+ jobId)+", jobState=")+ jobState)+", runningStepId=")+ runningStepId)+", stepOutputs=")+ stepOutputs)+", stepErrors=")+ stepErrors)+", stepJobIds=")+ stepJobIds)+", isDeleted=")+ isDeleted)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

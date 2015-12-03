@@ -86,121 +86,141 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testOneJob() throws Exception {
-        RunJobParams params = new RunJobParams().withMethod(
-                "onerepotest.send_data").withServiceVer(lookupServiceVersion("onerepotest"))
-                .withParams(Arrays.asList(UObject.fromJsonString(
-                        "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
-        String jobId = client.runJob(params);
-        JobState ret = null;
-        for (int i = 0; i < 300; i++) {
-            try {
-                ret = client.checkJob(jobId);
-                System.out.println("Job finished: " + ret.getFinished());
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    break;
+        try {
+            RunJobParams params = new RunJobParams().withMethod(
+                    "onerepotest.send_data").withServiceVer(lookupServiceVersion("onerepotest"))
+                    .withParams(Arrays.asList(UObject.fromJsonString(
+                            "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
+            String jobId = client.runJob(params);
+            JobState ret = null;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    ret = client.checkJob(jobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
                 }
-                Thread.sleep(5000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
             }
+            Assert.assertNotNull(ret);
+            String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+            Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+            Assert.assertNotNull(errMsg, ret.getResult());
+            List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
+            Assert.assertEquals(errMsg, 1, data.size());
+            Map<String, String> outParams = data.get(0).get("params");
+            Assert.assertNotNull(errMsg, outParams);
+            Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
+            Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
         }
-        Assert.assertNotNull(ret);
-        String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
-        Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
-        Assert.assertNotNull(errMsg, ret.getResult());
-        List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
-        Assert.assertEquals(errMsg, 1, data.size());
-        Map<String, String> outParams = data.get(0).get("params");
-        Assert.assertNotNull(errMsg, outParams);
-        Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
-        Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
     }
 
     @Test
     public void testApp() throws Exception {
-        String moduleName = "onerepotest";
-        App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                        .withServiceName(moduleName)
-                        .withServiceVersion(lookupServiceVersion(moduleName))
-                        .withMethodName("send_data"))
-                        .withInputValues(Arrays.asList(UObject.fromJsonString(
-                                "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
-                                .withIsLongRunning(1L)));
-        AppState st = client.runApp(app);
-        String jobId = st.getJobId();
-        for (int i = 0; i < 300; i++) {
-            try {
-                st = client.checkAppState(jobId);
-                System.out.println("App state: " + st.getJobState());
-                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                    break;
+        try {
+            String moduleName = "onerepotest";
+            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(lookupServiceVersion(moduleName))
+                            .withMethodName("send_data"))
+                            .withInputValues(Arrays.asList(UObject.fromJsonString(
+                                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
+                                    .withIsLongRunning(1L)));
+            AppState st = client.runApp(app);
+            String appJobId = st.getJobId();
+            String stepJobId = null;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    st = client.checkAppState(appJobId);
+                    System.out.println("App state: " + st.getJobState());
+                    stepJobId = st.getStepJobIds().get("step1");
+                    if (stepJobId != null)
+                        System.out.println("Step state: " + client.checkJob(stepJobId));
+                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
                 }
-                Thread.sleep(5000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
             }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertNotNull(stepJobId);
+            Assert.assertEquals(errMsg, "completed", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepOutputs());
+            String step1output = st.getStepOutputs().get("step1");
+            Assert.assertNotNull(errMsg, step1output);
+            List<Map<String, Map<String, String>>> data = UObject.getMapper().readValue(step1output, List.class);
+            Assert.assertEquals(errMsg, 1, data.size());
+            Map<String, String> outParams = data.get(0).get("params");
+            Assert.assertNotNull(errMsg, outParams);
+            Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
+            Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
         }
-        String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-        Assert.assertEquals(errMsg, "completed", st.getJobState());
-        Assert.assertNotNull(errMsg, st.getStepOutputs());
-        String step1output = st.getStepOutputs().get("step1");
-        Assert.assertNotNull(errMsg, step1output);
-        List<Map<String, Map<String, String>>> data = UObject.getMapper().readValue(step1output, List.class);
-        Assert.assertEquals(errMsg, 1, data.size());
-        Map<String, String> outParams = data.get(0).get("params");
-        Assert.assertNotNull(errMsg, outParams);
-        Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
-        Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
     }
     
     @Test
     public void testLogging() throws Exception {
-        RunJobParams params = new RunJobParams().withMethod(
-                "onerepotest.print_lines").withServiceVer(lookupServiceVersion("onerepotest"))
-                .withParams(Arrays.asList(UObject.fromJsonString(
-                        "\"First line\\n" +
-                        "Second super long line\\n" +
-                        "short\"")));
-        String jobId = client.runJob(params);
-        JobState ret = null;
-        int logLinesRecieved = 0;
-        int numberOfOneLiners = 0;
-        for (int i = 0; i < 300; i++) {
-            try {
-                ret = client.checkJob(jobId);
-                System.out.println("Job finished: " + ret.getFinished());
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    break;
+        try {
+            RunJobParams params = new RunJobParams().withMethod(
+                    "onerepotest.print_lines").withServiceVer(lookupServiceVersion("onerepotest"))
+                    .withParams(Arrays.asList(UObject.fromJsonString(
+                            "\"First line\\n" +
+                                    "Second super long line\\n" +
+                            "short\"")));
+            String jobId = client.runJob(params);
+            JobState ret = null;
+            int logLinesRecieved = 0;
+            int numberOfOneLiners = 0;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    ret = client.checkJob(jobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                        break;
+                    }
+                    List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                            .withSkipLines((long)logLinesRecieved)).getLines();
+                    int blockCount = 0;
+                    for (LogLine line : lines) {
+                        System.out.println("LOG: " + line.getLine());
+                        if (line.getLine().startsWith("["))
+                            blockCount++;
+                    }
+                    if (blockCount == 1)
+                        numberOfOneLiners++;
+                    logLinesRecieved += lines.size();
+                    Thread.sleep(1000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
                 }
-                List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
-                        .withSkipLines((long)logLinesRecieved)).getLines();
-                int blockCount = 0;
-                for (LogLine line : lines) {
-                    System.out.println("LOG: " + line.getLine());
-                    if (line.getLine().startsWith("["))
-                        blockCount++;
-                }
-                if (blockCount == 1)
-                    numberOfOneLiners++;
-                logLinesRecieved += lines.size();
-                Thread.sleep(1000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
             }
+            Assert.assertNotNull(ret);
+            String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+            Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+            Assert.assertNotNull(errMsg, ret.getResult());
+            List<Object> data = ret.getResult().asClassInstance(List.class);
+            Assert.assertEquals(errMsg, 1, data.size());
+            Assert.assertEquals(errMsg, 3, data.get(0));
+            Assert.assertEquals(errMsg, 3, numberOfOneLiners);
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
         }
-        Assert.assertNotNull(ret);
-        String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
-        Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
-        Assert.assertNotNull(errMsg, ret.getResult());
-        List<Object> data = ret.getResult().asClassInstance(List.class);
-        Assert.assertEquals(errMsg, 1, data.size());
-        Assert.assertEquals(errMsg, 3, data.get(0));
-        Assert.assertEquals(errMsg, 3, numberOfOneLiners);
     }
 
     @Ignore
@@ -644,7 +664,7 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_RUNNING_TASKS_PER_USER + "=5",
                 NarrativeJobServiceServer.CFG_PROP_THREAD_COUNT + "=2",
                 NarrativeJobServiceServer.CFG_PROP_REBOOT_MODE + "=false",
-                NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest",
+                NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest,rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL),

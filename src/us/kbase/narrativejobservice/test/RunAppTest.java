@@ -27,7 +27,7 @@ import us.kbase.common.taskqueue2.RestartChecker;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.App;
-import us.kbase.narrativejobservice.AppStateRegistry;
+import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.ScriptMethod;
@@ -136,11 +136,15 @@ public class RunAppTest {
         //System.out.println("Input app data:");
         //System.out.println(jsonToPretty(UObject.transformStringToObject(appJson, Object.class)));
         //System.out.println("------------------------------------------------------------------");
+        Map<String, String> dbCfg = new LinkedHashMap<String, String>();
+        dbCfg.put(NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR, 
+                taskHolder.getConfig().getQueueDbDir().getAbsolutePath());
 		String jobId = taskHolder.addTask(appJson, token);
-        AppStateRegistry.initAppState(jobId);
+        RunAppBuilder.initAppState(jobId, dbCfg);
 		Util.waitForJob(token, ujsUrl, jobId);
-		System.out.println("Outputs: " + AppStateRegistry.getAppState(jobId).getStepOutputs());
-		System.out.println("Errors: " + AppStateRegistry.getAppState(jobId).getStepErrors());
+		AppState appState = RunAppBuilder.loadAppState(jobId, dbCfg);
+		System.out.println("Outputs: " + appState.getStepOutputs());
+		System.out.println("Errors: " + appState.getStepErrors());
 	}
 
 	private void runScriptMethod(String token) throws Exception {
@@ -212,6 +216,7 @@ public class RunAppTest {
 		if (queueDir.exists()) {
 			deleteRecursively(queueDir);
 		}
+		allConfigProps.put(NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR, queueDir.getAbsolutePath());
 		TaskQueueConfig cfg = new TaskQueueConfig(1, queueDir, jobStatuses, wsUrl, 0, allConfigProps);
 		taskHolder = new TaskQueue(cfg, new RestartChecker() {
 			@Override

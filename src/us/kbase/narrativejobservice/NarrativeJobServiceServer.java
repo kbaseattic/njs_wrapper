@@ -13,8 +13,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Properties;
+import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.ini4j.Ini;
 
@@ -65,6 +69,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     
     public static final String VERSION = "0.2.0";
     
+    public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
     public static final String AWE_LOGS_TABLE_NAME = "awe_logs";
     
@@ -160,11 +165,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	return Integer.parseInt(ret);
     }
 
-    public static String getAdminUser() {
+    public static Set<String> getAdminUsers() {
     	String ret = config().get(CFG_PROP_ADMIN_USER_NAME);
     	if (ret == null)
     		throw new IllegalStateException("Parameter " + CFG_PROP_ADMIN_USER_NAME + " is not defined in configuration");
-    	return ret;
+    	return new LinkedHashSet<String>(Arrays.asList(ret.split(Pattern.quote(","))));
     }
 
     public static boolean getRebootMode() {
@@ -294,7 +299,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         	returnVal = getForwardClient(authPart).runApp(app);
         } else {
         	String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
-        	returnVal = AppStateRegistry.initAppState(appJobId);
+        	returnVal = RunAppBuilder.initAppState(appJobId, config());
         }
         //END run_app
         return returnVal;
@@ -314,7 +319,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).checkAppState(jobId);
         } else {
-        	returnVal = AppStateRegistry.getAppState(jobId);
+        	returnVal = RunAppBuilder.loadAppState(jobId, config());
         	if (returnVal == null)
         		throw new IllegalStateException("Information is not available");
         }
@@ -377,7 +382,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).deleteApp(jobId);
         } else {
-        	AppState appState = AppStateRegistry.getAppState(jobId);
+        	AppState appState = RunAppBuilder.loadAppState(jobId, config());
         	if (appState != null) {
         		appState.setIsDeleted(1L);
         		returnVal = "App " + jobId + " was marked for deletion";
@@ -479,9 +484,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public List<AppState> listRunningApps(AuthToken authPart) throws Exception {
         List<AppState> returnVal = null;
         //BEGIN list_running_apps
-        if (!authPart.getClientId().equals(getAdminUser()))
+        if (!getAdminUsers().contains(authPart.getClientId()))
         	throw new IllegalStateException("Only admin of service can list internal apps");
-        returnVal = AppStateRegistry.listRunningApps();
+        returnVal = RunAppBuilder.listRunningApps(config());
         //END list_running_apps
         return returnVal;
     }
@@ -499,7 +504,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), config());
+        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config());
         //END run_job
         return returnVal;
     }
@@ -555,7 +560,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
         returnVal = RunAppBuilder.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
-                authPart.toString(), config());
+                authPart.toString(), getAdminUsers(), config());
         //END get_job_logs
         return returnVal;
     }
