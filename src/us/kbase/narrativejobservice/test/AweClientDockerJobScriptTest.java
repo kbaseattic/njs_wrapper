@@ -16,6 +16,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -86,6 +87,7 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testOneJob() throws Exception {
+        System.out.println("Test [testOneJob]");
         try {
             RunJobParams params = new RunJobParams().withMethod(
                     "onerepotest.send_data").withServiceVer(lookupServiceVersion("onerepotest"))
@@ -124,6 +126,7 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testApp() throws Exception {
+        System.out.println("Test [testApp]");
         try {
             String moduleName = "onerepotest";
             App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
@@ -143,7 +146,7 @@ public class AweClientDockerJobScriptTest {
                     System.out.println("App state: " + st.getJobState());
                     stepJobId = st.getStepJobIds().get("step1");
                     if (stepJobId != null)
-                        System.out.println("Step state: " + client.checkJob(stepJobId));
+                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
                     if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
                             st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
                         break;
@@ -174,36 +177,60 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testLogging() throws Exception {
+        System.out.println("Test [testLogging]");
         try {
-            RunJobParams params = new RunJobParams().withMethod(
-                    "onerepotest.print_lines").withServiceVer(lookupServiceVersion("onerepotest"))
-                    .withParams(Arrays.asList(UObject.fromJsonString(
-                            "\"First line\\n" +
-                                    "Second super long line\\n" +
-                            "short\"")));
-            String jobId = client.runJob(params);
+            String moduleName = "onerepotest";
+            String serviceVer = lookupServiceVersion(moduleName);
+            App app = new App().withName("fake").withSteps(Arrays.asList(
+                    new Step().withStepId("step1").withType("service").withService(
+                            new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(serviceVer)
+                            .withMethodName("send_data"))
+                            .withInputValues(Arrays.asList(UObject.fromJsonString(
+                                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
+                                    .withIsLongRunning(1L),
+                    new Step().withStepId("step2").withType("service").withService(
+                            new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(serviceVer)
+                            .withMethodName("print_lines"))
+                            .withInputValues(Arrays.asList(UObject.fromJsonString(
+                                    "\"First line\\nSecond super long line\\nshort\"")))
+                                    .withIsLongRunning(1L)
+                                    ));
+            AppState st = client.runApp(app);
+            String appJobId = st.getJobId();
+            String stepJobId = null;
             JobState ret = null;
             int logLinesRecieved = 0;
             int numberOfOneLiners = 0;
             for (int i = 0; i < 300; i++) {
                 try {
-                    ret = client.checkJob(jobId);
-                    System.out.println("Job finished: " + ret.getFinished());
-                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                        break;
+                    if (stepJobId == null) {
+                        st = client.checkAppState(appJobId);
+                        System.out.println("App state: " + st.getJobState());
+                        stepJobId = st.getStepJobIds().get("step2");
                     }
-                    List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
-                            .withSkipLines((long)logLinesRecieved)).getLines();
-                    int blockCount = 0;
-                    for (LogLine line : lines) {
-                        System.out.println("LOG: " + line.getLine());
-                        if (line.getLine().startsWith("["))
-                            blockCount++;
+                    if (stepJobId != null) {
+                        ret = client.checkJob(stepJobId);
+                        System.out.println("Job finished: " + ret.getFinished());
+                        if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                            break;
+                        }
+                        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(stepJobId)
+                                .withSkipLines((long)logLinesRecieved)).getLines();
+                        int blockCount = 0;
+                        for (LogLine line : lines) {
+                            System.out.println("LOG: " + line.getLine());
+                            if (line.getLine().startsWith("["))
+                                blockCount++;
+                        }
+                        if (blockCount == 1)
+                            numberOfOneLiners++;
+                        logLinesRecieved += lines.size();
                     }
-                    if (blockCount == 1)
-                        numberOfOneLiners++;
-                    logLinesRecieved += lines.size();
-                    Thread.sleep(1000);
+                    Thread.sleep(5000);
                 } catch (ServerException ex) {
                     System.out.println(ex.getData());
                     throw ex;
@@ -223,41 +250,99 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Ignore
     @Test
-    public void testContigCount() throws Exception {
-        String moduleName = "contigcount";
-        String ver = lookupServiceVersion(moduleName);
-        System.out.println(ver);
-        RunJobParams params = new RunJobParams().withMethod(
-                "contigcount.count_contigs")
-                .withServiceVer(ver)
-                .withParams(Arrays.asList(UObject.fromJsonString("\"" + testWsName + "\""),
-                        UObject.fromJsonString("\"" + testContigsetObjName + "\"")));
-        String jobId = client.runJob(params);
-        JobState ret = null;
-        for (int i = 0; i < 300; i++) {
-            try {
-                ret = client.checkJob(jobId);
-                System.out.println("Job finished: " + ret.getFinished());
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    break;
+    public void testError() throws Exception {
+        System.out.println("Test [testError]");
+        try {
+            String moduleName = "onerepotest";
+            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(lookupServiceVersion(moduleName))
+                            .withMethodName("generate_error"))
+                            .withInputValues(Arrays.asList(UObject.fromJsonString("\"Super!\"")))
+                            .withIsLongRunning(1L)));
+            AppState st = client.runApp(app);
+            String appJobId = st.getJobId();
+            String stepJobId = null;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    st = client.checkAppState(appJobId);
+                    System.out.println("App state: " + st.getJobState());
+                    stepJobId = st.getStepJobIds().get("step1");
+                    if (stepJobId != null)
+                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
+                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
                 }
-                Thread.sleep(5000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
             }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertNotNull(stepJobId);
+            String stepErrorText = st.getStepErrors().get("step1");
+            Assert.assertNotNull(errMsg, stepErrorText);
+            Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
+            Assert.assertTrue(st.toString(), stepErrorText.contains("Preparing to generate an error..."));
+            Assert.assertEquals(errMsg, RunAppBuilder.APP_STATE_ERROR, st.getJobState());
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
         }
-        Assert.assertNotNull(ret);
-        String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
-        Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
-        Assert.assertNotNull(errMsg, ret.getResult());
-        List<Map<String, Object>> data = ret.getResult().asClassInstance(List.class);
-        Assert.assertEquals(errMsg, 1, data.size());
-        Assert.assertNotNull(errMsg, data.get(0).get("contig_count"));
-        int contigCount = (Integer)data.get(0).get("contig_count");
-        Assert.assertEquals(7, contigCount);
+    }
+
+    @Test
+    public void testConfig() throws Exception {
+        System.out.println("Test [testConfig]");
+        try {
+            String moduleName = "onerepotest";
+            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(lookupServiceVersion(moduleName))
+                            .withMethodName("get_deploy_config"))
+                            .withInputValues(Collections.<UObject>emptyList())
+                            .withIsLongRunning(1L)));
+            AppState st = client.runApp(app);
+            String appJobId = st.getJobId();
+            String stepJobId = null;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    st = client.checkAppState(appJobId);
+                    System.out.println("App state: " + st.getJobState());
+                    stepJobId = st.getStepJobIds().get("step1");
+                    if (stepJobId != null)
+                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
+                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertNotNull(stepJobId);
+            Assert.assertEquals(errMsg, "completed", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepOutputs());
+            String step1output = st.getStepOutputs().get("step1");
+            Assert.assertNotNull(errMsg, step1output);
+            List<Map<String, String>> data = UObject.getMapper().readValue(step1output, List.class);
+            Assert.assertEquals(errMsg, 1, data.size());
+            Map<String, String> output = data.get(0);
+            Assert.assertNotNull(errMsg, output);
+            Assert.assertNotNull(errMsg, output.get("kbase-endpoint"));
+            Assert.assertTrue(errMsg, output.get("kbase-endpoint").startsWith("http"));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
     }
 
     public String lookupServiceVersion(String moduleName) throws Exception,
@@ -275,22 +360,6 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static UserAndJobStateClient getUjsClient(AuthToken auth, 
-            Map<String, String> config) throws Exception {
-        String jobSrvUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-        UserAndJobStateClient ret = new UserAndJobStateClient(new URL(jobSrvUrl), auth);
-        ret.setIsInsecureHttpConnectionAllowed(true);
-        ret.setAllSSLCertificatesTrusted(true);
-        return ret;
-    }
-
-    private static BasicShockClient getShockClient(AuthToken auth, 
-            Map<String, String> config) throws Exception {
-        String shockUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
-        BasicShockClient ret = new BasicShockClient(new URL(shockUrl), auth);
-        return ret;
-    }
-    
     private static CatalogClient getCatalogClient(AuthToken auth, 
             Map<String, String> config) throws Exception {
         String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);

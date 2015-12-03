@@ -298,8 +298,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (forward) {
         	returnVal = getForwardClient(authPart).runApp(app);
         } else {
-        	String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
-        	returnVal = RunAppBuilder.initAppState(appJobId, config());
+            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart.toString(), app, config());
+            if (returnVal == null) {
+                String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
+                returnVal = RunAppBuilder.initAppState(appJobId, config());
+            }
         }
         //END run_app
         return returnVal;
@@ -322,6 +325,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         	returnVal = RunAppBuilder.loadAppState(jobId, config());
         	if (returnVal == null)
         		throw new IllegalStateException("Information is not available");
+        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart.toString(), returnVal, config());
         }
         //END check_app_state
         return returnVal;
@@ -447,6 +451,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 CFG_PROP_RUNNING_TASKS_PER_USER, CFG_PROP_SCRATCH,
                 CFG_PROP_SHOCK_URL, CFG_PROP_THREAD_COUNT,
                 CFG_PROP_WORKSPACE_SRV_URL, CFG_PROP_KBASE_ENDPOINT};
+        Map<String, String> config = config();
         for (String key : keys) {
             String value = config.get(key);
             if (value == null)
@@ -543,7 +548,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
-        returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config);
+        returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
         //END add_job_logs
         return returnVal;
     }

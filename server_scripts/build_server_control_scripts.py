@@ -73,14 +73,19 @@ with open(os.path.join(serviceDir, 'start_service'), 'w') as ss:
         '-Xmx{}m ' +
         '-Djetty.port={} ' +
         '-DKB_DEPLOYMENT_CONFIG=$KB_DEPLOYMENT_CONFIG ' +
-        'org.eclipse.jetty.start.Main jetty.xml\n')
+        'org.eclipse.jetty.start.Main jetty.xml >{}/out.txt 2>{}/err.txt & pid=$!\n')
         .format(maxmem,port,serviceDir,serviceDir))
+    ss.write(('echo $pid > {}/pid.txt\n').format(serviceDir))
 
 with open(os.path.join(serviceDir, 'stop_service'), 'w') as ss:
     ss.write('export JAVA_HOME={}\n'.format(javaHome))
     ss.write('export PATH=$JAVA_HOME/bin:$PATH\n')
     ss.write('export CLASSPATH=\n')
-    ss.write('killall java\n')
+    ss.write(('PIDFILE={}/pid.txt\n').format(serviceDir))
+    ss.write('THEPID=$(cat $PIDFILE)\n')
+    ss.write('echo "Killing PID $THEPID..."\n')
+    ss.write('kill $THEPID\n')
+    ss.write('rm $PIDFILE\n')
 
 make_executable(os.path.join(serviceDir, 'start_service'))
 make_executable(os.path.join(serviceDir, 'stop_service'))

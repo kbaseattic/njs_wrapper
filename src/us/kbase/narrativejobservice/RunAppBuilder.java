@@ -75,25 +75,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			try {
 				runApp(token, app, appState, jobId, outRef);
 			} catch (Exception ex) {
-		        appState.setJobState(APP_STATE_ERROR);
-		        String stepId = appState.getRunningStepId();
-				if (stepId == null) {
-					stepId = app.getSteps().size() > 0 ? app.getSteps().get(0).getStepId() : "nostepid";
-					appState.setRunningStepId(stepId);
-				}
-				String prevError = appState.getStepErrors().get(stepId);
-				if (prevError == null) {
-				    String message;
-				    if (ex instanceof ServerException) { 
-				        message = ((ServerException)ex).getData();
-				    } else {
-				        message = ex.getMessage();
-				    }
-					appState.getStepErrors().put(stepId, message);
-				}
-				try {
-				    updateAppState(jobId, appState, config);
-				} catch (Exception ignore) {}
+			    String defaultStepId = app.getSteps().size() > 0 ? app.getSteps().get(0).getStepId() : "nostepid";
+		        registerAppError(appState, ex, defaultStepId, config);
 				throw ex;
 			}
 		} else {		// STEP
@@ -101,6 +84,29 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			runStep(token, step, jobId, outRef);
 		}
 	}
+
+    private static void registerAppError(AppState appState, Exception ex,
+            String defaultStepId, Map<String, String> config) {
+        appState.setJobState(APP_STATE_ERROR);
+        String stepId = appState.getRunningStepId();
+        if (stepId == null) {
+        	stepId = defaultStepId;
+        	appState.setRunningStepId(stepId);
+        }
+        String prevError = appState.getStepErrors().get(stepId);
+        if (prevError == null) {
+            String message;
+            if (ex instanceof ServerException) { 
+                message = ((ServerException)ex).getData();
+            } else {
+                message = ex.getMessage();
+            }
+        	appState.getStepErrors().put(stepId, message);
+        }
+        try {
+            updateAppState(appState, config);
+        } catch (Exception ignore) {}
+    }
 
 	public static synchronized AppState initAppState(String appJobId, Map<String, String> config) 
 	        throws Exception {
@@ -139,14 +145,14 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	    return ret.size() > 0 ? ret.get(0) : null;
 	}
 
-	public static synchronized void updateAppState(String appJobId, AppState appState,
+	public static synchronized void updateAppState(AppState appState,
 	        Map<String, String> config) throws Exception {
 	    DbConn conn = getDbConnection(config);
 	    conn.exec("update " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " set " +
 	    		"app_job_state=?, app_state_data=?, modification_time=? where " +
 	    		"app_job_id=?", appState.getJobState(), 
 	    		UObject.getMapper().writeValueAsString(appState), 
-	    		System.currentTimeMillis(), appJobId);
+	    		System.currentTimeMillis(), appState.getJobId());
 	}
 	
 	public static synchronized List<AppState> listRunningApps(Map<String, String> config) 
@@ -208,11 +214,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			System.out.println("App [" + jobId + "]: " + app);
 		appState.getAdditionalProperties().put("original_app", app);
 		appState.setJobState(APP_STATE_STARTED);
-		updateAppState(jobId, appState, config);
+		updateAppState(appState, config);
 		AuthToken auth = new AuthToken(token);
 		for (Step step : app.getSteps()) {
 	        appState.setRunningStepId(step.getStepId());
-	        updateAppState(jobId, appState, config);
+	        updateAppState(appState, config);
 			if (appState.getIsDeleted() != null && appState.getIsDeleted() == 1L)
 				throw new IllegalStateException("App was deleted");
 			if (step.getType() == null || !step.getType().equals("service"))
@@ -229,7 +235,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
 			    String stepJobId = runAweDockerScript(params, token, jobId, config);
 			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
-	            updateAppState(jobId, appState, config);
+	            updateAppState(appState, config);
 			    JobState jobState = null;
 			    while (true) {
 			        Thread.sleep(5000);
@@ -283,7 +289,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			    }
 			    if (stepJobId != null) {
 		             appState.getStepJobIds().put(step.getStepId(), stepJobId);
-		                updateAppState(jobId, appState, config);
+		                updateAppState(appState, config);
 			        if (debug)
 			            System.out.println("Before waiting for job for app [" + jobId + "] step [" + step.getStepId() + "]");
 			        waitForJob(token, ujsUrl, stepJobId, appState);
@@ -292,13 +298,89 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			    }
 			    appState.getStepOutputs().put(step.getStepId(), UObject.transformObjectToString(stepOutput));
 			}
-	        updateAppState(jobId, appState, config);			
+	        updateAppState(appState, config);			
 		}
         appState.setRunningStepId(null);
         appState.setJobState(APP_STATE_DONE);
-        updateAppState(jobId, appState, config);
+        updateAppState(appState, config);
 		if (debug)
 			System.out.println("End of app [" + jobId + "]");
+	}
+	
+	public static AppState tryToRunAsOneStepAweScript(String token, App app, 
+	        Map<String, String> config) throws Exception {
+        if (app.getSteps().size() != 1)
+            return null;
+        Step step = app.getSteps().get(0);
+        String srvUrl = step.getService().getServiceUrl();
+        if (step.getIsLongRunning() == null || step.getIsLongRunning() != 1L ||
+                !srvUrl.isEmpty())
+            return null;
+        String srvName = step.getService().getServiceName();
+        String srvMethod = step.getService().getMethodName();
+        if (srvName != null && !srvName.isEmpty())
+            srvMethod = srvName + "." + srvMethod;
+        RunJobParams params = new RunJobParams().withMethod(srvMethod)
+                .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
+        String jobId = runAweDockerScript(params, token, "", config);
+        AppState appState = initAppState(jobId, config);
+        appState.getAdditionalProperties().put("original_app", app);
+        appState.setJobState(APP_STATE_QUEUED);
+        appState.setRunningStepId(step.getStepId());
+        appState.getStepJobIds().put(step.getStepId(), jobId);
+        updateAppState(appState, config);
+        return appState;
+	}
+	
+	public static void checkIfAppStateNeedsUpdate(String token, AppState appState, 
+            Map<String, String> config) throws Exception {
+	    if (appState.getJobState().equals(APP_STATE_DONE) ||
+	            appState.getJobState().equals(APP_STATE_ERROR))
+	        return;
+	    if (appState.getStepJobIds().size() != 1)
+	        return;
+	    String stepId = appState.getStepJobIds().keySet().iterator().next();
+	    String stepJobId = appState.getStepJobIds().get(stepId);
+	    if (!appState.getJobId().equals(stepJobId))
+	        return;
+	    try {
+	        JobState jobState = checkJob(stepJobId, token, config);
+	        if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+	            if (jobState.getError() != null) {
+	                JsonRpcError retError = jobState.getError();
+	                String errorText = retError.getError();
+	                List<LogLine> logLines = getAweDockerScriptLogs(stepJobId, null, token, null, config).getLines();
+	                if (logLines.size() > 0) {
+	                    StringBuilder logPart = new StringBuilder("\nConsole output/error logs:\n");
+	                    for (int i = 0; i < Math.min(100, logLines.size()); i++)
+	                        logPart.append(logLines.get(i).getLine()).append("\n");
+	                    if (logLines.size() > 200)
+	                        logPart.append("<<<--- " + (logLines.size() - 200) +" line(s) skipped --->>>\n");
+	                    for (int i = Math.max(100, logLines.size() - 100); i < logLines.size(); i++)
+                            logPart.append(logLines.get(i).getLine()).append("\n");
+	                    errorText += logPart.toString();
+	                }
+	                throw new ServerException(retError.getMessage(), retError.getCode().intValue(), 
+	                        retError.getName(), errorText);
+	            } else {
+	                appState.getStepOutputs().put(stepId, UObject.transformObjectToString(jobState.getResult()));
+	                appState.setRunningStepId(null);
+	                appState.setJobState(APP_STATE_DONE);
+	                updateAppState(appState, config);
+	            }
+	        } else if (jobState.getStatus() != null) {
+	            Tuple7<String, String, String, Long, String, Long, Long> ujsStatus = 
+	                    jobState.getStatus().asClassInstance(
+	                            new TypeReference<Tuple7<String, String, String, Long, String, Long, Long>>() {});
+	            String stage = ujsStatus.getE2();
+	            if (stage != null && stage.equals("started")) {
+                    appState.setJobState(APP_STATE_STARTED);
+	            }
+	        }
+	    } catch (Exception ex) {
+	        String defaultStepId = "nostepid";
+	        registerAppError(appState, ex, defaultStepId, config);
+        }
 	}
 	
 	@SuppressWarnings("unused")
@@ -350,6 +432,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
                 ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
                 authPart.toString());
+        if (appJobId != null && appJobId.isEmpty())
+            appJobId = ujsJobId;
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
         return ujsJobId;
     }
@@ -489,12 +573,14 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
     public static JobState checkJob(String jobId, String token, 
             Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
-        JobState returnVal = new JobState();
+        String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+        JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
         String aweJobId = getAweTaskAweJobId(jobId, config);
         returnVal.getAdditionalProperties().put("awe_job_id", aweJobId);
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         Tuple7<String, String, String, Long, String, Long, Long> jobStatus = 
                 ujsClient.getJobStatus(jobId);
+        returnVal.setStatus(new UObject(jobStatus));
         boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
         String outputShockId = getAweTaskOutputShockId(jobId, config);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -516,6 +602,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     (!aweState.equals("in-progress"))) {
                 throw new IllegalStateException("Unexpected job state: " + aweState);
             }
+            returnVal.getAdditionalProperties().put("awe_job_state", aweState);
             returnVal.setFinished(0L);
         } else {
             FinishJobParams result = UObject.getMapper().readValue(
