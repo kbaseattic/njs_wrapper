@@ -95,10 +95,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         }
         String prevError = appState.getStepErrors().get(stepId);
         if (prevError == null) {
-            String message;
+            String message = null;
             if (ex instanceof ServerException) { 
                 message = ((ServerException)ex).getData();
-            } else {
+            } 
+            if (message == null) {
                 message = ex.getMessage();
             }
         	appState.getStepErrors().put(stepId, message);
