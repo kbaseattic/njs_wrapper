@@ -350,6 +350,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	            if (jobState.getError() != null) {
 	                JsonRpcError retError = jobState.getError();
 	                String errorText = retError.getError();
+	                if (errorText == null)
+	                    errorText = "Message: " + retError.getMessage();
 	                List<LogLine> logLines = getAweDockerScriptLogs(stepJobId, null, token, null, config).getLines();
 	                if (logLines.size() > 0) {
 	                    StringBuilder logPart = new StringBuilder("\nConsole output/error logs:\n");

@@ -1,7 +1,6 @@
 package us.kbase.narrativejobservice.test;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -33,7 +32,6 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,9 +56,6 @@ import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
-import us.kbase.shock.client.BasicShockClient;
-import us.kbase.shock.client.ShockNodeId;
-import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.ObjectSaveData;
 import us.kbase.workspace.SaveObjectsParams;
@@ -339,6 +334,51 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, output);
             Assert.assertNotNull(errMsg, output.get("kbase-endpoint"));
             Assert.assertTrue(errMsg, output.get("kbase-endpoint").startsWith("http"));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
+    @Test
+    public void testPythonWrongType() throws Exception {
+        System.out.println("Test [testPythonWrongType]");
+        try {
+            String moduleName = "onerepotest";
+            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                            .withServiceName(moduleName)
+                            .withServiceVersion(lookupServiceVersion(moduleName))
+                            .withMethodName("print_lines"))
+                            .withInputValues(Arrays.asList(new UObject(123)))
+                                    .withIsLongRunning(1L)));
+            AppState st = client.runApp(app);
+            String appJobId = st.getJobId();
+            String stepJobId = null;
+            for (int i = 0; i < 300; i++) {
+                try {
+                    st = client.checkAppState(appJobId);
+                    System.out.println("App state: " + st.getJobState());
+                    stepJobId = st.getStepJobIds().get("step1");
+                    if (stepJobId != null)
+                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
+                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertNotNull(stepJobId);
+            Assert.assertEquals(errMsg, "suspend", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepErrors());
+            String step1err = st.getStepErrors().get("step1");
+            Assert.assertNotNull(errMsg, step1err);
+            Assert.assertTrue(step1err, step1err.contains("positional arg #1 is the wrong type"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
