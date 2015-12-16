@@ -456,7 +456,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
                 NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, 
                 NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
-                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI
+                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL
         };
         for (String key : propsToSend) {
             String value = config.get(key);

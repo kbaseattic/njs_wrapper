@@ -26,24 +26,21 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
-    private final String dockerRegistry;
     private final String dockerURI;
     
-    public DockerRunner(String dockerRegistry, String dockerURI) {
-        this.dockerRegistry = dockerRegistry;
+    public DockerRunner(String dockerURI) {
         this.dockerURI = dockerURI;
     }
     
-    public File run(String imageName, String version, String moduleName, 
-            File inputData, String token, final LineLogger log, File outputFile, 
-            boolean removeImage) throws Exception {
+    public File run(String imageName, String moduleName, File inputData, String token, 
+            final LineLogger log, File outputFile, boolean removeImage) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
         DockerClient cl = createDockerClient();
-        String fullImgName = checkImagePulled(cl, imageName, version);
+        imageName = checkImagePulled(cl, imageName);
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
@@ -53,17 +50,16 @@ public class DockerRunner {
                 outputFile.delete();
             long suffix = System.currentTimeMillis();
             while (true) {
-                cntName = imageName + "_" + suffix;
+                cntName = moduleName.toLowerCase() + "_" + suffix;
                 if (findContainerByNameOrIdPrefix(cl, cntName) == null)
                     break;
                 suffix++;
             }
-            CreateContainerResponse resp = cl.createContainerCmd(fullImgName)
+            CreateContainerResponse resp = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             new Bind(workDir.getAbsolutePath(), new Volume(
                                     "/kb/module/work"))).exec();
             String cntId = resp.getId();
-            //cl.startContainerCmd(cntId).exec();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
@@ -137,7 +133,7 @@ public class DockerRunner {
             }
             if (removeImage) {
                 try {
-                    Image img = findImageId(cl, fullImgName);
+                    Image img = findImageId(cl, imageName);
                     cl.removeImageCmd(img.getId()).exec();
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -150,29 +146,17 @@ public class DockerRunner {
         }
     }
     
-    public String checkImagePulled(DockerClient cl, String imageName, String version)
+    public String checkImagePulled(DockerClient cl, String imageName)
             throws Exception {
-        String requestedTag = dockerRegistry + "/" + imageName + ":" + version;
-        if (findImageId(cl, requestedTag) == null) {
-            /*BufferedReader br = new BufferedReader(new InputStreamReader(cl.pullImageCmd(requestedTag).exec()));
-            try {
-                while (true) {
-                    String l = br.readLine();
-                    if (l == null)
-                        break;
-                    //System.out.println("[DEBUG] DockerRunner.checkImagePulled: " + l);
-                }
-            } finally {
-                br.close();
-            }*/
-            System.out.println("[DEBUG] DockerRunner: before pulling " + requestedTag);
-            ProcessHelper.cmd("docker", "pull", requestedTag).exec(new File("."));
-            System.out.println("[DEBUG] DockerRunner: after pulling " + requestedTag);
+        if (findImageId(cl, imageName) == null) {
+            System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
+            ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
+            System.out.println("[DEBUG] DockerRunner: after pulling " + imageName);
         }
-        if (findImageId(cl, requestedTag) == null) {
-            throw new IllegalStateException("Image was not found: " + requestedTag);
+        if (findImageId(cl, imageName) == null) {
+            throw new IllegalStateException("Image was not found: " + imageName);
         }
-        return requestedTag;
+        return imageName;
     }
 
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix) {

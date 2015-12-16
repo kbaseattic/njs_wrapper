@@ -2,12 +2,13 @@ package us.kbase.narrativejobservice;
 
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,8 +17,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import us.kbase.auth.AuthToken;
+import us.kbase.auth.TokenFormatException;
+import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.ModuleInfo;
+import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersionParams;
+import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
+import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
@@ -40,9 +48,7 @@ public class AweClientDockerJobScript {
             token = System.getProperty("KB_AUTH_TOKEN");  // For tests
         if (token == null || token.isEmpty())
             throw new IllegalStateException("Token is not defined");
-        final NarrativeJobServiceClient jobSrvClient = new NarrativeJobServiceClient(new URL(jobSrvUrl), 
-                new AuthToken(token));
-        jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
+        final NarrativeJobServiceClient jobSrvClient = getJobClient(jobSrvUrl, token);
         UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
@@ -81,17 +87,37 @@ public class AweClientDockerJobScript {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             ujsClient.updateJob(jobId, token, "running", null);
-            String imageName = moduleName.toLowerCase();
-            String imageVersion = job.getServiceVer();
-            if (imageVersion == null || imageVersion.isEmpty())
-                imageVersion = "latest";
-            String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
                 @Override
                 public void logNextLine(String line, boolean isError) throws Exception {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
                 }
             };
+            String dockerRegistry = getDockerRegistryURL(config);
+            CatalogClient catClient = getCatalogClient(config, token);
+            String imageVersion = job.getServiceVer();
+            String imageName = null;
+            if (imageVersion == null) {
+                ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
+                if (mi.getRelease() == null)
+                    throw new IllegalStateException("Cannot extract release version for module: " + moduleName);
+                ModuleVersionInfo mvi = mi.getRelease();
+                imageVersion = mvi.getGitCommitHash();
+                imageName = mvi.getDockerImgName();
+            } else {
+                ModuleVersionInfo mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                        .withModuleName(moduleName).withGitCommitHash(imageVersion));
+                imageName = mvi.getDockerImgName();
+            }
+            if (imageName == null) {
+                // TODO: We need to get rid of this line soon
+                imageName = dockerRegistry + "/" +moduleName.toLowerCase() + ":" + imageVersion;
+                //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
+                log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
+            } else {
+                log.logNextLine("Image recieved from catalog: " + imageName, false);
+            }
+            String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             logFlusher = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -109,7 +135,7 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            new DockerRunner(getDockerRegistryURL(config), dockerURI).run(imageName, imageVersion, 
+            new DockerRunner(dockerURI).run(imageName, 
                     moduleName, inputFile, token, log, outputFile, false);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
@@ -158,7 +184,11 @@ public class AweClientDockerJobScript {
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
             String jobId, List<LogLine> logLines, LogLine line) throws Exception {
         logLines.add(line);
-        System.out.println(line);
+        if (line.getIsError() != null && line.getIsError() == 1L) {
+            System.err.println(line);
+        } else {
+            System.out.println(line);
+        }
     }
     
     private static synchronized void flushLog(NarrativeJobServiceClient jobSrvClient,
@@ -204,5 +234,26 @@ public class AweClientDockerJobScript {
             throw new IllegalStateException("Parameter '" + NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL +
                     "' is not defined in configuration");
         return drUrl;
+    }
+    
+    public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
+            String token) throws UnauthorizedException, IOException,
+            MalformedURLException, TokenFormatException {
+        final NarrativeJobServiceClient jobSrvClient = new NarrativeJobServiceClient(new URL(jobSrvUrl), 
+                new AuthToken(token));
+        jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
+        return jobSrvClient;
+    }
+
+    private static CatalogClient getCatalogClient(Map<String, String> config, 
+            String token) throws Exception {
+        String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        if (catUrl == null)
+            throw new IllegalStateException("Parameter '" + 
+                    NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "' is not defined in configuration");
+        CatalogClient ret = new CatalogClient(new URL(catUrl), new AuthToken(token));
+        ret.setIsInsecureHttpConnectionAllowed(true);
+        ret.setAllSSLCertificatesTrusted(true);
+        return ret;
     }
 }
