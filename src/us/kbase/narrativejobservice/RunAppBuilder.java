@@ -47,6 +47,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_DONE = "completed";
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
+    public static final long MAX_APP_SIZE = 30000;
 
     private static DbConn conn = null;
 
@@ -148,11 +149,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 
 	public static synchronized void updateAppState(AppState appState,
 	        Map<String, String> config) throws Exception {
+	    String appData = UObject.getMapper().writeValueAsString(appState);
+	    if (appData.length() > MAX_APP_SIZE)
+	        throw new IllegalStateException("App data is too large (>" + MAX_APP_SIZE + ")");
 	    DbConn conn = getDbConnection(config);
 	    conn.exec("update " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " set " +
 	    		"app_job_state=?, app_state_data=?, modification_time=? where " +
-	    		"app_job_id=?", appState.getJobState(), 
-	    		UObject.getMapper().writeValueAsString(appState), 
+	    		"app_job_id=?", appState.getJobState(), appData, 
 	    		System.currentTimeMillis(), appState.getJobId());
 	}
 	
@@ -367,9 +370,10 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	                        retError.getName(), errorText);
 	            } else {
 	                appState.getStepOutputs().put(stepId, UObject.transformObjectToString(jobState.getResult()));
-	                appState.setRunningStepId(null);
-	                appState.setJobState(APP_STATE_DONE);
 	                updateAppState(appState, config);
+                    appState.setRunningStepId(null);
+                    appState.setJobState(APP_STATE_DONE);
+                    updateAppState(appState, config);
 	            }
 	        } else if (jobState.getStatus() != null) {
 	            Tuple7<String, String, String, Long, String, Long, Long> ujsStatus = 
