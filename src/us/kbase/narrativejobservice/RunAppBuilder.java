@@ -598,13 +598,19 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             String aweState;
             try {
                 aweState = AweUtils.getAweJobState(getAweServerURL(config), aweJobId, token);
+                if (aweState == null)
+                    throw new IllegalStateException("state is null");
             } catch (Exception ex) {
-                throw new IllegalStateException("Error checking AWE job for ujs-id=" + jobId + 
-                        " (" + ex.getMessage() + ")", ex);
+                throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
+                		"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
             }
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
                     (!aweState.equals("in-progress"))) {
-                throw new IllegalStateException("Unexpected job state: " + aweState);
+                if (aweState.equals("suspend"))
+                    throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
+                            " for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ? 
+                                    " whereas job script wasn't started at all" : ""));
+                throw new IllegalStateException("Unexpected AWE job state: " + aweState);
             }
             returnVal.getAdditionalProperties().put("awe_job_state", aweState);
             returnVal.setFinished(0L);
