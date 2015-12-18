@@ -32,7 +32,7 @@ import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
-    private static final long MAX_OUTPUT_SIZE = 5 * 1024;
+    private static final long MAX_OUTPUT_SIZE = 15 * 1024;
     
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
