@@ -66,8 +66,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
     public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
+    public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     
-    public static final String VERSION = "0.2.0";
+    public static final String VERSION = "0.2.1";
     
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
@@ -268,6 +269,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             ret = wsUrl.replace("/ws", "");
         }
         return ret;
+    }
+    
+    public static String getRefDataBase() throws Exception {
+        return config().get(CFG_PROP_REF_DATA_BASE);
     }
     //END_CLASS_HEADER
 

@@ -15,10 +15,10 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
 import junit.framework.Assert;
@@ -32,6 +32,7 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -123,37 +124,9 @@ public class AweClientDockerJobScriptTest {
     public void testApp() throws Exception {
         System.out.println("Test [testApp]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("send_data"))
-                            .withInputValues(Arrays.asList(UObject.fromJsonString(
-                                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
-                                    .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "send_data", 
+                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "completed", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepOutputs());
             String step1output = st.getStepOutputs().get("step1");
@@ -168,6 +141,44 @@ public class AweClientDockerJobScriptTest {
             System.err.println(ex.getData());
             throw ex;
         }
+    }
+
+    private AppState runAsyncMethodAsAppAndWait(String moduleName,
+            String methodName, String... paramsJson) throws Exception,
+            IOException, InvalidFileFormatException, JsonClientException,
+            InterruptedException, ServerException {
+        List<UObject> inputValues = new ArrayList<UObject>();
+        for (String paramJson : paramsJson)
+            inputValues.add(UObject.fromJsonString(paramJson));
+        App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                        .withServiceName(moduleName)
+                        .withServiceVersion(lookupServiceVersion(moduleName))
+                        .withMethodName(methodName))
+                        .withInputValues(inputValues)
+                        .withIsLongRunning(1L)));
+        AppState st = client.runApp(app);
+        String appJobId = st.getJobId();
+        String stepJobId = null;
+        for (int i = 0; i < 300; i++) {
+            try {
+                st = client.checkAppState(appJobId);
+                System.out.println("App state: " + st.getJobState());
+                stepJobId = st.getStepJobIds().get("step1");
+                if (stepJobId != null)
+                    System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
+                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        Assert.assertNotNull(stepJobId);
+        return st;
     }
     
     @Test
@@ -249,36 +260,8 @@ public class AweClientDockerJobScriptTest {
     public void testError() throws Exception {
         System.out.println("Test [testError]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("generate_error"))
-                            .withInputValues(Arrays.asList(UObject.fromJsonString("\"Super!\"")))
-                            .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "generate_error", "\"Super!\"");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             String stepErrorText = st.getStepErrors().get("step1");
             Assert.assertNotNull(errMsg, stepErrorText);
             Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
@@ -294,36 +277,8 @@ public class AweClientDockerJobScriptTest {
     public void testConfig() throws Exception {
         System.out.println("Test [testConfig]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("get_deploy_config"))
-                            .withInputValues(Collections.<UObject>emptyList())
-                            .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "get_deploy_config");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "completed", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepOutputs());
             String step1output = st.getStepOutputs().get("step1");
@@ -344,36 +299,8 @@ public class AweClientDockerJobScriptTest {
     public void testPythonWrongType() throws Exception {
         System.out.println("Test [testPythonWrongType]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("print_lines"))
-                            .withInputValues(Arrays.asList(new UObject(123)))
-                                    .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "print_lines", "123");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "suspend", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepErrors());
             String step1err = st.getStepErrors().get("step1");
@@ -385,6 +312,31 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @Test
+    @Ignore
+    public void testRefData() throws Exception {
+        System.out.println("Test [testRefData]");
+        File refDataDir = new File(njsServiceDir, "onerepotest/0.1");
+        if (!refDataDir.exists())
+            refDataDir.mkdirs();
+        String refDataFileName = "test.txt";
+        PrintWriter pw = new PrintWriter(new File(refDataDir, refDataFileName));
+        pw.println("Reference data file");
+        pw.close();
+        try {
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/data\"");
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertEquals(errMsg, "completed", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepOutputs());
+            String step1output = st.getStepOutputs().get("step1");
+            Assert.assertNotNull(errMsg, step1output);
+            List<List<String>> data = UObject.getMapper().readValue(step1output, List.class);
+            Assert.assertTrue(errMsg, new TreeSet<String>(data.get(0)).contains(refDataFileName));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());
@@ -778,7 +730,8 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT),
-                NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/"
+                NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
+                NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath()
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)

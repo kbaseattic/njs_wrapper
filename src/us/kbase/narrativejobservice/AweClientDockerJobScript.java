@@ -97,17 +97,27 @@ public class AweClientDockerJobScript {
             CatalogClient catClient = getCatalogClient(config, token);
             String imageVersion = job.getServiceVer();
             String imageName = null;
+            ModuleVersionInfo mvi = null;
             if (imageVersion == null) {
                 ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
                 if (mi.getRelease() == null)
                     throw new IllegalStateException("Cannot extract release version for module: " + moduleName);
-                ModuleVersionInfo mvi = mi.getRelease();
+                mvi = mi.getRelease();
                 imageVersion = mvi.getGitCommitHash();
-                imageName = mvi.getDockerImgName();
             } else {
-                ModuleVersionInfo mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
                         .withModuleName(moduleName).withGitCommitHash(imageVersion));
-                imageName = mvi.getDockerImgName();
+            }
+            imageName = mvi.getDockerImgName();
+            File refDataDir = null;
+            if (mvi.getDataFolder() != null && mvi.getDataVersion() != null) {
+                String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
+                if (refDataBase == null)
+                    throw new IllegalStateException("Reference data parameters are defined for image but " + 
+                            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
+                refDataDir = new File(new File(refDataBase, mvi.getDataFolder()), mvi.getDataVersion());
+                if (!refDataDir.exists())
+                    throw new IllegalStateException("Reference data directory doesn't exist: " + refDataDir);
             }
             if (imageName == null) {
                 // TODO: We need to get rid of this line soon
@@ -135,8 +145,7 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            new DockerRunner(dockerURI).run(imageName, 
-                    moduleName, inputFile, token, log, outputFile, false);
+            new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, log, outputFile, false, refDataDir);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
