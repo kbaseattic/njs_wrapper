@@ -105,8 +105,13 @@ public class AweClientDockerJobScript {
                 mvi = mi.getRelease();
                 imageVersion = mvi.getGitCommitHash();
             } else {
-                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(imageVersion));
+                try {
+                    mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                            .withModuleName(moduleName).withGitCommitHash(imageVersion));
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Error retrieving module version info about image " +
+                            moduleName + " with version " + imageVersion, ex);
+                }
             }
             imageName = mvi.getDockerImgName();
             File refDataDir = null;
