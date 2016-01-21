@@ -72,7 +72,7 @@ public class AweClientDockerJobScript {
             rpc.put("version", "1.1");
             rpc.put("method", job.getMethod());
             rpc.put("params", job.getParams());
-            rpc.put("context", job.getRpcContext());
+            rpc.put("context", context);
             File inputFile = new File(jobDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(jobDir, "output.json");
