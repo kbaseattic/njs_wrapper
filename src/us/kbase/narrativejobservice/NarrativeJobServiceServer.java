@@ -64,11 +64,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
     public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
+    public static final String CFG_PROP_CATALOG_ADMIN_USER = "catalog.admin.user";
+    public static final String CFG_PROP_CATALOG_ADMIN_PWD = "catalog.admin.pwd";
     public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     
-    public static final String VERSION = "0.2.1";
+    public static final String VERSION = "0.2.2";
     
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
@@ -455,7 +457,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 CFG_PROP_QUEUE_DB_DIR, CFG_PROP_REBOOT_MODE, 
                 CFG_PROP_RUNNING_TASKS_PER_USER, CFG_PROP_SCRATCH,
                 CFG_PROP_SHOCK_URL, CFG_PROP_THREAD_COUNT,
-                CFG_PROP_WORKSPACE_SRV_URL, CFG_PROP_KBASE_ENDPOINT};
+                CFG_PROP_WORKSPACE_SRV_URL, CFG_PROP_KBASE_ENDPOINT,
+                CFG_PROP_SELF_EXTERNAL_URL, CFG_PROP_REF_DATA_BASE,
+                CFG_PROP_CATALOG_SRV_URL, CFG_PROP_AWE_CLIENT_DOCKER_URI};
         Map<String, String> config = config();
         for (String key : keys) {
             String value = config.get(key);

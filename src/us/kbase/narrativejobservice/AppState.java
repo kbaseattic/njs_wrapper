@@ -19,7 +19,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * running_step_id - id of step currently running
  * step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
  * step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
- * step_job_ids - mapping from step_id to job_id.
+ * step_job_ids - mapping from step_id to job_id
+ * step_stats - mapping from step_id to execution time statistics
  * </pre>
  * 
  */
@@ -32,7 +33,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "step_outputs",
     "step_errors",
     "step_job_ids",
-    "is_deleted"
+    "step_stats",
+    "is_deleted",
+    "original_app"
 })
 public class AppState {
 
@@ -48,8 +51,17 @@ public class AppState {
     private Map<String, String> stepErrors;
     @JsonProperty("step_job_ids")
     private Map<String, String> stepJobIds;
+    @JsonProperty("step_stats")
+    private Map<String, StepStats> stepStats;
     @JsonProperty("is_deleted")
     private Long isDeleted;
+    /**
+     * <p>Original spec-file type: app</p>
+     * 
+     * 
+     */
+    @JsonProperty("original_app")
+    private App originalApp;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
     @JsonProperty("job_id")
@@ -142,6 +154,21 @@ public class AppState {
         return this;
     }
 
+    @JsonProperty("step_stats")
+    public Map<String, StepStats> getStepStats() {
+        return stepStats;
+    }
+
+    @JsonProperty("step_stats")
+    public void setStepStats(Map<String, StepStats> stepStats) {
+        this.stepStats = stepStats;
+    }
+
+    public AppState withStepStats(Map<String, StepStats> stepStats) {
+        this.stepStats = stepStats;
+        return this;
+    }
+
     @JsonProperty("is_deleted")
     public Long getIsDeleted() {
         return isDeleted;
@@ -157,6 +184,31 @@ public class AppState {
         return this;
     }
 
+    /**
+     * <p>Original spec-file type: app</p>
+     * 
+     * 
+     */
+    @JsonProperty("original_app")
+    public App getOriginalApp() {
+        return originalApp;
+    }
+
+    /**
+     * <p>Original spec-file type: app</p>
+     * 
+     * 
+     */
+    @JsonProperty("original_app")
+    public void setOriginalApp(App originalApp) {
+        this.originalApp = originalApp;
+    }
+
+    public AppState withOriginalApp(App originalApp) {
+        this.originalApp = originalApp;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -169,7 +221,7 @@ public class AppState {
 
     @Override
     public java.lang.String toString() {
-        return ((((((((((((((((("AppState"+" [jobId=")+ jobId)+", jobState=")+ jobState)+", runningStepId=")+ runningStepId)+", stepOutputs=")+ stepOutputs)+", stepErrors=")+ stepErrors)+", stepJobIds=")+ stepJobIds)+", isDeleted=")+ isDeleted)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((("AppState"+" [jobId=")+ jobId)+", jobState=")+ jobState)+", runningStepId=")+ runningStepId)+", stepOutputs=")+ stepOutputs)+", stepErrors=")+ stepErrors)+", stepJobIds=")+ stepJobIds)+", stepStats=")+ stepStats)+", isDeleted=")+ isDeleted)+", originalApp=")+ originalApp)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
