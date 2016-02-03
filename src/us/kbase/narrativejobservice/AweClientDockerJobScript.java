@@ -156,8 +156,10 @@ public class AweClientDockerJobScript {
                 char[] chars = new char[1000];
                 r.read(chars);
                 r.close();
-                String error = "Output response is longer than " + MAX_OUTPUT_SIZE + ", " +
-                		"starting with \"" + new String(chars) + "...\"";
+                String error = "Method " + job.getMethod() + " returned value longer than " + MAX_OUTPUT_SIZE + 
+                        " bytes. This may happen as a result of returning actual data instead of saving it to " +
+                        "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
+                        "value starts with \"" + new String(chars) + "...\"";
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
