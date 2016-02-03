@@ -17,8 +17,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * <pre>
  * full_app_ids - list of fully qualified app IDs (including module_name prefix followed by
  *     slash in case of dynamically registered repo).
- * full_func_names - list of fully qualified names of KIDL-spec functions (including
- *     module_name prefix followed by slash in case of dynamically registered repo).
+ * per_week - optional flag switching results to weekly data rather than one row per app for 
+ *     all time (default value is false)
  * </pre>
  * 
  */
@@ -26,14 +26,14 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "full_app_ids",
-    "full_func_names"
+    "per_week"
 })
 public class GetExecAggrStatsParams {
 
     @JsonProperty("full_app_ids")
     private List<String> fullAppIds;
-    @JsonProperty("full_func_names")
-    private List<String> fullFuncNames;
+    @JsonProperty("per_week")
+    private Long perWeek;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
     @JsonProperty("full_app_ids")
@@ -51,18 +51,18 @@ public class GetExecAggrStatsParams {
         return this;
     }
 
-    @JsonProperty("full_func_names")
-    public List<String> getFullFuncNames() {
-        return fullFuncNames;
+    @JsonProperty("per_week")
+    public Long getPerWeek() {
+        return perWeek;
     }
 
-    @JsonProperty("full_func_names")
-    public void setFullFuncNames(List<String> fullFuncNames) {
-        this.fullFuncNames = fullFuncNames;
+    @JsonProperty("per_week")
+    public void setPerWeek(Long perWeek) {
+        this.perWeek = perWeek;
     }
 
-    public GetExecAggrStatsParams withFullFuncNames(List<String> fullFuncNames) {
-        this.fullFuncNames = fullFuncNames;
+    public GetExecAggrStatsParams withPerWeek(Long perWeek) {
+        this.perWeek = perWeek;
         return this;
     }
 
@@ -78,7 +78,7 @@ public class GetExecAggrStatsParams {
 
     @Override
     public java.lang.String toString() {
-        return ((((((("GetExecAggrStatsParams"+" [fullAppIds=")+ fullAppIds)+", fullFuncNames=")+ fullFuncNames)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((("GetExecAggrStatsParams"+" [fullAppIds=")+ fullAppIds)+", perWeek=")+ perWeek)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

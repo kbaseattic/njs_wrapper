@@ -615,8 +615,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         catCl.logExecStats(new LogExecStatsParams().withUserId(userId)
                 .withAppModuleName(uiModuleName).withAppId(methodSpecId)
                 .withFuncModuleName(funcModuleName).withFuncName(funcName)
-                .withGitCommitHash(gitCommitHash).withCreationTime(creationTime)
-                .withExecStartTime(execStartTime).withFinishTime(finishTime)
+                .withGitCommitHash(gitCommitHash).withCreationTime(creationTime/ 1000.0)
+                .withExecStartTime(execStartTime / 1000.0).withFinishTime(finishTime / 1000.0)
                 .withIsError(isError ? 1L : 0L));
     }
     

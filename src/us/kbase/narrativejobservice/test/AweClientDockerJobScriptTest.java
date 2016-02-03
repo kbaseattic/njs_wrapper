@@ -136,8 +136,8 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(moduleName, execLog.getFuncModuleName());
             Assert.assertEquals(methodName, execLog.getFuncName());
             Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
-            long queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
-            long execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
             Assert.assertTrue("" + execLog, queueTime > 0);
             Assert.assertTrue("" + execLog, execTime > 0);
         } catch (ServerException ex) {
@@ -173,8 +173,8 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(moduleName, execLog.getFuncModuleName());
             Assert.assertEquals(methodName, execLog.getFuncName());
             Assert.assertEquals(lookupServiceVersion(moduleName), execLog.getGitCommitHash());
-            long queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
-            long execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
             Assert.assertTrue("" + execLog, queueTime > 0);
             Assert.assertTrue("" + execLog, execTime > 0);
         } catch (ServerException ex) {
@@ -303,10 +303,11 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(moduleName, execLog.getFuncModuleName());
             Assert.assertEquals(methodName, execLog.getFuncName());
             Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
-            long queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
-            long execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
             Assert.assertTrue("" + execLog, queueTime > 0);
-            Assert.assertTrue("" + execLog, execTime > 15000);
+            Assert.assertTrue("" + execLog, execTime > 15);
+            Assert.assertTrue("" + execLog, execTime < 120);
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

@@ -17,12 +17,12 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
  * full_app_id - optional fully qualified method-spec id including module_name prefix followed
  *     by slash in case of dynamically registered repo (it could be absent or null in case
  *     original execution was started through API call without app ID defined),
- * full_func_name - fully qualified name of KIDL-spec function (including module_name prefix
- *     followed by slash in case of dynamically registered repo),
+ * time_range - one of supported time ranges (currently it could be either '*' for all time
+ *     or ISO-encoded week like "2016-W01")
  * avg_queue_time - average time difference between exec_start_time and creation_time moments
- *     defined in milliseconds (rounded to long),
+ *     defined in seconds since Epoch (POSIX),
  * avg_exec_time - average time difference between finish_time and exec_start_time moments 
- *     defined in milliseconds (rounded to long).
+ *     defined in seconds since Epoch (POSIX).
  * </pre>
  * 
  */
@@ -30,7 +30,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "full_app_id",
-    "full_func_name",
+    "time_range",
     "number_of_calls",
     "number_of_errors",
     "avg_queue_time",
@@ -40,16 +40,16 @@ public class ExecAggrStats {
 
     @JsonProperty("full_app_id")
     private String fullAppId;
-    @JsonProperty("full_func_name")
-    private String fullFuncName;
+    @JsonProperty("time_range")
+    private String timeRange;
     @JsonProperty("number_of_calls")
     private Long numberOfCalls;
     @JsonProperty("number_of_errors")
     private Long numberOfErrors;
     @JsonProperty("avg_queue_time")
-    private Long avgQueueTime;
+    private Double avgQueueTime;
     @JsonProperty("avg_exec_time")
-    private Long avgExecTime;
+    private Double avgExecTime;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("full_app_id")
@@ -67,18 +67,18 @@ public class ExecAggrStats {
         return this;
     }
 
-    @JsonProperty("full_func_name")
-    public String getFullFuncName() {
-        return fullFuncName;
+    @JsonProperty("time_range")
+    public String getTimeRange() {
+        return timeRange;
     }
 
-    @JsonProperty("full_func_name")
-    public void setFullFuncName(String fullFuncName) {
-        this.fullFuncName = fullFuncName;
+    @JsonProperty("time_range")
+    public void setTimeRange(String timeRange) {
+        this.timeRange = timeRange;
     }
 
-    public ExecAggrStats withFullFuncName(String fullFuncName) {
-        this.fullFuncName = fullFuncName;
+    public ExecAggrStats withTimeRange(String timeRange) {
+        this.timeRange = timeRange;
         return this;
     }
 
@@ -113,31 +113,31 @@ public class ExecAggrStats {
     }
 
     @JsonProperty("avg_queue_time")
-    public Long getAvgQueueTime() {
+    public Double getAvgQueueTime() {
         return avgQueueTime;
     }
 
     @JsonProperty("avg_queue_time")
-    public void setAvgQueueTime(Long avgQueueTime) {
+    public void setAvgQueueTime(Double avgQueueTime) {
         this.avgQueueTime = avgQueueTime;
     }
 
-    public ExecAggrStats withAvgQueueTime(Long avgQueueTime) {
+    public ExecAggrStats withAvgQueueTime(Double avgQueueTime) {
         this.avgQueueTime = avgQueueTime;
         return this;
     }
 
     @JsonProperty("avg_exec_time")
-    public Long getAvgExecTime() {
+    public Double getAvgExecTime() {
         return avgExecTime;
     }
 
     @JsonProperty("avg_exec_time")
-    public void setAvgExecTime(Long avgExecTime) {
+    public void setAvgExecTime(Double avgExecTime) {
         this.avgExecTime = avgExecTime;
     }
 
-    public ExecAggrStats withAvgExecTime(Long avgExecTime) {
+    public ExecAggrStats withAvgExecTime(Double avgExecTime) {
         this.avgExecTime = avgExecTime;
         return this;
     }
@@ -154,7 +154,7 @@ public class ExecAggrStats {
 
     @Override
     public String toString() {
-        return ((((((((((((((("ExecAggrStats"+" [fullAppId=")+ fullAppId)+", fullFuncName=")+ fullFuncName)+", numberOfCalls=")+ numberOfCalls)+", numberOfErrors=")+ numberOfErrors)+", avgQueueTime=")+ avgQueueTime)+", avgExecTime=")+ avgExecTime)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((("ExecAggrStats"+" [fullAppId=")+ fullAppId)+", timeRange=")+ timeRange)+", numberOfCalls=")+ numberOfCalls)+", numberOfErrors=")+ numberOfErrors)+", avgQueueTime=")+ avgQueueTime)+", avgExecTime=")+ avgExecTime)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
