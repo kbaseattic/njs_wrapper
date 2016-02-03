@@ -5,6 +5,7 @@ import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.Tuple2;
 
 //BEGIN_HEADER
@@ -82,6 +83,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     
     private static TaskQueue taskHolder = null;
     private static TaskQueueConfig taskConfig = null;
+    
+    private final ErrorLogger logger;
     
     public static Map<String, String> config() {
     	if (config != null)
@@ -281,6 +284,16 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
+        logger = new ErrorLogger() {
+            @Override
+            public void logErr(Throwable err) {
+                NarrativeJobServiceServer.this.logErr(err);
+            }
+            @Override
+            public void logErr(String message) {
+                NarrativeJobServiceServer.this.logErr(message);
+            }
+        };
         //END_CONSTRUCTOR
     }
 
@@ -590,7 +603,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job")
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart) throws Exception {
         //BEGIN finish_job
-        RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), config());
+        RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
         //END finish_job
     }
 

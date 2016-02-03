@@ -524,7 +524,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
     }
     
     public static void finishAweDockerScript(String ujsJobId, FinishJobParams params, 
-            String token, Map<String, String> config) throws Exception {
+            String token, ErrorLogger log, Map<String, String> config) throws Exception {
         String outputShockId = getAweTaskOutputShockId(ujsJobId, config);
         String shockUrl = getShockUrl(config);
         ByteArrayInputStream bais = new ByteArrayInputStream(
@@ -597,13 +597,19 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 if (errorMessage == null)
                     errorMessage = "Unknown error";
             }
-            if (errorMessage != null)
-                System.err.println("Error sending execution stats to catalog (" + auth.getClientId() + ", " + 
+            if (errorMessage != null) {
+                String message = "Error sending execution stats to catalog (" + auth.getClientId() + ", " + 
                         uiModuleName + ", " + methodSpecId + ", " + funcModuleName + ", " + funcName + ", " + 
                         gitCommitHash + ", " + creationTime + ", " + execStartTime + ", " + finishTime + ", " + 
-                        isError + "): " + errorMessage);
+                        isError + "): " + errorMessage;
+                System.err.println(message);
+                if (log != null)
+                    log.logErr(message);
+            }
         } catch (Exception ex) {
             ex.printStackTrace();
+            if (log != null)
+                log.logErr(ex);
         }
     }
     
