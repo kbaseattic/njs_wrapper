@@ -363,6 +363,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     stst.withExecStartTime(execTimes[1]);
                 if (execTimes[2] != null)
                     stst.withFinishTime(execTimes[2]);
+                String aweJobId = (String)jobState.getAdditionalProperties().get("awe_job_id");
+                if (aweJobId != null)
+                    stst.getAdditionalProperties().put("awe_job_id", aweJobId);
                 StepStats oldStst = appState.getStepStats() == null ? null : appState.getStepStats().get(stepId);
                 if (oldStst == null || !oldStst.toString().equals(stst.toString())) {
                     if (appState.getStepStats() == null)
@@ -710,6 +713,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public static JobState checkJob(String jobId, String token, 
             Map<String, String> config) throws Exception {
         AuthToken authPart = new AuthToken(token);
@@ -731,15 +735,20 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         baos.close();
         if (baos.size() == 0) {
             // We should consult AWE for case the job was killed or gone with no reason.
-            String aweState;
+            Map<String, Object> aweData = null;
+            String aweState = null;
             try {
-                aweState = AweUtils.getAweJobState(getAweServerURL(config), aweJobId, token);
-                if (aweState == null)
-                    throw new IllegalStateException("state is null");
+                Map<String, Object> aweJob = AweUtils.getAweJobDescr(getAweServerURL(config), aweJobId, token);
+                aweData = (Map<String, Object>)aweJob.get("data");
+                if (aweData != null)
+                    aweState = (String)aweData.get("state");
             } catch (Exception ex) {
                 throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
                 		"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
             }
+            if (aweState == null)
+                throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
+                        "for ujs-id=" + jobId + " (state is null)");
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
                     (!aweState.equals("in-progress"))) {
                 if (aweState.equals("suspend"))
