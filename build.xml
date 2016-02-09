@@ -28,11 +28,11 @@
     <include name="servlet/servlet-api-2.5.jar"/>
     <include name="syslog4j/syslog4j-0.9.46.jar"/>
     <include name="junit/junit-4.9.jar"/>
-    <include name="kbase/auth/kbase-auth-1398468950-3552bb2.jar"/>
+    <include name="kbase/auth/kbase-auth-0.3.1.jar"/>
     <include name="jackson/jackson-annotations-2.2.3.jar"/>
     <include name="jackson/jackson-core-2.2.3.jar"/>
     <include name="jackson/jackson-databind-2.2.3.jar"/>
-    <include name="kbase/common/kbase-common-0.0.12.jar"/>
+    <include name="kbase/common/kbase-common-0.0.13.jar"/>
     <include name="junit/junit-4.9.jar"/>
     <include name="kbase/workspace/WorkspaceClient-0.2.0.jar"/>
     <include name="derby/derby-10.10.1.1.jar"/>

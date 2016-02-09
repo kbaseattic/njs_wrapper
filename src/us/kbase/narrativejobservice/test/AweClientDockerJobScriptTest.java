@@ -33,6 +33,7 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,6 +50,7 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ProcessHelper;
@@ -391,6 +393,22 @@ public class AweClientDockerJobScriptTest {
             throw ex;
         }
     }
+    
+    @Test
+    public void testAsyncClient() throws Exception {
+        System.out.println("Test [testAsyncClient]");
+        String refDataFileName = "test.txt";
+        PrintWriter pw = new PrintWriter(new File(refDataDir, refDataFileName));
+        pw.println("Reference data file");
+        pw.close();
+        OnerepotestClient cl = new OnerepotestClient(client.getURL(), client.getToken());
+        cl.setIsInsecureHttpConnectionAllowed(true);
+        RpcContext ctx = new RpcContext();
+        ctx.getAdditionalProperties().put("service_ver", "b7636c3f8d16491593900dd5cc89897b54e7856a");
+        List<String> ret = cl.listRefData("/data", ctx);
+        Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
+    }
+    
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());
@@ -736,8 +754,10 @@ public class AweClientDockerJobScriptTest {
             dir.mkdirs();
         if (!binDir.exists())
             binDir.mkdirs();
-        ProcessHelper.cmd("ant", "script", "-Djardir=" + dir.getAbsolutePath(), 
-                "-Dbindir=" + binDir.getAbsolutePath()).exec(new File("."));
+        int exitCode = ProcessHelper.cmd("ant", "script", "-Djardir=" + dir.getAbsolutePath(), 
+                "-Dbindir=" + binDir.getAbsolutePath()).exec(new File(".")).getProcess().exitValue();
+        if (exitCode != 0)
+            throw new IllegalStateException("Error compiling command line script");
         initSilentJettyLogger();
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();

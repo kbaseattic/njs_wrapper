@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
+import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
@@ -12,6 +13,7 @@ import us.kbase.common.service.Tuple2;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -21,7 +23,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import javax.servlet.http.HttpServletResponse;
+
 import org.ini4j.Ini;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.TokenFormatException;
 import us.kbase.common.service.JsonClientException;
@@ -278,6 +284,117 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     
     public static String getRefDataBase() throws Exception {
         return config().get(CFG_PROP_REF_DATA_BASE);
+    }
+    
+    protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
+            String requestHeaderXForwardedFor, ResponseStatusSetter response, OutputStream output,
+            boolean commandLine) {
+        if (rpcCallData.getMethod().startsWith("NarrativeJobService.")) {
+            super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
+        } else {
+            String rpcName = rpcCallData.getMethod();
+            List<UObject> paramsList = rpcCallData.getParams();
+            List<Object> result = null;
+            String errorMessage = null;
+            ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
+            try {
+                if (rpcName.endsWith("_async")) {
+                    String origRpcName = rpcName.substring(0, rpcName.lastIndexOf('_'));
+                    RunJobParams runJobParams = new RunJobParams();
+                    String serviceVer = rpcCallData.getContext() == null ? null : 
+                        (String)rpcCallData.getContext().getAdditionalProperties().get("service_ver");
+                    runJobParams.setServiceVer(serviceVer);
+                    runJobParams.setMethod(origRpcName);
+                    runJobParams.setParams(paramsList);
+                    runJobParams.setRpcContext(UObject.transformObjectToObject(rpcCallData.getContext(), RpcContext.class));
+                    result = new ArrayList<Object>(); 
+                    result.add(runJob(runJobParams, new AuthToken(token)));
+                } else if (rpcName.endsWith("_check") && paramsList.size() == 1) {
+                    String jobId = paramsList.get(0).asClassInstance(String.class);
+                    JobState jobState = checkJob(jobId, new AuthToken(token));
+                    Long finished = jobState.getFinished();
+                    if (finished != 0L) {
+                        Object error = jobState.getError();
+                        if (error != null) {
+                            Map<String, Object> ret = new LinkedHashMap<String, Object>();
+                            ret.put("version", "1.1");
+                            ret.put("error", error);
+                            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                            mapper.writeValue(new UnclosableOutputStream(output), ret);
+                            return;
+                        }
+                    }
+                    result = new ArrayList<Object>();
+                    result.add(jobState);
+                } else {
+                    errorMessage = "Method [" + rpcName + "] doesn't ends with \"_async\" or \"_check\" suffix";
+                }
+                if (errorMessage == null && result != null) {
+                    Map<String, Object> ret = new LinkedHashMap<String, Object>();
+                    ret.put("version", "1.1");
+                    ret.put("result", result);
+                    mapper.writeValue(new UnclosableOutputStream(output), ret);
+                    return;
+                } else if (errorMessage == null) {
+                    errorMessage = "Unknown server error";
+                }
+            } catch (Exception ex) {
+                errorMessage = ex.getMessage();
+            }
+            try {
+                Map<String, Object> error = new LinkedHashMap<String, Object>();
+                error.put("name", "JSONRPCError");
+                error.put("code", -32601);
+                error.put("message", errorMessage);
+                error.put("error", errorMessage);
+                Map<String, Object> ret = new LinkedHashMap<String, Object>();
+                ret.put("version", "1.1");
+                ret.put("error", error);
+                mapper.writeValue(new UnclosableOutputStream(output), ret);
+            } catch (Exception ex) {
+                new Exception("Error sending error: " + errorMessage, ex).printStackTrace();
+            }
+        }
+    }
+    
+    private static class UnclosableOutputStream extends OutputStream {
+        OutputStream inner;
+        boolean isClosed = false;
+        
+        public UnclosableOutputStream(OutputStream inner) {
+            this.inner = inner;
+        }
+        
+        @Override
+        public void write(int b) throws IOException {
+            if (isClosed)
+                return;
+            inner.write(b);
+        }
+        
+        @Override
+        public void close() throws IOException {
+            isClosed = true;
+        }
+        
+        @Override
+        public void flush() throws IOException {
+            inner.flush();
+        }
+        
+        @Override
+        public void write(byte[] b) throws IOException {
+            if (isClosed)
+                return;
+            inner.write(b);
+        }
+        
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            if (isClosed)
+                return;
+            inner.write(b, off, len);
+        }
     }
     //END_CLASS_HEADER
 
