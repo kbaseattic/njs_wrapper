@@ -9,10 +9,14 @@ import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,7 +37,9 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    
+    private static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
+            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
@@ -98,11 +104,19 @@ public class AweClientDockerJobScript {
             String imageVersion = job.getServiceVer();
             String imageName = null;
             ModuleVersionInfo mvi = null;
-            if (imageVersion == null) {
+            if (imageVersion == null || asyncVersionTags.contains(imageVersion)) {
                 ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                if (mi.getRelease() == null)
-                    throw new IllegalStateException("Cannot extract release version for module: " + moduleName);
-                mvi = mi.getRelease();
+                if (imageVersion == null) {
+                    mvi = mi.getRelease();
+                } else if (imageVersion.equals("dev")) {
+                    mvi = mi.getDev();
+                } else if (imageVersion.equals("beta")) {
+                    mvi = mi.getBeta();
+                } else {
+                    mvi = mi.getRelease();
+                }
+                if (mvi == null)
+                    throw new IllegalStateException("Cannot extract " + imageVersion + " version for module: " + moduleName);
                 imageVersion = mvi.getGitCommitHash();
             } else {
                 try {

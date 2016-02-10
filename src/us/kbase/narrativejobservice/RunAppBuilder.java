@@ -11,7 +11,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,6 +34,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.LogExecStatsParams;
+import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
@@ -53,6 +56,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
     public static final long MAX_APP_SIZE = 30000;
+    public static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
+            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
 
     private static DbConn conn = null;
 
@@ -440,12 +445,22 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config) throws Exception {
-        if (params.getServiceVer() == null) {
+        if (params.getServiceVer() == null || asyncVersionTags.contains(params.getServiceVer())) {
             CatalogClient catCl = getCatalogClient(config, false);
             String moduleName = params.getMethod().split(Pattern.quote("."))[0];
             ModuleVersionInfo mvi;
             try {
-                mvi = catCl.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName)).getRelease();
+                ModuleInfo mi = catCl.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
+                String ver = params.getServiceVer();
+                if (ver == null) {
+                    mvi = mi.getRelease();
+                } else if (ver.equals("dev")) {
+                    mvi = mi.getDev();
+                } else if (ver.equals("beta")) {
+                    mvi = mi.getBeta();
+                } else {
+                    mvi = mi.getRelease();
+                }
             } catch (Exception ex) {
                 throw new IllegalStateException("Error loading info from catalog for module: " + moduleName, ex);
             }

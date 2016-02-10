@@ -24,6 +24,7 @@ import us.kbase.common.service.UnauthorizedException;
 public class OnerepotestClient {
     private JsonClientCaller caller;
     private long asyncJobCheckTimeMs = 5000;
+    private String asyncVersion = "dev";
 
 
     /** Constructs a client with a custom URL and no user credentials.
@@ -150,6 +151,14 @@ public class OnerepotestClient {
         this.asyncJobCheckTimeMs = newValue;
     }
 
+    public String getAsyncVersion() {
+        return this.asyncVersion;
+    }
+
+    public void setAsyncVersion(String newValue) {
+        this.asyncVersion = newValue;
+    }
+
     /**
      * <p>Original spec-file function name: send_data</p>
      * <pre>
@@ -160,6 +169,11 @@ public class OnerepotestClient {
      * @throws JsonClientException if a JSON RPC exception occurs
      */
     public String sendDataAsync(UObject params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        if (asyncVersion != null) {
+            if (jsonRpcContext == null || jsonRpcContext.length == 0 || jsonRpcContext[0] == null)
+                jsonRpcContext = new RpcContext[] {new RpcContext()};
+            jsonRpcContext[0].getAdditionalProperties().put("service_ver", asyncVersion);
+        }
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
@@ -210,6 +224,23 @@ public class OnerepotestClient {
     }
 
     /**
+     * <p>Original spec-file function name: send_data</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of unspecified object
+     * @return   instance of unspecified object
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public UObject sendDataSync(UObject params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<UObject>> retType = new TypeReference<List<UObject>>() {};
+        List<UObject> res = caller.jsonrpcCall("onerepotest.send_data", args, retType, true, true, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
      * <p>Original spec-file function name: print_lines</p>
      * <pre>
      * </pre>
@@ -219,6 +250,11 @@ public class OnerepotestClient {
      * @throws JsonClientException if a JSON RPC exception occurs
      */
     public String printLinesAsync(String text, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        if (asyncVersion != null) {
+            if (jsonRpcContext == null || jsonRpcContext.length == 0 || jsonRpcContext[0] == null)
+                jsonRpcContext = new RpcContext[] {new RpcContext()};
+            jsonRpcContext[0].getAdditionalProperties().put("service_ver", asyncVersion);
+        }
         List<Object> args = new ArrayList<Object>();
         args.add(text);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
@@ -269,6 +305,23 @@ public class OnerepotestClient {
     }
 
     /**
+     * <p>Original spec-file function name: print_lines</p>
+     * <pre>
+     * </pre>
+     * @param   text   instance of String
+     * @return   parameter "number_of_lines" of Long
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public Long printLinesSync(String text, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(text);
+        TypeReference<List<Long>> retType = new TypeReference<List<Long>>() {};
+        List<Long> res = caller.jsonrpcCall("onerepotest.print_lines", args, retType, true, true, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
      * <p>Original spec-file function name: generate_error</p>
      * <pre>
      * </pre>
@@ -277,6 +330,11 @@ public class OnerepotestClient {
      * @throws JsonClientException if a JSON RPC exception occurs
      */
     public String generateErrorAsync(String error, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        if (asyncVersion != null) {
+            if (jsonRpcContext == null || jsonRpcContext.length == 0 || jsonRpcContext[0] == null)
+                jsonRpcContext = new RpcContext[] {new RpcContext()};
+            jsonRpcContext[0].getAdditionalProperties().put("service_ver", asyncVersion);
+        }
         List<Object> args = new ArrayList<Object>();
         args.add(error);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
@@ -325,6 +383,21 @@ public class OnerepotestClient {
     }
 
     /**
+     * <p>Original spec-file function name: generate_error</p>
+     * <pre>
+     * </pre>
+     * @param   error   instance of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public void generateErrorSync(String error, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(error);
+        TypeReference<Object> retType = new TypeReference<Object>() {};
+        caller.jsonrpcCall("onerepotest.generate_error", args, retType, false, true, jsonRpcContext);
+    }
+
+    /**
      * <p>Original spec-file function name: get_deploy_config</p>
      * <pre>
      * </pre>
@@ -333,6 +406,11 @@ public class OnerepotestClient {
      * @throws JsonClientException if a JSON RPC exception occurs
      */
     public String getDeployConfigAsync(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        if (asyncVersion != null) {
+            if (jsonRpcContext == null || jsonRpcContext.length == 0 || jsonRpcContext[0] == null)
+                jsonRpcContext = new RpcContext[] {new RpcContext()};
+            jsonRpcContext[0].getAdditionalProperties().put("service_ver", asyncVersion);
+        }
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
         List<String> res = caller.jsonrpcCall("onerepotest.get_deploy_config_async", args, retType, true, true, jsonRpcContext);
@@ -380,6 +458,21 @@ public class OnerepotestClient {
     }
 
     /**
+     * <p>Original spec-file function name: get_deploy_config</p>
+     * <pre>
+     * </pre>
+     * @return   parameter "config" of mapping from String to String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public Map<String,String> getDeployConfigSync(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<Map<String,String>>> retType = new TypeReference<List<Map<String,String>>>() {};
+        List<Map<String,String>> res = caller.jsonrpcCall("onerepotest.get_deploy_config", args, retType, true, true, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
      * <p>Original spec-file function name: list_ref_data</p>
      * <pre>
      * </pre>
@@ -389,6 +482,11 @@ public class OnerepotestClient {
      * @throws JsonClientException if a JSON RPC exception occurs
      */
     public String listRefDataAsync(String refDataPath, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        if (asyncVersion != null) {
+            if (jsonRpcContext == null || jsonRpcContext.length == 0 || jsonRpcContext[0] == null)
+                jsonRpcContext = new RpcContext[] {new RpcContext()};
+            jsonRpcContext[0].getAdditionalProperties().put("service_ver", asyncVersion);
+        }
         List<Object> args = new ArrayList<Object>();
         args.add(refDataPath);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
@@ -436,5 +534,22 @@ public class OnerepotestClient {
             if (res.getFinished() != 0L)
                 return res.getResult().get(0);
         }
+    }
+
+    /**
+     * <p>Original spec-file function name: list_ref_data</p>
+     * <pre>
+     * </pre>
+     * @param   refDataPath   instance of String
+     * @return   parameter "files" of list of String
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public List<String> listRefDataSync(String refDataPath, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(refDataPath);
+        TypeReference<List<List<String>>> retType = new TypeReference<List<List<String>>>() {};
+        List<List<String>> res = caller.jsonrpcCall("onerepotest.list_ref_data", args, retType, true, true, jsonRpcContext);
+        return res.get(0);
     }
 }

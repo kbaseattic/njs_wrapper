@@ -403,9 +403,9 @@ public class AweClientDockerJobScriptTest {
         pw.close();
         OnerepotestClient cl = new OnerepotestClient(client.getURL(), client.getToken());
         cl.setIsInsecureHttpConnectionAllowed(true);
-        RpcContext ctx = new RpcContext();
-        ctx.getAdditionalProperties().put("service_ver", "b7636c3f8d16491593900dd5cc89897b54e7856a");
-        List<String> ret = cl.listRefData("/data", ctx);
+        //RpcContext ctx = new RpcContext();
+        //ctx.getAdditionalProperties().put("service_ver", "b7636c3f8d16491593900dd5cc89897b54e7856a");
+        List<String> ret = cl.listRefData("/data");
         Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
     }
     
