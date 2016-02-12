@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
 import junit.framework.Assert;
@@ -32,6 +33,7 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,9 +41,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.LogExecStatsParams;
+import us.kbase.catalog.ModuleInfo;
+import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
+import us.kbase.common.service.JsonServerMethod;
+import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ProcessHelper;
@@ -71,21 +80,30 @@ public class AweClientDockerJobScriptTest {
     private static File aweServerDir = null;
     private static File aweClientDir = null;
     private static File njsServiceDir = null;
+    private static Server catalogWrapper = null;
     private static Server njsService = null;
     private static String testWsName = null;
     private static final String testContigsetObjName = "temp_contigset.1";
+    private static File refDataDir = null;
     
     private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
+    
+    private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
+            new ArrayList<LogExecStatsParams>());
 
     @Test
     public void testOneJob() throws Exception {
         System.out.println("Test [testOneJob]");
         try {
+            execStats.clear();
+            String moduleName = "onerepotest";
+            String methodName = "send_data";
+            String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams params = new RunJobParams().withMethod(
-                    "onerepotest.send_data").withServiceVer(lookupServiceVersion("onerepotest"))
+                    moduleName + "." + methodName).withServiceVer(serviceVer)
                     .withParams(Arrays.asList(UObject.fromJsonString(
                             "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
             String jobId = client.runJob(params);
@@ -113,6 +131,17 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, outParams);
             Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
             Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
+            Assert.assertEquals(1, execStats.size());
+            LogExecStatsParams execLog = execStats.get(0);
+            Assert.assertNull(execLog.getAppModuleName());
+            Assert.assertNull(execLog.getAppId());
+            Assert.assertEquals(moduleName, execLog.getFuncModuleName());
+            Assert.assertEquals(methodName, execLog.getFuncName());
+            Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            Assert.assertTrue("" + execLog, queueTime > 0);
+            Assert.assertTrue("" + execLog, execTime > 0);
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -123,37 +152,12 @@ public class AweClientDockerJobScriptTest {
     public void testApp() throws Exception {
         System.out.println("Test [testApp]");
         try {
+            execStats.clear();
             String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("send_data"))
-                            .withInputValues(Arrays.asList(UObject.fromJsonString(
-                                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")))
-                                    .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            String methodName = "send_data";
+            AppState st = runAsyncMethodAsAppAndWait(moduleName, methodName, 
+                    "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "completed", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepOutputs());
             String step1output = st.getStepOutputs().get("step1");
@@ -164,17 +168,69 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, outParams);
             Assert.assertEquals(errMsg, "myws.mygenome1", outParams.get("genomeA"));
             Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
+            Assert.assertEquals(1, execStats.size());
+            LogExecStatsParams execLog = execStats.get(0);
+            Assert.assertEquals(moduleName, execLog.getAppModuleName());
+            Assert.assertEquals(methodName, execLog.getAppId());
+            Assert.assertEquals(moduleName, execLog.getFuncModuleName());
+            Assert.assertEquals(methodName, execLog.getFuncName());
+            Assert.assertEquals(lookupServiceVersion(moduleName), execLog.getGitCommitHash());
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            Assert.assertTrue("" + execLog, queueTime > 0);
+            Assert.assertTrue("" + execLog, execTime > 0);
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
         }
+    }
+
+    private AppState runAsyncMethodAsAppAndWait(String moduleName,
+            String methodName, String... paramsJson) throws Exception,
+            IOException, InvalidFileFormatException, JsonClientException,
+            InterruptedException, ServerException {
+        List<UObject> inputValues = new ArrayList<UObject>();
+        for (String paramJson : paramsJson)
+            inputValues.add(UObject.fromJsonString(paramJson));
+        App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
+                .withType("service").withService(new ServiceMethod().withServiceUrl("")
+                        .withServiceName(moduleName)
+                        .withServiceVersion(lookupServiceVersion(moduleName))
+                        .withMethodName(methodName))
+                        .withInputValues(inputValues)
+                        .withIsLongRunning(1L)
+                        .withMethodSpecId(moduleName + "/" + methodName)));
+        AppState st = client.runApp(app);
+        String appJobId = st.getJobId();
+        String stepJobId = null;
+        for (int i = 0; i < 300; i++) {
+            try {
+                st = client.checkAppState(appJobId);
+                System.out.println("App state: " + st.getJobState());
+                stepJobId = st.getStepJobIds().get("step1");
+                if (stepJobId != null)
+                    System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
+                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
+                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        Assert.assertNotNull(stepJobId);
+        return st;
     }
     
     @Test
     public void testLogging() throws Exception {
         System.out.println("Test [testLogging]");
         try {
+            execStats.clear();
             String moduleName = "onerepotest";
+            String methodName = "print_lines";
             String serviceVer = lookupServiceVersion(moduleName);
             App app = new App().withName("fake").withSteps(Arrays.asList(
                     new Step().withStepId("step1").withType("service").withService(
@@ -189,10 +245,11 @@ public class AweClientDockerJobScriptTest {
                             new ServiceMethod().withServiceUrl("")
                             .withServiceName(moduleName)
                             .withServiceVersion(serviceVer)
-                            .withMethodName("print_lines"))
+                            .withMethodName(methodName))
                             .withInputValues(Arrays.asList(UObject.fromJsonString(
                                     "\"First line\\nSecond super long line\\nshort\"")))
                                     .withIsLongRunning(1L)
+                                    .withMethodSpecId(moduleName + "/" + methodName)
                                     ));
             AppState st = client.runApp(app);
             String appJobId = st.getJobId();
@@ -205,6 +262,8 @@ public class AweClientDockerJobScriptTest {
                     if (stepJobId == null) {
                         st = client.checkAppState(appJobId);
                         System.out.println("App state: " + st.getJobState());
+                        if (st.getJobState().equals("suspend"))
+                            throw new IllegalStateException();
                         stepJobId = st.getStepJobIds().get("step2");
                     }
                     if (stepJobId != null) {
@@ -239,6 +298,18 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, 1, data.size());
             Assert.assertEquals(errMsg, 3, data.get(0));
             Assert.assertEquals(errMsg, 3, numberOfOneLiners);
+            Assert.assertEquals(2, execStats.size());
+            LogExecStatsParams execLog = execStats.get(1);
+            Assert.assertEquals(moduleName, execLog.getAppModuleName());
+            Assert.assertEquals(methodName, execLog.getAppId());
+            Assert.assertEquals(moduleName, execLog.getFuncModuleName());
+            Assert.assertEquals(methodName, execLog.getFuncName());
+            Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
+            double queueTime = execLog.getExecStartTime() - execLog.getCreationTime();
+            double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
+            Assert.assertTrue("" + execLog, queueTime > 0);
+            Assert.assertTrue("" + execLog, execTime > 15);
+            Assert.assertTrue("" + execLog, execTime < 120);
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -249,36 +320,8 @@ public class AweClientDockerJobScriptTest {
     public void testError() throws Exception {
         System.out.println("Test [testError]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("generate_error"))
-                            .withInputValues(Arrays.asList(UObject.fromJsonString("\"Super!\"")))
-                            .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "generate_error", "\"Super!\"");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             String stepErrorText = st.getStepErrors().get("step1");
             Assert.assertNotNull(errMsg, stepErrorText);
             Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
@@ -294,36 +337,8 @@ public class AweClientDockerJobScriptTest {
     public void testConfig() throws Exception {
         System.out.println("Test [testConfig]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("get_deploy_config"))
-                            .withInputValues(Collections.<UObject>emptyList())
-                            .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "get_deploy_config");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "completed", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepOutputs());
             String step1output = st.getStepOutputs().get("step1");
@@ -344,36 +359,8 @@ public class AweClientDockerJobScriptTest {
     public void testPythonWrongType() throws Exception {
         System.out.println("Test [testPythonWrongType]");
         try {
-            String moduleName = "onerepotest";
-            App app = new App().withName("fake").withSteps(Arrays.asList(new Step().withStepId("step1")
-                    .withType("service").withService(new ServiceMethod().withServiceUrl("")
-                            .withServiceName(moduleName)
-                            .withServiceVersion(lookupServiceVersion(moduleName))
-                            .withMethodName("print_lines"))
-                            .withInputValues(Arrays.asList(new UObject(123)))
-                                    .withIsLongRunning(1L)));
-            AppState st = client.runApp(app);
-            String appJobId = st.getJobId();
-            String stepJobId = null;
-            for (int i = 0; i < 300; i++) {
-                try {
-                    st = client.checkAppState(appJobId);
-                    System.out.println("App state: " + st.getJobState());
-                    stepJobId = st.getStepJobIds().get("step1");
-                    if (stepJobId != null)
-                        System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                    if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                            st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (ServerException ex) {
-                    System.out.println(ex.getData());
-                    throw ex;
-                }
-            }
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "print_lines", "123");
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertNotNull(stepJobId);
             Assert.assertEquals(errMsg, "suspend", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepErrors());
             String step1err = st.getStepErrors().get("step1");
@@ -385,6 +372,43 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @Test
+    public void testRefData() throws Exception {
+        System.out.println("Test [testRefData]");
+        String refDataFileName = "test.txt";
+        PrintWriter pw = new PrintWriter(new File(refDataDir, refDataFileName));
+        pw.println("Reference data file");
+        pw.close();
+        try {
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/data\"");
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertEquals(errMsg, "completed", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepOutputs());
+            String step1output = st.getStepOutputs().get("step1");
+            Assert.assertNotNull(errMsg, step1output);
+            List<List<String>> data = UObject.getMapper().readValue(step1output, List.class);
+            Assert.assertTrue(errMsg, new TreeSet<String>(data.get(0)).contains(refDataFileName));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+    
+    @Test
+    public void testAsyncClient() throws Exception {
+        System.out.println("Test [testAsyncClient]");
+        String refDataFileName = "test.txt";
+        PrintWriter pw = new PrintWriter(new File(refDataDir, refDataFileName));
+        pw.println("Reference data file");
+        pw.close();
+        OnerepotestClient cl = new OnerepotestClient(client.getURL(), client.getToken());
+        cl.setIsInsecureHttpConnectionAllowed(true);
+        //RpcContext ctx = new RpcContext();
+        //ctx.getAdditionalProperties().put("service_ver", "b7636c3f8d16491593900dd5cc89897b54e7856a");
+        List<String> ret = cl.listRefData("/data");
+        Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
+    }
+    
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());
@@ -448,7 +472,8 @@ public class AweClientDockerJobScriptTest {
         int mongoPort = startupMongo(null, mongoDir);
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
         int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"), aweServerDir, mongoPort);
-        njsService = startupNJSService(njsServiceDir, binDir, awePort);
+        catalogWrapper = startupCatalogWrapper();
+        njsService = startupNJSService(njsServiceDir, binDir, awePort, catalogWrapper.getConnectors()[0].getLocalPort());
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -486,6 +511,9 @@ public class AweClientDockerJobScriptTest {
         wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
                 new ObjectSaveData().withName(genomeObjName).withType("KBaseGenomes.Genome")
                 .withData(new UObject(genomeData)))));*/
+        refDataDir = new File(njsServiceDir, "onerepotest/0.2");
+        if (!refDataDir.exists())
+            refDataDir.mkdirs();
     }
     
     private static String findAweBinary(File dir, String program) throws Exception {
@@ -720,48 +748,21 @@ public class AweClientDockerJobScriptTest {
         return port;
     }
 
-    private static Server startupNJSService(File dir, File binDir, int awePort) throws Exception {
+    private static Server startupNJSService(File dir, File binDir, int awePort, 
+            int catalogPort) throws Exception {
         if (!dir.exists())
             dir.mkdirs();
         if (!binDir.exists())
             binDir.mkdirs();
-        ProcessHelper.cmd("ant", "script", "-Djardir=" + dir.getAbsolutePath(), 
-                "-Dbindir=" + binDir.getAbsolutePath()).exec(new File("."));
-        Log.setLog(new Logger() {
-            @Override
-            public void warn(String arg0, Object arg1, Object arg2) {}
-            @Override
-            public void warn(String arg0, Throwable arg1) {}
-            @Override
-            public void warn(String arg0) {}
-            @Override
-            public void setDebugEnabled(boolean arg0) {}
-            @Override
-            public boolean isDebugEnabled() {
-                return false;
-            }
-            @Override
-            public void info(String arg0, Object arg1, Object arg2) {}
-            @Override
-            public void info(String arg0) {}
-            @Override
-            public String getName() {
-                return null;
-            }
-            @Override
-            public Logger getLogger(String arg0) {
-                return this;
-            }
-            @Override
-            public void debug(String arg0, Object arg1, Object arg2) {}
-            @Override
-            public void debug(String arg0, Throwable arg1) {}
-            @Override
-            public void debug(String arg0) {}
-        });
+        int exitCode = ProcessHelper.cmd("ant", "script", "-Djardir=" + dir.getAbsolutePath(), 
+                "-Dbindir=" + binDir.getAbsolutePath()).exec(new File(".")).getProcess().exitValue();
+        if (exitCode != 0)
+            throw new IllegalStateException("Error compiling command line script");
+        initSilentJettyLogger();
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
         Map<String, String> origConfig = loadConfig();
+        Properties testProps = props(new File("test.cfg"));
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -776,9 +777,12 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest,rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL),
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "=http://localhost:" + catalogPort,
                 NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT),
-                NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/"
+                NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
+                NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password")
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
@@ -815,6 +819,75 @@ public class AweClientDockerJobScriptTest {
         return jettyServer;
     }
 
+    private static Server startupCatalogWrapper() throws Exception {
+        initSilentJettyLogger();
+        JsonServerServlet catalogSrv = new CatalogWrapper();
+        int port = findFreePort();
+        Server jettyServer = new Server(port);
+        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
+        context.setContextPath("/");
+        jettyServer.setHandler(context);
+        context.addServlet(new ServletHolder(catalogSrv),"/*");
+        jettyServer.start();
+        Exception err = null;
+        JsonClientCaller caller = new JsonClientCaller(new URL("http://localhost:" + port + "/"));
+        for (int n = 0; n < njsJobWaitSeconds; n++) {
+            Thread.sleep(1000);
+            try {
+                caller.jsonrpcCall("Unknown", new ArrayList<String>(), null, false, false);
+            } catch (ServerException ex) {
+                if (ex.getMessage().contains("Can not find method [Catalog.Unknown] in server class")) {
+                    err = null;
+                    break;
+                } else {
+                    err = ex;
+                }
+            } catch (Exception ex) {
+                err = ex;
+            }
+        }
+        if (err != null)
+            throw new IllegalStateException("Catalog wrapper couldn't startup in " + 
+                    njsJobWaitSeconds + " seconds (" + err.getMessage() + ")", err);
+        System.out.println("Catalog wrapper was started up");
+        return jettyServer;
+    }
+
+    public static void initSilentJettyLogger() {
+        Log.setLog(new Logger() {
+            @Override
+            public void warn(String arg0, Object arg1, Object arg2) {}
+            @Override
+            public void warn(String arg0, Throwable arg1) {}
+            @Override
+            public void warn(String arg0) {}
+            @Override
+            public void setDebugEnabled(boolean arg0) {}
+            @Override
+            public boolean isDebugEnabled() {
+                return false;
+            }
+            @Override
+            public void info(String arg0, Object arg1, Object arg2) {}
+            @Override
+            public void info(String arg0) {}
+            @Override
+            public String getName() {
+                return null;
+            }
+            @Override
+            public Logger getLogger(String arg0) {
+                return this;
+            }
+            @Override
+            public void debug(String arg0, Object arg1, Object arg2) {}
+            @Override
+            public void debug(String arg0, Throwable arg1) {}
+            @Override
+            public void debug(String arg0) {}
+        });
+    }
+    
     public static Map<String, String> loadConfig() throws IOException,
             InvalidFileFormatException {
         Ini ini = new Ini(new File("deploy.cfg"));
@@ -903,5 +976,37 @@ public class AweClientDockerJobScriptTest {
         beforeClass();
         int port = njsService.getConnectors()[0].getLocalPort();
         System.out.println("NarrativeJobService was started up on port: " + port);
+    }
+    
+    public static class CatalogWrapper extends JsonServerServlet {
+        private static final long serialVersionUID = 1L;
+        
+        public CatalogWrapper() {
+            super("Catalog");
+        }
+        
+        private CatalogClient fwd() throws IOException, JsonClientException {
+            Map<String, String> origConfig = loadConfig();
+            String url = origConfig.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+            CatalogClient ret = new CatalogClient(new URL(url));
+            ret.setAllSSLCertificatesTrusted(true);
+            ret.setIsInsecureHttpConnectionAllowed(true);
+            return ret;
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_module_info")
+        public ModuleInfo getModuleInfo(SelectOneModuleParams selection) throws IOException, JsonClientException {
+            return fwd().getModuleInfo(selection);
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_version_info")
+        public ModuleVersionInfo getVersionInfo(SelectModuleVersionParams params) throws IOException, JsonClientException {
+            return fwd().getVersionInfo(params);
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.log_exec_stats")
+        public void logExecStats(LogExecStatsParams params, AuthToken authPart) throws IOException, JsonClientException {
+            execStats.add(params);
+        }
     }
 }

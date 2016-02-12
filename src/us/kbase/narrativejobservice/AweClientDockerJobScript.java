@@ -9,10 +9,14 @@ import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,7 +37,9 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    
+    private static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
+            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
@@ -72,7 +78,7 @@ public class AweClientDockerJobScript {
             rpc.put("version", "1.1");
             rpc.put("method", job.getMethod());
             rpc.put("params", job.getParams());
-            rpc.put("context", job.getRpcContext());
+            rpc.put("context", context);
             File inputFile = new File(jobDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(jobDir, "output.json");
@@ -97,17 +103,40 @@ public class AweClientDockerJobScript {
             CatalogClient catClient = getCatalogClient(config, token);
             String imageVersion = job.getServiceVer();
             String imageName = null;
-            if (imageVersion == null) {
+            ModuleVersionInfo mvi = null;
+            if (imageVersion == null || asyncVersionTags.contains(imageVersion)) {
                 ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                if (mi.getRelease() == null)
-                    throw new IllegalStateException("Cannot extract release version for module: " + moduleName);
-                ModuleVersionInfo mvi = mi.getRelease();
+                if (imageVersion == null) {
+                    mvi = mi.getRelease();
+                } else if (imageVersion.equals("dev")) {
+                    mvi = mi.getDev();
+                } else if (imageVersion.equals("beta")) {
+                    mvi = mi.getBeta();
+                } else {
+                    mvi = mi.getRelease();
+                }
+                if (mvi == null)
+                    throw new IllegalStateException("Cannot extract " + imageVersion + " version for module: " + moduleName);
                 imageVersion = mvi.getGitCommitHash();
-                imageName = mvi.getDockerImgName();
             } else {
-                ModuleVersionInfo mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(imageVersion));
-                imageName = mvi.getDockerImgName();
+                try {
+                    mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                            .withModuleName(moduleName).withGitCommitHash(imageVersion));
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Error retrieving module version info about image " +
+                            moduleName + " with version " + imageVersion, ex);
+                }
+            }
+            imageName = mvi.getDockerImgName();
+            File refDataDir = null;
+            if (mvi.getDataFolder() != null && mvi.getDataVersion() != null) {
+                String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
+                if (refDataBase == null)
+                    throw new IllegalStateException("Reference data parameters are defined for image but " + 
+                            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
+                refDataDir = new File(new File(refDataBase, mvi.getDataFolder()), mvi.getDataVersion());
+                if (!refDataDir.exists())
+                    throw new IllegalStateException("Reference data directory doesn't exist: " + refDataDir);
             }
             if (imageName == null) {
                 // TODO: We need to get rid of this line soon
@@ -135,15 +164,16 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            new DockerRunner(dockerURI).run(imageName, 
-                    moduleName, inputFile, token, log, outputFile, false);
+            new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, log, outputFile, false, refDataDir);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
                 r.read(chars);
                 r.close();
-                String error = "Output response is longer than " + MAX_OUTPUT_SIZE + ", " +
-                		"starting with \"" + new String(chars) + "...\"";
+                String error = "Method " + job.getMethod() + " returned value longer than " + MAX_OUTPUT_SIZE + 
+                        " bytes. This may happen as a result of returning actual data instead of saving it to " +
+                        "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
+                        "value starts with \"" + new String(chars) + "...\"";
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);

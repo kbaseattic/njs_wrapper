@@ -18,8 +18,10 @@ import us.kbase.common.service.UObject;
  * <pre>
  * type - 'service' or 'script'.
  * job_id_output_field - this field is used only in case this step is long running job and
- *     output of service method is structure with field having name coded in 
+ *     output of service method is structure with field having name coded in
  *     'job_id_output_field' rather than just output string with job id.
+ * method_spec_id - high level id of UI method used for logging of execution time 
+ *     statistics.
  * </pre>
  * 
  */
@@ -33,7 +35,8 @@ import us.kbase.common.service.UObject;
     "parameters",
     "input_values",
     "is_long_running",
-    "job_id_output_field"
+    "job_id_output_field",
+    "method_spec_id"
 })
 public class Step {
 
@@ -66,6 +69,8 @@ public class Step {
     private Long isLongRunning;
     @JsonProperty("job_id_output_field")
     private String jobIdOutputField;
+    @JsonProperty("method_spec_id")
+    private String methodSpecId;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("step_id")
@@ -214,6 +219,21 @@ public class Step {
         return this;
     }
 
+    @JsonProperty("method_spec_id")
+    public String getMethodSpecId() {
+        return methodSpecId;
+    }
+
+    @JsonProperty("method_spec_id")
+    public void setMethodSpecId(String methodSpecId) {
+        this.methodSpecId = methodSpecId;
+    }
+
+    public Step withMethodSpecId(String methodSpecId) {
+        this.methodSpecId = methodSpecId;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -226,7 +246,7 @@ public class Step {
 
     @Override
     public String toString() {
-        return ((((((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", service=")+ service)+", script=")+ script)+", parameters=")+ parameters)+", inputValues=")+ inputValues)+", isLongRunning=")+ isLongRunning)+", jobIdOutputField=")+ jobIdOutputField)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((("Step"+" [stepId=")+ stepId)+", type=")+ type)+", service=")+ service)+", script=")+ script)+", parameters=")+ parameters)+", inputValues=")+ inputValues)+", isLongRunning=")+ isLongRunning)+", jobIdOutputField=")+ jobIdOutputField)+", methodSpecId=")+ methodSpecId)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

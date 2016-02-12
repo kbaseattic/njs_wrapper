@@ -1,0 +1,45 @@
+EXECUTION ENGINE OVERVIEW
+-----------------------------------------
+The Execution Engine provides an API for execution of Narrative Methods and Apps 
+as well as asynchronous SDK jobs in docker container on AWE workers (it also 
+wraps Narrative Job Service API).
+
+
+VERSION: 0.2.2 (Released 02/11/16)
+--------------------------------------
+NEW FEATURES:
+- Support for execution statistics reporting to Catalog for SDK methods.
+- Support for asynchronous API calls.
+- Support for tag-like (dev/beta/release) service versions for SDK jobs.
+UPDATED FEATURES / MAJOR BUG FIXES:
+- Fix for bug with unclear error when nonexistent repo version is passed.
+- Fix for bug with lost rpc-context object in async job runner.
+- AWE job Id is added into AppState (additional info) for SDK methods.
+
+
+VERSION: 0.2.1 (Released 01/14/16)
+--------------------------------------
+NEW FEATURES:
+- Support for reference data in SDK repos.
+UPDATED FEATURES / MAJOR BUG FIXES:
+- Fix for error propagation in case ServerException doesn't have data.
+- AWE worker script running job gets module info from catalog now.
+
+
+VERSION: 0.2.0 (Released 12/03/15)
+--------------------------------------
+NEW FEATURES:
+- Support for templating configuration for async methods in docker images.
+UPDATED FEATURES / MAJOR BUG FIXES:
+- Docker pull operation in AWE script was switched to command-line mode.
+- Changes in Async AWE job script related to docker image forming.
+- Large refactoring related to logging mechanism in async docker mode.
+- App running mechanism was deeply refactored.
+- Small redesign of how apps with one async method are run.
+
+
+VERSION: 0.1.0 (Released 09/21/15)
+--------------------------------------
+NEW FEATURES:
+- Support for NJS App forwarding and App containing set of synchronous 
+  service JSON RPCs.

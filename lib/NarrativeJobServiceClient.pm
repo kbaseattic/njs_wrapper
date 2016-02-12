@@ -126,6 +126,7 @@ step is a reference to a hash where the following keys are defined:
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
@@ -153,8 +154,14 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
 job_id is a string
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 
 </pre>
 
@@ -176,6 +183,7 @@ step is a reference to a hash where the following keys are defined:
 	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 	is_long_running has a value which is a NarrativeJobService.boolean
 	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
 service_method is a reference to a hash where the following keys are defined:
 	service_name has a value which is a string
 	method_name has a value which is a string
@@ -203,8 +211,14 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
 job_id is a string
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 
 
 =end text
@@ -285,8 +299,46 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
+app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is a NarrativeJobService.boolean
+	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+	service_version has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is a NarrativeJobService.boolean
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -304,8 +356,46 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
+app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is a NarrativeJobService.boolean
+	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+	service_version has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is a NarrativeJobService.boolean
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -855,9 +945,47 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
 job_id is a string
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
+app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is a NarrativeJobService.boolean
+	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+	service_version has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is a NarrativeJobService.boolean
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -873,9 +1001,47 @@ app_state is a reference to a hash where the following keys are defined:
 	step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 	step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 	step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
+	original_app has a value which is a NarrativeJobService.app
 job_id is a string
+step_stats is a reference to a hash where the following keys are defined:
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
+app is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	steps has a value which is a reference to a list where each element is a NarrativeJobService.step
+step is a reference to a hash where the following keys are defined:
+	step_id has a value which is a string
+	type has a value which is a string
+	service has a value which is a NarrativeJobService.service_method
+	script has a value which is a NarrativeJobService.script_method
+	parameters has a value which is a reference to a list where each element is a NarrativeJobService.step_parameter
+	input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	is_long_running has a value which is a NarrativeJobService.boolean
+	job_id_output_field has a value which is a string
+	method_spec_id has a value which is a string
+service_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	service_url has a value which is a string
+	service_version has a value which is a string
+script_method is a reference to a hash where the following keys are defined:
+	service_name has a value which is a string
+	method_name has a value which is a string
+	has_files has a value which is a NarrativeJobService.boolean
+step_parameter is a reference to a hash where the following keys are defined:
+	label has a value which is a string
+	value has a value which is a string
+	step_source has a value which is a string
+	is_workspace_id has a value which is a NarrativeJobService.boolean
+	ws_object has a value which is a NarrativeJobService.workspace_object
+workspace_object is a reference to a hash where the following keys are defined:
+	workspace_name has a value which is a string
+	object_type has a value which is a string
+	is_input has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -1880,8 +2046,10 @@ ws_object has a value which is a NarrativeJobService.workspace_object
 
 type - 'service' or 'script'.
 job_id_output_field - this field is used only in case this step is long running job and
-    output of service method is structure with field having name coded in 
+    output of service method is structure with field having name coded in
     'job_id_output_field' rather than just output string with job id.
+method_spec_id - high level id of UI method used for logging of execution time 
+    statistics.
 
 
 =item Definition
@@ -1898,6 +2066,7 @@ parameters has a value which is a reference to a list where each element is a Na
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 is_long_running has a value which is a NarrativeJobService.boolean
 job_id_output_field has a value which is a string
+method_spec_id has a value which is a string
 
 </pre>
 
@@ -1914,6 +2083,7 @@ parameters has a value which is a reference to a list where each element is a Na
 input_values has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
 is_long_running has a value which is a NarrativeJobService.boolean
 job_id_output_field has a value which is a string
+method_spec_id has a value which is a string
 
 
 =end text
@@ -1954,6 +2124,40 @@ steps has a value which is a reference to a list where each element is a Narrati
 
 
 
+=head2 step_stats
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+creation_time has a value which is an int
+exec_start_time has a value which is an int
+finish_time has a value which is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+creation_time has a value which is an int
+exec_start_time has a value which is an int
+finish_time has a value which is an int
+
+
+=end text
+
+=back
+
+
+
 =head2 app_state
 
 =over 4
@@ -1967,7 +2171,8 @@ job_state - 'queued', 'running', 'completed', or 'error'
 running_step_id - id of step currently running
 step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
 step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
-step_job_ids - mapping from step_id to job_id.
+step_job_ids - mapping from step_id to job_id
+step_stats - mapping from step_id to execution time statistics
 
 
 =item Definition
@@ -1982,7 +2187,9 @@ running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 is_deleted has a value which is a NarrativeJobService.boolean
+original_app has a value which is a NarrativeJobService.app
 
 </pre>
 
@@ -1997,7 +2204,9 @@ running_step_id has a value which is a string
 step_outputs has a value which is a reference to a hash where the key is a string and the value is a string
 step_errors has a value which is a reference to a hash where the key is a string and the value is a string
 step_job_ids has a value which is a reference to a hash where the key is a string and the value is a string
+step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 is_deleted has a value which is a NarrativeJobService.boolean
+original_app has a value which is a NarrativeJobService.app
 
 
 =end text

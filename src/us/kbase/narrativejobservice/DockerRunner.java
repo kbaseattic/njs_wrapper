@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -18,6 +19,7 @@ import ch.qos.logback.classic.Level;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Image;
@@ -33,7 +35,8 @@ public class DockerRunner {
     }
     
     public File run(String imageName, String moduleName, File inputData, String token, 
-            final LineLogger log, File outputFile, boolean removeImage) throws Exception {
+            final LineLogger log, File outputFile, boolean removeImage,
+            File refDataDir) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
@@ -55,10 +58,13 @@ public class DockerRunner {
                     break;
                 suffix++;
             }
+            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(), 
+                    new Volume("/kb/module/work"))));
+            if (refDataDir != null)
+                binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
             CreateContainerResponse resp = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
-                            new Bind(workDir.getAbsolutePath(), new Volume(
-                                    "/kb/module/work"))).exec();
+                            binds.toArray(new Bind[binds.size()])).exec();
             String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();

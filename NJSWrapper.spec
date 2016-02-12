@@ -48,7 +48,7 @@ module NarrativeJobService {
         string object_type;
         boolean is_input;
     } workspace_object;
-    
+
     typedef structure {
         string label;
         string value;
@@ -56,12 +56,14 @@ module NarrativeJobService {
         boolean is_workspace_id;
         workspace_object ws_object;
     } step_parameter;
-    
+
     /*
         type - 'service' or 'script'.
         job_id_output_field - this field is used only in case this step is long running job and
-            output of service method is structure with field having name coded in 
+            output of service method is structure with field having name coded in
             'job_id_output_field' rather than just output string with job id.
+        method_spec_id - high level id of UI method used for logging of execution time 
+            statistics.
     */
     typedef structure {
         string step_id;
@@ -72,6 +74,7 @@ module NarrativeJobService {
         list<UnspecifiedObject> input_values;
         boolean is_long_running;
         string job_id_output_field;
+        string method_spec_id;
     } step;
 
     typedef structure {
@@ -79,13 +82,20 @@ module NarrativeJobService {
         list<step> steps;
     } app;
 
+    typedef structure {
+        int creation_time;
+        int exec_start_time;
+        int finish_time;
+    } step_stats;
+
     /*
         job_id - id of job running app
         job_state - 'queued', 'running', 'completed', or 'error'
         running_step_id - id of step currently running
         step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
         step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
-        step_job_ids - mapping from step_id to job_id.
+        step_job_ids - mapping from step_id to job_id
+        step_stats - mapping from step_id to execution time statistics
     */
     typedef structure {
         job_id job_id;
@@ -94,16 +104,18 @@ module NarrativeJobService {
         mapping<string, string> step_outputs;
         mapping<string, string> step_errors;
         mapping<string, string> step_job_ids;
+        mapping<string, step_stats> step_stats;
         boolean is_deleted;
+        app original_app;
     } app_state;
 
     typedef structure {
-    	boolean reboot_mode;
-    	boolean stopping_mode;
-    	int running_tasks_total;
-    	mapping<string, int> running_tasks_per_user;
-    	int tasks_in_queue;
-    	mapping<string, string> config;
+        boolean reboot_mode;
+        boolean stopping_mode;
+        int running_tasks_total;
+        mapping<string, int> running_tasks_per_user;
+        int tasks_in_queue;
+        mapping<string, string> config;
         string git_commit;
     } Status;
 
@@ -121,20 +133,20 @@ module NarrativeJobService {
     funcdef delete_app(job_id job_id) returns (string status) authentication required;
 
     funcdef list_config() returns (mapping<string, string>) authentication optional;
-    
+
     /* Returns the current running version of the NarrativeJobService. */
     funcdef ver() returns (string);
-    
+
     /* Simply check the status of this service to see queue details */
     funcdef status() returns (Status);
 
     funcdef list_running_apps() returns (list<app_state>) authentication optional;
-    
-    
+
+
     /*================================================================================*/
     /*  Running long running methods through Docker images of services from Registry  */
     /*================================================================================*/
-    
+
     /*
         time - the time the call was started;
         method - service defined in standard JSON RPC way, typically it's
@@ -269,6 +281,6 @@ module NarrativeJobService {
 
     /*
         Check if a job is finished and get results/error
-    */ 
+    */
     funcdef check_job(job_id job_id) returns (JobState job_state) authentication required;
 };
