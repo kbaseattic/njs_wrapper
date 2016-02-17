@@ -492,7 +492,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
         String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
                 ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-                authPart.toString());
+                authPart);
         if (appJobId != null && appJobId.isEmpty())
             appJobId = ujsJobId;
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
