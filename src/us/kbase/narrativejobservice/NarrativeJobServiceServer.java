@@ -3,10 +3,8 @@ package us.kbase.narrativejobservice;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
-import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.Tuple2;
 
 //BEGIN_HEADER
@@ -30,7 +28,9 @@ import org.ini4j.Ini;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
+import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.taskqueue2.JobStatuses;

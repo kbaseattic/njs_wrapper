@@ -103,4 +103,19 @@ public class AweUtils {
     public static boolean checkAweJobIsDoneWithoutError(String aweState) {
         return aweState.equals("completed");
     }
+    
+    public static Map<String, Object> getAweJobPosition(String aweServerUrl, 
+            String aweJobId, String token) throws Exception {
+        if (!aweServerUrl.endsWith("/"))
+            aweServerUrl += "/";
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId + "?position");
+        httpReq.addHeader("Authorization", "OAuth " + token);
+        HttpResponse response = httpClient.execute(httpReq);
+        String respString = EntityUtils.toString(response.getEntity());
+        ObjectMapper mapper = new ObjectMapper();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> ret = mapper.readValue(respString, Map.class);
+        return ret;
+    }
 }

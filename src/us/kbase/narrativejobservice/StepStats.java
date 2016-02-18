@@ -21,7 +21,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonPropertyOrder({
     "creation_time",
     "exec_start_time",
-    "finish_time"
+    "finish_time",
+    "pos_in_queue"
 })
 public class StepStats {
 
@@ -31,6 +32,8 @@ public class StepStats {
     private Long execStartTime;
     @JsonProperty("finish_time")
     private Long finishTime;
+    @JsonProperty("pos_in_queue")
+    private Long posInQueue;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("creation_time")
@@ -78,6 +81,21 @@ public class StepStats {
         return this;
     }
 
+    @JsonProperty("pos_in_queue")
+    public Long getPosInQueue() {
+        return posInQueue;
+    }
+
+    @JsonProperty("pos_in_queue")
+    public void setPosInQueue(Long posInQueue) {
+        this.posInQueue = posInQueue;
+    }
+
+    public StepStats withPosInQueue(Long posInQueue) {
+        this.posInQueue = posInQueue;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -90,7 +108,7 @@ public class StepStats {
 
     @Override
     public String toString() {
-        return ((((((((("StepStats"+" [creationTime=")+ creationTime)+", execStartTime=")+ execStartTime)+", finishTime=")+ finishTime)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((("StepStats"+" [creationTime=")+ creationTime)+", execStartTime=")+ execStartTime)+", finishTime=")+ finishTime)+", posInQueue=")+ posInQueue)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

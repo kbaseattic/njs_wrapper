@@ -9,14 +9,18 @@ import java.net.URL;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -58,6 +62,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
     public static final long MAX_APP_SIZE = 30000;
     public static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
             new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    public static final int ERROR_HEAD_TAIL_LOG_LINES = 100;
+    public static final int MAX_LOG_LINE_LENGTH = 10000;
 
     private static DbConn conn = null;
 
@@ -359,26 +365,39 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	        return;
 	    try {
 	        JobState jobState = checkJob(stepJobId, token, config);
-	        Long[] execTimes = getAweTaskExecTimes(stepJobId, config);
-	        if (execTimes != null) {
-	            StepStats stst = new StepStats();
-	            if (execTimes[0] != null)
-	                stst.withCreationTime(execTimes[0]);
-                if (execTimes[1] != null)
-                    stst.withExecStartTime(execTimes[1]);
-                if (execTimes[2] != null)
-                    stst.withFinishTime(execTimes[2]);
-                String aweJobId = (String)jobState.getAdditionalProperties().get("awe_job_id");
-                if (aweJobId != null)
-                    stst.getAdditionalProperties().put("awe_job_id", aweJobId);
-                StepStats oldStst = appState.getStepStats() == null ? null : appState.getStepStats().get(stepId);
-                if (oldStst == null || !oldStst.toString().equals(stst.toString())) {
-                    if (appState.getStepStats() == null)
-                        appState.setStepStats(new LinkedHashMap<String, StepStats>());
-                    appState.getStepStats().put(stepId, stst);
-                    updateAppState(appState, config);
-                }
+	        StepStats stst = new StepStats();
+	        stst.withCreationTime(jobState.getCreationTime());
+	        stst.withExecStartTime(jobState.getExecStartTime());
+	        stst.withFinishTime(jobState.getFinishTime());
+	        String aweJobId = (String)jobState.getAdditionalProperties().get("awe_job_id");
+	        if (aweJobId != null)
+	            stst.getAdditionalProperties().put("awe_job_id", aweJobId);
+            Long oldPos = appState.getPosition();
+            Long newPos = jobState.getPosition();
+            boolean needToUpdate = false;
+            if ((oldPos == null || newPos == null || !oldPos.equals(newPos)) &&
+                    (oldPos != null || newPos != null)) {
+                appState.setPosition(newPos);
+                stst.setPosInQueue(newPos);
+                needToUpdate = true;
+            }
+	        StepStats oldStst = appState.getStepStats() == null ? null : appState.getStepStats().get(stepId);
+	        if (oldStst == null || !oldStst.toString().equals(stst.toString())) {
+	            if (appState.getStepStats() == null)
+	                appState.setStepStats(new LinkedHashMap<String, StepStats>());
+	            appState.getStepStats().put(stepId, stst);
+	            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+	            format.setTimeZone(TimeZone.getTimeZone("UTC"));
+	            if (stst.getCreationTime() != null)
+	                appState.setSubmitTime(format.format(new Date(stst.getCreationTime())));
+	            if (stst.getExecStartTime() != null)
+	                appState.setStartTime(format.format(new Date(stst.getExecStartTime())));
+	            if (stst.getFinishTime() != null)
+	                appState.setCompleteTime(format.format(new Date(stst.getFinishTime())));
+	            needToUpdate = true;
 	        }
+	        if (needToUpdate) 
+	            updateAppState(appState, config);
 	        if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
 	            if (jobState.getError() != null) {
 	                JsonRpcError retError = jobState.getError();
@@ -388,11 +407,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	                List<LogLine> logLines = getAweDockerScriptLogs(stepJobId, null, token, null, config).getLines();
 	                if (logLines.size() > 0) {
 	                    StringBuilder logPart = new StringBuilder("\nConsole output/error logs:\n");
-	                    for (int i = 0; i < Math.min(100, logLines.size()); i++)
+	                    for (int i = 0; i < Math.min(ERROR_HEAD_TAIL_LOG_LINES, logLines.size()); i++)
 	                        logPart.append(logLines.get(i).getLine()).append("\n");
-	                    if (logLines.size() > 200)
-	                        logPart.append("<<<--- " + (logLines.size() - 200) +" line(s) skipped --->>>\n");
-	                    for (int i = Math.max(100, logLines.size() - 100); i < logLines.size(); i++)
+	                    if (logLines.size() > 2 * ERROR_HEAD_TAIL_LOG_LINES)
+	                        logPart.append("<<<--- " + (logLines.size() - 2 * ERROR_HEAD_TAIL_LOG_LINES) + " line(s) skipped --->>>\n");
+	                    for (int i = Math.max(ERROR_HEAD_TAIL_LOG_LINES, logLines.size() - ERROR_HEAD_TAIL_LOG_LINES); i < logLines.size(); i++)
                             logPart.append(logLines.get(i).getLine()).append("\n");
 	                    errorText += logPart.toString();
 	                }
@@ -412,6 +431,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	            String stage = ujsStatus.getE2();
 	            if (stage != null && stage.equals("started")) {
                     appState.setJobState(APP_STATE_STARTED);
+                    updateAppState(appState, config);
 	            }
 	        }
 	    } catch (Exception ex) {
@@ -661,8 +681,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         int linePos = r1.size() == 1 ? r1.get(0) : 0;
         for (LogLine line : lines) {
             String text = line.getLine();
-            if (text.length() > 10000)
-                text = text.substring(0, 9997) + "...";
+            if (text.length() > MAX_LOG_LINE_LENGTH)
+                text = text.substring(0, MAX_LOG_LINE_LENGTH - 3) + "...";
             conn.exec("insert into " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
                     " (ujs_job_id,line_pos,line,is_error) values (?,?,?,?)", 
                     ujsJobId, linePos, text, line.getIsError());
@@ -752,8 +772,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             // We should consult AWE for case the job was killed or gone with no reason.
             Map<String, Object> aweData = null;
             String aweState = null;
+            String aweServerUrl = getAweServerURL(config);
             try {
-                Map<String, Object> aweJob = AweUtils.getAweJobDescr(getAweServerURL(config), aweJobId, token);
+                Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, token);
                 aweData = (Map<String, Object>)aweJob.get("data");
                 if (aweData != null)
                     aweState = (String)aweData.get("state");
@@ -774,12 +795,38 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             }
             returnVal.getAdditionalProperties().put("awe_job_state", aweState);
             returnVal.setFinished(0L);
+            String stage = jobStatus.getE2();
+            if (stage != null && stage.equals("started")) {
+                returnVal.setJobState(APP_STATE_STARTED);
+            } else {
+                returnVal.setJobState(APP_STATE_QUEUED);
+                try {
+                    Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, aweJobId, token);
+                    Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
+                    if (posData != null && posData.containsKey("position"))
+                        returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
+                } catch (Exception ignore) {}
+            }
         } else {
             FinishJobParams result = UObject.getMapper().readValue(
                     new ByteArrayInputStream(baos.toByteArray()), FinishJobParams.class);
             returnVal.setFinished(1L);
             returnVal.setResult(result.getResult());
             returnVal.setError(result.getError());
+            if (result.getError() != null) {
+                returnVal.setJobState(APP_STATE_ERROR);
+            } else {
+                returnVal.setJobState(APP_STATE_DONE);
+            }
+        }
+        Long[] execTimes = getAweTaskExecTimes(jobId, config);
+        if (execTimes != null) {
+            if (execTimes[0] != null)
+                returnVal.withCreationTime(execTimes[0]);
+            if (execTimes[1] != null)
+                returnVal.withExecStartTime(execTimes[1]);
+            if (execTimes[2] != null)
+                returnVal.withFinishTime(execTimes[2]);
         }
         return returnVal;
     }

@@ -33,7 +33,6 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,7 +49,6 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ProcessHelper;
@@ -207,6 +205,8 @@ public class AweClientDockerJobScriptTest {
             try {
                 st = client.checkAppState(appJobId);
                 System.out.println("App state: " + st.getJobState());
+                if (st.getJobState().equals("queued"))
+                    Assert.assertNotNull(st.getPosition());
                 stepJobId = st.getStepJobIds().get("step1");
                 if (stepJobId != null)
                     System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());

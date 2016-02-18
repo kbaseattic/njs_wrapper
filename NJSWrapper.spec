@@ -86,16 +86,20 @@ module NarrativeJobService {
         int creation_time;
         int exec_start_time;
         int finish_time;
+        int pos_in_queue;
     } step_stats;
 
     /*
         job_id - id of job running app
-        job_state - 'queued', 'running', 'completed', or 'error'
+        job_state - 'queued', 'in-progress', 'completed', or 'suspend'
         running_step_id - id of step currently running
         step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
         step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
         step_job_ids - mapping from step_id to job_id
         step_stats - mapping from step_id to execution time statistics
+        position - position of this job in execution waiting queue
+        submit_time, start_time and complete_time - time moments of submission, execution start and
+            finish events formatted in ISO 8601 with UTC time-zone (like 2016-02-18T12:06:55Z).
     */
     typedef structure {
         job_id job_id;
@@ -107,6 +111,10 @@ module NarrativeJobService {
         mapping<string, step_stats> step_stats;
         boolean is_deleted;
         app original_app;
+        string submit_time;
+        string start_time;
+        string complete_time;
+        int position;
     } app_state;
 
     typedef structure {
@@ -268,7 +276,11 @@ module NarrativeJobService {
         result - keeps exact copy of what original server method puts
             in result block of JSON RPC response;
         error - keeps exact copy of what original server method puts
-            in error block of JSON RPC response.
+            in error block of JSON RPC response;
+        job_state - 'queued', 'in-progress', 'completed', or 'suspend';
+        position - position of the job in execution waiting queue;
+        creation_time, exec_start_time and finish_time - time moments of submission, execution 
+            start and finish events in milliseconds since Unix Epoch.
     */
     typedef structure {
         string job_id;
@@ -277,6 +289,11 @@ module NarrativeJobService {
         UnspecifiedObject status;
         UnspecifiedObject result;
         JsonRpcError error;
+        string job_state;
+        int position;
+        int creation_time;
+        int exec_start_time;
+        int finish_time;
     } JobState;
 
     /*

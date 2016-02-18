@@ -94,11 +94,16 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 job_id is a string
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 
 </pre>
 
@@ -151,11 +156,16 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 job_id is a string
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 
 
 =end text
@@ -224,10 +234,15 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 boolean is an int
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -281,10 +296,15 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 boolean is an int
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -771,11 +791,16 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 job_id is a string
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 boolean is an int
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -827,11 +852,16 @@ app_state is a reference to a hash where the following keys are defined:
 	step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 	is_deleted has a value which is a NarrativeJobService.boolean
 	original_app has a value which is a NarrativeJobService.app
+	submit_time has a value which is a string
+	start_time has a value which is a string
+	complete_time has a value which is a string
+	position has a value which is an int
 job_id is a string
 step_stats is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	pos_in_queue has a value which is an int
 boolean is an int
 app is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1361,6 +1391,11 @@ JobState is a reference to a hash where the following keys are defined:
 	status has a value which is an UnspecifiedObject, which can hold any non-null object
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
+	job_state has a value which is a string
+	position has a value which is an int
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1384,6 +1419,11 @@ JobState is a reference to a hash where the following keys are defined:
 	status has a value which is an UnspecifiedObject, which can hold any non-null object
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
+	job_state has a value which is a string
+	position has a value which is an int
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1833,6 +1873,7 @@ a reference to a hash where the following keys are defined:
 creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
+pos_in_queue has a value which is an int
 
 </pre>
 
@@ -1844,6 +1885,7 @@ a reference to a hash where the following keys are defined:
 creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
+pos_in_queue has a value which is an int
 
 
 =end text
@@ -1861,12 +1903,15 @@ finish_time has a value which is an int
 =item Description
 
 job_id - id of job running app
-job_state - 'queued', 'running', 'completed', or 'error'
+job_state - 'queued', 'in-progress', 'completed', or 'suspend'
 running_step_id - id of step currently running
 step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
 step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
 step_job_ids - mapping from step_id to job_id
 step_stats - mapping from step_id to execution time statistics
+position - position of this job in execution waiting queue
+submit_time, start_time and complete_time - time moments of submission, execution start and
+    finish events formatted in ISO 8601 with UTC time-zone (like 2016-02-18T12:06:55Z).
 
 
 =item Definition
@@ -1884,6 +1929,10 @@ step_job_ids has a value which is a reference to a hash where the key is a strin
 step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 is_deleted has a value which is a NarrativeJobService.boolean
 original_app has a value which is a NarrativeJobService.app
+submit_time has a value which is a string
+start_time has a value which is a string
+complete_time has a value which is a string
+position has a value which is an int
 
 </pre>
 
@@ -1901,6 +1950,10 @@ step_job_ids has a value which is a reference to a hash where the key is a strin
 step_stats has a value which is a reference to a hash where the key is a string and the value is a NarrativeJobService.step_stats
 is_deleted has a value which is a NarrativeJobService.boolean
 original_app has a value which is a NarrativeJobService.app
+submit_time has a value which is a string
+start_time has a value which is a string
+complete_time has a value which is a string
+position has a value which is an int
 
 
 =end text
@@ -2294,7 +2347,11 @@ status - tuple returned by UserAndJobState.get_job_status method
 result - keeps exact copy of what original server method puts
     in result block of JSON RPC response;
 error - keeps exact copy of what original server method puts
-    in error block of JSON RPC response.
+    in error block of JSON RPC response;
+job_state - 'queued', 'in-progress', 'completed', or 'suspend';
+position - position of the job in execution waiting queue;
+creation_time, exec_start_time and finish_time - time moments of submission, execution 
+    start and finish events in milliseconds since Unix Epoch.
 
 
 =item Definition
@@ -2309,6 +2366,11 @@ ujs_url has a value which is a string
 status has a value which is an UnspecifiedObject, which can hold any non-null object
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
+job_state has a value which is a string
+position has a value which is an int
+creation_time has a value which is an int
+exec_start_time has a value which is an int
+finish_time has a value which is an int
 
 </pre>
 
@@ -2323,6 +2385,11 @@ ujs_url has a value which is a string
 status has a value which is an UnspecifiedObject, which can hold any non-null object
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
+job_state has a value which is a string
+position has a value which is an int
+creation_time has a value which is an int
+exec_start_time has a value which is an int
+finish_time has a value which is an int
 
 
 =end text
