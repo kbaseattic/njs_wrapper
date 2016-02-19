@@ -36,7 +36,9 @@ import org.apache.http.util.EntityUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import us.kbase.auth.AuthToken;
+import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
@@ -253,7 +255,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			        srvUrl.isEmpty()) {
 			    RunJobParams params = new RunJobParams().withMethod(srvMethod)
 			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
-			    String stepJobId = runAweDockerScript(params, token, jobId, config);
+			    String stepJobId = runAweDockerScript(params, token, jobId, config, null);
 			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
 	            updateAppState(appState, config);
 			    JobState jobState = null;
@@ -342,7 +344,29 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             srvMethod = srvName + "." + srvMethod;
         RunJobParams params = new RunJobParams().withMethod(srvMethod)
                 .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
-        String jobId = runAweDockerScript(params, token, "", config);
+        String aweClientGroups = null;
+        if (step.getMethodSpecId() != null) {
+            try {
+                CatalogClient catCl = getCatalogClient(config, false);
+                List<AppClientGroup> ret = catCl.getClientGroups(
+                        new GetClientGroupParams().withAppIds(Arrays.asList(step.getMethodSpecId())));
+                if (ret != null && ret.size() == 1) {
+                    AppClientGroup acg = ret.get(0);
+                    List<String> groupList = acg.getClientGroups();
+                    StringBuilder sb = new StringBuilder();
+                    for (String group : groupList) {
+                        if (sb.length() > 0)
+                            sb.append(",");
+                        sb.append(group);
+                    }
+                    aweClientGroups = sb.toString();
+                }
+            } catch (Exception ex) {
+                System.err.println("Error requesting awe client groups from Catalog for [" + 
+                        step.getMethodSpecId() + "]: " + ex.getMessage());
+            }
+        }
+        String jobId = runAweDockerScript(params, token, "", config, aweClientGroups);
         AppState appState = initAppState(jobId, config);
         appState.setOriginalApp(app);
         appState.setJobState(APP_STATE_QUEUED);
@@ -464,7 +488,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	}
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
-            String appJobId, Map<String, String> config) throws Exception {
+            String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
         if (params.getServiceVer() == null || asyncVersionTags.contains(params.getServiceVer())) {
             CatalogClient catCl = getCatalogClient(config, false);
             String moduleName = params.getMethod().split(Pattern.quote("."))[0];
@@ -510,9 +534,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
         if (selfExternalUrl == null)
             selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
+        if (aweClientGroups == null || aweClientGroups.isEmpty())
+            aweClientGroups = config.get(NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS);
+        if (aweClientGroups == null || aweClientGroups.equals("*"))
+            aweClientGroups = "";
         String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
                 ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-                authPart);
+                authPart, aweClientGroups);
         if (appJobId != null && appJobId.isEmpty())
             appJobId = ujsJobId;
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);

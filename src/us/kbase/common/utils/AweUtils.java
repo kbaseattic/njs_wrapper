@@ -23,7 +23,8 @@ public class AweUtils {
     
     @SuppressWarnings("unchecked")
     public static String runTask(String aweServerUrl, String pipeline, 
-            String jobName, String args, String scriptName, AuthToken auth) throws Exception {
+            String jobName, String args, String scriptName, AuthToken auth,
+            String aweClientGroups) throws Exception {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         Map<String, Object> job = new LinkedHashMap<String, Object>();   // AwfTemplate
@@ -32,7 +33,7 @@ public class AweUtils {
         info.put("name", jobName);
         info.put("project", "SDK");
         info.put("user", auth.getClientId());
-        info.put("clientgroups", "");
+        info.put("clientgroups", aweClientGroups);
         job.put("info", info);
         Map<String, Object> task = new LinkedHashMap<String, Object>();  // AwfTask
         Map<String, Object> cmd = new LinkedHashMap<String, Object>();   // AwfCmd

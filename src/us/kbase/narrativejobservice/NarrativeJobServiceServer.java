@@ -76,6 +76,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
+    public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
     
     public static final String VERSION = "0.2.2";
     
@@ -648,7 +649,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config());
+        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config(), null);
         //END run_job
         return returnVal;
     }
