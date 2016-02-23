@@ -51,6 +51,7 @@ import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.DbConn;
 import us.kbase.shock.client.BasicShockClient;
+import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
@@ -519,9 +520,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
         BasicShockClient shockClient = getShockClient(authPart, config);
         String inputShockId = shockClient.addNode(bais, "job.json", "json").getId().getId();
+        addShockNodePublicReadACL(getShockUrl(config), token, inputShockId);
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         final String ujsJobId = ujsClient.createJob();
         String outputShockId = shockClient.addNode().getId().getId();
+        addShockNodePublicReadACL(getShockUrl(config), token, outputShockId);
         String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
         if (kbaseEndpoint == null) {
             String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -773,6 +776,30 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         } finally {
             response.close();
             file.close();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static String addShockNodePublicReadACL(String shockUrl, String token, 
+            String shockNodeId) throws Exception {
+        String nodeurl = shockUrl;
+        if (!nodeurl.endsWith("/"))
+            nodeurl += "/";
+        nodeurl += "node/" + shockNodeId + "/acl/public_read";
+        final HttpPut htp = new HttpPut(nodeurl);
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        cm.setMaxTotal(1000);
+        cm.setDefaultMaxPerRoute(1000);
+        CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
+        htp.setHeader("Authorization", "OAuth " + token);
+        final CloseableHttpResponse response = client.execute(htp);
+        try {
+            String resp = EntityUtils.toString(response.getEntity());
+            Map<String, String> node = (Map<String, String>)UObject.getMapper()
+                    .readValue(resp, Map.class).get("data");
+            return node.get("id");
+        } finally {
+            response.close();
         }
     }
 

@@ -144,7 +144,7 @@ public class AweClientDockerJobScript {
                 //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
                 log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
             } else {
-                log.logNextLine("Image recieved from catalog: " + imageName, false);
+                log.logNextLine("Image received from catalog: " + imageName, false);
             }
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             logFlusher = new Thread(new Runnable() {
