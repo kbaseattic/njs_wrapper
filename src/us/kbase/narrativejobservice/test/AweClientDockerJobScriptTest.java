@@ -610,7 +610,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=",
+                "users=" + get(props(new File("test.cfg")), "user"),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -785,7 +785,10 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
-                NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase"
+                NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
+                NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password")
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)

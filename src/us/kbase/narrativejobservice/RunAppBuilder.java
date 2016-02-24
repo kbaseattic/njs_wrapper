@@ -35,6 +35,7 @@ import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
+import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
@@ -514,17 +515,22 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             String serviceVer = mvi.getGitCommitHash();
             params.setServiceVer(serviceVer);
         }
+        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
         BasicShockClient shockClient = getShockClient(authPart, config);
         String inputShockId = shockClient.addNode(bais, "job.json", "json").getId().getId();
-        addShockNodePublicReadACL(getShockUrl(config), token, inputShockId);
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         final String ujsJobId = ujsClient.createJob();
         String outputShockId = shockClient.addNode().getId().getId();
-        addShockNodePublicReadACL(getShockUrl(config), token, outputShockId);
+        if (narrativeProxyUser != null) {
+            shockClient.addToNodeAcl(new ShockNodeId(inputShockId), Arrays.asList(narrativeProxyUser), 
+                    ShockACLType.READ);
+            shockClient.addToNodeAcl(new ShockNodeId(outputShockId), Arrays.asList(narrativeProxyUser), 
+                    ShockACLType.READ);
+        }
         String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
         if (kbaseEndpoint == null) {
             String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -825,11 +831,16 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         baos.close();
         if (baos.size() == 0) {
             // We should consult AWE for case the job was killed or gone with no reason.
+            String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
+            String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
+            if (aweAdminUser == null || aweAdminPwd == null)
+                throw new IllegalStateException("AWE admin creadentials are not defined in configuration");
+            String aweToken = AuthService.login(aweAdminUser, aweAdminPwd).getTokenString();
             Map<String, Object> aweData = null;
             String aweState = null;
             String aweServerUrl = getAweServerURL(config);
             try {
-                Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, token);
+                Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, aweToken);
                 aweData = (Map<String, Object>)aweJob.get("data");
                 if (aweData != null)
                     aweState = (String)aweData.get("state");
@@ -842,27 +853,41 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                         "for ujs-id=" + jobId + " (state is null)");
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
                     (!aweState.equals("in-progress"))) {
-                if (aweState.equals("suspend"))
-                    throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
-                            " for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ? 
-                                    " whereas job script wasn't started at all" : ""));
-                throw new IllegalStateException("Unexpected AWE job state: " + aweState);
+                // Let's double-check, what if UJS job was marked as complete while we checked AWE?
+                jobStatus = ujsClient.getJobStatus(jobId);
+                complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
+                if (complete) { // Yes, we are switching to "complete" scenario
+                    returnVal.setStatus(new UObject(jobStatus));
+                    baos = new ByteArrayOutputStream();
+                    BasicShockClient shockClient = getShockClient(authPart, config);
+                    shockClient.getFile(new ShockNodeId(outputShockId), baos);
+                    baos.close();
+                } else {
+                    if (aweState.equals("suspend"))
+                        throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
+                                " for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ? 
+                                        " whereas job script wasn't started at all" : ""));
+                    throw new IllegalStateException("Unexpected AWE job state: " + aweState);
+                }
             }
-            returnVal.getAdditionalProperties().put("awe_job_state", aweState);
-            returnVal.setFinished(0L);
-            String stage = jobStatus.getE2();
-            if (stage != null && stage.equals("started")) {
-                returnVal.setJobState(APP_STATE_STARTED);
-            } else {
-                returnVal.setJobState(APP_STATE_QUEUED);
-                try {
-                    Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, aweJobId, token);
-                    Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
-                    if (posData != null && posData.containsKey("position"))
-                        returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
-                } catch (Exception ignore) {}
+            if (!complete) {
+                returnVal.getAdditionalProperties().put("awe_job_state", aweState);
+                returnVal.setFinished(0L);
+                String stage = jobStatus.getE2();
+                if (stage != null && stage.equals("started")) {
+                    returnVal.setJobState(APP_STATE_STARTED);
+                } else {
+                    returnVal.setJobState(APP_STATE_QUEUED);
+                    try {
+                        Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, aweJobId, aweToken);
+                        Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
+                        if (posData != null && posData.containsKey("position"))
+                            returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
+                    } catch (Exception ignore) {}
+                }
             }
-        } else {
+        }
+        if (complete) {
             FinishJobParams result = UObject.getMapper().readValue(
                     new ByteArrayInputStream(baos.toByteArray()), FinishJobParams.class);
             returnVal.setFinished(1L);

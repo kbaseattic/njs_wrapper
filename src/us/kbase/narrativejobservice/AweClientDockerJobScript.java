@@ -180,6 +180,7 @@ public class AweClientDockerJobScript {
             // save result into outputShockId;
             jobSrvClient.finishJob(jobId, result);
             ujsClient.completeJob(jobId, token, "done", null, new Results());
+            log.logNextLine("Job is done", false);
             flushLog(jobSrvClient, jobId, logLines);
             logFlusher.interrupt();
         } catch (Exception ex) {
@@ -215,9 +216,9 @@ public class AweClientDockerJobScript {
             String jobId, List<LogLine> logLines, LogLine line) throws Exception {
         logLines.add(line);
         if (line.getIsError() != null && line.getIsError() == 1L) {
-            System.err.println(line);
+            System.err.println(line.getLine());
         } else {
-            System.out.println(line);
+            System.out.println(line.getLine());
         }
     }
     
