@@ -144,7 +144,7 @@ public class AweClientDockerJobScript {
                 //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
                 log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
             } else {
-                log.logNextLine("Image recieved from catalog: " + imageName, false);
+                log.logNextLine("Image received from catalog: " + imageName, false);
             }
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             logFlusher = new Thread(new Runnable() {
@@ -180,6 +180,7 @@ public class AweClientDockerJobScript {
             // save result into outputShockId;
             jobSrvClient.finishJob(jobId, result);
             ujsClient.completeJob(jobId, token, "done", null, new Results());
+            log.logNextLine("Job is done", false);
             flushLog(jobSrvClient, jobId, logLines);
             logFlusher.interrupt();
         } catch (Exception ex) {
@@ -215,9 +216,9 @@ public class AweClientDockerJobScript {
             String jobId, List<LogLine> logLines, LogLine line) throws Exception {
         logLines.add(line);
         if (line.getIsError() != null && line.getIsError() == 1L) {
-            System.err.println(line);
+            System.err.println(line.getLine());
         } else {
-            System.out.println(line);
+            System.out.println(line.getLine());
         }
     }
     

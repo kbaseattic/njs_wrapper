@@ -23,7 +23,8 @@ public class AweUtils {
     
     @SuppressWarnings("unchecked")
     public static String runTask(String aweServerUrl, String pipeline, 
-            String jobName, String args, String scriptName, AuthToken auth) throws Exception {
+            String jobName, String args, String scriptName, AuthToken auth,
+            String aweClientGroups) throws Exception {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         Map<String, Object> job = new LinkedHashMap<String, Object>();   // AwfTemplate
@@ -32,7 +33,7 @@ public class AweUtils {
         info.put("name", jobName);
         info.put("project", "SDK");
         info.put("user", auth.getClientId());
-        info.put("clientgroups", "");
+        info.put("clientgroups", aweClientGroups);
         job.put("info", info);
         Map<String, Object> task = new LinkedHashMap<String, Object>();  // AwfTask
         Map<String, Object> cmd = new LinkedHashMap<String, Object>();   // AwfCmd
@@ -102,5 +103,20 @@ public class AweUtils {
     
     public static boolean checkAweJobIsDoneWithoutError(String aweState) {
         return aweState.equals("completed");
+    }
+    
+    public static Map<String, Object> getAweJobPosition(String aweServerUrl, 
+            String aweJobId, String token) throws Exception {
+        if (!aweServerUrl.endsWith("/"))
+            aweServerUrl += "/";
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId + "?position");
+        httpReq.addHeader("Authorization", "OAuth " + token);
+        HttpResponse response = httpClient.execute(httpReq);
+        String respString = EntityUtils.toString(response.getEntity());
+        ObjectMapper mapper = new ObjectMapper();
+        @SuppressWarnings("unchecked")
+        Map<String, Object> ret = mapper.readValue(respString, Map.class);
+        return ret;
     }
 }

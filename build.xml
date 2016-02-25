@@ -37,7 +37,7 @@
     <include name="kbase/workspace/WorkspaceClient-0.2.0.jar"/>
     <include name="derby/derby-10.10.1.1.jar"/>
     <include name="easymock/easymock-3.2.jar"/>
-    <include name="kbase/shock/shock-client-0.0.8.jar"/>
+    <include name="kbase/shock/shock-client-0.0.10.jar"/>
     <include name="apache_commons/http/httpclient-4.3.1.jar"/>
     <include name="apache_commons/http/httpcore-4.3.jar"/>
     <include name="apache_commons/http/httpmime-4.3.1.jar"/>
@@ -76,6 +76,7 @@
     <include name="apache_commons/commons-io-2.4.jar"/>
     <include name="apache_commons/commons-logging-1.1.1.jar"/>
     <include name="apache_commons/commons-lang-2.4.jar"/>
+    <include name="apache_commons/commons-lang3-3.1.jar"/>
   </fileset>
 
   <path id="compile.classpath">

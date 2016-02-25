@@ -3,10 +3,8 @@ package us.kbase.narrativejobservice;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
-import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.Tuple2;
 
 //BEGIN_HEADER
@@ -30,7 +28,9 @@ import org.ini4j.Ini;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
+import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.taskqueue2.JobStatuses;
@@ -76,8 +76,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
+    public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
+    public static final String CFG_PROP_NARRATIVE_PROXY_SHARING_USER = "narrative.proxy.sharing.user";
+    public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
+    public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
     
-    public static final String VERSION = "0.2.2";
+    public static final String VERSION = "0.2.3";
     
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
@@ -648,7 +652,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config());
+        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config(), null);
         //END run_job
         return returnVal;
     }

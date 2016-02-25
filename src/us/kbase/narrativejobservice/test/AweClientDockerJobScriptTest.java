@@ -33,14 +33,16 @@ import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
+import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
@@ -108,7 +110,7 @@ public class AweClientDockerJobScriptTest {
                             "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
             String jobId = client.runJob(params);
             JobState ret = null;
-            for (int i = 0; i < 300; i++) {
+            for (int i = 0; i < 20; i++) {
                 try {
                     ret = client.checkJob(jobId);
                     System.out.println("Job finished: " + ret.getFinished());
@@ -203,10 +205,12 @@ public class AweClientDockerJobScriptTest {
         AppState st = client.runApp(app);
         String appJobId = st.getJobId();
         String stepJobId = null;
-        for (int i = 0; i < 300; i++) {
+        for (int i = 0; i < 20; i++) {
             try {
                 st = client.checkAppState(appJobId);
                 System.out.println("App state: " + st.getJobState());
+                if (st.getJobState().equals("queued"))
+                    Assert.assertNotNull(st.getPosition());
                 stepJobId = st.getStepJobIds().get("step1");
                 if (stepJobId != null)
                     System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
@@ -257,7 +261,7 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             int logLinesRecieved = 0;
             int numberOfOneLiners = 0;
-            for (int i = 0; i < 300; i++) {
+            for (int i = 0; i < 30; i++) {
                 try {
                     if (stepJobId == null) {
                         st = client.checkAppState(appJobId);
@@ -403,8 +407,6 @@ public class AweClientDockerJobScriptTest {
         pw.close();
         OnerepotestClient cl = new OnerepotestClient(client.getURL(), client.getToken());
         cl.setIsInsecureHttpConnectionAllowed(true);
-        //RpcContext ctx = new RpcContext();
-        //ctx.getAdditionalProperties().put("service_ver", "b7636c3f8d16491593900dd5cc89897b54e7856a");
         List<String> ret = cl.listRefData("/data");
         Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
     }
@@ -608,7 +610,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=",
+                "users=" + get(props(new File("test.cfg")), "user"),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -782,7 +784,11 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
                 NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password")
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
+                NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password")
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
@@ -1007,6 +1013,11 @@ public class AweClientDockerJobScriptTest {
         @JsonServerMethod(rpc = "Catalog.log_exec_stats")
         public void logExecStats(LogExecStatsParams params, AuthToken authPart) throws IOException, JsonClientException {
             execStats.add(params);
+        }
+
+        @JsonServerMethod(rpc = "Catalog.get_client_groups")
+        public List<AppClientGroup> getClientGroups(GetClientGroupParams params) throws IOException, JsonClientException {
+            return Arrays.asList(new AppClientGroup().withClientGroups(Arrays.asList("*")));
         }
     }
 }

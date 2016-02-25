@@ -13,39 +13,35 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * <p>Original spec-file type: ListFavoriteCounts</p>
+ * <p>Original spec-file type: GetClientGroupParams</p>
  * <pre>
- * if favorite item is given, will return stars just for that item.  If a module
- * name is given, will return stars for all methods in that module.  If none of
- * those are given, then will return stars for every method that there is info on 
- * parameters to add:
- *     list<FavoriteItem> items;
+ * if app_ids is empty or null, all client groups are returned
  * </pre>
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "modules"
+    "app_ids"
 })
-public class ListFavoriteCounts {
+public class GetClientGroupParams {
 
-    @JsonProperty("modules")
-    private List<String> modules;
+    @JsonProperty("app_ids")
+    private List<String> appIds;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
-    @JsonProperty("modules")
-    public List<String> getModules() {
-        return modules;
+    @JsonProperty("app_ids")
+    public List<String> getAppIds() {
+        return appIds;
     }
 
-    @JsonProperty("modules")
-    public void setModules(List<String> modules) {
-        this.modules = modules;
+    @JsonProperty("app_ids")
+    public void setAppIds(List<String> appIds) {
+        this.appIds = appIds;
     }
 
-    public ListFavoriteCounts withModules(List<String> modules) {
-        this.modules = modules;
+    public GetClientGroupParams withAppIds(List<String> appIds) {
+        this.appIds = appIds;
         return this;
     }
 
@@ -61,7 +57,7 @@ public class ListFavoriteCounts {
 
     @Override
     public java.lang.String toString() {
-        return ((((("ListFavoriteCounts"+" [modules=")+ modules)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((("GetClientGroupParams"+" [appIds=")+ appIds)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

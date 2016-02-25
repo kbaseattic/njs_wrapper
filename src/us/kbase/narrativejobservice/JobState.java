@@ -24,7 +24,11 @@ import us.kbase.common.service.UObject;
  * result - keeps exact copy of what original server method puts
  *     in result block of JSON RPC response;
  * error - keeps exact copy of what original server method puts
- *     in error block of JSON RPC response.
+ *     in error block of JSON RPC response;
+ * job_state - 'queued', 'in-progress', 'completed', or 'suspend';
+ * position - position of the job in execution waiting queue;
+ * creation_time, exec_start_time and finish_time - time moments of submission, execution 
+ *     start and finish events in milliseconds since Unix Epoch.
  * </pre>
  * 
  */
@@ -36,7 +40,12 @@ import us.kbase.common.service.UObject;
     "ujs_url",
     "status",
     "result",
-    "error"
+    "error",
+    "job_state",
+    "position",
+    "creation_time",
+    "exec_start_time",
+    "finish_time"
 })
 public class JobState {
 
@@ -59,6 +68,16 @@ public class JobState {
      */
     @JsonProperty("error")
     private JsonRpcError error;
+    @JsonProperty("job_state")
+    private String jobState;
+    @JsonProperty("position")
+    private Long position;
+    @JsonProperty("creation_time")
+    private Long creationTime;
+    @JsonProperty("exec_start_time")
+    private Long execStartTime;
+    @JsonProperty("finish_time")
+    private Long finishTime;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("job_id")
@@ -165,6 +184,81 @@ public class JobState {
         return this;
     }
 
+    @JsonProperty("job_state")
+    public String getJobState() {
+        return jobState;
+    }
+
+    @JsonProperty("job_state")
+    public void setJobState(String jobState) {
+        this.jobState = jobState;
+    }
+
+    public JobState withJobState(String jobState) {
+        this.jobState = jobState;
+        return this;
+    }
+
+    @JsonProperty("position")
+    public Long getPosition() {
+        return position;
+    }
+
+    @JsonProperty("position")
+    public void setPosition(Long position) {
+        this.position = position;
+    }
+
+    public JobState withPosition(Long position) {
+        this.position = position;
+        return this;
+    }
+
+    @JsonProperty("creation_time")
+    public Long getCreationTime() {
+        return creationTime;
+    }
+
+    @JsonProperty("creation_time")
+    public void setCreationTime(Long creationTime) {
+        this.creationTime = creationTime;
+    }
+
+    public JobState withCreationTime(Long creationTime) {
+        this.creationTime = creationTime;
+        return this;
+    }
+
+    @JsonProperty("exec_start_time")
+    public Long getExecStartTime() {
+        return execStartTime;
+    }
+
+    @JsonProperty("exec_start_time")
+    public void setExecStartTime(Long execStartTime) {
+        this.execStartTime = execStartTime;
+    }
+
+    public JobState withExecStartTime(Long execStartTime) {
+        this.execStartTime = execStartTime;
+        return this;
+    }
+
+    @JsonProperty("finish_time")
+    public Long getFinishTime() {
+        return finishTime;
+    }
+
+    @JsonProperty("finish_time")
+    public void setFinishTime(Long finishTime) {
+        this.finishTime = finishTime;
+    }
+
+    public JobState withFinishTime(Long finishTime) {
+        this.finishTime = finishTime;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -177,7 +271,7 @@ public class JobState {
 
     @Override
     public String toString() {
-        return ((((((((((((((("JobState"+" [jobId=")+ jobId)+", finished=")+ finished)+", ujsUrl=")+ ujsUrl)+", status=")+ status)+", result=")+ result)+", error=")+ error)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((((((("JobState"+" [jobId=")+ jobId)+", finished=")+ finished)+", ujsUrl=")+ ujsUrl)+", status=")+ status)+", result=")+ result)+", error=")+ error)+", jobState=")+ jobState)+", position=")+ position)+", creationTime=")+ creationTime)+", execStartTime=")+ execStartTime)+", finishTime=")+ finishTime)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
