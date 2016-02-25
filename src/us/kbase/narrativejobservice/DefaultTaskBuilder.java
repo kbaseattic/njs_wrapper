@@ -22,6 +22,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 	protected ObjectStorage storage;
 	protected String ujsUrl;
 	protected String njsUrl;
+	protected Map<String, String> config;
 
 	@Override
 	public void init(TaskQueueConfig queueCfg, Map<String, String> configParams) {
@@ -29,7 +30,8 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 				//getDirParam(configParams, "data.dir"),
 				createDefaultObjectStorage(queueCfg.getWsUrl()), 
 				configParams.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
-				configParams.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL));
+				configParams.get(NarrativeJobServiceServer.CFG_PROP_NJS_SRV_URL),
+				configParams);
 	}
 
 	public static ObjectStorage createDefaultObjectStorage(final WorkspaceClient client) {
@@ -107,16 +109,15 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 		};
 	}
 
-	public DefaultTaskBuilder<T> init(File tempDir, /*File dataDir,*/ ObjectStorage ws, String ujsUrl, String njsUrl) {
+	public DefaultTaskBuilder<T> init(File tempDir, ObjectStorage ws, String ujsUrl, String njsUrl,
+	        Map<String, String> allConfigParams) {
 		this.tempDir = tempDir;
 		if (!tempDir.exists())
 			tempDir.mkdir();
-		/*this.dataDir = dataDir;
-		if (!dataDir.exists())
-			throw new IllegalStateException("Directory " + dataDir + " doesn't exist");*/
 		this.storage = ws;
 		this.ujsUrl = ujsUrl;
 		this.njsUrl = njsUrl;
+		this.config = allConfigParams;
 		return this;
 	}
 
@@ -131,17 +132,9 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 		return tempDir;
 	}
 	
-	/*protected File getDataDir() {
-		return dataDir;
-	}*/
-	
 	protected ObjectStorage getStorage() {
 		return storage;
 	}
-	
-	/*protected File getBinDir() {
-		return new File(dataDir, "bin");
-	}*/
 	
 	protected String getUjsUrl() {
 		return ujsUrl;

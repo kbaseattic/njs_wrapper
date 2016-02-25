@@ -23,7 +23,9 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "stopping_mode",
     "running_tasks_total",
     "running_tasks_per_user",
-    "tasks_in_queue"
+    "tasks_in_queue",
+    "config",
+    "git_commit"
 })
 public class Status {
 
@@ -37,6 +39,10 @@ public class Status {
     private Map<String, Long> runningTasksPerUser;
     @JsonProperty("tasks_in_queue")
     private java.lang.Long tasksInQueue;
+    @JsonProperty("config")
+    private Map<String, String> config;
+    @JsonProperty("git_commit")
+    private java.lang.String gitCommit;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
     @JsonProperty("reboot_mode")
@@ -114,6 +120,36 @@ public class Status {
         return this;
     }
 
+    @JsonProperty("config")
+    public Map<String, String> getConfig() {
+        return config;
+    }
+
+    @JsonProperty("config")
+    public void setConfig(Map<String, String> config) {
+        this.config = config;
+    }
+
+    public Status withConfig(Map<String, String> config) {
+        this.config = config;
+        return this;
+    }
+
+    @JsonProperty("git_commit")
+    public java.lang.String getGitCommit() {
+        return gitCommit;
+    }
+
+    @JsonProperty("git_commit")
+    public void setGitCommit(java.lang.String gitCommit) {
+        this.gitCommit = gitCommit;
+    }
+
+    public Status withGitCommit(java.lang.String gitCommit) {
+        this.gitCommit = gitCommit;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -126,7 +162,7 @@ public class Status {
 
     @Override
     public java.lang.String toString() {
-        return ((((((((((((("Status"+" [rebootMode=")+ rebootMode)+", stoppingMode=")+ stoppingMode)+", runningTasksTotal=")+ runningTasksTotal)+", runningTasksPerUser=")+ runningTasksPerUser)+", tasksInQueue=")+ tasksInQueue)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((("Status"+" [rebootMode=")+ rebootMode)+", stoppingMode=")+ stoppingMode)+", runningTasksTotal=")+ runningTasksTotal)+", runningTasksPerUser=")+ runningTasksPerUser)+", tasksInQueue=")+ tasksInQueue)+", config=")+ config)+", gitCommit=")+ gitCommit)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

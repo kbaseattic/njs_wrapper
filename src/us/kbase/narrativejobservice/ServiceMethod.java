@@ -13,7 +13,10 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * <p>Original spec-file type: service_method</p>
- * 
+ * <pre>
+ * service_url could be empty in case of docker image of service loaded from registry,
+ * service_version - optional parameter defining version of service docker image.
+ * </pre>
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -21,7 +24,8 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonPropertyOrder({
     "service_name",
     "method_name",
-    "service_url"
+    "service_url",
+    "service_version"
 })
 public class ServiceMethod {
 
@@ -31,6 +35,8 @@ public class ServiceMethod {
     private String methodName;
     @JsonProperty("service_url")
     private String serviceUrl;
+    @JsonProperty("service_version")
+    private String serviceVersion;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("service_name")
@@ -78,6 +84,21 @@ public class ServiceMethod {
         return this;
     }
 
+    @JsonProperty("service_version")
+    public String getServiceVersion() {
+        return serviceVersion;
+    }
+
+    @JsonProperty("service_version")
+    public void setServiceVersion(String serviceVersion) {
+        this.serviceVersion = serviceVersion;
+    }
+
+    public ServiceMethod withServiceVersion(String serviceVersion) {
+        this.serviceVersion = serviceVersion;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -90,7 +111,7 @@ public class ServiceMethod {
 
     @Override
     public String toString() {
-        return ((((((((("ServiceMethod"+" [serviceName=")+ serviceName)+", methodName=")+ methodName)+", serviceUrl=")+ serviceUrl)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((("ServiceMethod"+" [serviceName=")+ serviceName)+", methodName=")+ methodName)+", serviceUrl=")+ serviceUrl)+", serviceVersion=")+ serviceVersion)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
