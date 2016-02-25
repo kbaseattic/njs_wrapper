@@ -5,6 +5,17 @@ as well as asynchronous SDK jobs in docker container on AWE workers (it also
 wraps Narrative Job Service API).
 
 
+VERSION: 0.2.3 (Released 02/24/16)
+--------------------------------------
+NEW FEATURES:
+- Support for AWE client groups in Execution Engine.
+- Support for narrative proxy user and AWE admin user for shared jobs.
+UPDATED FEATURES / MAJOR BUG FIXES:
+- Fix for bug with inconsistency between app-state data structures returned 
+  by NJS and Execution Engine (position in queue end execution times).
+- Fix for bug with no access to shock in/out nodes after App is shared.
+
+
 VERSION: 0.2.2 (Released 02/11/16)
 --------------------------------------
 NEW FEATURES:
