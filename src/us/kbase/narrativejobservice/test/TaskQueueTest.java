@@ -1,4 +1,4 @@
-package us.kbase.common.taskqueue2.test;
+package us.kbase.narrativejobservice.test;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
@@ -7,9 +7,6 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isNull;
 
 import java.io.File;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -27,25 +24,36 @@ import us.kbase.common.taskqueue2.Task;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.common.taskqueue2.TaskRunner;
-import us.kbase.common.utils.DbConn;
+import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 
 public class TaskQueueTest extends EasyMockSupport {
-	private static File tmpDir = new File("temp" + System.currentTimeMillis());
+	private static File tmpDir = null;
+	private static MongoDBHelper dbh = null;
+	private static ExecEngineMongoDb db = null;
 	
 	@BeforeClass
-	public static void makeTempDir() {
+	public static void makeTempDir() throws Exception {
+	    tmpDir = new File("temp_files/test_task_queue_" + System.currentTimeMillis());
 		tmpDir.mkdir();
+        MongoDBHelper dbh = new MongoDBHelper("migrate2mongo", new File("temp_files"));
+        dbh.startup(null);
+        db = new ExecEngineMongoDb("localhost:" + dbh.getMongoPort(), "exec_engine", null, null, null);
 	}
 	
 	@AfterClass
 	public static void dropTempDir() throws Exception {
-		if (!tmpDir.exists())
-			return;
-		Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
-		File dbDir = new File(tmpDir, TaskQueue.DERBY_DB_NAME);
-		try {
-			DriverManager.getConnection("jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName() + ";shutdown=true");
-		} catch (Exception ignore) {}
+		//if (!tmpDir.exists())
+		//	return;
+		//Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
+		//File dbDir = new File(tmpDir, TaskQueue.DERBY_DB_NAME);
+		//try {
+		//	DriverManager.getConnection("jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName() + ";shutdown=true");
+		//} catch (Exception ignore) {}
+	    try {
+	        dbh.shutdown();
+	    } catch (Exception ex) {
+	        ex.printStackTrace();
+	    }
 		delete(tmpDir);
 	}
 	
@@ -93,7 +101,7 @@ public class TaskQueueTest extends EasyMockSupport {
 					public boolean isInRestartMode() {
 						return false;
 					}
-				},
+				}, db,
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData,
@@ -145,7 +153,7 @@ public class TaskQueueTest extends EasyMockSupport {
 					public boolean isInRestartMode() {
 						return false;
 					}
-				},
+				}, db,
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData,
@@ -216,7 +224,7 @@ public class TaskQueueTest extends EasyMockSupport {
 					public boolean isInRestartMode() {
 						return false;
 					}
-				},
+				}, db,
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData, String jobId, String outRef) throws Exception {
@@ -234,13 +242,7 @@ public class TaskQueueTest extends EasyMockSupport {
 	}
 
 	private void checkForEmptyDbQueue() throws Exception {
-		Assert.assertEquals((Integer)0, TaskQueue.getDbConnection(tmpDir).collect(
-				"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new DbConn.SqlLoader<Integer>() {
-			@Override
-			public Integer collectRow(ResultSet rs) throws SQLException {
-				return rs.getInt(1);
-			}
-		}).get(0));
+		Assert.assertEquals(0, db.getQueuedTasks().size());
 	}
 
 	@Test
@@ -270,7 +272,7 @@ public class TaskQueueTest extends EasyMockSupport {
 					public boolean isInRestartMode() {
 						return true;
 					}
-				},
+				}, db,
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData, String jobId, String outRef) throws Exception {

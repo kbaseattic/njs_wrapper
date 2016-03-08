@@ -37,6 +37,7 @@ import us.kbase.common.taskqueue2.JobStatuses;
 import us.kbase.common.taskqueue2.RestartChecker;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
+import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -80,6 +81,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_NARRATIVE_PROXY_SHARING_USER = "narrative.proxy.sharing.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
+    public static final String CFG_PROP_MONGO_HOSTS = "mongo.hosts";
+    public static final String CFG_PROP_MONGO_DBNAME = "mongo.dbname";
+    public static final String CFG_PROP_MONGO_USER = "mongo.user";
+    public static final String CFG_PROP_MONGO_PWD = "mongo.pwd";
     
     public static final String VERSION = "0.2.3";
     
@@ -93,6 +98,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     
     private static TaskQueue taskHolder = null;
     private static TaskQueueConfig taskConfig = null;
+    private static ExecEngineMongoDb db = null;
     
     private final ErrorLogger logger;
     
@@ -249,19 +255,31 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 		}
 	}
 
+	public static ExecEngineMongoDb getMongoDb(Map<String, String> config) throws Exception {
+	    if (db == null) {
+	        String hosts = config.get(CFG_PROP_MONGO_HOSTS);
+	        if (hosts == null)
+	            throw new IllegalStateException("Parameter " + CFG_PROP_MONGO_HOSTS + " is not defined in configuration");
+            String dbname = config.get(CFG_PROP_MONGO_DBNAME);
+            if (dbname == null)
+                throw new IllegalStateException("Parameter " + CFG_PROP_MONGO_DBNAME + " is not defined in configuration");
+	        db = new ExecEngineMongoDb(hosts, dbname, config.get(CFG_PROP_MONGO_USER), 
+	                config.get(CFG_PROP_MONGO_PWD), null);
+	    }
+	    return db;
+	}
+	
     public static synchronized TaskQueue getTaskQueue() throws Exception {
     	if (taskHolder == null) {
+    	    ExecEngineMongoDb db = getMongoDb(config());
+            System.out.println("Initial queue size: " + db.getQueuedTasks().size());
     		TaskQueueConfig cfg = getTaskConfig();
 			taskHolder = new TaskQueue(cfg, new RestartChecker() {
 				@Override
 				public boolean isInRestartMode() {
 					return getRebootMode();
 				}
-			}, new RunAppBuilder());
-			System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
-					"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new us.kbase.common.utils.DbConn.SqlLoader<Integer>() {
-				public Integer collectRow(java.sql.ResultSet rs) throws java.sql.SQLException { return rs.getInt(1); }
-			}));
+			}, db, new RunAppBuilder());
     	}
     	return taskHolder;
     }

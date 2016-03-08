@@ -35,7 +35,6 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.AuthService;
@@ -52,7 +51,6 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ProcessHelper;
@@ -475,7 +473,8 @@ public class AweClientDockerJobScriptTest {
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
         int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"), aweServerDir, mongoPort);
         catalogWrapper = startupCatalogWrapper();
-        njsService = startupNJSService(njsServiceDir, binDir, awePort, catalogWrapper.getConnectors()[0].getLocalPort());
+        njsService = startupNJSService(njsServiceDir, binDir, awePort, 
+                catalogWrapper.getConnectors()[0].getLocalPort(), mongoPort);
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -751,7 +750,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private static Server startupNJSService(File dir, File binDir, int awePort, 
-            int catalogPort) throws Exception {
+            int catalogPort, int mongoPort) throws Exception {
         if (!dir.exists())
             dir.mkdirs();
         if (!binDir.exists())
@@ -770,7 +769,7 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
                 NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_SHOCK_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL),
-                NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + "=" + new File(dir, "queue").getAbsolutePath(),
+                //NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + "=" + new File(dir, "queue").getAbsolutePath(),
                 NarrativeJobServiceServer.CFG_PROP_AWE_SRV_URL + "=http://localhost:" + awePort + "/",
                 NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL),
                 NarrativeJobServiceServer.CFG_PROP_RUNNING_TASKS_PER_USER + "=5",
@@ -788,7 +787,9 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
                 NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password")
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
+                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine"
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
