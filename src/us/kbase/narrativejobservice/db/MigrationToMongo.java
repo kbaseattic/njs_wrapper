@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.MongoInternalException;
+import com.mongodb.WriteConcernException;
 
 import us.kbase.common.service.UObject;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
@@ -127,6 +129,8 @@ public class MigrationToMongo {
             // Logs
             int logCount = 0;
             int maxLogs = 0;
+            final int[] truncatedLines = {0};
+            int truncatedLogs = 0;
             for (String taskId : taskIds) {
                 String sql = "select line_pos,line,is_error from " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
                         " where ujs_job_id=? order by line_pos";
@@ -136,21 +140,27 @@ public class MigrationToMongo {
                         ExecLogLine ret = new ExecLogLine();
                         ret.setLinePos(rs.getInt(1));
                         String text = rs.getString(2);
-                        if (text.length() > RunAppBuilder.MAX_LOG_LINE_LENGTH)
+                        if (text.length() > RunAppBuilder.MAX_LOG_LINE_LENGTH) {
                             text = text.substring(0, RunAppBuilder.MAX_LOG_LINE_LENGTH - 3) + "...";
+                            truncatedLines[0]++;
+                        }
                         ret.setLine(text);
                         ret.setIsError(rs.getInt(3) == 1);
                         return ret;
                     }
                 }, taskId);
+                if (lines.size() == 0)
+                    continue;
                 ExecLog dbLog = new ExecLog();
                 dbLog.setUjsJobId(taskId);
                 dbLog.setOriginalLineCount(lines.size());
                 dbLog.setStoredLineCount(lines.size());
                 dbLog.setLines(lines);
                 try {
+                    // Trying to save the whole log
                     target.insertExecLog(dbLog);
-                } catch (Exception ex) {
+                } catch (MongoInternalException ex) {
+                    // Failed. Let's add it by parts till fail.
                     dbLog = new ExecLog();
                     dbLog.setUjsJobId(taskId);
                     dbLog.setOriginalLineCount(0);
@@ -165,9 +175,14 @@ public class MigrationToMongo {
                             List<ExecLogLine> part = lines.subList(i * partSize, newLineCount);
                             target.updateExecLogLines(taskId, newLineCount, part);
                         }
-                    } catch (Exception ex2) {
-                        target.updateExecLogOriginalLineCount(taskId, lines.size());
+                    } catch (WriteConcernException ex2) {
+                        if (ex2.getCode() == 10334) {
+                            target.updateExecLogOriginalLineCount(taskId, lines.size());
+                        } else {
+                            throw ex2;
+                        }
                     }
+                    truncatedLogs++;
                 }
                 logCount += lines.size();
                 if (maxLogs < lines.size())
@@ -175,6 +190,8 @@ public class MigrationToMongo {
             }
             System.out.println("Logs: " + logCount);
             System.out.println("Max.logs: " + maxLogs);
+            System.out.println("Trunc.lines: " + truncatedLines[0]);
+            System.out.println("Trunc.logs: " + truncatedLogs);
             // All is done.
             //source.exec("create table " + DONE_TABLE_NAME + " (id varchar(100) primary key)");
         } finally {

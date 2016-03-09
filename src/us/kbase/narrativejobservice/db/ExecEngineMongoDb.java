@@ -114,7 +114,12 @@ public class ExecEngineMongoDb {
     public void insertExecLog(ExecLog execLog) throws Exception {
         execLogs.insert(execLog);
     }
-    
+
+    public void insertExecLogs(List<ExecLog> execLogList) throws Exception {
+        Object[] execLogArray = execLogList.toArray(new Object[execLogList.size()]);
+        execLogs.insert(execLogArray);
+    }
+
     public void updateExecLogLines(String ujsJobId, int newLineCount, 
             List<ExecLogLine> newLines) throws Exception {
         execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(

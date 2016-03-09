@@ -29,6 +29,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.mongodb.WriteConcernException;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -716,8 +717,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             }
             db.updateExecLogLines(ujsJobId, linePos, dbLines);
             return linePos;
-        } catch (Exception ex) {
-            ex.printStackTrace();
+        } catch (WriteConcernException ex) {
+            ex.getCode();
             db.updateExecLogOriginalLineCount(ujsJobId, dbLog.getOriginalLineCount() + lines.size());
             return dbLog.getStoredLineCount();
         }
