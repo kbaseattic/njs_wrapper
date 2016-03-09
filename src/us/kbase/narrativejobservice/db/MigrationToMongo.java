@@ -4,6 +4,7 @@ import java.io.File;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +16,7 @@ import us.kbase.common.utils.DbConn;
 import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RunAppBuilder;
 
 public class MigrationToMongo {
     public static final String DERBY_DB_NAME = "GenomeCmpDb";
@@ -133,7 +135,10 @@ public class MigrationToMongo {
                     public ExecLogLine collectRow(ResultSet rs) throws SQLException {
                         ExecLogLine ret = new ExecLogLine();
                         ret.setLinePos(rs.getInt(1));
-                        ret.setLine(rs.getString(2));
+                        String text = rs.getString(2);
+                        if (text.length() > RunAppBuilder.MAX_LOG_LINE_LENGTH)
+                            text = text.substring(0, RunAppBuilder.MAX_LOG_LINE_LENGTH - 3) + "...";
+                        ret.setLine(text);
                         ret.setIsError(rs.getInt(3) == 1);
                         return ret;
                     }
@@ -143,7 +148,27 @@ public class MigrationToMongo {
                 dbLog.setOriginalLineCount(lines.size());
                 dbLog.setStoredLineCount(lines.size());
                 dbLog.setLines(lines);
-                target.insertExecLog(dbLog);
+                try {
+                    target.insertExecLog(dbLog);
+                } catch (Exception ex) {
+                    dbLog = new ExecLog();
+                    dbLog.setUjsJobId(taskId);
+                    dbLog.setOriginalLineCount(0);
+                    dbLog.setStoredLineCount(0);
+                    dbLog.setLines(new ArrayList<ExecLogLine>());
+                    target.insertExecLog(dbLog);
+                    int partSize = 1000;
+                    int partCount = (lines.size() + partSize - 1) / partSize;
+                    try {
+                        for (int i = 0; i < partCount; i++) {
+                            int newLineCount = Math.min((i + 1) * partSize, lines.size());
+                            List<ExecLogLine> part = lines.subList(i * partSize, newLineCount);
+                            target.updateExecLogLines(taskId, newLineCount, part);
+                        }
+                    } catch (Exception ex2) {
+                        target.updateExecLogOriginalLineCount(taskId, lines.size());
+                    }
+                }
                 logCount += lines.size();
                 if (maxLogs < lines.size())
                     maxLogs = lines.size();

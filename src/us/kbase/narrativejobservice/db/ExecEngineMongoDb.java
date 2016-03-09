@@ -20,8 +20,6 @@ import us.kbase.common.mongo.GetMongoDB;
 import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 import us.kbase.common.service.UObject;
-import us.kbase.common.utils.DbConn;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 import com.google.common.collect.Lists;
 import com.mongodb.DB;
@@ -119,14 +117,14 @@ public class ExecEngineMongoDb {
     
     public void updateExecLogLines(String ujsJobId, int newLineCount, 
             List<ExecLogLine> newLines) throws Exception {
-        execLogs.findAndModify(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
+        execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
                 String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}", 
                         "original_line_count", "stored_line_count", "lines"), 
                         newLineCount, newLineCount, newLines);
     }
 
     public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
-        execLogs.findAndModify(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
+        execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
                 String.format("{$set:{%s:#}}", "original_line_count"), newLineCount);
     }
     
@@ -146,7 +144,7 @@ public class ExecEngineMongoDb {
     }
 
     public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time) throws Exception {
-        execTasks.findAndModify(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
+        execTasks.update(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
                 String.format("{$set:{%s:#}}", finishTime ? "finish_time" : "exec_start_time"), time);
     }
 

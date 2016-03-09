@@ -735,7 +735,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         ExecEngineMongoDb db = getDb(config);
         ExecLog dbLog = db.getExecLog(ujsJobId);
         List<LogLine> lines;
-        if (skipLines != null && dbLog.getStoredLineCount() <= skipLines) {
+        if (dbLog == null || (skipLines != null && dbLog.getStoredLineCount() <= skipLines)) {
             lines = Collections.<LogLine>emptyList();
         } else {
             lines = new ArrayList<LogLine>();

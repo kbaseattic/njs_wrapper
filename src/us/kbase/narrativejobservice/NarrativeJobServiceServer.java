@@ -158,11 +158,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
     public static File getQueueDbDir() {
     	String ret = config().get(CFG_PROP_QUEUE_DB_DIR);
-    	if (ret == null)
-    		throw new IllegalStateException("Parameter " + CFG_PROP_QUEUE_DB_DIR + " is not defined in configuration");
-    	File dir = new File(ret);
-    	if (!dir.exists())
-    		dir.mkdirs();
+    	File dir = ret == null ? null : new File(ret);
     	return dir;
     }
 

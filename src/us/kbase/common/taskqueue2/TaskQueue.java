@@ -33,6 +33,7 @@ public class TaskQueue {
 			TaskRunner<?>... runners) throws Exception {
 		this.config = config;
 		this.rCheck = rCheck;
+		this.db = db;
 		allThreads = new Thread[config.getThreadCount()];
 		for (int i = 0; i < allThreads.length; i++) {
 			allThreads[i] = startNewThread(i);

@@ -27,34 +27,23 @@ import us.kbase.common.taskqueue2.TaskRunner;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 
 public class TaskQueueTest extends EasyMockSupport {
-	private static File tmpDir = null;
 	private static MongoDBHelper dbh = null;
 	private static ExecEngineMongoDb db = null;
 	
 	@BeforeClass
 	public static void makeTempDir() throws Exception {
-	    tmpDir = new File("temp_files/test_task_queue_" + System.currentTimeMillis());
-		tmpDir.mkdir();
-        MongoDBHelper dbh = new MongoDBHelper("migrate2mongo", new File("temp_files"));
+        dbh = new MongoDBHelper("test_task_queue", new File("temp_files"));
         dbh.startup(null);
         db = new ExecEngineMongoDb("localhost:" + dbh.getMongoPort(), "exec_engine", null, null, null);
 	}
 	
 	@AfterClass
 	public static void dropTempDir() throws Exception {
-		//if (!tmpDir.exists())
-		//	return;
-		//Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
-		//File dbDir = new File(tmpDir, TaskQueue.DERBY_DB_NAME);
-		//try {
-		//	DriverManager.getConnection("jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName() + ";shutdown=true");
-		//} catch (Exception ignore) {}
 	    try {
 	        dbh.shutdown();
 	    } catch (Exception ex) {
 	        ex.printStackTrace();
 	    }
-		delete(tmpDir);
 	}
 	
 	private static void delete(File fileOrDir) {
@@ -95,7 +84,7 @@ public class TaskQueueTest extends EasyMockSupport {
 		});
 		replayAll();
 		final boolean[] isOk = {false};
-		tq[0] = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, -1, null),
+		tq[0] = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, -1, null),
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
@@ -147,7 +136,7 @@ public class TaskQueueTest extends EasyMockSupport {
 		};
 		replayAll();
 		final Set<String> isOk = new TreeSet<String>();
-		TaskQueue tq = new TaskQueue(new TaskQueueConfig(2, tmpDir, jbst, null, 1, null),
+		TaskQueue tq = new TaskQueue(new TaskQueueConfig(2, null, jbst, null, 1, null),
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
@@ -218,7 +207,7 @@ public class TaskQueueTest extends EasyMockSupport {
 		    }
 		});
 		replayAll();
-		tq[0] = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, 0, null), 
+		tq[0] = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, 0, null), 
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
@@ -266,7 +255,7 @@ public class TaskQueueTest extends EasyMockSupport {
 				throw new IllegalStateException();
 		    }
 		};
-		final TaskQueue tq = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, 0, null), 
+		final TaskQueue tq = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, 0, null), 
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
