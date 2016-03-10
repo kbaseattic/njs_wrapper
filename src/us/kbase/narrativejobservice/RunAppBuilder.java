@@ -703,19 +703,25 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         }
         int linePos = dbLog.getOriginalLineCount();
         try {
-            List<ExecLogLine> dbLines = new ArrayList<ExecLogLine>();
-            for (LogLine line : lines) {
-                String text = line.getLine();
-                if (text.length() > MAX_LOG_LINE_LENGTH)
-                    text = text.substring(0, MAX_LOG_LINE_LENGTH - 3) + "...";
-                ExecLogLine dbLine = new ExecLogLine();
-                dbLine.setLinePos(linePos);
-                dbLine.setLine(text);
-                dbLine.setIsError((long)line.getIsError() == 1L);
-                dbLines.add(dbLine);
-                linePos++;
+            int partSize = 1000;
+            int partCount = (lines.size() + partSize - 1) / partSize;
+            for (int i = 0; i < partCount; i++) {
+                int newLineCount = Math.min((i + 1) * partSize, lines.size());
+                List<ExecLogLine> dbLines = new ArrayList<ExecLogLine>();
+                for (int j = i * partSize; j < newLineCount; j++) {
+                    LogLine line = lines.get(j);
+                    String text = line.getLine();
+                    if (text.length() > MAX_LOG_LINE_LENGTH)
+                        text = text.substring(0, MAX_LOG_LINE_LENGTH - 3) + "...";
+                    ExecLogLine dbLine = new ExecLogLine();
+                    dbLine.setLinePos(linePos);
+                    dbLine.setLine(text);
+                    dbLine.setIsError((long)line.getIsError() == 1L);
+                    dbLines.add(dbLine);
+                    linePos++;
+                }
+                db.updateExecLogLines(ujsJobId, linePos, dbLines);
             }
-            db.updateExecLogLines(ujsJobId, linePos, dbLines);
             return linePos;
         } catch (WriteConcernException ex) {
             ex.getCode();

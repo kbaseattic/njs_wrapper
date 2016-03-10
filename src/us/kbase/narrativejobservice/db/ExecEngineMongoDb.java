@@ -60,6 +60,7 @@ public class ExecEngineMongoDb {
         execLogs = jongo.getCollection(COL_EXEC_LOGS);
         // Indexing
         taskQueue.ensureIndex(String.format("{%s:1}", PK_TASK_QUEUE), "{unique:true}");
+        execTasks.ensureIndex(String.format("{%s:1}", PK_EXEC_TASKS), "{unique:true}");
         execApps.ensureIndex(String.format("{%s:1}", PK_EXEC_APPS), "{unique:true}");
         execApps.ensureIndex(String.format("{%s:1}", FLD_EXEC_APPS_APP_JOB_STATE), "{unique:false}");
         execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
