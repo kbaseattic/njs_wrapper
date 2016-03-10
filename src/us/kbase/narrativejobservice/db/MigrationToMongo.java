@@ -1,10 +1,13 @@
 package us.kbase.narrativejobservice.db;
 
 import java.io.File;
+import java.io.PrintWriter;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -23,15 +26,15 @@ import us.kbase.narrativejobservice.RunAppBuilder;
 public class MigrationToMongo {
     public static final String DERBY_DB_NAME = "GenomeCmpDb";
     public static final String QUEUE_TABLE_NAME = "task_queue";
-    public static final String DONE_TABLE_NAME = "done";
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASKS_TABLE_NAME = "awe_tasks";
     public static final String AWE_LOGS_TABLE_NAME = "awe_logs";
+    public static final String SRV_PROP_MIGRATION = "migration";
 
     public static final int OLD_MAX_LOG_LINE_LENGTH = 10000;
     public static final long OLD_MAX_APP_SIZE = 30000;
 
-    public static DbConn getDbConnection(Map<String, String> config) throws ClassNotFoundException, SQLException {
+    public static DbConn getDbConnection(Map<String, String> config) throws Exception {
         String ret = config.get(NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR);
         if (ret == null)
             throw new IllegalStateException("Parameter " + NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + 
@@ -42,7 +45,7 @@ public class MigrationToMongo {
         return getDbConnection(dir);
     }
 
-    public static DbConn getDbConnection(File dbParentDir) throws ClassNotFoundException, SQLException {
+    public static DbConn getDbConnection(File dbParentDir) throws Exception {
         Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
         File dbDir = new File(dbParentDir, DERBY_DB_NAME);
         String url = "jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName();
@@ -51,15 +54,23 @@ public class MigrationToMongo {
         return new DbConn(DriverManager.getConnection(url));
     }
 
-    public static void migrate(TaskQueueConfig config, final ExecEngineMongoDb target) throws Exception {
+    public static boolean migrate(TaskQueueConfig config, final ExecEngineMongoDb target, 
+            File outputDir) throws Exception {
         if (config.getQueueDbDir() == null || !config.getQueueDbDir().exists())
-            return;
-        DbConn source = getDbConnection(config.getQueueDbDir());
+            return false;
+        DbConn source = null;
+        PrintWriter logPw = null;
         try {
+            source = getDbConnection(config.getQueueDbDir());
             if (!source.checkTable(QUEUE_TABLE_NAME))
-                return;
-            if (source.checkTable(DONE_TABLE_NAME))
-                return;
+                return false;
+            if (target.getServiceProperty(SRV_PROP_MIGRATION) != null)
+                return false;
+            String dateTime = new SimpleDateFormat("yyyyMMdd'_'HHmmss'_'SSS").format(new Date());
+            String logFileName = "migration2mongo_" + dateTime + ".log";
+            logPw = new PrintWriter(outputDir == null ? new File(logFileName) : 
+                new File(outputDir, logFileName));
+            log(logPw, "Migration from Derby to Mongo was started");
             // Queue
             List<QueuedTask> tasks = source.collect("select jobid,type,params,auth,outref from " + 
                     QUEUE_TABLE_NAME, new DbConn.SqlLoader<QueuedTask>() {
@@ -76,7 +87,7 @@ public class MigrationToMongo {
             });
             for (QueuedTask task : tasks)
                 target.insertQueuedTask(task);
-            System.out.println("Queued tasks: " + tasks.size());
+            log(logPw, "Queued tasks: " + tasks.size());
             // Apps
             List<String> appIds = source.collect("select app_job_id,app_job_state,app_state_data," +
             		"creation_time,modification_time from " + 
@@ -97,7 +108,7 @@ public class MigrationToMongo {
                     }
                 }
             });
-            System.out.println("Apps: " + appIds.size());
+            log(logPw, "Apps: " + appIds.size());
             // Tasks
             List<String> taskIds = source.collect("select ujs_job_id,awe_job_id,input_shock_id," +
             		"output_shock_id,creation_time,app_job_id,exec_start_time,finish_time from " + 
@@ -125,14 +136,15 @@ public class MigrationToMongo {
                     }
                 }
             });
-            System.out.println("Tasks: " + taskIds.size());
+            log(logPw, "Tasks: " + taskIds.size());
             // Logs
             int logCount = 0;
             int maxLogs = 0;
             final int[] truncatedLines = {0};
             int truncatedLogs = 0;
             for (String taskId : taskIds) {
-                String sql = "select line_pos,line,is_error from " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
+                String sql = "select line_pos,line,is_error from " + 
+                        NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
                         " where ujs_job_id=? order by line_pos";
                 List<ExecLogLine> lines = source.collect(sql, new DbConn.SqlLoader<ExecLogLine>() {
                     @Override
@@ -188,17 +200,40 @@ public class MigrationToMongo {
                 if (maxLogs < lines.size())
                     maxLogs = lines.size();
             }
-            System.out.println("Logs: " + logCount);
-            System.out.println("Max.logs: " + maxLogs);
-            System.out.println("Trunc.lines: " + truncatedLines[0]);
-            System.out.println("Trunc.logs: " + truncatedLogs);
+            log(logPw, "Logs: " + logCount);
+            log(logPw, "Max.logs: " + maxLogs);
+            log(logPw, "Trunc.lines: " + truncatedLines[0]);
+            log(logPw, "Trunc.logs: " + truncatedLogs);
             // All is done.
-            //source.exec("create table " + DONE_TABLE_NAME + " (id varchar(100) primary key)");
+            target.setServiceProperty(SRV_PROP_MIGRATION, "1");
+            log(logPw, "Migration was finished successfully");
+            return true;
+        } catch (Exception ex) {
+            if (logPw != null)
+                try {
+                    log(logPw, "Error:");
+                    ex.printStackTrace(logPw);
+                } catch (Exception ignore) {}
+            throw ex;
         } finally {
-            source.getConnection().close();
+            if (logPw != null)
+                try {
+                    logPw.close();
+                } catch (Exception ignore) {}
+            if (source != null)
+                try {
+                    source.getConnection().close();
+                } catch (Exception ignore) {}
         }
     }
-    
+
+    private static void log(PrintWriter logPw , String line) {
+        String dateTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS").format(new Date());
+        line = dateTime + " - " + line;
+        System.out.println(line);
+        logPw.println(line);
+    }
+
     public static void constructOldDb(DbConn conn) throws Exception {
         if (!conn.checkTable(QUEUE_TABLE_NAME)) {
             conn.exec("create table " + QUEUE_TABLE_NAME + " (" +

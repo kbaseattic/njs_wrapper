@@ -38,6 +38,7 @@ import us.kbase.common.taskqueue2.RestartChecker;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
+import us.kbase.narrativejobservice.db.MigrationToMongo;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -419,6 +420,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
+        MigrationToMongo.migrate(getTaskQueue().getConfig(), getTaskQueue().getDb(), null);
         logger = new ErrorLogger() {
             @Override
             public void logErr(Throwable err) {

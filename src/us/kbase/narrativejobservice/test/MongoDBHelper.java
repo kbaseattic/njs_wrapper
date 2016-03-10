@@ -23,6 +23,7 @@ public class MongoDBHelper {
     private File workDir = null;
     private File mongoDir = null;
     private int mongoPort = -1;
+    private boolean deleteWorkFolderOnShutdown = false;
 
     public MongoDBHelper(String testName, File tempDir) {
         this.testName = testName;
@@ -37,6 +38,14 @@ public class MongoDBHelper {
         return mongoPort;
     }
     
+    public boolean isDeleteWorkFolderOnShutdown() {
+        return deleteWorkFolderOnShutdown;
+    }
+    
+    public void setDeleteWorkFolderOnShutdown(boolean deleteWorkFolderOnShutdown) {
+        this.deleteWorkFolderOnShutdown = deleteWorkFolderOnShutdown;
+    }
+    
     public void startup(String mongoExePath) throws Exception {
         workDir = prepareWorkDir(testName);
         mongoDir = new File(workDir, "mongo");
@@ -45,7 +54,7 @@ public class MongoDBHelper {
     
     public void shutdown() throws Exception {
         killPid(mongoDir);
-        if (workDir.exists())
+        if (deleteWorkFolderOnShutdown && workDir.exists())
             deleteRecursively(workDir);
     }
     

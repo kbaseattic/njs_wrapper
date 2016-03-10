@@ -2,7 +2,6 @@ package us.kbase.common.taskqueue2;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,6 +56,10 @@ public class TaskQueue {
 	
 	public TaskQueueConfig getConfig() {
         return config;
+    }
+	
+	public ExecEngineMongoDb getDb() {
+        return db;
     }
 	
 	public synchronized Map<String, Long> getRunningTasksPerUser() {
@@ -131,7 +134,7 @@ public class TaskQueue {
 		db.insertQueuedTask(dbTask);
 	}
 	
-	public void deleteTaskFromDb(String jobId) throws SQLException {
+	public void deleteTaskFromDb(String jobId) throws Exception {
 		db.deleteQueuedTask(jobId);
 	}
 	

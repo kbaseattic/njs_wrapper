@@ -5,11 +5,9 @@ import java.net.UnknownHostException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
-import java.util.regex.Pattern;
 
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
@@ -19,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import us.kbase.common.mongo.GetMongoDB;
 import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
-import us.kbase.common.service.UObject;
 
 import com.google.common.collect.Lists;
 import com.mongodb.DB;
@@ -35,6 +32,8 @@ public class ExecEngineMongoDb {
     private MongoCollection execApps;
     private MongoCollection execTasks;
     private MongoCollection execLogs;
+    private MongoCollection srvProps;
+    private volatile boolean wasDbVersionChecked = false;
 
     private static final Map<String, MongoClient> HOSTS_TO_CLIENT = 
             new HashMap<String, MongoClient>();
@@ -48,6 +47,11 @@ public class ExecEngineMongoDb {
     public static final String PK_EXEC_TASKS = "ujs_job_id";
     public static final String COL_EXEC_LOGS = "exec_logs";
     public static final String PK_EXEC_LOGS = "ujs_job_id";
+    public static final String COL_SRV_PROPS = "srv_props";
+    public static final String PK_SRV_PROPS = "prop_id";
+    public static final String SRV_PROP_DB_VERSION = "db_version";
+    
+    public static final String DB_VERSION = "1.0";
 
     public ExecEngineMongoDb(String hosts, String db, String user, String pwd,
             Integer mongoReconnectRetry) throws Exception {
@@ -58,12 +62,14 @@ public class ExecEngineMongoDb {
         execApps = jongo.getCollection(COL_EXEC_APPS);
         execTasks = jongo.getCollection(COL_EXEC_TASKS);
         execLogs = jongo.getCollection(COL_EXEC_LOGS);
+        srvProps = jongo.getCollection(COL_SRV_PROPS);
         // Indexing
         taskQueue.ensureIndex(String.format("{%s:1}", PK_TASK_QUEUE), "{unique:true}");
         execTasks.ensureIndex(String.format("{%s:1}", PK_EXEC_TASKS), "{unique:true}");
         execApps.ensureIndex(String.format("{%s:1}", PK_EXEC_APPS), "{unique:true}");
         execApps.ensureIndex(String.format("{%s:1}", FLD_EXEC_APPS_APP_JOB_STATE), "{unique:false}");
         execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
+        srvProps.ensureIndex(String.format("{%s:1}", PK_SRV_PROPS), "{unique:true}");
     }
     
     public List<QueuedTask> getQueuedTasks() throws Exception {
@@ -71,14 +77,17 @@ public class ExecEngineMongoDb {
     }
 
     public void insertQueuedTask(QueuedTask task) throws Exception {
+        checkForDbVersion();
         taskQueue.insert(task);
     }
     
-    public void deleteQueuedTask(String jobId) throws SQLException {
+    public void deleteQueuedTask(String jobId) throws Exception {
+        checkForDbVersion();
         taskQueue.remove(String.format("{%s:#}", PK_TASK_QUEUE), jobId);
     }
 
     public void insertExecApp(ExecApp execApp) throws Exception {
+        checkForDbVersion();
         execApps.insert(execApp);
     }
     
@@ -90,6 +99,7 @@ public class ExecEngineMongoDb {
     
     public void updateExecAppData(String appJobId, String appJobState, 
             String appStateData) throws Exception {
+        checkForDbVersion();
         ExecApp execApp = getExecApp(appJobId);
         if (execApp == null)
             throw new IllegalStateException("App id=" + appJobId + " wasn't found in database");
@@ -113,16 +123,19 @@ public class ExecEngineMongoDb {
     }
 
     public void insertExecLog(ExecLog execLog) throws Exception {
+        checkForDbVersion();
         execLogs.insert(execLog);
     }
 
     public void insertExecLogs(List<ExecLog> execLogList) throws Exception {
+        checkForDbVersion();
         Object[] execLogArray = execLogList.toArray(new Object[execLogList.size()]);
         execLogs.insert(execLogArray);
     }
 
     public void updateExecLogLines(String ujsJobId, int newLineCount, 
             List<ExecLogLine> newLines) throws Exception {
+        checkForDbVersion();
         execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
                 String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}", 
                         "original_line_count", "stored_line_count", "lines"), 
@@ -130,6 +143,7 @@ public class ExecEngineMongoDb {
     }
 
     public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
+        checkForDbVersion();
         execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
                 String.format("{$set:{%s:#}}", "original_line_count"), newLineCount);
     }
@@ -140,6 +154,7 @@ public class ExecEngineMongoDb {
     }
 
     public void insertExecTask(ExecTask execTask) throws Exception {
+        checkForDbVersion();
         execTasks.insert(execTask);
     }
     
@@ -150,60 +165,38 @@ public class ExecEngineMongoDb {
     }
 
     public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time) throws Exception {
+        checkForDbVersion();
         execTasks.update(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
                 String.format("{$set:{%s:#}}", finishTime ? "finish_time" : "exec_start_time"), time);
     }
 
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static <T> List<T> getProjection(MongoCollection infos,
-            String whereCondition, String selectField, Class<T> type, Object... params)
-            throws Exception {
-        List<Map> data = Lists.newArrayList(infos.find(whereCondition, params).projection(
-                "{" + selectField + ":1}").as(Map.class));
-        List<T> ret = new ArrayList<T>();
-        for (Map<?,?> item : data) {
-            Object value = item.get(selectField);
-            if (value != null && !type.isInstance(value))
-                value = UObject.transformObjectToObject(value, type);
-            ret.add((T)value);
-        }
-        return ret;
-    }
-
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static <KT, VT> Map<KT, VT> getProjection(MongoCollection infos, String whereCondition, 
-            String keySelectField, Class<KT> keyType, String valueSelectField, Class<VT> valueType, 
-            Object... params) throws Exception {
-        List<Map> data = Lists.newArrayList(infos.find(whereCondition, params).projection(
-                "{'" + keySelectField + "':1,'" + valueSelectField + "':1}").as(Map.class));
-        Map<KT, VT> ret = new LinkedHashMap<KT, VT>();
-        for (Map<?,?> item : data) {
-            Object key = getMongoProp(item, keySelectField);
-            if (key == null || !(keyType.isInstance(key)))
-                throw new Exception("Key is wrong: " + key);
-            Object value = getMongoProp(item, valueSelectField);
-            if (value == null)
-                throw new NullPointerException("Value is not defined for selected " +
-                        "field: " + valueSelectField);
-            if (!valueType.isInstance(value))
-                value = UObject.transformObjectToObject(value, valueType);
-            ret.put((KT)key, (VT)value);
-        }
-        return ret;
+    public String getServiceProperty(String propId) throws Exception {
+        String valueField = "value";
+        @SuppressWarnings("rawtypes")
+        List<Map> ret = Lists.newArrayList(srvProps.find(String.format("{%s:#}", PK_SRV_PROPS), propId)
+                .projection(String.format("{%s:1}", valueField)).as(Map.class));
+        if (ret.size() == 0)
+            return null;
+        return (String)ret.get(0).get(valueField);
     }
     
-    private static Object getMongoProp(Map<?,?> data, String propWithDots) {
-        String[] parts = propWithDots.split(Pattern.quote("."));
-        Object value = null;
-        for (String part : parts) {
-            if (value != null) {
-                data = (Map<?,?>)value;
-            }
-            value = data.get(part);
-        }
-        return value;
+    public void setServiceProperty(String propId, String value) throws Exception {
+        String valueField = "value";
+        srvProps.update(String.format("{%s:#}", PK_SRV_PROPS), propId).upsert().with(
+                String.format("{$set:{%s:#}}", valueField), value);
     }
-
+    
+    private void checkForDbVersion() throws Exception {
+        if (!wasDbVersionChecked) {
+            synchronized(this) {
+                String ver = getServiceProperty(SRV_PROP_DB_VERSION);
+                if (ver == null)
+                    setServiceProperty(SRV_PROP_DB_VERSION, DB_VERSION);
+                wasDbVersionChecked = true;
+            }
+        }
+    }
+    
     private synchronized static MongoClient getMongoClient(final String hosts)
             throws UnknownHostException, InvalidHostException {
         //Only make one instance of MongoClient per JVM per mongo docs
