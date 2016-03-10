@@ -288,7 +288,7 @@ public class AweClientDockerJobScriptTest {
                             numberOfOneLiners++;
                         logLinesRecieved += lines.size();
                     }
-                    Thread.sleep(4000);
+                    Thread.sleep(2500);
                 } catch (ServerException ex) {
                     System.out.println(ex.getData());
                     throw ex;
