@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.io.StringWriter;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ public class AweClientDockerJobScript {
                 System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
+        String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
         String jobSrvUrl = args[1];
         String token = System.getenv("KB_AUTH_TOKEN");
@@ -99,6 +101,8 @@ public class AweClientDockerJobScript {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
                 }
             };
+            log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
+                    new File(".").getCanonicalPath(), false);
             String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = getCatalogClient(config, token);
             String imageVersion = job.getServiceVer();
@@ -144,7 +148,7 @@ public class AweClientDockerJobScript {
                 //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
                 log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
             } else {
-                log.logNextLine("Image received from catalog: " + imageName, false);
+                log.logNextLine("Image name received from catalog: " + imageName, false);
             }
             String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             logFlusher = new Thread(new Runnable() {
@@ -286,5 +290,29 @@ public class AweClientDockerJobScript {
         ret.setIsInsecureHttpConnectionAllowed(true);
         ret.setAllSSLCertificatesTrusted(true);
         return ret;
+    }
+    
+    public static String[] getHostnameAndIP() {
+        String hostname = null;
+        String ip = null;
+        try {
+            InetAddress ia = InetAddress.getLocalHost();
+            ip = ia.getHostAddress();
+            hostname = ia.getHostName();
+        } catch (Throwable ignore) {}
+        if (hostname == null) {
+            try {
+                hostname = System.getenv("HOSTNAME");
+                if (hostname != null && hostname.isEmpty())
+                    hostname = null;
+            } catch (Throwable ignore) {}
+        }
+        if (ip == null && hostname != null) {
+            try {
+                ip = InetAddress.getByName(hostname).getHostAddress();
+            } catch (Throwable ignore) {}
+        }
+        return new String[] {hostname == null ? "unknown" : hostname,
+                ip == null ? "unknown" : ip};
     }
 }

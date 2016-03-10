@@ -223,11 +223,11 @@ public class RunAppTest {
 			public boolean isInRestartMode() {
 				return false;
 			}
-		}, new RunAppBuilder());
-		System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
+		}, null, new RunAppBuilder());
+		/*System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
 				"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new us.kbase.common.utils.DbConn.SqlLoader<Integer>() {
 			public Integer collectRow(java.sql.ResultSet rs) throws java.sql.SQLException { return rs.getInt(1); }
-		}));
+		}));*/
 	}
 	
 	public static void deleteRecursively(File fileOrDir) {
