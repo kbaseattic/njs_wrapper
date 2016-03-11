@@ -82,10 +82,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_NARRATIVE_PROXY_SHARING_USER = "narrative.proxy.sharing.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
-    public static final String CFG_PROP_MONGO_HOSTS = "mongo.hosts";
-    public static final String CFG_PROP_MONGO_DBNAME = "mongo.dbname";
-    public static final String CFG_PROP_MONGO_USER = "mongo.user";
-    public static final String CFG_PROP_MONGO_PWD = "mongo.pwd";
+    public static final String CFG_PROP_MONGO_HOSTS = "mongodb-host";
+    public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
+    public static final String CFG_PROP_MONGO_USER = "mongodb-user";
+    public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
     
     public static final String VERSION = "0.2.3";
     
