@@ -409,6 +409,21 @@ public class AweClientDockerJobScriptTest {
         Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
     }
     
+    @Test
+    public void testWrongMethod() throws Exception {
+        System.out.println("Test [testWrongMethod]");
+        try {
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "filter_contigs");
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertEquals(errMsg, "suspend", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepErrors().get("step1"));
+            Assert.assertTrue(errMsg, st.getStepErrors().get("step1").contains("Error: Unknown error"));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());

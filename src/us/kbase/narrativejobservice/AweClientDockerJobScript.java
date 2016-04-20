@@ -60,6 +60,7 @@ public class AweClientDockerJobScript {
         UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
+        DockerRunner.LineLogger log = null;
         try {
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
@@ -95,7 +96,7 @@ public class AweClientDockerJobScript {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             ujsClient.updateJob(jobId, token, "running", null);
-            DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
+            log = new DockerRunner.LineLogger() {
                 @Override
                 public void logNextLine(String line, boolean isError) throws Exception {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
@@ -184,20 +185,34 @@ public class AweClientDockerJobScript {
             // save result into outputShockId;
             jobSrvClient.finishJob(jobId, result);
             ujsClient.completeJob(jobId, token, "done", null, new Results());
-            log.logNextLine("Job is done", false);
+            if (result.getError() != null) {
+                String message = result.getError().getError();
+                if (message == null)
+                    message = result.getError().getMessage();
+                if (message == null)
+                    message = "Unknown error (please ask administrator for details providing full output log)";
+                log.logNextLine("Error: " + message, true);
+            } else {
+                log.logNextLine("Job is done", false);
+            }
             flushLog(jobSrvClient, jobId, logLines);
             logFlusher.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
                 flushLog(jobSrvClient, jobId, logLines);
-                logFlusher.interrupt();
             } catch (Exception ignore) {}
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             ex.printStackTrace(pw);
             pw.close();
             String stacktrace = sw.toString();
+            try {
+                if (log != null)
+                    log.logNextLine("Fatal error: " + stacktrace, true);
+                flushLog(jobSrvClient, jobId, logLines);
+                logFlusher.interrupt();
+            } catch (Exception ignore) {}
             try {
                 FinishJobParams result = new FinishJobParams().withError(
                         new JsonRpcError().withCode(-1L).withName("JSONRPCError")
