@@ -10,6 +10,7 @@ import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.RpcContext;
+import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 
 /**
@@ -409,6 +410,40 @@ public class CatalogClient {
     }
 
     /**
+     * <p>Original spec-file function name: module_version_lookup</p>
+     * <pre>
+     * </pre>
+     * @param   selection   instance of type {@link us.kbase.catalog.ModuleVersionLookupParams ModuleVersionLookupParams}
+     * @return   instance of type {@link us.kbase.catalog.BasicModuleVersionInfo BasicModuleVersionInfo}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public BasicModuleVersionInfo moduleVersionLookup(ModuleVersionLookupParams selection, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(selection);
+        TypeReference<List<BasicModuleVersionInfo>> retType = new TypeReference<List<BasicModuleVersionInfo>>() {};
+        List<BasicModuleVersionInfo> res = caller.jsonrpcCall("Catalog.module_version_lookup", args, retType, true, false, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: list_service_modules</p>
+     * <pre>
+     * </pre>
+     * @param   filter   instance of type {@link us.kbase.catalog.ListServiceModuleParams ListServiceModuleParams}
+     * @return   parameter "service_modules" of list of type {@link us.kbase.catalog.BasicModuleVersionInfo BasicModuleVersionInfo}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public List<BasicModuleVersionInfo> listServiceModules(ListServiceModuleParams filter, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(filter);
+        TypeReference<List<List<BasicModuleVersionInfo>>> retType = new TypeReference<List<List<BasicModuleVersionInfo>>>() {};
+        List<List<BasicModuleVersionInfo>> res = caller.jsonrpcCall("Catalog.list_service_modules", args, retType, true, false, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
      * <p>Original spec-file function name: set_registration_state</p>
      * <pre>
      * </pre>
@@ -652,6 +687,40 @@ public class CatalogClient {
         args.add(params);
         TypeReference<List<List<ExecAggrStats>>> retType = new TypeReference<List<List<ExecAggrStats>>>() {};
         List<List<ExecAggrStats>> res = caller.jsonrpcCall("Catalog.get_exec_aggr_stats", args, retType, true, false, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: get_exec_aggr_table</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.catalog.ExecAggrTableParams ExecAggrTableParams}
+     * @return   parameter "table" of unspecified object
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public UObject getExecAggrTable(ExecAggrTableParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<UObject>> retType = new TypeReference<List<UObject>>() {};
+        List<UObject> res = caller.jsonrpcCall("Catalog.get_exec_aggr_table", args, retType, true, true, jsonRpcContext);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: get_exec_raw_stats</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.catalog.GetExecRawStatsParams GetExecRawStatsParams}
+     * @return   parameter "records" of list of unspecified object
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public List<UObject> getExecRawStats(GetExecRawStatsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<List<UObject>>> retType = new TypeReference<List<List<UObject>>>() {};
+        List<List<UObject>> res = caller.jsonrpcCall("Catalog.get_exec_raw_stats", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 

@@ -424,6 +424,27 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @Test
+    public void testLocalSdkCallback() throws Exception {
+        System.out.println("Test [testLocalSdkCallback]");
+        try {
+            String inputText = "123\n456";
+            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "local_sdk_callback", 
+                    UObject.getMapper().writeValueAsString(inputText));
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+            Assert.assertEquals(errMsg, "completed", st.getJobState());
+            Assert.assertNotNull(errMsg, st.getStepOutputs());
+            String step1output = st.getStepOutputs().get("step1");
+            Assert.assertNotNull(errMsg, step1output);
+            List<String> data = UObject.getMapper().readValue(step1output, List.class);
+            Assert.assertEquals(errMsg, inputText, data.get(0));
+            Assert.assertEquals(errMsg, "OK", data.get(1));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());

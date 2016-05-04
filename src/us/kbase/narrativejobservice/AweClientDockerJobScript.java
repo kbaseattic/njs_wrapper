@@ -21,6 +21,10 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.servlet.ServletContextHandler;
+import org.eclipse.jetty.servlet.ServletHolder;
+
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
@@ -28,10 +32,13 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
+import us.kbase.narrativejobservice.subjobs.CallbackServer;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -61,6 +68,7 @@ public class AweClientDockerJobScript {
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         DockerRunner.LineLogger log = null;
+        Server callbackServer = null;
         try {
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
@@ -82,10 +90,16 @@ public class AweClientDockerJobScript {
             rpc.put("method", job.getMethod());
             rpc.put("params", job.getParams());
             rpc.put("context", context);
-            File inputFile = new File(jobDir, "input.json");
+            File workDir = new File(jobDir, "workdir");
+            if (!workDir.exists())
+                workDir.mkdir();
+            File scratchDir = new File(workDir, "tmp");
+            if (!scratchDir.exists())
+                scratchDir.mkdir();
+            File inputFile = new File(workDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
-            File outputFile = new File(jobDir, "output.json");
-            File configFile = new File(jobDir, "config.properties");
+            File outputFile = new File(workDir, "output.json");
+            File configFile = new File(workDir, "config.properties");
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
@@ -169,7 +183,20 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, log, outputFile, false, refDataDir);
+            // Starting up callback server
+            int callbackPort = NetUtils.findFreePort();
+            String callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
+            System.out.println("Callback URL: " + callbackUrl);
+            JsonServerServlet catalogSrv = new CallbackServer(jobDir, callbackPort, config, log);
+            callbackServer = new Server(callbackPort);
+            ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
+            srvContext.setContextPath("/");
+            callbackServer.setHandler(srvContext);
+            srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
+            callbackServer.start();
+            // Calling Docker run
+            new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, log, outputFile, false, 
+                    refDataDir, null, callbackUrl);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -228,6 +255,14 @@ public class AweClientDockerJobScript {
                     status = status.substring(0, 197) + "...";
                 ujsClient.completeJob(jobId, token, status, stacktrace, null);
             }
+        } finally {
+            if (callbackServer != null)
+                try {
+                    callbackServer.stop();
+                    System.out.println("Callback server was shutdown");
+                } catch (Exception ignore) {
+                    System.err.println("Error shutting down callback server: " + ignore.getMessage());
+                }
         }
     }
 
