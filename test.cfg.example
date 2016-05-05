@@ -1,2 +1,4 @@
 user=*****
 password=*****
+# the path to the MongoDB executable.
+test-mongod-exe=/kb/runtime/bin/mongod

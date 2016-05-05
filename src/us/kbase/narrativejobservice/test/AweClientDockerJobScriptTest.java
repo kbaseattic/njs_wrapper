@@ -53,6 +53,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
+import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
@@ -86,10 +87,10 @@ public class AweClientDockerJobScriptTest {
     private static final String testContigsetObjName = "temp_contigset.1";
     private static File refDataDir = null;
     
-    private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
+    private static MongoController mongo;
     
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
@@ -505,12 +506,17 @@ public class AweClientDockerJobScriptTest {
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        int mongoPort = startupMongo(null, mongoDir);
+        System.out.print("Starting MongoDB... ");
+        mongo = new MongoController(get(props, "test-mongod-exe"),
+                mongoDir.toPath());
+        System.out.println(" Done. Port " + mongo.getServerPort());
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"), aweServerDir, mongoPort);
+        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
+                aweServerDir, mongo.getServerPort());
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
-                catalogWrapper.getConnectors()[0].getLocalPort(), mongoPort);
+                catalogWrapper.getConnectors()[0].getLocalPort(),
+                mongo.getServerPort());
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -567,6 +573,9 @@ public class AweClientDockerJobScriptTest {
                 System.out.println(njsServiceDir.getName() + " was stopped");
             } catch (Exception ignore) {}
         }
+        if (mongo != null) {
+            mongo.destroy(false);
+        }
         killPid(aweClientDir);
         killPid(aweServerDir);
         //killPid(shockDir);
@@ -579,51 +588,6 @@ public class AweClientDockerJobScriptTest {
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
         }
-    }
-
-    private static int startupMongo(String mongodExePath, File dir) throws Exception {
-        if (mongodExePath == null)
-            mongodExePath = "mongod";
-        if (!dir.exists())
-            dir.mkdirs();
-        File dataDir = new File(dir, "data");
-        dataDir.mkdir();
-        File logFile = new File(dir, "mongodb.log");
-        int port = findFreePort();
-        File configFile = new File(dir, "mongod.conf");
-        writeFileLines(Arrays.asList(
-                "dbpath=" + dataDir.getAbsolutePath(),
-                "logpath=" + logFile.getAbsolutePath(),
-                "logappend=true",
-                "port=" + port,
-                "bind_ip=127.0.0.1"
-                ), configFile);
-        File scriptFile = new File(dir, "start_mongo.sh");
-        writeFileLines(Arrays.asList(
-                "#!/bin/bash",
-                "cd " + dir.getAbsolutePath(),
-                mongodExePath + " --config " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
-                "echo $pid > pid.txt"
-                ), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(dir);
-        boolean ready = false;
-        for (int n = 0; n < mongoInitWaitSeconds; n++) {
-            Thread.sleep(1000);
-            if (logFile.exists()) {
-                if (grep(readFileLines(logFile), "waiting for connections on port " + port).size() > 0) {
-                    ready = true;
-                    break;
-                }
-            }
-        }
-        if (!ready) {
-            if (logFile.exists())
-                for (String l : readFileLines(logFile))
-                    System.err.println("MongoDB log: " + l);
-            throw new IllegalStateException("MongoDB couldn't startup in " + mongoInitWaitSeconds + " seconds");
-        }
-        System.out.println(dir.getName() + " was started up");
-        return port;
     }
 
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
@@ -975,14 +939,6 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static List<String> grep(List<String> lines, String substring) {
-        List<String> ret = new ArrayList<String>();
-        for (String l : lines)
-            if (l.contains(substring))
-                ret.add(l);
-        return ret;
-    }
-    
     private static int findFreePort() {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
