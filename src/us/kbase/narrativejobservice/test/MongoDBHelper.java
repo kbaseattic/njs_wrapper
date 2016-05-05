@@ -9,7 +9,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -47,7 +46,7 @@ public class MongoDBHelper {
     }
     
     public void startup(String mongoExePath) throws Exception {
-        workDir = prepareWorkDir(testName);
+        workDir = TesterUtils.prepareWorkDir(tempDir, testName);
         mongoDir = new File(workDir, "mongo");
         mongoPort = startupMongo(mongoExePath, mongoDir);
     }
@@ -55,7 +54,7 @@ public class MongoDBHelper {
     public void shutdown() throws Exception {
         killPid(mongoDir);
         if (deleteWorkFolderOnShutdown && workDir.exists())
-            deleteRecursively(workDir);
+            TesterUtils.deleteRecursively(workDir);
     }
     
     private static int startupMongo(String mongodExePath, File dir) throws Exception {
@@ -124,30 +123,6 @@ public class MongoDBHelper {
         throw new IllegalStateException("Can not find available port in system");
     }
 
-    private File prepareWorkDir(String testName) throws IOException {
-        if (!tempDir.exists())
-            tempDir.mkdir();
-        for (File dir : tempDir.listFiles()) {
-            if (dir.isDirectory() && dir.getName().startsWith("test_" + testName + "_"))
-                try {
-                    deleteRecursively(dir);
-                } catch (Exception e) {
-                    System.out.println("Can not delete directory [" + dir.getName() + "]: " + e.getMessage());
-                }
-        }
-        File workDir = new File(tempDir, "test_" + testName + "_" + System.currentTimeMillis());
-        if (!workDir.exists())
-            workDir.mkdir();
-        return workDir;
-    }
-
-    private static void deleteRecursively(File fileOrDir) {
-        if (fileOrDir.isDirectory() && !Files.isSymbolicLink(fileOrDir.toPath()))
-            for (File f : fileOrDir.listFiles()) 
-                deleteRecursively(f);
-        fileOrDir.delete();
-    }
-    
     private static List<String> lines(File f) throws IOException {
         return lines(new FileInputStream(f));
     }

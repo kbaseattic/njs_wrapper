@@ -3,7 +3,6 @@ package us.kbase.narrativejobservice.test;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -12,7 +11,6 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
 import java.net.URL;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,6 +51,8 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
+import us.kbase.common.test.TestException;
+import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
@@ -86,10 +86,10 @@ public class AweClientDockerJobScriptTest {
     private static final String testContigsetObjName = "temp_contigset.1";
     private static File refDataDir = null;
     
-    private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
+    private static MongoController mongo;
     
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
@@ -480,37 +480,40 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static Properties props(File configFile)
-            throws FileNotFoundException, IOException {
-        Properties props = new Properties();
-        InputStream is = new FileInputStream(configFile);
-        props.load(is);
-        is.close();
-        return props;
-    }
-    
     @BeforeClass
     public static void beforeClass() throws Exception {
-        Properties props = props(new File("test.cfg"));
+        Properties props = TesterUtils.props();
         AuthToken token = new AuthToken(token(props));
         AweClientDockerJobScriptTest.token = token;
-        workDir = prepareWorkDir("awe-integration");
+        workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
+                "awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
         writeFileLines(readReaderLines(new InputStreamReader(
                 AweClientDockerJobScriptTest.class.getResourceAsStream(
                         "check_deps.sh.properties"))), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(workDir);
+        ProcessHelper ph = ProcessHelper.cmd(
+                "bash", scriptFile.getCanonicalPath()).exec(workDir);
+        if (ph.getExitCode() > 0) {
+            throw new TestException("Set up script failed with exit code " +
+                    ph.getExitCode());
+        }
         mongoDir = new File(workDir, "mongo");
         aweServerDir = new File(workDir, "awe_server");
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        int mongoPort = startupMongo(null, mongoDir);
+        String mongoExepath = TesterUtils.getMongoExePath(props);
+        System.out.print("Starting MongoDB executable at " + mongoExepath +
+                "... ");
+        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        System.out.println("Done. Port " + mongo.getServerPort());
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"), aweServerDir, mongoPort);
+        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
+                aweServerDir, mongo.getServerPort());
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
-                catalogWrapper.getConnectors()[0].getLocalPort(), mongoPort);
+                catalogWrapper.getConnectors()[0].getLocalPort(),
+                mongo.getServerPort());
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -552,7 +555,7 @@ public class AweClientDockerJobScriptTest {
         if (!refDataDir.exists())
             refDataDir.mkdirs();
     }
-    
+
     private static String findAweBinary(File dir, String program) throws Exception {
         if (new File(dir, program).exists())
             return new File(dir, program).getAbsolutePath();
@@ -567,10 +570,12 @@ public class AweClientDockerJobScriptTest {
                 System.out.println(njsServiceDir.getName() + " was stopped");
             } catch (Exception ignore) {}
         }
+        if (mongo != null) {
+            mongo.destroy(false);
+        }
         killPid(aweClientDir);
         killPid(aweServerDir);
         //killPid(shockDir);
-        killPid(mongoDir);
         try {
             if (testWsName != null) {
                 //getWsClient().deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
@@ -579,51 +584,6 @@ public class AweClientDockerJobScriptTest {
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
         }
-    }
-
-    private static int startupMongo(String mongodExePath, File dir) throws Exception {
-        if (mongodExePath == null)
-            mongodExePath = "mongod";
-        if (!dir.exists())
-            dir.mkdirs();
-        File dataDir = new File(dir, "data");
-        dataDir.mkdir();
-        File logFile = new File(dir, "mongodb.log");
-        int port = findFreePort();
-        File configFile = new File(dir, "mongod.conf");
-        writeFileLines(Arrays.asList(
-                "dbpath=" + dataDir.getAbsolutePath(),
-                "logpath=" + logFile.getAbsolutePath(),
-                "logappend=true",
-                "port=" + port,
-                "bind_ip=127.0.0.1"
-                ), configFile);
-        File scriptFile = new File(dir, "start_mongo.sh");
-        writeFileLines(Arrays.asList(
-                "#!/bin/bash",
-                "cd " + dir.getAbsolutePath(),
-                mongodExePath + " --config " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
-                "echo $pid > pid.txt"
-                ), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(dir);
-        boolean ready = false;
-        for (int n = 0; n < mongoInitWaitSeconds; n++) {
-            Thread.sleep(1000);
-            if (logFile.exists()) {
-                if (grep(readFileLines(logFile), "waiting for connections on port " + port).size() > 0) {
-                    ready = true;
-                    break;
-                }
-            }
-        }
-        if (!ready) {
-            if (logFile.exists())
-                for (String l : readFileLines(logFile))
-                    System.err.println("MongoDB log: " + l);
-            throw new IllegalStateException("MongoDB couldn't startup in " + mongoInitWaitSeconds + " seconds");
-        }
-        System.out.println(dir.getName() + " was started up");
-        return port;
     }
 
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
@@ -645,7 +605,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=" + get(props(new File("test.cfg")), "user"),
+                "users=" + get(TesterUtils.props(), "user"),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -799,7 +759,7 @@ public class AweClientDockerJobScriptTest {
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
         Map<String, String> origConfig = loadConfig();
-        Properties testProps = props(new File("test.cfg"));
+        Properties testProps = TesterUtils.props();
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -975,44 +935,11 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static List<String> grep(List<String> lines, String substring) {
-        List<String> ret = new ArrayList<String>();
-        for (String l : lines)
-            if (l.contains(substring))
-                ret.add(l);
-        return ret;
-    }
-    
     private static int findFreePort() {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         } catch (IOException e) {}
         throw new IllegalStateException("Can not find available port in system");
-    }
-    
-    public static File prepareWorkDir(String testName) throws IOException {
-        File tempDir = new File("temp_files").getCanonicalFile();
-        if (!tempDir.exists())
-            tempDir.mkdirs();
-        for (File dir : tempDir.listFiles()) {
-            if (dir.isDirectory() && dir.getName().startsWith("test_" + testName + "_"))
-                try {
-                    deleteRecursively(dir);
-                } catch (Exception e) {
-                    System.out.println("Can not delete directory [" + dir.getName() + "]: " + e.getMessage());
-                }
-        }
-        File workDir = new File(tempDir, "test_" + testName + "_" + System.currentTimeMillis());
-        if (!workDir.exists())
-            workDir.mkdir();
-        return workDir;
-    }
-    
-    private static void deleteRecursively(File fileOrDir) {
-        if (fileOrDir.isDirectory() && !Files.isSymbolicLink(fileOrDir.toPath()))
-            for (File f : fileOrDir.listFiles()) 
-                deleteRecursively(f);
-        fileOrDir.delete();
     }
     
     public static void main(String[] args) throws Exception {
