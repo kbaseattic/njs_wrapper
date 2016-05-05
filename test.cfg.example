@@ -1,3 +1,4 @@
+# A KBase user ID and password.
 user=*****
 password=*****
 # the path to the MongoDB executable.

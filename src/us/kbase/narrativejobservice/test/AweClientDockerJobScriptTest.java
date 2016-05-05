@@ -53,6 +53,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
+import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
@@ -500,7 +501,12 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(readReaderLines(new InputStreamReader(
                 AweClientDockerJobScriptTest.class.getResourceAsStream(
                         "check_deps.sh.properties"))), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(workDir);
+        ProcessHelper ph = ProcessHelper.cmd(
+                "bash", scriptFile.getCanonicalPath()).exec(workDir);
+        if (ph.getExitCode() > 0) {
+            throw new TestException("Set up script failed with exit code " +
+                    ph.getExitCode());
+        }
         mongoDir = new File(workDir, "mongo");
         aweServerDir = new File(workDir, "awe_server");
         aweClientDir = new File(workDir, "awe_client");
