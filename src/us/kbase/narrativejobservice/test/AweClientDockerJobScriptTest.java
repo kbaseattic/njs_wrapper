@@ -556,7 +556,7 @@ public class AweClientDockerJobScriptTest {
             refDataDir.mkdirs();
     }
 
-	private static String findAweBinary(File dir, String program) throws Exception {
+    private static String findAweBinary(File dir, String program) throws Exception {
         if (new File(dir, program).exists())
             return new File(dir, program).getAbsolutePath();
         return program;
@@ -576,7 +576,6 @@ public class AweClientDockerJobScriptTest {
         killPid(aweClientDir);
         killPid(aweServerDir);
         //killPid(shockDir);
-        killPid(mongoDir);
         try {
             if (testWsName != null) {
                 //getWsClient().deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
