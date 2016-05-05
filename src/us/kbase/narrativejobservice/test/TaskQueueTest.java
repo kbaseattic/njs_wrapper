@@ -8,6 +8,7 @@ import static org.easymock.EasyMock.isNull;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -24,25 +25,33 @@ import us.kbase.common.taskqueue2.Task;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.common.taskqueue2.TaskRunner;
+import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 
 public class TaskQueueTest extends EasyMockSupport {
-	private static MongoDBHelper dbh = null;
+	private static MongoController mongo;
 	private static ExecEngineMongoDb db = null;
 	
 	@BeforeClass
 	public static void makeTempDir() throws Exception {
-        dbh = new MongoDBHelper("test_task_queue", new File("temp_files"));
-        dbh.startup(null);
-        db = new ExecEngineMongoDb("localhost:" + dbh.getMongoPort(), "exec_engine", null, null, null);
+	    Properties props = TesterUtils.props();
+        File workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
+                "test_task_queue");
+        File mongoDir = new File(workDir, "mongo");
+        String mongoExepath = TesterUtils.getMongoExePath(props);
+        System.out.print("Starting MongoDB executable at " + mongoExepath +
+                "... ");
+        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        System.out.println("Done. Port " + mongo.getServerPort());
+        
+        db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
+                "exec_engine", null, null, null);
 	}
 	
 	@AfterClass
 	public static void dropTempDir() throws Exception {
-	    try {
-	        dbh.shutdown();
-	    } catch (Exception ex) {
-	        ex.printStackTrace();
+	    if (mongo != null) {
+	        mongo.destroy(false);
 	    }
 	}
 	

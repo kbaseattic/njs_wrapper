@@ -3,18 +3,14 @@ package us.kbase.narrativejobservice.test;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
-import java.io.StringWriter;
 import java.net.ServerSocket;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -26,7 +22,6 @@ import java.util.zip.GZIPInputStream;
 
 import junit.framework.Assert;
 
-import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -485,21 +480,13 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static Properties props(File configFile)
-            throws FileNotFoundException, IOException {
-        Properties props = new Properties();
-        InputStream is = new FileInputStream(configFile);
-        props.load(is);
-        is.close();
-        return props;
-    }
-    
     @BeforeClass
     public static void beforeClass() throws Exception {
-        Properties props = props(new File("test.cfg"));
+        Properties props = TesterUtils.props();
         AuthToken token = new AuthToken(token(props));
         AweClientDockerJobScriptTest.token = token;
-        workDir = prepareWorkDir("awe-integration");
+        workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
+                "awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
         writeFileLines(readReaderLines(new InputStreamReader(
                 AweClientDockerJobScriptTest.class.getResourceAsStream(
@@ -515,7 +502,7 @@ public class AweClientDockerJobScriptTest {
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        String mongoExepath = getMongoExePath(props);
+        String mongoExepath = TesterUtils.getMongoExePath(props);
         System.out.print("Starting MongoDB executable at " + mongoExepath +
                 "... ");
         mongo = new MongoController(mongoExepath, mongoDir.toPath());
@@ -568,27 +555,6 @@ public class AweClientDockerJobScriptTest {
         if (!refDataDir.exists())
             refDataDir.mkdirs();
     }
-    
-    private static String getMongoExePath(Properties props)
-            throws IOException, InterruptedException {
-        String exep = props.getProperty("test-mongod-exe");
-        if (exep == null || exep.isEmpty()) {
-            System.out.println("getting mongod from path");
-            Runtime rt = Runtime.getRuntime();
-            Process proc = rt.exec("which mongod");
-            if (proc.waitFor() > 0) {
-                throw new TestException(
-                        "No mongod executable specified in config file and " +
-                        "couldn't find mongod in path: which mongod " +
-                        "returned exit code " + proc.exitValue());
-            }
-            System.out.println("done getting mongod from path");
-            StringWriter sw = new StringWriter();
-            IOUtils.copy(proc.getInputStream(), sw, StandardCharsets.UTF_8);
-            exep = sw.toString().trim();
-        }
-        return exep;
-    }
 
 	private static String findAweBinary(File dir, String program) throws Exception {
         if (new File(dir, program).exists())
@@ -640,7 +606,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=" + get(props(new File("test.cfg")), "user"),
+                "users=" + get(TesterUtils.props(), "user"),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -794,7 +760,7 @@ public class AweClientDockerJobScriptTest {
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
         Map<String, String> origConfig = loadConfig();
-        Properties testProps = props(new File("test.cfg"));
+        Properties testProps = TesterUtils.props();
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -975,31 +941,6 @@ public class AweClientDockerJobScriptTest {
             return socket.getLocalPort();
         } catch (IOException e) {}
         throw new IllegalStateException("Can not find available port in system");
-    }
-    
-    public static File prepareWorkDir(String testName) throws IOException {
-        File tempDir = new File("temp_files").getCanonicalFile();
-        if (!tempDir.exists())
-            tempDir.mkdirs();
-        for (File dir : tempDir.listFiles()) {
-            if (dir.isDirectory() && dir.getName().startsWith("test_" + testName + "_"))
-                try {
-                    deleteRecursively(dir);
-                } catch (Exception e) {
-                    System.out.println("Can not delete directory [" + dir.getName() + "]: " + e.getMessage());
-                }
-        }
-        File workDir = new File(tempDir, "test_" + testName + "_" + System.currentTimeMillis());
-        if (!workDir.exists())
-            workDir.mkdir();
-        return workDir;
-    }
-    
-    private static void deleteRecursively(File fileOrDir) {
-        if (fileOrDir.isDirectory() && !Files.isSymbolicLink(fileOrDir.toPath()))
-            for (File f : fileOrDir.listFiles()) 
-                deleteRecursively(f);
-        fileOrDir.delete();
     }
     
     public static void main(String[] args) throws Exception {

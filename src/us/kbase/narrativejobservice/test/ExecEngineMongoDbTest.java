@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 
 import org.junit.AfterClass;
 import org.junit.Assert;
@@ -13,6 +14,7 @@ import org.junit.Test;
 import com.mongodb.WriteConcernException;
 
 import us.kbase.common.service.UObject;
+import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
@@ -21,20 +23,29 @@ import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
 
 public class ExecEngineMongoDbTest {
-    private static MongoDBHelper dbh = null;
+    private static MongoController mongo;
     private static ExecEngineMongoDb db = null;
     
     @BeforeClass
     public static void startup() throws Exception {
-        dbh = new MongoDBHelper("ee_mongodb", new File("temp_files"));
-        dbh.startup(null);
-        db = new ExecEngineMongoDb("localhost:" + dbh.getMongoPort(), "exec_engine", null, null, null);
+        Properties props = TesterUtils.props();
+        File workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
+                "awe-ee_mongodb");
+        File mongoDir = new File(workDir, "mongo");
+        String mongoExepath = TesterUtils.getMongoExePath(props);
+        System.out.print("Starting MongoDB executable at " + mongoExepath +
+                "... ");
+        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        System.out.println("Done. Port " + mongo.getServerPort());
+        
+        db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
+                "exec_engine", null, null, null);
     }
 
     @AfterClass
     public static void shutdown() throws Exception {
-        if (dbh != null)
-            dbh.shutdown();        
+        if (mongo != null)
+            mongo.destroy(false);
     }
     
     @Test
