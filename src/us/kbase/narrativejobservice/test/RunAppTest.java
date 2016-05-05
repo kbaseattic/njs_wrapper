@@ -55,6 +55,7 @@ public class RunAppTest {
 		runScriptMethod(token);
 	}
 	
+	@SuppressWarnings("unused")
 	private void runServiceApp(String token) throws Exception {
 		App app = new App().withName("test");
 		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
@@ -173,6 +174,7 @@ public class RunAppTest {
 		Util.waitForJob(token, ujsUrl, jobId);
 	}
 	
+	@SuppressWarnings("unused")
 	private static String jsonToPretty(Object obj) throws Exception {
 		ObjectMapper mpr = new ObjectMapper();
 		return mpr.writerWithDefaultPrettyPrinter().writeValueAsString(obj);

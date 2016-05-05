@@ -2,7 +2,6 @@ package us.kbase.narrativejobservice.db;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

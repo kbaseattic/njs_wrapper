@@ -46,6 +46,7 @@ public class TaskQueueTest extends EasyMockSupport {
 	    }
 	}
 	
+	@SuppressWarnings("unused")
 	private static void delete(File fileOrDir) {
 		if (fileOrDir.isDirectory()) {
 			for (File sub : fileOrDir.listFiles())
