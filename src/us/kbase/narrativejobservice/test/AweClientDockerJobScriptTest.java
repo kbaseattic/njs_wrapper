@@ -10,8 +10,10 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
+import java.io.StringWriter;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +26,7 @@ import java.util.zip.GZIPInputStream;
 
 import junit.framework.Assert;
 
+import org.apache.commons.io.IOUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -512,10 +515,11 @@ public class AweClientDockerJobScriptTest {
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        System.out.print("Starting MongoDB... ");
-        mongo = new MongoController(get(props, "test-mongod-exe"),
-                mongoDir.toPath());
-        System.out.println(" Done. Port " + mongo.getServerPort());
+        String mongoExepath = getMongoExePath(props);
+        System.out.print("Starting MongoDB executable at " + mongoExepath +
+                "... ");
+        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        System.out.println("Done. Port " + mongo.getServerPort());
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
         int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
                 aweServerDir, mongo.getServerPort());
@@ -565,7 +569,28 @@ public class AweClientDockerJobScriptTest {
             refDataDir.mkdirs();
     }
     
-    private static String findAweBinary(File dir, String program) throws Exception {
+    private static String getMongoExePath(Properties props)
+            throws IOException, InterruptedException {
+        String exep = props.getProperty("test-mongod-exe");
+        if (exep == null || exep.isEmpty()) {
+            System.out.println("getting mongod from path");
+            Runtime rt = Runtime.getRuntime();
+            Process proc = rt.exec("which mongod");
+            if (proc.waitFor() > 0) {
+                throw new TestException(
+                        "No mongod executable specified in config file and " +
+                        "couldn't find mongod in path: which mongod " +
+                        "returned exit code " + proc.exitValue());
+            }
+            System.out.println("done getting mongod from path");
+            StringWriter sw = new StringWriter();
+            IOUtils.copy(proc.getInputStream(), sw, StandardCharsets.UTF_8);
+            exep = sw.toString().trim();
+        }
+        return exep;
+    }
+
+	private static String findAweBinary(File dir, String program) throws Exception {
         if (new File(dir, program).exists())
             return new File(dir, program).getAbsolutePath();
         return program;
