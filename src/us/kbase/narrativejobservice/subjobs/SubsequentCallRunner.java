@@ -103,6 +103,7 @@ public class SubsequentCallRunner {
         File outputFile = new File(jobWorkDir, "output.json");
         UObject.getMapper().writeValue(inputFile, rpcCallData);
         System.out.println("dockerURI=" + dockerURI);
+        logger.logNextLine("Running docker container for image: " + imageName, false);
         new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, logger, outputFile, false, 
                 null, sharedScratchDir, callbackUrl);
         if (outputFile.exists()) {
