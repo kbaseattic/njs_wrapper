@@ -39,14 +39,21 @@ import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
+import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
+    
+    // TODO consider an enum here
+    public static final String DEV = "dev";
+    public static final String BETA = "beta";
+    public static final String RELEASE = "release";
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    private static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    public static final Set<String> RELEASE_TAGS =
+            Collections.unmodifiableSet(new LinkedHashSet<String>(
+                    Arrays.asList(DEV, BETA, RELEASE)));
 
     public static void main(String[] args) throws Exception {
         if (args.length != 2) {
@@ -77,7 +84,13 @@ public class AweClientDockerJobScript {
             ujsClient.startJob(jobId, token, "running", "AWE job for " + job.getMethod(), 
                     new InitProgress().withPtype("none"), null);
             File jobDir = getJobDir(config, jobId);
-            String moduleName = job.getMethod().split("\\.")[0];
+            final String[] modMeth = job.getMethod().split("\\.");
+            if (modMeth.length != 2) {
+                throw new IllegalStateException("Illegal method name: " +
+                        job.getMethod());
+            }
+            final String moduleName = modMeth[0];
+            final String methodName = modMeth[1];
             RpcContext context = job.getRpcContext();
             if (context == null)
                 context = new RpcContext().withRunId("");
@@ -120,33 +133,36 @@ public class AweClientDockerJobScript {
                     new File(".").getCanonicalPath(), false);
             String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = getCatalogClient(config, token);
-            String imageVersion = job.getServiceVer();
-            String imageName = null;
-            ModuleVersionInfo mvi = null;
-            if (imageVersion == null || asyncVersionTags.contains(imageVersion)) {
-                ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                if (imageVersion == null) {
+            String release = job.getServiceVer();
+            final String imageVersion;
+            final ModuleInfo mi = catClient.getModuleInfo(
+                    new SelectOneModuleParams().withModuleName(moduleName));
+            final ModuleVersionInfo mvi;
+            if (release == null || RELEASE_TAGS.contains(release)) {
+                if (release == null) {
                     mvi = mi.getRelease();
-                } else if (imageVersion.equals("dev")) {
+                    release = RELEASE;
+                } else if (release.equals(DEV)) {
                     mvi = mi.getDev();
-                } else if (imageVersion.equals("beta")) {
+                } else if (release.equals(BETA)) {
                     mvi = mi.getBeta();
                 } else {
                     mvi = mi.getRelease();
+                    release = RELEASE;
                 }
-                if (mvi == null)
-                    throw new IllegalStateException("Cannot extract " + imageVersion + " version for module: " + moduleName);
                 imageVersion = mvi.getGitCommitHash();
             } else {
                 try {
                     mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                            .withModuleName(moduleName).withGitCommitHash(imageVersion));
+                            .withModuleName(moduleName).withGitCommitHash(release));
+                    imageVersion = release;
+                    release = null;
                 } catch (Exception ex) {
                     throw new IllegalStateException("Error retrieving module version info about image " +
-                            moduleName + " with version " + imageVersion, ex);
+                            moduleName + " with version " + release, ex);
                 }
             }
-            imageName = mvi.getDockerImgName();
+            String imageName = mvi.getDockerImgName();
             File refDataDir = null;
             if (mvi.getDataFolder() != null && mvi.getDataVersion() != null) {
                 String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
@@ -187,7 +203,12 @@ public class AweClientDockerJobScript {
             int callbackPort = NetUtils.findFreePort();
             String callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
             System.out.println("Callback URL: " + callbackUrl);
-            JsonServerServlet catalogSrv = new CallbackServer(jobDir, callbackPort, config, log);
+            final ModuleRunVersion runver = new ModuleRunVersion(
+                    new URL(mi.getGitUrl()), moduleName, methodName,
+                    mvi.getGitCommitHash(), mvi.getVersion(), release);
+            JsonServerServlet catalogSrv = new CallbackServer(
+                    jobDir, callbackPort, config, log, runver,
+                    job.getParams());
             callbackServer = new Server(callbackPort);
             ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
             srvContext.setContextPath("/");

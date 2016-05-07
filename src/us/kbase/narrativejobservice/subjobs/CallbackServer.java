@@ -3,7 +3,10 @@ package us.kbase.narrativejobservice.subjobs;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -11,6 +14,9 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -22,23 +28,66 @@ import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.workspace.ProvenanceAction;
+import us.kbase.workspace.SubAction;
 
 public class CallbackServer extends JsonServerServlet {
+    //TODO identical (or close to it) to kb_sdk call back server.
+    // should probably go in java_common or make a common repo for shared
+    // NJSW & KB_SDK code, since they're tightly coupled
     private static final long serialVersionUID = 1L;
     
     private final File mainJobDir;
     private final int callbackPort;
     private final Map<String, String> config;
     private final DockerRunner.LineLogger logger;
+    private final ProvenanceAction prov = new ProvenanceAction();
     
-    public CallbackServer(File mainJobDir, int callbackPort,
-            Map<String, String> config, DockerRunner.LineLogger logger) {
+    private final static DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+    private final static Map<String, ModuleRunVersion> vers =
+            new HashMap<String, ModuleRunVersion>();
+    
+    public CallbackServer(
+            final File mainJobDir,
+            final int callbackPort,
+            final Map<String, String> config,
+            final DockerRunner.LineLogger logger,
+            final ModuleRunVersion runver,
+            final List<UObject> parameters) {
         super("CallbackServer");
         this.mainJobDir = mainJobDir;
         this.callbackPort = callbackPort;
         this.config = config;
         this.logger = logger;
+        vers.put(runver.getModule(), runver);
+        prov.setTime(DATE_FORMATTER.print(new DateTime()));
+        prov.setService(runver.getModule());
+        prov.setMethod(runver.getMethod());
+        prov.setDescription(
+                "KBase SDK method run via the KBase Execution Engine");
+        prov.setMethodParams(parameters);
+        prov.setServiceVer(runver.getVersionAndRelease());
         initSilentJettyLogger();
+    }
+    
+    @JsonServerMethod(rpc = "CallbackServer.get_provenance")
+    public LinkedList<ProvenanceAction> getProvenance()
+            throws IOException, JsonClientException {
+        /* Would be more efficient if provenance was updated online
+           although I can't imagine this making a difference compared to
+           serialization / transport
+         */
+        final List<SubAction> sas = new LinkedList<SubAction>();
+        for (final ModuleRunVersion mrv: vers.values()) {
+           sas.add(new SubAction()
+               .withCodeUrl(mrv.getGitURL().toExternalForm())
+               .withCommit(mrv.getGitHash())
+               .withName(mrv.getModuleDotMethod())
+               .withVer(mrv.getVersionAndRelease()));
+        }
+        prov.setSubactions(sas);
+        return new LinkedList<ProvenanceAction>(Arrays.asList(prov));
     }
     
     @JsonServerMethod(rpc = "CallbackServer.status")
@@ -56,15 +105,25 @@ public class CallbackServer extends JsonServerServlet {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
             String rpcName = rpcCallData.getMethod();
+            final String module = rpcName.split("\\.")[0];
             Map<String, Object> jsonRpcResponse = null;
             String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             try {
-                String serviceVer = rpcCallData.getContext() == null ? null : 
-                    (String)rpcCallData.getContext().getAdditionalProperties().get("service_ver");
+                final String serviceVer;
+                if (vers.containsKey(module)) {
+                    serviceVer = vers.get(module).getGitHash();
+                } else {
+                    serviceVer = rpcCallData.getContext() == null ? null : 
+                        (String)rpcCallData.getContext()
+                        .getAdditionalProperties().get("service_ver");
+                }
                 // Request docker image name from Catalog
                 SubsequentCallRunner runner = new SubsequentCallRunner(mainJobDir, rpcName, serviceVer, 
                         callbackPort, config, logger);
+                if (!vers.containsKey(module)) {
+                    vers.put(module, runner.getModuleRunVersion());
+                }
                 // Run method in local docker container
                 jsonRpcResponse = runner.run(rpcCallData);
             } catch (Exception ex) {
