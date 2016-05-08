@@ -112,7 +112,17 @@ public class CallbackServer extends JsonServerServlet {
             try {
                 final String serviceVer;
                 if (vers.containsKey(module)) {
-                    serviceVer = vers.get(module).getGitHash();
+                    ModuleRunVersion v = vers.get(module);
+                    serviceVer = v.getGitHash();
+                    System.out.println(String.format(
+                            "Warning: Module %s was already used once for " +
+                            "this job. Using cached version:\n" +
+                            "url: %s\n" +
+                            "commit: %s\n" +
+                            "version: %s\n" +
+                            "release: %s\n",
+                            module, v.getGitURL(), v.getGitHash(),
+                            v.getVersion(), v.getRelease()));
                 } else {
                     serviceVer = rpcCallData.getContext() == null ? null : 
                         (String)rpcCallData.getContext()

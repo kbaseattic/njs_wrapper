@@ -187,38 +187,122 @@ public class AweClientDockerJobScriptTest {
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
         String methodName = "run";
-        String objectName = "prov1";
+        String objectName = "prov-basic";
         String release = "dev";
+        String ver = "0.0.1";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
                         "}," + 
-             "\"actions\": []" +
+             "\"calls\": []" +
              "}");
-        runJobAndCheckProvenance(moduleName, methodName, release, methparams,
-                objectName);
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas);
+    }
+    
+    @Test
+    public void testMultiCallProvenance() throws Exception {
+        System.out.println("Test [testMultiCallProvenance]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String objectName = "prov_multi";
+        String release = "dev";
+        String ver = "0.0.1";
+        UObject methparams = UObject.fromJsonString(String.format(
+            "{\"save\": {\"ws\":\"%s\"," +
+                        "\"name\":\"%s\"" +
+                        "}," + 
+             "\"calls\": [{\"method\": \"%s\"," +
+                          "\"params\": [{}]," +
+                          "\"ver\": \"%s\"" +
+                          "}]" +
+             "}", testWsName, objectName, moduleName + "." + methodName,
+             "6e115c681af0b475e8f246a6d361ff86f84323d4"));
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas);
     }
 
-    private void runJobAndCheckProvenance(String moduleName, String methodName,
-            String release, UObject methparams, String objectName)
+    private static class SubActionSpec {
+        public String module;
+        public String release;
+        public String ver;
+        public String commit;
+        
+        public SubActionSpec (){}
+        public SubActionSpec withMod(String mod) {
+            this.module = mod;
+            return this;
+        }
+        
+        public SubActionSpec withRel(String rel) {
+            this.release = rel;
+            return this;
+        }
+        
+        public SubActionSpec withVer(String ver) {
+            this.ver = ver;
+            return this;
+        }
+        
+        public SubActionSpec withCommit(String commit) {
+            this.commit = commit;
+            return this;
+        }
+        public String getVerRel() {
+            if (release == null) {
+                return ver;
+            }
+            return ver + "-" + release;
+        }
+    }
+    private void runJobAndCheckProvenance(
+            String moduleName,
+            String methodName,
+            String release,
+            String ver,
+            UObject methparams,
+            String objectName,
+            List<SubActionSpec> subs)
             throws IOException, JsonClientException, InterruptedException,
             ServerException, Exception, InvalidFileFormatException {
         runJob(moduleName, methodName, release, methparams);
-        checkProvenance(moduleName, methodName, release, methparams,
-                objectName);
+        checkProvenance(moduleName, methodName, release, ver, methparams,
+                objectName, subs);
     }
 
-    private void checkProvenance(String moduleName, String methodName,
-            String release, UObject methparams, String objectName)
+    private void checkProvenance(
+            String moduleName,
+            String methodName,
+            String release,
+            String ver,
+            UObject methparams,
+            String objectName,
+            List<SubActionSpec> subs)
             throws Exception, IOException, InvalidFileFormatException,
             JsonClientException {
-        CatalogClient cat = getCatalogClient(token, loadConfig());
-        final ModuleInfo mi = cat.getModuleInfo(
-                new SelectOneModuleParams().withModuleName(moduleName));
+        if (release != null) {
+            ver = ver + "-" + release;
+        }
+
         WorkspaceClient ws = getWsClient(token, loadConfig());
-        List<ProvenanceAction> prov = ws.getObjects(Arrays.asList(
+        ObjectData od = ws.getObjects(Arrays.asList(
                 new ObjectIdentity().withWorkspace(testWsName)
-                .withName(objectName))).get(0).getProvenance();
+                .withName(objectName))).get(0);
+        System.out.println(od);
+        List<ProvenanceAction> prov = od.getProvenance();
         assertThat("number of provenance actions",
                 prov.size(), is(1));
         ProvenanceAction pa = prov.get(0);
@@ -228,23 +312,39 @@ public class AweClientDockerJobScriptTest {
         assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
         assertThat("correct service", pa.getService(), is(moduleName));
         assertThat("correct service version", pa.getServiceVer(),
-                is("0.0.1-dev"));
+                is(ver));
         assertThat("correct method", pa.getMethod(), is(methodName));
         assertThat("number of params", pa.getMethodParams().size(), is(1));
         assertThat("correct params",
                 pa.getMethodParams().get(0).asClassInstance(Map.class),
                 is(methparams.asClassInstance(Map.class)));
-        List<SubAction> expsas = new LinkedList<SubAction>();
-        expsas.add(new SubAction()
-            .withCodeUrl("https://github.com/kbasetest/" + moduleName)
-            .withCommit(getMVI(mi, release).getGitCommitHash())
-            .withName(moduleName + "." + methodName)
-            .withVer("0.0.1-dev")
-        );
         List<SubAction> gotsas = pa.getSubactions();
-        checkSubActions(gotsas, expsas);
+        checkSubActions(gotsas, subs);
+    }
+    
+    private void checkSubActions(List<SubAction> gotsas,
+            List<SubActionSpec> expsas) throws Exception {
+        CatalogClient cat = getCatalogClient(token, loadConfig());
         assertThat("correct # of subactions",
                 gotsas.size(), is(expsas.size()));
+        for (SubActionSpec sa: expsas) {
+            if (sa.commit == null) {
+                sa.commit = getMVI(cat.getModuleInfo(
+                        new SelectOneModuleParams().withModuleName(sa.module)),
+                        sa.release).getGitCommitHash();
+            }
+        }
+        Iterator<SubAction> giter = gotsas.iterator();
+        Iterator<SubActionSpec> eiter = expsas.iterator();
+        while (giter.hasNext()) {
+            SubAction got = giter.next();
+            SubActionSpec sa = eiter.next();
+            assertThat("correct code url", got.getCodeUrl(),
+                    is("https://github.com/kbasetest/" + sa.module));
+            assertThat("correct commit", got.getCommit(), is(sa.commit));
+            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct version", got.getVer(), is(sa.getVerRel()));
+        }
     }
 
     private void runJob(String moduleName, String methodName, String release,
@@ -273,23 +373,6 @@ public class AweClientDockerJobScriptTest {
             System.out.println("Job failed");
             System.out.println(ret);
             fail("Job failed");
-        }
-    }
-
-    private void checkSubActions(List<SubAction> gotsas,
-            List<SubAction> expsas) {
-        assertThat("correct # of subactions",
-                gotsas.size(), is(expsas.size()));
-        Iterator<SubAction> giter = gotsas.iterator();
-        Iterator<SubAction> eiter = expsas.iterator();
-        while (giter.hasNext()) {
-            SubAction got = giter.next();
-            SubAction exp = eiter.next();
-            assertThat("correct code url", got.getCodeUrl(),
-                    is(exp.getCodeUrl()));
-            assertThat("correct commit", got.getCommit(), is(exp.getCommit()));
-            assertThat("correct name", got.getName(), is(exp.getName()));
-            assertThat("correct version", got.getVer(), is(exp.getVer()));
         }
     }
 
