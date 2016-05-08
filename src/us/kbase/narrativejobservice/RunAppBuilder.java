@@ -2,7 +2,9 @@ package us.kbase.narrativejobservice;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -38,9 +41,12 @@ import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.common.service.JsonClientCaller;
+import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
+import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
@@ -51,6 +57,9 @@ import us.kbase.shock.client.BasicShockClient;
 import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.workspace.GetObjectInfoNewParams;
+import us.kbase.workspace.ObjectIdentity;
+import us.kbase.workspace.WorkspaceClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static boolean debug = false;
@@ -468,9 +477,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-        //TODO Gavin check workspace objects are visible. E.g, fail early.
-        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
+        checkWSObjects(authPart, config, params.getSourceWsObjects());
+        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -508,6 +517,62 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             appJobId = ujsJobId;
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
         return ujsJobId;
+    }
+    
+    private static void checkWSObjects(
+            final AuthToken token,
+            final Map<String, String> config,
+            final List<String> objrefs)
+            throws UnauthorizedException, IOException, JsonClientException {
+        if (objrefs == null || objrefs.isEmpty()) {
+            return;
+        }
+        final String wsUrlstr = config.get(
+                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+        if (wsUrlstr == null || wsUrlstr.isEmpty())
+            throw new IllegalStateException("Parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is not defined in configuration");
+        final URL wsURL;
+        try {
+            wsURL = new URL(wsUrlstr);
+        } catch (MalformedURLException mue) {
+            throw new IllegalStateException("Config parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is invalid: " + wsUrlstr);
+        }
+        final WorkspaceClient wscli = new WorkspaceClient(wsURL, token);
+        final List<ObjectIdentity> ois = new LinkedList<ObjectIdentity>();
+        for (final String obj: objrefs) {
+            ois.add(new ObjectIdentity().withRef(obj));
+        }
+        final List<Tuple11<Long, String, String, String, Long, String, Long,
+                String, String, Long, Map<String, String>>> objinfo;
+        try {
+            objinfo = wscli.getObjectInfoNew(new GetObjectInfoNewParams()
+                    .withObjects(ois).withIgnoreErrors(1L));
+        } catch (ServerException se) {
+            if (se.getLocalizedMessage().indexOf(
+                    "Error on ObjectIdentity") != -1) {
+                throw new ServerException(se.getLocalizedMessage().replace(
+                        "ObjectIdentity", "workspace reference"),
+                        se.getCode(), se.getName(), se.getData());
+            } else {
+                throw se;
+            }
+        }
+        final Set<String> inaccessible = new LinkedHashSet<String>();
+        for (int i = 0; i < objinfo.size(); i++) {
+            if (objinfo.get(i) == null) {
+                inaccessible.add(objrefs.get(i));
+            }
+        }
+        if (!inaccessible.isEmpty()) {
+            throw new IllegalArgumentException(String.format(
+                    "The workspace objects %s either don't exist or were " +
+                    "inaccessible to the user %s.",
+                    inaccessible, token.getUserName()));
+        }
     }
     
     public static RunJobParams getAweDockerScriptInput(String ujsJobId, String token, 

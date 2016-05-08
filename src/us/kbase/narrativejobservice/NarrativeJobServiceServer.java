@@ -429,6 +429,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
+       //TODO should check the config here and fail to start up if it's bad
         MigrationToMongo.migrate(getTaskQueue().getConfig(), getTaskQueue().getDb(), null);
         logger = new ErrorLogger() {
             @Override
@@ -775,7 +776,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         Map<String, Object> returnVal = null;
         //BEGIN_STATUS
         returnVal = new LinkedHashMap<String, Object>();
-        //TODO check mongo and shock?
         returnVal.put("state", "OK");
         returnVal.put("message", "");
         returnVal.put("version", VERSION);

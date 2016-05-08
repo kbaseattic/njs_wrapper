@@ -267,6 +267,40 @@ public class AweClientDockerJobScriptTest {
                 Arrays.asList(STAGED2_NAME, STAGED1_NAME));
     }
 
+    @Test
+    public void testBadWSIDs() throws Exception {
+        List<String> ws = new ArrayList<String>(Arrays.asList(
+                testWsName + "/" + "objectdoesntexist",
+                testWsName + "/" + STAGED1_NAME,
+                "fakeWSName/foo"));
+        List<String> input = new LinkedList<String>(ws);
+        ws.remove(1);
+        failJob(input, String.format("The workspace objects %s either don't " +
+                "exist or were inaccessible to the user %s.",
+                ws, token.getUserName()));
+    }
+    
+    @Test
+    public void testWorkspaceError() throws Exception {
+        // test a workspace error.
+        List<String> input = new ArrayList<String>(Arrays.asList(
+                testWsName + "/" + STAGED1_NAME,
+                testWsName + "/" + "objectdoesntexist/badver"));
+        failJob(input, String.format("Error on workspace reference #2: " +
+                "Unable to parse version portion of object reference " +
+                testWsName + "/objectdoesntexist/badver to an integer"));
+    }
+
+    private void failJob(List<String> refs, String exp) throws Exception{
+        UObject mt = new UObject(new HashMap<String, String>());
+        try {
+            runJob("foo", "bar", "baz", mt, refs);
+            fail("Ran bad job");
+        } catch (ServerException se) {
+            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
+        }
+    }
+
     private static class SubActionSpec {
         public String module;
         public String release;
@@ -311,7 +345,11 @@ public class AweClientDockerJobScriptTest {
             List<String> wsobjs)
             throws IOException, JsonClientException, InterruptedException,
             ServerException, Exception, InvalidFileFormatException {
-        runJob(moduleName, methodName, release, methparams, wsobjs);
+        List<String> wsobjrefs = new LinkedList<String>();
+        for (String o: wsobjs) {
+            wsobjrefs.add(testWsName + "/" + o);
+        }
+        runJob(moduleName, methodName, release, methparams, wsobjrefs);
         checkProvenance(moduleName, methodName, release, ver, methparams,
                 objectName, subs, wsobjs);
     }
@@ -396,14 +434,10 @@ public class AweClientDockerJobScriptTest {
             UObject methparams, List<String> wsobjs)
                     throws IOException, JsonClientException,
             InterruptedException, ServerException {
-        List<String> wsobjrefs = new LinkedList<String>();
-        for (String o: wsobjs) {
-            wsobjrefs.add(testWsName + "/" + o);
-        }
         RunJobParams params = new RunJobParams()
             .withMethod(moduleName + "." + methodName)
             .withServiceVer(release)
-            .withSourceWsObjects(wsobjrefs)
+            .withSourceWsObjects(wsobjs)
             .withParams(Arrays.asList(methparams));
         String jobId = client.runJob(params);
         JobState ret = null;
