@@ -468,6 +468,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
+        //TODO Gavin check workspace objects are visible. E.g, fail early.
         String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

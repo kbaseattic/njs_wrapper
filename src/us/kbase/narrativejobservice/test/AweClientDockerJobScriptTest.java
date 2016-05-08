@@ -20,11 +20,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
@@ -61,6 +64,7 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -106,6 +110,11 @@ public class AweClientDockerJobScriptTest {
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
     private static MongoController mongo;
+    
+    private static String STAGED1_NAME = "staged1";
+    private static String STAGED2_NAME = "staged2";
+    private static Map<String, String> NAME2REF =
+            new HashMap<String, String>();
     
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
@@ -203,7 +212,8 @@ public class AweClientDockerJobScriptTest {
             .withRel("dev")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas);
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
     }
     
     @Test
@@ -253,7 +263,8 @@ public class AweClientDockerJobScriptTest {
             .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas);
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED2_NAME, STAGED1_NAME));
     }
 
     private static class SubActionSpec {
@@ -296,12 +307,13 @@ public class AweClientDockerJobScriptTest {
             String ver,
             UObject methparams,
             String objectName,
-            List<SubActionSpec> subs)
+            List<SubActionSpec> subs,
+            List<String> wsobjs)
             throws IOException, JsonClientException, InterruptedException,
             ServerException, Exception, InvalidFileFormatException {
-        runJob(moduleName, methodName, release, methparams);
+        runJob(moduleName, methodName, release, methparams, wsobjs);
         checkProvenance(moduleName, methodName, release, ver, methparams,
-                objectName, subs);
+                objectName, subs, wsobjs);
     }
 
     private void checkProvenance(
@@ -311,7 +323,8 @@ public class AweClientDockerJobScriptTest {
             String ver,
             UObject methparams,
             String objectName,
-            List<SubActionSpec> subs)
+            List<SubActionSpec> subs,
+            List<String> wsobjs)
             throws Exception, IOException, InvalidFileFormatException,
             JsonClientException {
         if (release != null) {
@@ -339,6 +352,18 @@ public class AweClientDockerJobScriptTest {
         assertThat("correct params",
                 pa.getMethodParams().get(0).asClassInstance(Map.class),
                 is(methparams.asClassInstance(Map.class)));
+        Set<String> wsobjrefs = new HashSet<String>();
+        for (String o: wsobjs) {
+            wsobjrefs.add(testWsName + "/" + o);
+        }
+        assertThat("correct incoming ws objs",
+                new HashSet<String>(pa.getInputWsObjects()),
+                is(wsobjrefs));
+        Iterator<String> reswo = pa.getResolvedWsObjects().iterator();
+        for (String wso: pa.getInputWsObjects()) {
+            String ref = NAME2REF.get(wso.replace(testWsName + "/", ""));
+            assertThat("ref remapped correctly", reswo.next(), is(ref));
+        }
         checkSubActions(pa.getSubactions(), subs);
     }
     
@@ -368,11 +393,17 @@ public class AweClientDockerJobScriptTest {
     }
 
     private void runJob(String moduleName, String methodName, String release,
-            UObject methparams) throws IOException, JsonClientException,
+            UObject methparams, List<String> wsobjs)
+                    throws IOException, JsonClientException,
             InterruptedException, ServerException {
+        List<String> wsobjrefs = new LinkedList<String>();
+        for (String o: wsobjs) {
+            wsobjrefs.add(testWsName + "/" + o);
+        }
         RunJobParams params = new RunJobParams()
             .withMethod(moduleName + "." + methodName)
             .withServiceVer(release)
+            .withSourceWsObjects(wsobjrefs)
             .withParams(Arrays.asList(methparams));
         String jobId = client.runJob(params);
         JobState ret = null;
@@ -781,8 +812,10 @@ public class AweClientDockerJobScriptTest {
                 error = ex;
             }
         }
-        if (error != null)
+        if (error != null) {
             throw error;
+        }
+        stageWSObjects();
         File dir = new File("test_data");
         GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
         Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
@@ -801,6 +834,30 @@ public class AweClientDockerJobScriptTest {
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
+    }
+
+    private static void stageWSObjects() throws Exception {
+        WorkspaceClient wsc = getWsClient(token, loadConfig());
+        Map<String, String> mt = new HashMap<String, String>();
+        List<Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>>> ret =
+                wsc.saveObjects(new SaveObjectsParams()
+                    .withWorkspace(testWsName)
+                    .withObjects(Arrays.asList(
+                        new ObjectSaveData()
+                            .withData(new UObject(mt))
+                            .withName(STAGED1_NAME)
+                            .withType("Empty.AType"),
+                        new ObjectSaveData()
+                            .withData(new UObject(mt))
+                            .withName(STAGED2_NAME)
+                            .withType("Empty.AType")
+                    )
+                ));
+        NAME2REF.put(STAGED1_NAME, ret.get(0).getE7() + "/" +
+                ret.get(0).getE1() + "/" + ret.get(0).getE5());
+        NAME2REF.put(STAGED2_NAME, ret.get(1).getE7() + "/" +
+                ret.get(1).getE1() + "/" + ret.get(1).getE5());
     }
 
     private static String findAweBinary(File dir, String program) throws Exception {

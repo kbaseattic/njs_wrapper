@@ -208,7 +208,7 @@ public class AweClientDockerJobScript {
                     mvi.getGitCommitHash(), mvi.getVersion(), release);
             JsonServerServlet catalogSrv = new CallbackServer(
                     jobDir, callbackPort, config, log, runver,
-                    job.getParams());
+                    job);
             callbackServer = new Server(callbackPort);
             ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
             srvContext.setContextPath("/");

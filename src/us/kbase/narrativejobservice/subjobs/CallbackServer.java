@@ -28,6 +28,7 @@ import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
@@ -55,7 +56,7 @@ public class CallbackServer extends JsonServerServlet {
             final Map<String, String> config,
             final DockerRunner.LineLogger logger,
             final ModuleRunVersion runver,
-            final List<UObject> parameters) {
+            final RunJobParams job) {
         super("CallbackServer");
         this.mainJobDir = mainJobDir;
         this.callbackPort = callbackPort;
@@ -67,7 +68,8 @@ public class CallbackServer extends JsonServerServlet {
         prov.setMethod(runver.getMethod());
         prov.setDescription(
                 "KBase SDK method run via the KBase Execution Engine");
-        prov.setMethodParams(parameters);
+        prov.setMethodParams(job.getParams());
+        prov.setInputWsObjects(job.getSourceWsObjects());
         prov.setServiceVer(runver.getVersionAndRelease());
         initSilentJettyLogger();
     }
