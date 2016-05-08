@@ -37,9 +37,6 @@ import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
-import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple7;
@@ -471,30 +468,6 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-        if (params.getServiceVer() == null || asyncVersionTags.contains(params.getServiceVer())) {
-            CatalogClient catCl = getCatalogClient(config, false);
-            String moduleName = params.getMethod().split(Pattern.quote("."))[0];
-            ModuleVersionInfo mvi;
-            try {
-                ModuleInfo mi = catCl.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                String ver = params.getServiceVer();
-                if (ver == null) {
-                    mvi = mi.getRelease();
-                } else if (ver.equals("dev")) {
-                    mvi = mi.getDev();
-                } else if (ver.equals("beta")) {
-                    mvi = mi.getBeta();
-                } else {
-                    mvi = mi.getRelease();
-                }
-            } catch (Exception ex) {
-                throw new IllegalStateException("Error loading info from catalog for module: " + moduleName, ex);
-            }
-            if (mvi == null)
-                throw new IllegalStateException("Cannot extract release version from catalog for module: " + moduleName);
-            String serviceVer = mvi.getGitCommitHash();
-            params.setServiceVer(serviceVer);
-        }
         String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();

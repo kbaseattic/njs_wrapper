@@ -124,5 +124,27 @@ public class ModuleRunVersion {
     public String getModuleDotMethod() {
         return module + "." + method;
     }
+
+    /* (non-Javadoc)
+     * @see java.lang.Object#toString()
+     */
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("ModuleRunVersion [gitURL=");
+        builder.append(gitURL);
+        builder.append(", module=");
+        builder.append(module);
+        builder.append(", method=");
+        builder.append(method);
+        builder.append(", gitHash=");
+        builder.append(gitHash);
+        builder.append(", version=");
+        builder.append(version);
+        builder.append(", release=");
+        builder.append(release);
+        builder.append("]");
+        return builder.toString();
+    }
     
 }

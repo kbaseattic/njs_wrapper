@@ -1,5 +1,10 @@
 package us.kbase.narrativejobservice.test;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,6 +19,9 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -29,6 +37,9 @@ import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -66,9 +77,14 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.ObjectData;
+import us.kbase.workspace.ObjectIdentity;
 import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SaveObjectsParams;
+import us.kbase.workspace.SubAction;
 import us.kbase.workspace.WorkspaceClient;
+import us.kbase.workspace.WorkspaceIdentity;
 
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScriptTest {
@@ -93,6 +109,13 @@ public class AweClientDockerJobScriptTest {
     
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
+
+    private final static DateTimeFormatter DATE_PARSER =
+            new DateTimeFormatterBuilder()
+                .append(DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss"))
+                .appendOptional(DateTimeFormat.forPattern(".SSS").getParser())
+                .append(DateTimeFormat.forPattern("Z"))
+                .toFormatter();
 
     @Test
     public void testOneJob() throws Exception {
@@ -145,6 +168,105 @@ public class AweClientDockerJobScriptTest {
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
+        }
+    }
+
+    private ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
+        if (release.equals("dev")) {
+            return mi.getDev();
+        } else if (release.equals("beta")) {
+            return mi.getBeta();
+        } else {
+            return mi.getRelease();
+        }
+    }
+    
+    @Test
+    public void testBasicProvenance() throws Exception {
+        System.out.println("Test [testBasicProvenance]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String objectName = "prov1";
+        String release = "dev";
+        UObject methparams = UObject.fromJsonString(
+            "{\"save\": {\"ws\":\"" + testWsName + "\"," +
+                        "\"name\":\"" + objectName + "\"" +
+                        "}," + 
+             "\"actions\": []" +
+             "}");
+        CatalogClient cat = getCatalogClient(token, loadConfig());
+        final ModuleInfo mi = cat.getModuleInfo(
+                new SelectOneModuleParams().withModuleName(moduleName));
+        RunJobParams params = new RunJobParams()
+            .withMethod(moduleName + "." + methodName)
+            .withServiceVer(release)
+            .withParams(Arrays.asList(methparams));
+        String jobId = client.runJob(params);
+        JobState ret = null;
+        for (int i = 0; i < 20; i++) {
+            try {
+                ret = client.checkJob(jobId);
+                System.out.println("Job finished: " + ret.getFinished());
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        if (ret.getResult() == null) {
+            System.out.println("Job failed");
+            System.out.println(ret);
+            fail("Job failed");
+        }
+        WorkspaceClient ws = getWsClient(token, loadConfig());
+        ObjectData wsobj = ws.getObjects(Arrays.asList(new ObjectIdentity()
+            .withWorkspace(testWsName).withName(objectName))).get(0);
+        assertThat("number of provenance actions",
+                wsobj.getProvenance().size(), is(1));
+        ProvenanceAction pa = wsobj.getProvenance().get(0);
+        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
+        long now = new Date().getTime();
+        assertTrue("got prov time < now ", got < now);
+        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
+        assertThat("correct service", pa.getService(), is(moduleName));
+        assertThat("correct service version", pa.getServiceVer(),
+                is("0.0.1-dev"));
+        assertThat("correct method", pa.getMethod(), is(methodName));
+        assertThat("number of params", pa.getMethodParams().size(), is(1));
+        assertThat("correct params",
+                pa.getMethodParams().get(0).asClassInstance(Map.class),
+                is(methparams.asClassInstance(Map.class)));
+        List<SubAction> expsas = new LinkedList<SubAction>();
+        expsas.add(new SubAction()
+            .withCodeUrl("https://github.com/kbasetest/" + moduleName)
+            .withCommit(getMVI(mi, release).getGitCommitHash())
+            .withName(moduleName + "." + methodName)
+            .withVer("0.0.1-dev")
+        );
+        List<SubAction> gotsas = pa.getSubactions();
+        checkSubActions(gotsas, expsas);
+        assertThat("correct # of subactions",
+                gotsas.size(), is(expsas.size()));
+    }
+
+    private void checkSubActions(List<SubAction> gotsas,
+            List<SubAction> expsas) {
+        assertThat("correct # of subactions",
+                gotsas.size(), is(expsas.size()));
+        Iterator<SubAction> giter = gotsas.iterator();
+        Iterator<SubAction> eiter = expsas.iterator();
+        while (giter.hasNext()) {
+            SubAction got = giter.next();
+            SubAction exp = eiter.next();
+            assertThat("correct code url", got.getCodeUrl(),
+                    is(exp.getCodeUrl()));
+            assertThat("correct commit", got.getCommit(), is(exp.getCommit()));
+            assertThat("correct name", got.getName(), is(exp.getName()));
+            assertThat("correct version", got.getVer(), is(exp.getVer()));
         }
     }
 
@@ -483,8 +605,7 @@ public class AweClientDockerJobScriptTest {
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
-        AuthToken token = new AuthToken(token(props));
-        AweClientDockerJobScriptTest.token = token;
+        token = new AuthToken(token(props));
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
@@ -524,7 +645,7 @@ public class AweClientDockerJobScriptTest {
         WorkspaceClient wscl = getWsClient(token, loadConfig());
         Exception error = null;
         for (int i = 0; i < 5; i++) {
-            testWsName = "test_feature_values_" + machineName + "_" + suf;
+            testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
             try {
                 wscl.createWorkspace(new CreateWorkspaceParams().withWorkspace(testWsName));
                 error = null;
@@ -578,7 +699,7 @@ public class AweClientDockerJobScriptTest {
         //killPid(shockDir);
         try {
             if (testWsName != null) {
-                //getWsClient().deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
+                getWsClient(token, loadConfig()).deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
                 //System.out.println("Test workspace " + testWsName + " was deleted");
             }
         } catch (Exception ex) {
