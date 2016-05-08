@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,7 +46,8 @@ public class CallbackServer extends JsonServerServlet {
     private final static DateTimeFormatter DATE_FORMATTER =
             DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
     private final static Map<String, ModuleRunVersion> vers =
-            new HashMap<String, ModuleRunVersion>();
+            Collections.synchronizedMap(
+                    new LinkedHashMap<String, ModuleRunVersion>());
     
     public CallbackServer(
             final File mainJobDir,
