@@ -195,9 +195,61 @@ public class AweClientDockerJobScriptTest {
                         "}," + 
              "\"actions\": []" +
              "}");
+        runJobAndCheckProvenance(moduleName, methodName, release, methparams,
+                objectName);
+    }
+
+    private void runJobAndCheckProvenance(String moduleName, String methodName,
+            String release, UObject methparams, String objectName)
+            throws IOException, JsonClientException, InterruptedException,
+            ServerException, Exception, InvalidFileFormatException {
+        runJob(moduleName, methodName, release, methparams);
+        checkProvenance(moduleName, methodName, release, methparams,
+                objectName);
+    }
+
+    private void checkProvenance(String moduleName, String methodName,
+            String release, UObject methparams, String objectName)
+            throws Exception, IOException, InvalidFileFormatException,
+            JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());
         final ModuleInfo mi = cat.getModuleInfo(
                 new SelectOneModuleParams().withModuleName(moduleName));
+        WorkspaceClient ws = getWsClient(token, loadConfig());
+        List<ProvenanceAction> prov = ws.getObjects(Arrays.asList(
+                new ObjectIdentity().withWorkspace(testWsName)
+                .withName(objectName))).get(0).getProvenance();
+        assertThat("number of provenance actions",
+                prov.size(), is(1));
+        ProvenanceAction pa = prov.get(0);
+        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
+        long now = new Date().getTime();
+        assertTrue("got prov time < now ", got < now);
+        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
+        assertThat("correct service", pa.getService(), is(moduleName));
+        assertThat("correct service version", pa.getServiceVer(),
+                is("0.0.1-dev"));
+        assertThat("correct method", pa.getMethod(), is(methodName));
+        assertThat("number of params", pa.getMethodParams().size(), is(1));
+        assertThat("correct params",
+                pa.getMethodParams().get(0).asClassInstance(Map.class),
+                is(methparams.asClassInstance(Map.class)));
+        List<SubAction> expsas = new LinkedList<SubAction>();
+        expsas.add(new SubAction()
+            .withCodeUrl("https://github.com/kbasetest/" + moduleName)
+            .withCommit(getMVI(mi, release).getGitCommitHash())
+            .withName(moduleName + "." + methodName)
+            .withVer("0.0.1-dev")
+        );
+        List<SubAction> gotsas = pa.getSubactions();
+        checkSubActions(gotsas, expsas);
+        assertThat("correct # of subactions",
+                gotsas.size(), is(expsas.size()));
+    }
+
+    private void runJob(String moduleName, String methodName, String release,
+            UObject methparams) throws IOException, JsonClientException,
+            InterruptedException, ServerException {
         RunJobParams params = new RunJobParams()
             .withMethod(moduleName + "." + methodName)
             .withServiceVer(release)
@@ -222,35 +274,6 @@ public class AweClientDockerJobScriptTest {
             System.out.println(ret);
             fail("Job failed");
         }
-        WorkspaceClient ws = getWsClient(token, loadConfig());
-        ObjectData wsobj = ws.getObjects(Arrays.asList(new ObjectIdentity()
-            .withWorkspace(testWsName).withName(objectName))).get(0);
-        assertThat("number of provenance actions",
-                wsobj.getProvenance().size(), is(1));
-        ProvenanceAction pa = wsobj.getProvenance().get(0);
-        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
-        long now = new Date().getTime();
-        assertTrue("got prov time < now ", got < now);
-        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
-        assertThat("correct service", pa.getService(), is(moduleName));
-        assertThat("correct service version", pa.getServiceVer(),
-                is("0.0.1-dev"));
-        assertThat("correct method", pa.getMethod(), is(methodName));
-        assertThat("number of params", pa.getMethodParams().size(), is(1));
-        assertThat("correct params",
-                pa.getMethodParams().get(0).asClassInstance(Map.class),
-                is(methparams.asClassInstance(Map.class)));
-        List<SubAction> expsas = new LinkedList<SubAction>();
-        expsas.add(new SubAction()
-            .withCodeUrl("https://github.com/kbasetest/" + moduleName)
-            .withCommit(getMVI(mi, release).getGitCommitHash())
-            .withName(moduleName + "." + methodName)
-            .withVer("0.0.1-dev")
-        );
-        List<SubAction> gotsas = pa.getSubactions();
-        checkSubActions(gotsas, expsas);
-        assertThat("correct # of subactions",
-                gotsas.size(), is(expsas.size()));
     }
 
     private void checkSubActions(List<SubAction> gotsas,
