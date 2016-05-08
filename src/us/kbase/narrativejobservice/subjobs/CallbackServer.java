@@ -73,7 +73,7 @@ public class CallbackServer extends JsonServerServlet {
     }
     
     @JsonServerMethod(rpc = "CallbackServer.get_provenance")
-    public LinkedList<ProvenanceAction> getProvenance()
+    public List<ProvenanceAction> getProvenance()
             throws IOException, JsonClientException {
         /* Would be more efficient if provenance was updated online
            although I can't imagine this making a difference compared to
