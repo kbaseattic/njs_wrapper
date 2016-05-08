@@ -208,9 +208,11 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testMultiCallProvenance() throws Exception {
+        // for now can't go more than 1 layer deep
         System.out.println("Test [testMultiCallProvenance]");
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
+        String moduleName2 = "njs_sdk_test_2";
         String methodName = "run";
         String objectName = "prov_multi";
         String release = "dev";
@@ -222,14 +224,33 @@ public class AweClientDockerJobScriptTest {
              "\"calls\": [{\"method\": \"%s\"," +
                           "\"params\": [{}]," +
                           "\"ver\": \"%s\"" +
-                          "}]" +
-             "}", testWsName, objectName, moduleName + "." + methodName,
-             "6e115c681af0b475e8f246a6d361ff86f84323d4"));
+                          "}," +
+                          "{\"method\": \"%s\"," +
+                           "\"params\": [{}]," +
+                           "\"ver\": \"%s\"" +
+                           "}," +
+                           "{\"method\": \"%s\"," +
+                           "\"params\": [{}]," +
+                           "\"ver\": \"%s\"" +
+                           "}" +
+                         "]" +
+             "}", testWsName, objectName,
+             moduleName2 + "." + methodName,
+             "e1038b847b2f20a38f06799de509e7058b7d0d7e",
+             moduleName + "." + methodName,
+             "6e115c681af0b475e8f246a6d361ff86f84323d4",
+             moduleName2 + "." + methodName,
+             "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
             .withVer("0.0.1")
             .withRel("dev")
+        );
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName2)
+            .withVer("0.0.3")
+            .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
                 methparams, objectName, expsas);
@@ -318,8 +339,7 @@ public class AweClientDockerJobScriptTest {
         assertThat("correct params",
                 pa.getMethodParams().get(0).asClassInstance(Map.class),
                 is(methparams.asClassInstance(Map.class)));
-        List<SubAction> gotsas = pa.getSubactions();
-        checkSubActions(gotsas, subs);
+        checkSubActions(pa.getSubactions(), subs);
     }
     
     private void checkSubActions(List<SubAction> gotsas,
