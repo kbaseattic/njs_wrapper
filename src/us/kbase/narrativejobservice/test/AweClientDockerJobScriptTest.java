@@ -194,11 +194,11 @@ public class AweClientDockerJobScriptTest {
     public void testBasicProvenance() throws Exception {
         System.out.println("Test [testBasicProvenance]");
         execStats.clear();
-        String moduleName = "njs_sdk_test_1";
+        String moduleName = "njs_sdk_test_2";
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.3";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -208,8 +208,19 @@ public class AweClientDockerJobScriptTest {
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
-            .withRel("dev")
+            .withVer(ver)
+            .withRel(release)
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
+        
+        release = "beta";
+        ver = "0.0.4";
+        expsas.set(0, new SubActionSpec()
+            .withMod(moduleName)
+            .withVer(ver)
+            .withRel(release)
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
                 methparams, objectName, expsas,
@@ -248,7 +259,9 @@ public class AweClientDockerJobScriptTest {
              moduleName2 + "." + methodName,
              "e1038b847b2f20a38f06799de509e7058b7d0d7e",
              moduleName + "." + methodName,
-             "6e115c681af0b475e8f246a6d361ff86f84323d4",
+             // this is the latest commit, but the prior commit is registered
+             //for dev
+             "b0d487271c22f793b381da29e266faa9bb0b2d1b",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
@@ -275,8 +288,8 @@ public class AweClientDockerJobScriptTest {
                 "fakeWSName/foo"));
         List<String> input = new LinkedList<String>(ws);
         ws.remove(1);
-        failJob(input, String.format("The workspace objects %s either don't " +
-                "exist or were inaccessible to the user %s.",
+        failJobWSRefs(input, String.format("The workspace objects %s either" +
+                " don't exist or were inaccessible to the user %s.",
                 ws, token.getUserName()));
     }
     
@@ -286,15 +299,104 @@ public class AweClientDockerJobScriptTest {
         List<String> input = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + STAGED1_NAME,
                 testWsName + "/" + "objectdoesntexist/badver"));
-        failJob(input, String.format("Error on workspace reference #2: " +
-                "Unable to parse version portion of object reference " +
+        failJobWSRefs(input, String.format("Error on workspace reference #2:" +
+                " Unable to parse version portion of object reference " +
                 testWsName + "/objectdoesntexist/badver to an integer"));
     }
+    
+    @Test
+    public void testBadRelease() throws Exception {
+        // note that dev and beta releases can only have one version each,
+        // version tracking only happens for prod
+        
+        failJobRelease("njs_sdk_test_1foo", "beta",
+                "Error looking up module njs_sdk_test_1foo: Operation " +
+                "failed - module/repo is not registered.");
+        failJobRelease("njs_sdk_test_1", "beta",
+                "There is no release version 'beta' for module njs_sdk_test_1");
+        failJobRelease("njs_sdk_test_1", "release",
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
+        failJobRelease("njs_sdk_test_1", null,
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
 
-    private void failJob(List<String> refs, String exp) throws Exception{
+        //TODO fix these when catalog is fixed
+        //this is the newest git commit and was registered in dev but 
+        //then the previous git commit was registered in dev
+        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
+        failJobRelease("njs_sdk_test_1", git,
+                "Error looking up module njs_sdk_test_1 with version " +
+                git + ": 'NoneType' object has no attribute '__getitem__'");
+        failJobRelease("njs_sdk_test_1", "foo",
+                "Error looking up module njs_sdk_test_1 with version foo: " +
+                "'NoneType' object has no attribute '__getitem__'");
+    }
+    
+    @Test
+    public void testfailJobMultiCallBadRelease() throws Exception {
+        
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1foo", "run", "dev", "null",
+                "Error looking up module njs_sdk_test_1foo: Operation " +
+                "failed - module/repo is not registered.");
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"beta\"",
+                "There is no release version 'beta' for module njs_sdk_test_1");
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"release\"",
+                "There is no release version 'release' for module njs_sdk_test_1");
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "null",
+                "There is no release version 'release' for module njs_sdk_test_1");
+      //TODO fix these when catalog is fixed
+        //this is the newest git commit and was registered in dev but 
+        //then the previous git commit was registered in dev
+        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev",
+                "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
+                "Error looking up module njs_sdk_test_1 with version " +
+                git + ": 'NoneType' object has no attribute '__getitem__'");
+        failJobMultiCall(
+                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"foo\"",
+                "Error looking up module njs_sdk_test_1 with version foo: " +
+                "'NoneType' object has no attribute '__getitem__'");
+    }
+
+    private void failJobMultiCall(String outerMod, String innerMod,
+            String methodName, String outerRel, String innerRel, String msg)
+            throws IOException, JsonClientException, InterruptedException,
+            ServerException {
+        UObject methparams = UObject.fromJsonString(String.format(
+            "{\"calls\": [{\"method\": \"%s\"," +
+                          "\"params\": [{}]," +
+                          "\"ver\": %s" +
+                          "}" +
+                         "]" +
+             "}",
+             innerMod + "." + methodName, innerRel));
+        JobState ret = runJob(outerMod, methodName, outerRel, methparams,
+                null);
+        assertThat("correct error message", ret.getError().getMessage(),
+                is(msg));
+    }
+
+    private void failJobWSRefs(List<String> refs, String exp) throws Exception{
         UObject mt = new UObject(new HashMap<String, String>());
         try {
             runJob("foo", "bar", "baz", mt, refs);
+            fail("Ran bad job");
+        } catch (ServerException se) {
+            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
+        }
+    }
+    
+    private void failJobRelease(String module, String release, String exp)
+            throws Exception{
+        UObject mt = new UObject(new HashMap<String, String>());
+        try {
+            runJob(module, "bar", release, mt, null);
             fail("Ran bad job");
         } catch (ServerException se) {
             assertThat("correct exception", se.getLocalizedMessage(), is(exp));
@@ -430,7 +532,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    private void runJob(String moduleName, String methodName, String release,
+    private JobState runJob(String moduleName, String methodName, String release,
             UObject methparams, List<String> wsobjs)
                     throws IOException, JsonClientException,
             InterruptedException, ServerException {
@@ -457,8 +559,8 @@ public class AweClientDockerJobScriptTest {
         if (ret.getResult() == null) {
             System.out.println("Job failed");
             System.out.println(ret);
-            fail("Job failed");
         }
+        return ret;
     }
 
     @Test
@@ -572,7 +674,7 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             int logLinesRecieved = 0;
             int numberOfOneLiners = 0;
-            for (int i = 0; i < 30; i++) {
+            for (int i = 0; i < 100; i++) {
                 try {
                     if (stepJobId == null) {
                         st = client.checkAppState(appJobId);
@@ -599,7 +701,7 @@ public class AweClientDockerJobScriptTest {
                             numberOfOneLiners++;
                         logLinesRecieved += lines.size();
                     }
-                    Thread.sleep(2500);
+                    Thread.sleep(1000);
                 } catch (ServerException ex) {
                     System.out.println(ex.getData());
                     throw ex;
@@ -730,7 +832,8 @@ public class AweClientDockerJobScriptTest {
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
             Assert.assertEquals(errMsg, "suspend", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepErrors().get("step1"));
-            Assert.assertTrue(errMsg, st.getStepErrors().get("step1").contains("Error: Unknown error"));
+            Assert.assertTrue(errMsg, st.getStepErrors().get("step1")
+                    .contains("Error: Method not found"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

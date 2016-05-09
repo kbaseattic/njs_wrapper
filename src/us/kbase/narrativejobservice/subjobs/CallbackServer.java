@@ -46,6 +46,7 @@ public class CallbackServer extends JsonServerServlet {
     
     private final static DateTimeFormatter DATE_FORMATTER =
             DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+    // IMPORTANT: don't access outside synchronized block
     private final static Map<String, ModuleRunVersion> vers =
             Collections.synchronizedMap(
                     new LinkedHashMap<String, ModuleRunVersion>());
@@ -89,8 +90,17 @@ public class CallbackServer extends JsonServerServlet {
                .withName(mrv.getModuleDotMethod())
                .withVer(mrv.getVersionAndRelease()));
         }
-        prov.setSubactions(sas);
-        return new LinkedList<ProvenanceAction>(Arrays.asList(prov));
+        return new LinkedList<ProvenanceAction>(Arrays.asList(
+                new ProvenanceAction()
+                    .withSubactions(sas)
+                    .withTime(prov.getTime())
+                    .withService(prov.getService())
+                    .withMethod(prov.getMethod())
+                    .withDescription(prov.getDescription())
+                    .withMethodParams(prov.getMethodParams())
+                    .withInputWsObjects(prov.getInputWsObjects())
+                    .withServiceVer(prov.getServiceVer())
+                 ));
     }
     
     @JsonServerMethod(rpc = "CallbackServer.status")
@@ -113,29 +123,33 @@ public class CallbackServer extends JsonServerServlet {
             String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             try {
-                final String serviceVer;
-                if (vers.containsKey(module)) {
-                    ModuleRunVersion v = vers.get(module);
-                    serviceVer = v.getGitHash();
-                    System.out.println(String.format(
-                            "Warning: Module %s was already used once for " +
-                            "this job. Using cached version:\n" +
-                            "url: %s\n" +
-                            "commit: %s\n" +
-                            "version: %s\n" +
-                            "release: %s\n",
-                            module, v.getGitURL(), v.getGitHash(),
-                            v.getVersion(), v.getRelease()));
-                } else {
-                    serviceVer = rpcCallData.getContext() == null ? null : 
-                        (String)rpcCallData.getContext()
-                        .getAdditionalProperties().get("service_ver");
-                }
-                // Request docker image name from Catalog
-                SubsequentCallRunner runner = new SubsequentCallRunner(mainJobDir, rpcName, serviceVer, 
-                        callbackPort, config, logger);
-                if (!vers.containsKey(module)) {
-                    vers.put(module, runner.getModuleRunVersion());
+                final SubsequentCallRunner runner;
+                synchronized(this) {
+                    final String serviceVer;
+                    if (vers.containsKey(module)) {
+                        ModuleRunVersion v = vers.get(module);
+                        serviceVer = v.getGitHash();
+                        System.out.println(String.format(
+                                "Warning: Module %s was already used once " +
+                                        "for this job. Using cached " +
+                                        "version:\n" +
+                                        "url: %s\n" +
+                                        "commit: %s\n" +
+                                        "version: %s\n" +
+                                        "release: %s\n",
+                                        module, v.getGitURL(), v.getGitHash(),
+                                        v.getVersion(), v.getRelease()));
+                    } else {
+                        serviceVer = rpcCallData.getContext() == null ? null : 
+                            (String)rpcCallData.getContext()
+                            .getAdditionalProperties().get("service_ver");
+                    }
+                    // Request docker image name from Catalog
+                    runner = new SubsequentCallRunner(mainJobDir, rpcName,
+                            serviceVer, callbackPort, config, logger);
+                    if (!vers.containsKey(module)) {
+                        vers.put(module, runner.getModuleRunVersion());
+                    }
                 }
                 // Run method in local docker container
                 jsonRpcResponse = runner.run(rpcCallData);

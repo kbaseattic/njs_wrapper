@@ -15,6 +15,7 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
 import us.kbase.narrativejobservice.AweClientDockerJobScript;
@@ -58,8 +59,15 @@ public class SubsequentCallRunner {
         }
         this.moduleName = modMeth[0];
         final String methodOnlyName = modMeth[1];
-        final ModuleInfo mi = catClient.getModuleInfo(
+        final ModuleInfo mi;
+        try {
+            mi = catClient.getModuleInfo(
                 new SelectOneModuleParams().withModuleName(moduleName));
+        } catch (ServerException se) {
+            throw new IllegalArgumentException(String.format(
+                    "Error looking up module %s: %s", moduleName,
+                    se.getLocalizedMessage()));
+        }
         final ModuleVersionInfo mvi;
         if (serviceVer == null || RELEASE_TAGS.contains(serviceVer)) {
             if (serviceVer == null) {
@@ -73,14 +81,22 @@ public class SubsequentCallRunner {
                 mvi = mi.getRelease();
                 serviceVer = RELEASE;
             }
+            if (mvi == null) {
+                // the requested release does not exist
+                throw new IllegalArgumentException(String.format(
+                        "There is no release version '%s' for module %s",
+                        serviceVer, moduleName));
+            }
         } else {
             try {
                 mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(serviceVer));
+                        .withModuleName(moduleName)
+                        .withGitCommitHash(serviceVer));
                 serviceVer = null;
-            } catch (Exception ex) {
-                throw new IllegalStateException("Error retrieving module version info about image " +
-                        moduleName + " with version " + serviceVer, ex);
+            } catch (ServerException se) {
+                throw new IllegalArgumentException(String.format(
+                        "Error looking up module %s with version %s: %s",
+                        moduleName, serviceVer, se.getLocalizedMessage()));
             }
         }
         mrv = new ModuleRunVersion(
