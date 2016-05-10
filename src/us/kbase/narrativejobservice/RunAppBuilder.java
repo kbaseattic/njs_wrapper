@@ -2,7 +2,9 @@ package us.kbase.narrativejobservice;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -11,6 +13,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -39,11 +42,15 @@ import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
+import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
+import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
@@ -54,6 +61,9 @@ import us.kbase.shock.client.BasicShockClient;
 import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.workspace.GetObjectInfoNewParams;
+import us.kbase.workspace.ObjectIdentity;
+import us.kbase.workspace.WorkspaceClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static boolean debug = false;
@@ -63,10 +73,16 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
     public static final long MAX_APP_SIZE = 3000000;
-    public static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    //TODO consider an enum here
+    public static final String DEV = "dev";
+    public static final String BETA = "beta";
+    public static final String RELEASE = "release";
+    public static final Set<String> RELEASE_TAGS =
+            Collections.unmodifiableSet(new LinkedHashSet<String>(
+                    Arrays.asList(DEV, BETA, RELEASE)));
     public static final int ERROR_HEAD_TAIL_LOG_LINES = 100;
     public static final int MAX_LOG_LINE_LENGTH = 1000;
+    public static String REQ_REL = "requested_release";
 
     private static ExecEngineMongoDb db = null;
 
@@ -471,32 +487,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-        if (params.getServiceVer() == null || asyncVersionTags.contains(params.getServiceVer())) {
-            CatalogClient catCl = getCatalogClient(config, false);
-            String moduleName = params.getMethod().split(Pattern.quote("."))[0];
-            ModuleVersionInfo mvi;
-            try {
-                ModuleInfo mi = catCl.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                String ver = params.getServiceVer();
-                if (ver == null) {
-                    mvi = mi.getRelease();
-                } else if (ver.equals("dev")) {
-                    mvi = mi.getDev();
-                } else if (ver.equals("beta")) {
-                    mvi = mi.getBeta();
-                } else {
-                    mvi = mi.getRelease();
-                }
-            } catch (Exception ex) {
-                throw new IllegalStateException("Error loading info from catalog for module: " + moduleName, ex);
-            }
-            if (mvi == null)
-                throw new IllegalStateException("Cannot extract release version from catalog for module: " + moduleName);
-            String serviceVer = mvi.getGitCommitHash();
-            params.setServiceVer(serviceVer);
-        }
-        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
+        checkWSObjects(authPart, config, params.getSourceWsObjects());
+        
+        checkModuleAndUpdateRunJobParams(params, config);
+        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -534,6 +529,115 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             appJobId = ujsJobId;
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
         return ujsJobId;
+    }
+
+    private static void checkModuleAndUpdateRunJobParams(
+            final RunJobParams params,
+            final Map<String, String> config)
+            throws IOException, JsonClientException {
+        final String[] modMeth = params.getMethod().split("\\.");
+        if (modMeth.length != 2) {
+            throw new IllegalStateException("Illegal method name: " +
+                    params.getMethod());
+        }
+        final String moduleName = modMeth[0];
+        
+        CatalogClient catClient = getCatalogClient(config, false);
+        final ModuleInfo mi;
+        try {
+            mi = catClient.getModuleInfo(
+                new SelectOneModuleParams().withModuleName(moduleName));
+        } catch (ServerException se) {
+            throw new IllegalArgumentException(String.format(
+                    "Error looking up module %s: %s", moduleName,
+                    se.getLocalizedMessage()));
+        }
+        String version = params.getServiceVer();
+        final ModuleVersionInfo mvi;
+        if (version == null || RELEASE_TAGS.contains(version)) {
+            if (version == null || version == RELEASE) {
+                mvi = mi.getRelease();
+                version = RELEASE;
+            } else if (version.equals(DEV)) {
+                mvi = mi.getDev();
+            } else {
+                mvi = mi.getBeta();
+            }
+            if (mvi == null) {
+                // the requested release does not exist
+                throw new IllegalArgumentException(String.format(
+                        "There is no release version '%s' for module %s",
+                        version, moduleName));
+            }
+        } else {
+            try {
+                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                        .withModuleName(moduleName).withGitCommitHash(version));
+                version = null;
+            } catch (ServerException se) {
+                throw new IllegalArgumentException(String.format(
+                        "Error looking up module %s with version %s: %s",
+                        moduleName, version, se.getLocalizedMessage()));
+            }
+        }
+        params.setServiceVer(mvi.getGitCommitHash());
+        params.setAdditionalProperties(REQ_REL, version);
+    }
+    
+    private static void checkWSObjects(
+            final AuthToken token,
+            final Map<String, String> config,
+            final List<String> objrefs)
+            throws UnauthorizedException, IOException, JsonClientException {
+        if (objrefs == null || objrefs.isEmpty()) {
+            return;
+        }
+        final String wsUrlstr = config.get(
+                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+        if (wsUrlstr == null || wsUrlstr.isEmpty())
+            throw new IllegalStateException("Parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is not defined in configuration");
+        final URL wsURL;
+        try {
+            wsURL = new URL(wsUrlstr);
+        } catch (MalformedURLException mue) {
+            throw new IllegalStateException("Config parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is invalid: " + wsUrlstr);
+        }
+        final WorkspaceClient wscli = new WorkspaceClient(wsURL, token);
+        final List<ObjectIdentity> ois = new LinkedList<ObjectIdentity>();
+        for (final String obj: objrefs) {
+            ois.add(new ObjectIdentity().withRef(obj));
+        }
+        final List<Tuple11<Long, String, String, String, Long, String, Long,
+                String, String, Long, Map<String, String>>> objinfo;
+        try {
+            objinfo = wscli.getObjectInfoNew(new GetObjectInfoNewParams()
+                    .withObjects(ois).withIgnoreErrors(1L));
+        } catch (ServerException se) {
+            if (se.getLocalizedMessage().indexOf(
+                    "Error on ObjectIdentity") != -1) {
+                throw new ServerException(se.getLocalizedMessage().replace(
+                        "ObjectIdentity", "workspace reference"),
+                        se.getCode(), se.getName(), se.getData());
+            } else {
+                throw se;
+            }
+        }
+        final Set<String> inaccessible = new LinkedHashSet<String>();
+        for (int i = 0; i < objinfo.size(); i++) {
+            if (objinfo.get(i) == null) {
+                inaccessible.add(objrefs.get(i));
+            }
+        }
+        if (!inaccessible.isEmpty()) {
+            throw new IllegalArgumentException(String.format(
+                    "The workspace objects %s either don't exist or were " +
+                    "inaccessible to the user %s.",
+                    inaccessible, token.getUserName()));
+        }
     }
     
     public static RunJobParams getAweDockerScriptInput(String ujsJobId, String token, 
@@ -930,18 +1034,28 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return aweUrl;
     }
 
-    private static CatalogClient getCatalogClient(Map<String, String> config, boolean asAdmin) throws Exception {
-        String catalogUrl = getRequiredConfigParam(config, 
+    private static CatalogClient getCatalogClient(Map<String, String> config,
+            boolean asAdmin)
+            throws UnauthorizedException, IOException  {
+        final String catalogUrl = getRequiredConfigParam(config, 
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-        CatalogClient ret;
+        final CatalogClient ret;
+        final URL catURL;
+        try {
+            catURL = new URL(catalogUrl);
+        } catch (MalformedURLException mue) {
+            throw new IllegalStateException("Config parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL +
+                    " is invalid: " + catalogUrl);
+        }
         if (asAdmin) {
             String catalogUser = getRequiredConfigParam(config, 
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
             String catalogPwd = getRequiredConfigParam(config, 
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
-            ret = new CatalogClient(new URL(catalogUrl), catalogUser, catalogPwd);
+            ret = new CatalogClient(catURL, catalogUser, catalogPwd);
         } else {
-            ret = new CatalogClient(new URL(catalogUrl));
+            ret = new CatalogClient(catURL);
         }
         ret.setIsInsecureHttpConnectionAllowed(true);
         ret.setAllSSLCertificatesTrusted(true);

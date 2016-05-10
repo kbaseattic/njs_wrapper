@@ -1,14 +1,16 @@
 package us.kbase.narrativejobservice;
 
+import java.io.File;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.JsonServerSyslog;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.Tuple2;
 
 //BEGIN_HEADER
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,7 +32,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
-import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.taskqueue2.JobStatuses;
@@ -51,6 +52,9 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
  */
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
+    private static final String version = "0.0.1";
+    private static final String gitUrl = "https://github.com/kbase/njs_wrapper";
+    private static final String gitCommitHash = "9c7f556b42ce052b184f64a29d9f70354b12f948";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -316,6 +320,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             List<Object> result = null;
             String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
+            us.kbase.narrativejobservice.RpcContext context =
+                    UObject.transformObjectToObject(rpcCallData.getContext(),
+                            us.kbase.narrativejobservice.RpcContext.class);
             try {
                 if (rpcName.endsWith("_async")) {
                     String origRpcName = rpcName.substring(0, rpcName.lastIndexOf('_'));
@@ -325,12 +332,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     runJobParams.setServiceVer(serviceVer);
                     runJobParams.setMethod(origRpcName);
                     runJobParams.setParams(paramsList);
-                    runJobParams.setRpcContext(UObject.transformObjectToObject(rpcCallData.getContext(), RpcContext.class));
+                    runJobParams.setRpcContext(context);
                     result = new ArrayList<Object>(); 
-                    result.add(runJob(runJobParams, new AuthToken(token)));
+                    result.add(runJob(runJobParams, new AuthToken(token),
+                            rpcCallData.getContext()));
                 } else if (rpcName.endsWith("_check") && paramsList.size() == 1) {
                     String jobId = paramsList.get(0).asClassInstance(String.class);
-                    JobState jobState = checkJob(jobId, new AuthToken(token));
+                    JobState jobState = checkJob(jobId, new AuthToken(token),
+                            rpcCallData.getContext());
                     Long finished = jobState.getFinished();
                     if (finished != 0L) {
                         Object error = jobState.getError();
@@ -420,6 +429,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
+       //TODO should check the config here and fail to start up if it's bad
         MigrationToMongo.migrate(getTaskQueue().getConfig(), getTaskQueue().getDb(), null);
         logger = new ErrorLogger() {
             @Override
@@ -441,8 +451,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   app   instance of type {@link us.kbase.narrativejobservice.App App} (original type "app")
      * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.run_app")
-    public AppState runApp(App app, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.run_app", async=true)
+    public AppState runApp(App app, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         AppState returnVal = null;
         //BEGIN run_app
         boolean forward = true;
@@ -472,8 +482,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.check_app_state")
-    public AppState checkAppState(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.check_app_state", async=true)
+    public AppState checkAppState(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         AppState returnVal = null;
         //BEGIN check_app_state
         if (Util.isAweJobId(jobId)) {
@@ -496,8 +506,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.suspend_app")
-    public String suspendApp(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.suspend_app", async=true)
+    public String suspendApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN suspend_app
         if (Util.isAweJobId(jobId)) {
@@ -516,8 +526,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.resume_app")
-    public String resumeApp(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.resume_app", async=true)
+    public String resumeApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN resume_app
         if (Util.isAweJobId(jobId)) {
@@ -536,8 +546,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "status" of String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.delete_app")
-    public String deleteApp(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.delete_app", async=true)
+    public String deleteApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN delete_app
         if (Util.isAweJobId(jobId)) {
@@ -559,8 +569,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * </pre>
      * @return   instance of mapping from String to String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.list_config", authOptional=true)
-    public Map<String,String> listConfig(AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.list_config", authOptional=true, async=true)
+    public Map<String,String> listConfig(AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Map<String,String> returnVal = null;
         //BEGIN list_config
         returnVal = getForwardClient(authPart).listConfig();
@@ -575,8 +585,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * </pre>
      * @return   instance of String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.ver")
-    public String ver() throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.ver", async=true)
+    public String ver(RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN ver
         returnVal = VERSION;
@@ -595,8 +605,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * </pre>
      * @return   instance of type {@link us.kbase.narrativejobservice.Status Status}
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.status")
-    public Status status() throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.status", async=true)
+    public Status status(RpcContext jsonRpcContext) throws Exception {
         Status returnVal = null;
         //BEGIN status
         int queued = getTaskQueue().getQueuedTasks();
@@ -644,8 +654,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * </pre>
      * @return   instance of list of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.list_running_apps", authOptional=true)
-    public List<AppState> listRunningApps(AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.list_running_apps", authOptional=true, async=true)
+    public List<AppState> listRunningApps(AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         List<AppState> returnVal = null;
         //BEGIN list_running_apps
         if (!getAdminUsers().contains(authPart.getClientId()))
@@ -664,8 +674,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   params   instance of type {@link us.kbase.narrativejobservice.RunJobParams RunJobParams}
      * @return   parameter "job_id" of original type "job_id" (A job id.)
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.run_job")
-    public String runJob(RunJobParams params, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.run_job", async=true)
+    public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
         returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config(), null);
@@ -681,8 +691,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   multiple set: (1) parameter "params" of type {@link us.kbase.narrativejobservice.RunJobParams RunJobParams}, (2) parameter "config" of mapping from String to String
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.get_job_params", tuple = true)
-    public Tuple2<RunJobParams, Map<String,String>> getJobParams(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.get_job_params", tuple = true, async=true)
+    public Tuple2<RunJobParams, Map<String,String>> getJobParams(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         RunJobParams return1 = null;
         Map<String,String> return2 = null;
         //BEGIN get_job_params
@@ -703,8 +713,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   lines   instance of list of type {@link us.kbase.narrativejobservice.LogLine LogLine}
      * @return   parameter "line_number" of Long
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.add_job_logs")
-    public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.add_job_logs", async=true)
+    public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
         returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
@@ -719,8 +729,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   params   instance of type {@link us.kbase.narrativejobservice.GetJobLogsParams GetJobLogsParams}
      * @return   instance of type {@link us.kbase.narrativejobservice.GetJobLogsResults GetJobLogsResults}
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.get_job_logs")
-    public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.get_job_logs", async=true)
+    public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
         returnVal = RunAppBuilder.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
@@ -737,8 +747,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @param   params   instance of type {@link us.kbase.narrativejobservice.FinishJobParams FinishJobParams}
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.finish_job")
-    public void finishJob(String jobId, FinishJobParams params, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
+    public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
         RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
         //END finish_job
@@ -752,20 +762,43 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
      * @param   jobId   instance of original type "job_id" (A job id.)
      * @return   parameter "job_state" of type {@link us.kbase.narrativejobservice.JobState JobState}
      */
-    @JsonServerMethod(rpc = "NarrativeJobService.check_job")
-    public JobState checkJob(String jobId, AuthToken authPart) throws Exception {
+    @JsonServerMethod(rpc = "NarrativeJobService.check_job", async=true)
+    public JobState checkJob(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         JobState returnVal = null;
         //BEGIN check_job
         returnVal = RunAppBuilder.checkJob(jobId, authPart.toString(), config());
         //END check_job
         return returnVal;
     }
+    
+    @JsonServerMethod(rpc = "NarrativeJobService.status")
+    public Map<String, Object> status() {
+        Map<String, Object> returnVal = null;
+        //BEGIN_STATUS
+        returnVal = new LinkedHashMap<String, Object>();
+        returnVal.put("state", "OK");
+        returnVal.put("message", "");
+        returnVal.put("version", VERSION);
+        returnVal.put("git_url", gitUrl);
+        @SuppressWarnings("unused")
+        String foo = gitCommitHash;
+        @SuppressWarnings("unused")
+        String ver = version;
+        //END_STATUS
+        return returnVal;
+    }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) {
+        if (args.length == 1) {
+            new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
+        } else if (args.length == 3) {
+            JsonServerSyslog.setStaticUseSyslog(false);
+            JsonServerSyslog.setStaticMlogFile(args[1] + ".log");
+            new NarrativeJobServiceServer().processRpcCall(new File(args[0]), new File(args[1]), args[2]);
+        } else {
             System.out.println("Usage: <program> <server_port>");
+            System.out.println("   or: <program> <context_json_file> <output_json_file> <token>");
             return;
         }
-        new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
     }
 }

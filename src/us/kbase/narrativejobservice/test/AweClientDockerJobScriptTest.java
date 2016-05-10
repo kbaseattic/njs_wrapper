@@ -1,5 +1,10 @@
 package us.kbase.narrativejobservice.test;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -14,9 +19,15 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
@@ -29,6 +40,9 @@ import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -50,6 +64,7 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -66,9 +81,14 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.ObjectData;
+import us.kbase.workspace.ObjectIdentity;
 import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SaveObjectsParams;
+import us.kbase.workspace.SubAction;
 import us.kbase.workspace.WorkspaceClient;
+import us.kbase.workspace.WorkspaceIdentity;
 
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScriptTest {
@@ -91,8 +111,20 @@ public class AweClientDockerJobScriptTest {
     private static int njsJobWaitSeconds = 60;
     private static MongoController mongo;
     
+    private static String STAGED1_NAME = "staged1";
+    private static String STAGED2_NAME = "staged2";
+    private static Map<String, String> NAME2REF =
+            new HashMap<String, String>();
+    
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
+
+    private final static DateTimeFormatter DATE_PARSER =
+            new DateTimeFormatterBuilder()
+                .append(DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss"))
+                .appendOptional(DateTimeFormat.forPattern(".SSS").getParser())
+                .append(DateTimeFormat.forPattern("Z"))
+                .toFormatter();
 
     @Test
     public void testOneJob() throws Exception {
@@ -146,6 +178,418 @@ public class AweClientDockerJobScriptTest {
             System.err.println(ex.getData());
             throw ex;
         }
+    }
+
+    private ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
+        if (release.equals("dev")) {
+            return mi.getDev();
+        } else if (release.equals("beta")) {
+            return mi.getBeta();
+        } else {
+            return mi.getRelease();
+        }
+    }
+    
+    @Test
+    public void testBasicProvenance() throws Exception {
+        System.out.println("Test [testBasicProvenance]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_2";
+        String methodName = "run";
+        String objectName = "prov-basic";
+        String release = "dev";
+        String ver = "0.0.3";
+        UObject methparams = UObject.fromJsonString(
+            "{\"save\": {\"ws\":\"" + testWsName + "\"," +
+                        "\"name\":\"" + objectName + "\"" +
+                        "}," + 
+             "\"calls\": []" +
+             "}");
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer(ver)
+            .withRel(release)
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
+        
+        release = "beta";
+        ver = "0.0.4";
+        expsas.set(0, new SubActionSpec()
+            .withMod(moduleName)
+            .withVer(ver)
+            .withRel(release)
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
+    }
+    
+    @Test
+    public void testMultiCallProvenance() throws Exception {
+        // for now can't go more than 1 layer deep
+        System.out.println("Test [testMultiCallProvenance]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String moduleName2 = "njs_sdk_test_2";
+        String methodName = "run";
+        String objectName = "prov_multi";
+        String release = "dev";
+        String ver = "0.0.1";
+        UObject methparams = UObject.fromJsonString(String.format(
+            "{\"save\": {\"ws\":\"%s\"," +
+                        "\"name\":\"%s\"" +
+                        "}," + 
+             "\"calls\": [{\"method\": \"%s\"," +
+                          "\"params\": [{}]," +
+                          "\"ver\": \"%s\"" +
+                          "}," +
+                          "{\"method\": \"%s\"," +
+                           "\"params\": [{}]," +
+                           "\"ver\": \"%s\"" +
+                           "}," +
+                           "{\"method\": \"%s\"," +
+                           "\"params\": [{}]," +
+                           "\"ver\": \"%s\"" +
+                           "}" +
+                         "]" +
+             "}", testWsName, objectName,
+             moduleName2 + "." + methodName,
+             "e1038b847b2f20a38f06799de509e7058b7d0d7e",
+             moduleName + "." + methodName,
+             // this is the latest commit, but the prior commit is registered
+             //for dev
+             "b0d487271c22f793b381da29e266faa9bb0b2d1b",
+             moduleName2 + "." + methodName,
+             "dev"));
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName2)
+            .withVer("0.0.3")
+            .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED2_NAME, STAGED1_NAME));
+    }
+
+    @Test
+    public void testBadWSIDs() throws Exception {
+        List<String> ws = new ArrayList<String>(Arrays.asList(
+                testWsName + "/" + "objectdoesntexist",
+                testWsName + "/" + STAGED1_NAME,
+                "fakeWSName/foo"));
+        List<String> input = new LinkedList<String>(ws);
+        ws.remove(1);
+        failJobWSRefs(input, String.format("The workspace objects %s either" +
+                " don't exist or were inaccessible to the user %s.",
+                ws, token.getUserName()));
+    }
+    
+    @Test
+    public void testWorkspaceError() throws Exception {
+        // test a workspace error.
+        List<String> input = new ArrayList<String>(Arrays.asList(
+                testWsName + "/" + STAGED1_NAME,
+                testWsName + "/" + "objectdoesntexist/badver"));
+        failJobWSRefs(input, String.format("Error on workspace reference #2:" +
+                " Unable to parse version portion of object reference " +
+                testWsName + "/objectdoesntexist/badver to an integer"));
+    }
+    
+    @Test
+    public void testBadRelease() throws Exception {
+        // note that dev and beta releases can only have one version each,
+        // version tracking only happens for prod
+        
+        failJob("njs_sdk_test_1foo.run", "beta",
+                "Error looking up module njs_sdk_test_1foo: Operation " +
+                "failed - module/repo is not registered.");
+        failJob("njs_sdk_test_1.run", "beta",
+                "There is no release version 'beta' for module njs_sdk_test_1");
+        failJob("njs_sdk_test_1.run", "release",
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
+        failJob("njs_sdk_test_1.run", null,
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
+
+        //TODO fix these when catalog is fixed
+        //this is the newest git commit and was registered in dev but 
+        //then the previous git commit was registered in dev
+        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
+        failJob("njs_sdk_test_1.run", git,
+                "Error looking up module njs_sdk_test_1 with version " +
+                git + ": 'NoneType' object has no attribute '__getitem__'");
+        failJob("njs_sdk_test_1.run", "foo",
+                "Error looking up module njs_sdk_test_1 with version foo: " +
+                "'NoneType' object has no attribute '__getitem__'");
+    }
+    
+    @Test
+    public void testfailJobMultiCallBadRelease() throws Exception {
+        
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
+                "Error looking up module njs_sdk_test_1foo: Operation " +
+                "failed - module/repo is not registered.");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"beta\"",
+                "There is no release version 'beta' for module njs_sdk_test_1");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"release\"",
+                "There is no release version 'release' for module njs_sdk_test_1");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "null",
+                "There is no release version 'release' for module njs_sdk_test_1");
+      //TODO fix these when catalog is fixed
+        //this is the newest git commit and was registered in dev but 
+        //then the previous git commit was registered in dev
+        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev",
+                "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
+                "Error looking up module njs_sdk_test_1 with version " +
+                git + ": 'NoneType' object has no attribute '__getitem__'");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"foo\"",
+                "Error looking up module njs_sdk_test_1 with version foo: " +
+                "'NoneType' object has no attribute '__getitem__'");
+    }
+    
+    @Test
+    public void testfailJobBadMethod() throws Exception {
+        failJob("njs_sdk_test_1run", "foo",
+                "Illegal method name: njs_sdk_test_1run");
+        failJob("njs_sdk_test_1.r.un", "foo",
+                "Illegal method name: njs_sdk_test_1.r.un");
+    }
+    
+    @Test
+    public void testfailJobMultiCallBadMethod() throws Exception {
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
+                "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
+                "server class us.kbase.narrativejobservice.subjobs." +
+                "CallbackServer");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
+                "Illegal method name: njs_sdk_test_1.r.un");
+        
+    }
+
+    private void failJobMultiCall(String outerModMeth, String innerModMeth,
+            String outerRel, String innerRel, String msg)
+            throws IOException, JsonClientException, InterruptedException,
+            ServerException {
+        UObject methparams = UObject.fromJsonString(String.format(
+            "{\"calls\": [{\"method\": \"%s\"," +
+                          "\"params\": [{}]," +
+                          "\"ver\": %s" +
+                          "}" +
+                         "]" +
+             "}",
+             innerModMeth, innerRel));
+        JobState ret = runJob(outerModMeth, outerRel, methparams,
+                null);
+        assertThat("correct error message", ret.getError().getMessage(),
+                is(msg));
+    }
+
+    private void failJobWSRefs(List<String> refs, String exp) throws Exception{
+        UObject mt = new UObject(new HashMap<String, String>());
+        try {
+            runJob("foo", "bar", "baz", mt, refs);
+            fail("Ran bad job");
+        } catch (ServerException se) {
+            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
+        }
+    }
+    
+    private void failJob(String moduleMeth, String release, String exp)
+            throws Exception{
+        UObject mt = new UObject(new HashMap<String, String>());
+        try {
+            runJob(moduleMeth, release, mt, null);
+            fail("Ran bad job");
+        } catch (ServerException se) {
+            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
+        }
+    }
+
+    private static class SubActionSpec {
+        public String module;
+        public String release;
+        public String ver;
+        public String commit;
+        
+        public SubActionSpec (){}
+        public SubActionSpec withMod(String mod) {
+            this.module = mod;
+            return this;
+        }
+        
+        public SubActionSpec withRel(String rel) {
+            this.release = rel;
+            return this;
+        }
+        
+        public SubActionSpec withVer(String ver) {
+            this.ver = ver;
+            return this;
+        }
+        
+        public SubActionSpec withCommit(String commit) {
+            this.commit = commit;
+            return this;
+        }
+        public String getVerRel() {
+            if (release == null) {
+                return ver;
+            }
+            return ver + "-" + release;
+        }
+    }
+    private void runJobAndCheckProvenance(
+            String moduleName,
+            String methodName,
+            String release,
+            String ver,
+            UObject methparams,
+            String objectName,
+            List<SubActionSpec> subs,
+            List<String> wsobjs)
+            throws IOException, JsonClientException, InterruptedException,
+            ServerException, Exception, InvalidFileFormatException {
+        List<String> wsobjrefs = new LinkedList<String>();
+        for (String o: wsobjs) {
+            wsobjrefs.add(testWsName + "/" + o);
+        }
+        runJob(moduleName, methodName, release, methparams, wsobjrefs);
+        checkProvenance(moduleName, methodName, release, ver, methparams,
+                objectName, subs, wsobjs);
+    }
+
+    private void checkProvenance(
+            String moduleName,
+            String methodName,
+            String release,
+            String ver,
+            UObject methparams,
+            String objectName,
+            List<SubActionSpec> subs,
+            List<String> wsobjs)
+            throws Exception, IOException, InvalidFileFormatException,
+            JsonClientException {
+        if (release != null) {
+            ver = ver + "-" + release;
+        }
+
+        WorkspaceClient ws = getWsClient(token, loadConfig());
+        ObjectData od = ws.getObjects(Arrays.asList(
+                new ObjectIdentity().withWorkspace(testWsName)
+                .withName(objectName))).get(0);
+        System.out.println(od);
+        List<ProvenanceAction> prov = od.getProvenance();
+        assertThat("number of provenance actions",
+                prov.size(), is(1));
+        ProvenanceAction pa = prov.get(0);
+        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
+        long now = new Date().getTime();
+        assertTrue("got prov time < now ", got < now);
+        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
+        assertThat("correct service", pa.getService(), is(moduleName));
+        assertThat("correct service version", pa.getServiceVer(),
+                is(ver));
+        assertThat("correct method", pa.getMethod(), is(methodName));
+        assertThat("number of params", pa.getMethodParams().size(), is(1));
+        assertThat("correct params",
+                pa.getMethodParams().get(0).asClassInstance(Map.class),
+                is(methparams.asClassInstance(Map.class)));
+        Set<String> wsobjrefs = new HashSet<String>();
+        for (String o: wsobjs) {
+            wsobjrefs.add(testWsName + "/" + o);
+        }
+        assertThat("correct incoming ws objs",
+                new HashSet<String>(pa.getInputWsObjects()),
+                is(wsobjrefs));
+        Iterator<String> reswo = pa.getResolvedWsObjects().iterator();
+        for (String wso: pa.getInputWsObjects()) {
+            String ref = NAME2REF.get(wso.replace(testWsName + "/", ""));
+            assertThat("ref remapped correctly", reswo.next(), is(ref));
+        }
+        checkSubActions(pa.getSubactions(), subs);
+    }
+    
+    private void checkSubActions(List<SubAction> gotsas,
+            List<SubActionSpec> expsas) throws Exception {
+        CatalogClient cat = getCatalogClient(token, loadConfig());
+        assertThat("correct # of subactions",
+                gotsas.size(), is(expsas.size()));
+        for (SubActionSpec sa: expsas) {
+            if (sa.commit == null) {
+                sa.commit = getMVI(cat.getModuleInfo(
+                        new SelectOneModuleParams().withModuleName(sa.module)),
+                        sa.release).getGitCommitHash();
+            }
+        }
+        Iterator<SubAction> giter = gotsas.iterator();
+        Iterator<SubActionSpec> eiter = expsas.iterator();
+        while (giter.hasNext()) {
+            SubAction got = giter.next();
+            SubActionSpec sa = eiter.next();
+            assertThat("correct code url", got.getCodeUrl(),
+                    is("https://github.com/kbasetest/" + sa.module));
+            assertThat("correct commit", got.getCommit(), is(sa.commit));
+            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct version", got.getVer(), is(sa.getVerRel()));
+        }
+    }
+
+    private JobState runJob(String moduleName, String methodName, String release,
+            UObject methparams, List<String> wsobjs)
+                    throws IOException, JsonClientException,
+                    InterruptedException, ServerException {
+        return runJob(moduleName + "." + methodName, release, methparams,
+                wsobjs);
+    }
+    
+    private JobState runJob(String moduleMethod, String release,
+            UObject methparams, List<String> wsobjs)
+                    throws IOException, JsonClientException,
+                    InterruptedException, ServerException {
+        RunJobParams params = new RunJobParams()
+            .withMethod(moduleMethod)
+            .withServiceVer(release)
+            .withSourceWsObjects(wsobjs)
+            .withParams(Arrays.asList(methparams));
+        String jobId = client.runJob(params);
+        JobState ret = null;
+        for (int i = 0; i < 20; i++) {
+            try {
+                ret = client.checkJob(jobId);
+                System.out.println("Job finished: " + ret.getFinished());
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        if (ret.getResult() == null) {
+            System.out.println("Job failed");
+            System.out.println(ret);
+        }
+        return ret;
     }
 
     @Test
@@ -259,7 +703,7 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             int logLinesRecieved = 0;
             int numberOfOneLiners = 0;
-            for (int i = 0; i < 30; i++) {
+            for (int i = 0; i < 100; i++) {
                 try {
                     if (stepJobId == null) {
                         st = client.checkAppState(appJobId);
@@ -286,7 +730,7 @@ public class AweClientDockerJobScriptTest {
                             numberOfOneLiners++;
                         logLinesRecieved += lines.size();
                     }
-                    Thread.sleep(2500);
+                    Thread.sleep(1000);
                 } catch (ServerException ex) {
                     System.out.println(ex.getData());
                     throw ex;
@@ -417,7 +861,8 @@ public class AweClientDockerJobScriptTest {
             String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
             Assert.assertEquals(errMsg, "suspend", st.getJobState());
             Assert.assertNotNull(errMsg, st.getStepErrors().get("step1"));
-            Assert.assertTrue(errMsg, st.getStepErrors().get("step1").contains("Error: Unknown error"));
+            Assert.assertTrue(errMsg, st.getStepErrors().get("step1")
+                    .contains("Error: Method not found"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -483,8 +928,7 @@ public class AweClientDockerJobScriptTest {
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
-        AuthToken token = new AuthToken(token(props));
-        AweClientDockerJobScriptTest.token = token;
+        token = new AuthToken(token(props));
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
@@ -524,7 +968,7 @@ public class AweClientDockerJobScriptTest {
         WorkspaceClient wscl = getWsClient(token, loadConfig());
         Exception error = null;
         for (int i = 0; i < 5; i++) {
-            testWsName = "test_feature_values_" + machineName + "_" + suf;
+            testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
             try {
                 wscl.createWorkspace(new CreateWorkspaceParams().withWorkspace(testWsName));
                 error = null;
@@ -534,8 +978,10 @@ public class AweClientDockerJobScriptTest {
                 error = ex;
             }
         }
-        if (error != null)
+        if (error != null) {
             throw error;
+        }
+        stageWSObjects();
         File dir = new File("test_data");
         GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
         Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
@@ -554,6 +1000,30 @@ public class AweClientDockerJobScriptTest {
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
+    }
+
+    private static void stageWSObjects() throws Exception {
+        WorkspaceClient wsc = getWsClient(token, loadConfig());
+        Map<String, String> mt = new HashMap<String, String>();
+        List<Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>>> ret =
+                wsc.saveObjects(new SaveObjectsParams()
+                    .withWorkspace(testWsName)
+                    .withObjects(Arrays.asList(
+                        new ObjectSaveData()
+                            .withData(new UObject(mt))
+                            .withName(STAGED1_NAME)
+                            .withType("Empty.AType"),
+                        new ObjectSaveData()
+                            .withData(new UObject(mt))
+                            .withName(STAGED2_NAME)
+                            .withType("Empty.AType")
+                    )
+                ));
+        NAME2REF.put(STAGED1_NAME, ret.get(0).getE7() + "/" +
+                ret.get(0).getE1() + "/" + ret.get(0).getE5());
+        NAME2REF.put(STAGED2_NAME, ret.get(1).getE7() + "/" +
+                ret.get(1).getE1() + "/" + ret.get(1).getE5());
     }
 
     private static String findAweBinary(File dir, String program) throws Exception {
@@ -578,7 +1048,7 @@ public class AweClientDockerJobScriptTest {
         //killPid(shockDir);
         try {
             if (testWsName != null) {
-                //getWsClient().deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
+                getWsClient(token, loadConfig()).deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
                 //System.out.println("Test workspace " + testWsName + " was deleted");
             }
         } catch (Exception ex) {

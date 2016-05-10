@@ -2,10 +2,7 @@ package us.kbase.narrativejobservice.subjobs;
 
 import java.io.File;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,14 +15,18 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
+import us.kbase.narrativejobservice.AweClientDockerJobScript;
 import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 public class SubsequentCallRunner {
-    private static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    private static final Set<String> RELEASE_TAGS =
+            AweClientDockerJobScript.RELEASE_TAGS;
+    private static final String RELEASE = AweClientDockerJobScript.RELEASE;
+    private static final String DEV = AweClientDockerJobScript.DEV;
 
     private String jobId;
     private String moduleName;
@@ -38,6 +39,8 @@ public class SubsequentCallRunner {
     private String dockerURI;
     private String token;
     
+    private final ModuleRunVersion mrv;
+    
     public SubsequentCallRunner(File mainJobDir, String methodName, 
             String serviceVer, int callbackPort, Map<String, String> config,
             DockerRunner.LineLogger logger) throws Exception {
@@ -47,32 +50,54 @@ public class SubsequentCallRunner {
         CatalogClient catClient = new CatalogClient(new URL(catalogUrl));
         catClient.setIsInsecureHttpConnectionAllowed(true);
         catClient.setAllSSLCertificatesTrusted(true);
-        this.moduleName = methodName.substring(0, methodName.indexOf('.'));
-        String imageVersion = serviceVer;
-        ModuleVersionInfo mvi = null;
-        if (imageVersion == null || asyncVersionTags.contains(imageVersion)) {
-            ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-            if (imageVersion == null) {
+        //TODO code duplicated in AweClientDockerJobScript
+        final String[] modMeth = methodName.split("\\.");
+        if (modMeth.length != 2) {
+            throw new IllegalStateException("Illegal method name: " +
+                    methodName);
+        }
+        this.moduleName = modMeth[0];
+        final String methodOnlyName = modMeth[1];
+        final ModuleInfo mi;
+        try {
+            mi = catClient.getModuleInfo(
+                new SelectOneModuleParams().withModuleName(moduleName));
+        } catch (ServerException se) {
+            throw new IllegalArgumentException(String.format(
+                    "Error looking up module %s: %s", moduleName,
+                    se.getLocalizedMessage()));
+        }
+        final ModuleVersionInfo mvi;
+        if (serviceVer == null || RELEASE_TAGS.contains(serviceVer)) {
+            if (serviceVer == null || serviceVer == RELEASE) {
                 mvi = mi.getRelease();
-            } else if (imageVersion.equals("dev")) {
+                serviceVer = RELEASE;
+            } else if (serviceVer.equals(DEV)) {
                 mvi = mi.getDev();
-            } else if (imageVersion.equals("beta")) {
-                mvi = mi.getBeta();
             } else {
-                mvi = mi.getRelease();
+                mvi = mi.getBeta();
             }
-            if (mvi == null)
-                throw new IllegalStateException("Cannot extract " + imageVersion + " version for module: " + moduleName);
-            imageVersion = mvi.getGitCommitHash();
+            if (mvi == null) {
+                // the requested release does not exist
+                throw new IllegalArgumentException(String.format(
+                        "There is no release version '%s' for module %s",
+                        serviceVer, moduleName));
+            }
         } else {
             try {
                 mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(imageVersion));
-            } catch (Exception ex) {
-                throw new IllegalStateException("Error retrieving module version info about image " +
-                        moduleName + " with version " + imageVersion, ex);
+                        .withModuleName(moduleName)
+                        .withGitCommitHash(serviceVer));
+                serviceVer = null;
+            } catch (ServerException se) {
+                throw new IllegalArgumentException(String.format(
+                        "Error looking up module %s with version %s: %s",
+                        moduleName, serviceVer, se.getLocalizedMessage()));
             }
         }
+        mrv = new ModuleRunVersion(
+                new URL(mi.getGitUrl()), moduleName, methodOnlyName,
+                mvi.getGitCommitHash(), mvi.getVersion(), serviceVer);
         imageName = mvi.getDockerImgName();
         File srcWorkDir = new File(mainJobDir, "workdir");
         this.sharedScratchDir = new File(srcWorkDir, "tmp");
@@ -96,6 +121,13 @@ public class SubsequentCallRunner {
         File srcConfigPropsFile = new File(srcWorkDir, "config.properties");
         File dstConfigPropsFile = new File(jobWorkDir, "config.properties");
         FileUtils.copyFile(srcConfigPropsFile, dstConfigPropsFile);
+    }
+    
+    /**
+     * @return the version information for the module to be run.
+     */
+    public ModuleRunVersion getModuleRunVersion() {
+        return mrv;
     }
     
     public Map<String, Object> run(RpcCallData rpcCallData) throws Exception {

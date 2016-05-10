@@ -10,17 +10,15 @@ import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -33,22 +31,30 @@ import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
+import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
+    
+    // TODO consider an enum here
+    public static final String DEV = RunAppBuilder.DEV;
+    public static final String BETA = RunAppBuilder.BETA;
+    public static final String RELEASE = RunAppBuilder.RELEASE;
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    private static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    public static final Set<String> RELEASE_TAGS = RunAppBuilder.RELEASE_TAGS;
 
     public static void main(String[] args) throws Exception {
+        System.out.println("Starting docker runner with args " +
+            StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
             for (int i = 0; i < args.length; i++)
@@ -77,7 +83,13 @@ public class AweClientDockerJobScript {
             ujsClient.startJob(jobId, token, "running", "AWE job for " + job.getMethod(), 
                     new InitProgress().withPtype("none"), null);
             File jobDir = getJobDir(config, jobId);
-            String moduleName = job.getMethod().split("\\.")[0];
+            final String[] modMeth = job.getMethod().split("\\.");
+            if (modMeth.length != 2) {
+                throw new IllegalStateException("Illegal method name: " +
+                        job.getMethod());
+            }
+            final String moduleName = modMeth[0];
+            final String methodName = modMeth[1];
             RpcContext context = job.getRpcContext();
             if (context == null)
                 context = new RpcContext().withRunId("");
@@ -120,33 +132,24 @@ public class AweClientDockerJobScript {
                     new File(".").getCanonicalPath(), false);
             String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = getCatalogClient(config, token);
-            String imageVersion = job.getServiceVer();
-            String imageName = null;
-            ModuleVersionInfo mvi = null;
-            if (imageVersion == null || asyncVersionTags.contains(imageVersion)) {
-                ModuleInfo mi = catClient.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                if (imageVersion == null) {
-                    mvi = mi.getRelease();
-                } else if (imageVersion.equals("dev")) {
-                    mvi = mi.getDev();
-                } else if (imageVersion.equals("beta")) {
-                    mvi = mi.getBeta();
-                } else {
-                    mvi = mi.getRelease();
-                }
-                if (mvi == null)
-                    throw new IllegalStateException("Cannot extract " + imageVersion + " version for module: " + moduleName);
-                imageVersion = mvi.getGitCommitHash();
-            } else {
-                try {
-                    mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                            .withModuleName(moduleName).withGitCommitHash(imageVersion));
-                } catch (Exception ex) {
-                    throw new IllegalStateException("Error retrieving module version info about image " +
-                            moduleName + " with version " + imageVersion, ex);
-                }
+            // the NJSW always passes the githash in service ver
+            final String imageVersion = job.getServiceVer();
+            final String requestedRelease = (String) job
+                    .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
+            final ModuleInfo mi;
+            final ModuleVersionInfo mvi;
+            try {
+                mi = catClient.getModuleInfo(
+                        new SelectOneModuleParams().withModuleName(moduleName));
+                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                        .withModuleName(moduleName)
+                        .withGitCommitHash(imageVersion));
+            } catch (ServerException se) {
+                throw new IllegalArgumentException(String.format(
+                        "Error looking up module %s with githash %s: %s",
+                        moduleName, imageVersion, se.getLocalizedMessage()));
             }
-            imageName = mvi.getDockerImgName();
+            String imageName = mvi.getDockerImgName();
             File refDataDir = null;
             if (mvi.getDataFolder() != null && mvi.getDataVersion() != null) {
                 String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
@@ -186,8 +189,15 @@ public class AweClientDockerJobScript {
             // Starting up callback server
             int callbackPort = NetUtils.findFreePort();
             String callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
-            System.out.println("Callback URL: " + callbackUrl);
-            JsonServerServlet catalogSrv = new CallbackServer(jobDir, callbackPort, config, log);
+            System.out.println("Docker runner found callback URL: " +
+                    callbackUrl);
+            final ModuleRunVersion runver = new ModuleRunVersion(
+                    new URL(mi.getGitUrl()), moduleName, methodName,
+                    mvi.getGitCommitHash(), mvi.getVersion(),
+                    requestedRelease);
+            JsonServerServlet catalogSrv = new CallbackServer(
+                    jobDir, callbackPort, config, log, runver,
+                    job);
             callbackServer = new Server(callbackPort);
             ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
             srvContext.setContextPath("/");
@@ -213,12 +223,25 @@ public class AweClientDockerJobScript {
             jobSrvClient.finishJob(jobId, result);
             ujsClient.completeJob(jobId, token, "done", null, new Results());
             if (result.getError() != null) {
-                String message = result.getError().getError();
-                if (message == null)
-                    message = result.getError().getMessage();
-                if (message == null)
-                    message = "Unknown error (please ask administrator for details providing full output log)";
-                log.logNextLine("Error: " + message, true);
+                String err = "";
+                if (notNullOrEmpty(result.getError().getName())) {
+                    err = result.getError().getName();
+                }
+                if (notNullOrEmpty(result.getError().getMessage())) {
+                    if (!err.isEmpty()) {
+                        err += ": ";
+                    }
+                    err += result.getError().getMessage();
+                }
+                if (notNullOrEmpty(result.getError().getError())) {
+                    if (!err.isEmpty()) {
+                        err += "\n";
+                    }
+                    err += result.getError().getError();
+                }
+                if (err == "")
+                    err = "Unknown error (please ask administrator for details providing full output log)";
+                log.logNextLine("Error: " + err, true);
             } else {
                 log.logNextLine("Job is done", false);
             }
@@ -264,6 +287,10 @@ public class AweClientDockerJobScript {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+    }
+    
+    private static boolean notNullOrEmpty(final String s) {
+        return s != null && !s.isEmpty();
     }
 
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,

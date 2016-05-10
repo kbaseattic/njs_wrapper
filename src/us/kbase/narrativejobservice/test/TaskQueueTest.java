@@ -67,6 +67,7 @@ public class TaskQueueTest extends EasyMockSupport {
 	@Test
 	public void testGood() throws Exception {
 		String token = "goodSecret";
+		//TODO ok, we're overloading tokens here. This seems like a bad idea
 		String jobId = "jobGood";
 		JobStatuses jbst = createStrictMock(JobStatuses.class);
 		expect(jbst.createAndStartJob(eq(token), eq("queued"), anyObject(String.class), 
