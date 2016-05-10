@@ -309,15 +309,15 @@ public class AweClientDockerJobScriptTest {
         // note that dev and beta releases can only have one version each,
         // version tracking only happens for prod
         
-        failJobRelease("njs_sdk_test_1foo", "beta",
+        failJob("njs_sdk_test_1foo.run", "beta",
                 "Error looking up module njs_sdk_test_1foo: Operation " +
                 "failed - module/repo is not registered.");
-        failJobRelease("njs_sdk_test_1", "beta",
+        failJob("njs_sdk_test_1.run", "beta",
                 "There is no release version 'beta' for module njs_sdk_test_1");
-        failJobRelease("njs_sdk_test_1", "release",
+        failJob("njs_sdk_test_1.run", "release",
                 "There is no release version 'release' for module " +
                 "njs_sdk_test_1");
-        failJobRelease("njs_sdk_test_1", null,
+        failJob("njs_sdk_test_1.run", null,
                 "There is no release version 'release' for module " +
                 "njs_sdk_test_1");
 
@@ -325,10 +325,10 @@ public class AweClientDockerJobScriptTest {
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
-        failJobRelease("njs_sdk_test_1", git,
+        failJob("njs_sdk_test_1.run", git,
                 "Error looking up module njs_sdk_test_1 with version " +
                 git + ": 'NoneType' object has no attribute '__getitem__'");
-        failJobRelease("njs_sdk_test_1", "foo",
+        failJob("njs_sdk_test_1.run", "foo",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
                 "'NoneType' object has no attribute '__getitem__'");
     }
@@ -337,35 +337,56 @@ public class AweClientDockerJobScriptTest {
     public void testfailJobMultiCallBadRelease() throws Exception {
         
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1foo", "run", "dev", "null",
+                "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
                 "Error looking up module njs_sdk_test_1foo: Operation " +
                 "failed - module/repo is not registered.");
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"beta\"",
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"beta\"",
                 "There is no release version 'beta' for module njs_sdk_test_1");
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"release\"",
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"release\"",
                 "There is no release version 'release' for module njs_sdk_test_1");
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "null",
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "null",
                 "There is no release version 'release' for module njs_sdk_test_1");
       //TODO fix these when catalog is fixed
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev",
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev",
                 "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
                 "Error looking up module njs_sdk_test_1 with version " +
                 git + ": 'NoneType' object has no attribute '__getitem__'");
         failJobMultiCall(
-                "njs_sdk_test_2", "njs_sdk_test_1", "run", "dev", "\"foo\"",
+                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"foo\"",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
                 "'NoneType' object has no attribute '__getitem__'");
     }
+    
+    @Test
+    public void testfailJobBadMethod() throws Exception {
+        failJob("njs_sdk_test_1run", "foo",
+                "Illegal method name: njs_sdk_test_1run");
+        failJob("njs_sdk_test_1.r.un", "foo",
+                "Illegal method name: njs_sdk_test_1.r.un");
+    }
+    
+    @Test
+    public void testfailJobMultiCallBadMethod() throws Exception {
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
+                "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
+                "server class us.kbase.narrativejobservice.subjobs." +
+                "CallbackServer");
+        failJobMultiCall(
+                "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
+                "Illegal method name: njs_sdk_test_1.r.un");
+        
+    }
 
-    private void failJobMultiCall(String outerMod, String innerMod,
-            String methodName, String outerRel, String innerRel, String msg)
+    private void failJobMultiCall(String outerModMeth, String innerModMeth,
+            String outerRel, String innerRel, String msg)
             throws IOException, JsonClientException, InterruptedException,
             ServerException {
         UObject methparams = UObject.fromJsonString(String.format(
@@ -375,8 +396,8 @@ public class AweClientDockerJobScriptTest {
                           "}" +
                          "]" +
              "}",
-             innerMod + "." + methodName, innerRel));
-        JobState ret = runJob(outerMod, methodName, outerRel, methparams,
+             innerModMeth, innerRel));
+        JobState ret = runJob(outerModMeth, outerRel, methparams,
                 null);
         assertThat("correct error message", ret.getError().getMessage(),
                 is(msg));
@@ -392,11 +413,11 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    private void failJobRelease(String module, String release, String exp)
+    private void failJob(String moduleMeth, String release, String exp)
             throws Exception{
         UObject mt = new UObject(new HashMap<String, String>());
         try {
-            runJob(module, "bar", release, mt, null);
+            runJob(moduleMeth, release, mt, null);
             fail("Ran bad job");
         } catch (ServerException se) {
             assertThat("correct exception", se.getLocalizedMessage(), is(exp));
@@ -535,9 +556,17 @@ public class AweClientDockerJobScriptTest {
     private JobState runJob(String moduleName, String methodName, String release,
             UObject methparams, List<String> wsobjs)
                     throws IOException, JsonClientException,
-            InterruptedException, ServerException {
+                    InterruptedException, ServerException {
+        return runJob(moduleName + "." + methodName, release, methparams,
+                wsobjs);
+    }
+    
+    private JobState runJob(String moduleMethod, String release,
+            UObject methparams, List<String> wsobjs)
+                    throws IOException, JsonClientException,
+                    InterruptedException, ServerException {
         RunJobParams params = new RunJobParams()
-            .withMethod(moduleName + "." + methodName)
+            .withMethod(moduleMethod)
             .withServiceVer(release)
             .withSourceWsObjects(wsobjs)
             .withParams(Arrays.asList(methparams));

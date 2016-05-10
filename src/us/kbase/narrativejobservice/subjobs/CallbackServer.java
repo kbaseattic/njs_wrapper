@@ -118,11 +118,16 @@ public class CallbackServer extends JsonServerServlet {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
             String rpcName = rpcCallData.getMethod();
-            final String module = rpcName.split("\\.")[0];
+            final String[] modMeth = rpcName.split("\\.");
             Map<String, Object> jsonRpcResponse = null;
             String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             try {
+                if (modMeth.length != 2) {
+                    throw new IllegalArgumentException("Illegal method name: " +
+                            rpcName);
+                }
+                final String module = modMeth[0];
                 final SubsequentCallRunner runner;
                 synchronized(this) {
                     final String serviceVer;

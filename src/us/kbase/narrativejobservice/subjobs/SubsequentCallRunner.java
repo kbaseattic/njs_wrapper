@@ -26,7 +26,6 @@ public class SubsequentCallRunner {
     private static final Set<String> RELEASE_TAGS =
             AweClientDockerJobScript.RELEASE_TAGS;
     private static final String RELEASE = AweClientDockerJobScript.RELEASE;
-    private static final String BETA = AweClientDockerJobScript.BETA;
     private static final String DEV = AweClientDockerJobScript.DEV;
 
     private String jobId;
@@ -70,16 +69,13 @@ public class SubsequentCallRunner {
         }
         final ModuleVersionInfo mvi;
         if (serviceVer == null || RELEASE_TAGS.contains(serviceVer)) {
-            if (serviceVer == null) {
+            if (serviceVer == null || serviceVer == RELEASE) {
                 mvi = mi.getRelease();
                 serviceVer = RELEASE;
             } else if (serviceVer.equals(DEV)) {
                 mvi = mi.getDev();
-            } else if (serviceVer.equals(BETA)) {
-                mvi = mi.getBeta();
             } else {
-                mvi = mi.getRelease();
-                serviceVer = RELEASE;
+                mvi = mi.getBeta();
             }
             if (mvi == null) {
                 // the requested release does not exist
