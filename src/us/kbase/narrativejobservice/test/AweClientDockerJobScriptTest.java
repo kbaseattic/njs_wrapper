@@ -901,7 +901,7 @@ public class AweClientDockerJobScriptTest {
             Map<String, String> config) throws Exception {
         String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
         WorkspaceClient ret = new WorkspaceClient(new URL(wsUrl), auth);
-        ret.setAuthAllowedForHttp(true);
+        ret.setIsInsecureHttpConnectionAllowed(true);
         return ret;
     }
 
