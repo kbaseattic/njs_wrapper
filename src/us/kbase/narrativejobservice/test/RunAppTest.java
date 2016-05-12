@@ -55,6 +55,7 @@ public class RunAppTest {
 		runScriptMethod(token);
 	}
 	
+	@SuppressWarnings("unused")
 	private void runServiceApp(String token) throws Exception {
 		App app = new App().withName("test");
 		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
@@ -173,6 +174,7 @@ public class RunAppTest {
 		Util.waitForJob(token, ujsUrl, jobId);
 	}
 	
+	@SuppressWarnings("unused")
 	private static String jsonToPretty(Object obj) throws Exception {
 		ObjectMapper mpr = new ObjectMapper();
 		return mpr.writerWithDefaultPrettyPrinter().writeValueAsString(obj);
@@ -223,11 +225,11 @@ public class RunAppTest {
 			public boolean isInRestartMode() {
 				return false;
 			}
-		}, new RunAppBuilder());
-		System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
+		}, null, new RunAppBuilder());
+		/*System.out.println("Initial queue size: " + TaskQueue.getDbConnection(cfg.getQueueDbDir()).collect(
 				"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new us.kbase.common.utils.DbConn.SqlLoader<Integer>() {
 			public Integer collectRow(java.sql.ResultSet rs) throws java.sql.SQLException { return rs.getInt(1); }
-		}));
+		}));*/
 	}
 	
 	public static void deleteRecursively(File fileOrDir) {

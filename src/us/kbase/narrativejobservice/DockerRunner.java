@@ -17,6 +17,7 @@ import us.kbase.common.utils.ProcessHelper;
 import ch.qos.logback.classic.Level;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.AccessMode;
@@ -36,7 +37,7 @@ public class DockerRunner {
     
     public File run(String imageName, String moduleName, File inputData, String token, 
             final LineLogger log, File outputFile, boolean removeImage,
-            File refDataDir) throws Exception {
+            File refDataDir, File optionalScratchDir, String callbackUrl) throws Exception {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
@@ -62,9 +63,14 @@ public class DockerRunner {
                     new Volume("/kb/module/work"))));
             if (refDataDir != null)
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
-            CreateContainerResponse resp = cl.createContainerCmd(imageName)
+            if (optionalScratchDir != null)
+                binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
+            CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
-                            binds.toArray(new Bind[binds.size()])).exec();
+                            binds.toArray(new Bind[binds.size()]));
+            if (callbackUrl != null)
+                cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
+            CreateContainerResponse resp = cntCmd.exec();
             String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
