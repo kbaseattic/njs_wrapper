@@ -41,6 +41,7 @@ public class RemoteAppTester {
 		runCmds();
 	}
 
+	@SuppressWarnings("unused")
 	private static void checkJob(String jobId) throws Exception {
 		String token = token(props(new File("test.cfg")));
 		Util.waitForJob(token, ujsUrl, jobId);
@@ -49,10 +50,12 @@ public class RemoteAppTester {
 		System.out.println("Errors: " + appState.getStepErrors());
 	}
 
+	@SuppressWarnings("unused")
 	private static App makeScriptApp() throws Exception {
 		return new App().withName("contigset_assembly").withSteps(Arrays.asList(makeScriptStep()));
 	}
 	
+	@SuppressWarnings("unused")
 	private static void runApp(App app) throws Exception {
 		String token = token(props(new File("test.cfg")));
 		NarrativeJobServiceClient cl = client(token);
@@ -107,6 +110,7 @@ public class RemoteAppTester {
 		return step;
 	}
 	
+	@SuppressWarnings("unused")
 	private static App makeServiceApp() throws Exception {
 		App app = new App().withName("test");
 		//Step step0 = new Step().withStepId("temp0").withType("generic").withInputValues(new ArrayList<UObject>())
@@ -187,6 +191,7 @@ public class RemoteAppTester {
 		return app;
 	}
 	
+	@SuppressWarnings("unused")
 	private static App loadAppFromResource(String name) throws Exception {
 		return UObject.getMapper().readValue(RemoteAppTester.class.getResourceAsStream(name + ".json.properties"), App.class);
 	}
