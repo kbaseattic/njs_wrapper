@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice.test;
+package us.kbase.common.taskqueue2.test;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.eq;
@@ -7,8 +7,10 @@ import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.isNull;
 
 import java.io.File;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -25,37 +27,28 @@ import us.kbase.common.taskqueue2.Task;
 import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.common.taskqueue2.TaskRunner;
-import us.kbase.common.test.controllers.mongo.MongoController;
-import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
+import us.kbase.common.utils.DbConn;
 
 public class TaskQueueTest extends EasyMockSupport {
-	private static MongoController mongo;
-	private static ExecEngineMongoDb db = null;
+	private static File tmpDir = new File("temp" + System.currentTimeMillis());
 	
 	@BeforeClass
-	public static void makeTempDir() throws Exception {
-	    Properties props = TesterUtils.props();
-        File workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
-                "test_task_queue");
-        File mongoDir = new File(workDir, "mongo");
-        String mongoExepath = TesterUtils.getMongoExePath(props);
-        System.out.print("Starting MongoDB executable at " + mongoExepath +
-                "... ");
-        mongo = new MongoController(mongoExepath, mongoDir.toPath());
-        System.out.println("Done. Port " + mongo.getServerPort());
-        
-        db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
-                "exec_engine", null, null, null);
+	public static void makeTempDir() {
+		tmpDir.mkdir();
 	}
 	
 	@AfterClass
 	public static void dropTempDir() throws Exception {
-	    if (mongo != null) {
-	        mongo.destroy(false);
-	    }
+		if (!tmpDir.exists())
+			return;
+		Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
+		File dbDir = new File(tmpDir, TaskQueue.DERBY_DB_NAME);
+		try {
+			DriverManager.getConnection("jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName() + ";shutdown=true");
+		} catch (Exception ignore) {}
+		delete(tmpDir);
 	}
 	
-	@SuppressWarnings("unused")
 	private static void delete(File fileOrDir) {
 		if (fileOrDir.isDirectory()) {
 			for (File sub : fileOrDir.listFiles())
@@ -67,7 +60,6 @@ public class TaskQueueTest extends EasyMockSupport {
 	@Test
 	public void testGood() throws Exception {
 		String token = "goodSecret";
-		//TODO ok, we're overloading tokens here. This seems like a bad idea
 		String jobId = "jobGood";
 		JobStatuses jbst = createStrictMock(JobStatuses.class);
 		expect(jbst.createAndStartJob(eq(token), eq("queued"), anyObject(String.class), 
@@ -95,13 +87,13 @@ public class TaskQueueTest extends EasyMockSupport {
 		});
 		replayAll();
 		final boolean[] isOk = {false};
-		tq[0] = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, -1, null),
+		tq[0] = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, -1, null),
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
 						return false;
 					}
-				}, db,
+				},
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData,
@@ -147,13 +139,13 @@ public class TaskQueueTest extends EasyMockSupport {
 		};
 		replayAll();
 		final Set<String> isOk = new TreeSet<String>();
-		TaskQueue tq = new TaskQueue(new TaskQueueConfig(2, null, jbst, null, 1, null),
+		TaskQueue tq = new TaskQueue(new TaskQueueConfig(2, tmpDir, jbst, null, 1, null),
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
 						return false;
 					}
-				}, db,
+				},
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData,
@@ -218,13 +210,13 @@ public class TaskQueueTest extends EasyMockSupport {
 		    }
 		});
 		replayAll();
-		tq[0] = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, 0, null), 
+		tq[0] = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, 0, null), 
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
 						return false;
 					}
-				}, db,
+				},
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData, String jobId, String outRef) throws Exception {
@@ -242,7 +234,13 @@ public class TaskQueueTest extends EasyMockSupport {
 	}
 
 	private void checkForEmptyDbQueue() throws Exception {
-		Assert.assertEquals(0, db.getQueuedTasks().size());
+		Assert.assertEquals((Integer)0, TaskQueue.getDbConnection(tmpDir).collect(
+				"select count(*) from " + TaskQueue.QUEUE_TABLE_NAME, new DbConn.SqlLoader<Integer>() {
+			@Override
+			public Integer collectRow(ResultSet rs) throws SQLException {
+				return rs.getInt(1);
+			}
+		}).get(0));
 	}
 
 	@Test
@@ -266,13 +264,13 @@ public class TaskQueueTest extends EasyMockSupport {
 				throw new IllegalStateException();
 		    }
 		};
-		final TaskQueue tq = new TaskQueue(new TaskQueueConfig(1, null, jbst, null, 0, null), 
+		final TaskQueue tq = new TaskQueue(new TaskQueueConfig(1, tmpDir, jbst, null, 0, null), 
 				new RestartChecker() {
 					@Override
 					public boolean isInRestartMode() {
 						return true;
 					}
-				}, db,
+				},
 				new TestTaskRunner() {
 					@Override
 					public void run(String token, TestTask inputData, String jobId, String outRef) throws Exception {
