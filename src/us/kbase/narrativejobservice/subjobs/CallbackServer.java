@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice.subjobs;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.SocketException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -26,6 +27,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.UObject;
+import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.RunJobParams;
@@ -63,10 +65,10 @@ public class CallbackServer extends JsonServerServlet {
         this.callbackPort = callbackPort;
         this.config = config;
         this.logger = logger;
-        vers.put(runver.getModule(), runver);
+        vers.put(runver.getModuleMethod().getModule(), runver);
         prov.setTime(DATE_FORMATTER.print(new DateTime()));
-        prov.setService(runver.getModule());
-        prov.setMethod(runver.getMethod());
+        prov.setService(runver.getModuleMethod().getModule());
+        prov.setMethod(runver.getModuleMethod().getMethod());
         prov.setDescription(
                 "KBase SDK method run via the KBase Execution Engine");
         prov.setMethodParams(job.getParams());
@@ -87,7 +89,7 @@ public class CallbackServer extends JsonServerServlet {
            sas.add(new SubAction()
                .withCodeUrl(mrv.getGitURL().toExternalForm())
                .withCommit(mrv.getGitHash())
-               .withName(mrv.getModuleDotMethod())
+               .withName(mrv.getModuleMethod().getModuleDotMethod())
                .withVer(mrv.getVersionAndRelease()));
         }
         return new LinkedList<ProvenanceAction>(Arrays.asList(
@@ -117,47 +119,15 @@ public class CallbackServer extends JsonServerServlet {
         if (rpcCallData.getMethod().startsWith("CallbackServer.")) {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
-            String rpcName = rpcCallData.getMethod();
-            final String[] modMeth = rpcName.split("\\.");
             Map<String, Object> jsonRpcResponse = null;
             String errorMessage = null;
-            ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             try {
-                if (modMeth.length != 2) {
-                    throw new IllegalArgumentException("Illegal method name: " +
-                            rpcName);
-                }
-                final String module = modMeth[0];
-                final SubsequentCallRunner runner;
-                synchronized(this) {
-                    final String serviceVer;
-                    if (vers.containsKey(module)) {
-                        ModuleRunVersion v = vers.get(module);
-                        serviceVer = v.getGitHash();
-                        System.out.println(String.format(
-                                "Warning: Module %s was already used once " +
-                                        "for this job. Using cached " +
-                                        "version:\n" +
-                                        "url: %s\n" +
-                                        "commit: %s\n" +
-                                        "version: %s\n" +
-                                        "release: %s\n",
-                                        module, v.getGitURL(), v.getGitHash(),
-                                        v.getVersion(), v.getRelease()));
-                    } else {
-                        serviceVer = rpcCallData.getContext() == null ? null : 
-                            (String)rpcCallData.getContext()
-                            .getAdditionalProperties().get("service_ver");
-                    }
-                    // Request docker image name from Catalog
-                    runner = new SubsequentCallRunner(mainJobDir, rpcName,
-                            serviceVer, callbackPort, config, logger);
-                    if (!vers.containsKey(module)) {
-                        vers.put(module, runner.getModuleRunVersion());
-                    }
-                }
-                // Run method in local docker container
-                jsonRpcResponse = runner.run(rpcCallData);
+                final ModuleMethod modmeth = new ModuleMethod(
+                        rpcCallData.getMethod());
+                final SubsequentCallRunner runner = getJobRunner(
+                        rpcCallData, modmeth);
+                    // Run method in local docker container
+                    jsonRpcResponse = runner.run(rpcCallData);
             } catch (Exception ex) {
                 ex.printStackTrace();
                 errorMessage = ex.getMessage();
@@ -179,14 +149,54 @@ public class CallbackServer extends JsonServerServlet {
                     if (jsonRpcResponse.containsKey("error"))
                         response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                 }
+                final ObjectMapper mapper = new ObjectMapper().registerModule(
+                        new JacksonTupleModule());
                 mapper.writeValue(new UnclosableOutputStream(output), jsonRpcResponse);
             } catch (Exception ex) {
                 ex.printStackTrace();
             }
         }
     }
+
+    private SubsequentCallRunner getJobRunner(
+            final RpcCallData rpcCallData,
+            final ModuleMethod modmeth)
+            throws IOException, JsonClientException  {
+        final SubsequentCallRunner runner;
+        synchronized(this) {
+            final String serviceVer;
+            if (vers.containsKey(modmeth.getModule())) {
+                ModuleRunVersion v = vers.get(modmeth.getModule());
+                serviceVer = v.getGitHash();
+                System.out.println(String.format(
+                        "Warning: Module %s was already used once " +
+                                "for this job. Using cached " +
+                                "version:\n" +
+                                "url: %s\n" +
+                                "commit: %s\n" +
+                                "version: %s\n" +
+                                "release: %s\n",
+                                modmeth.getModule(), v.getGitURL(),
+                                v.getGitHash(), v.getVersion(),
+                                v.getRelease()));
+            } else {
+                serviceVer = rpcCallData.getContext() == null ? null : 
+                    (String)rpcCallData.getContext()
+                    .getAdditionalProperties().get("service_ver");
+            }
+            // Request docker image name from Catalog
+            runner = new SubsequentCallRunner(
+                    mainJobDir, modmeth,
+                    serviceVer, callbackPort, config, logger);
+            if (!vers.containsKey(modmeth.getModule())) {
+                vers.put(modmeth.getModule(), runner.getModuleRunVersion());
+            }
+        }
+        return runner;
+    }
     
-    public static String getCallbackUrl(int callbackPort) throws Exception {
+    public static String getCallbackUrl(int callbackPort)
+            throws SocketException {
         List<String> hostIps = NetUtils.findNetworkAddresses("docker0", "vboxnet0");
         String hostIp = null;
         if (hostIps.isEmpty()) {

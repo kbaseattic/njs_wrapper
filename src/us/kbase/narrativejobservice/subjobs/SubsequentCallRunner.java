@@ -1,6 +1,7 @@
 package us.kbase.narrativejobservice.subjobs;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,9 +16,11 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
+import us.kbase.common.utils.ModuleMethod;
 import us.kbase.narrativejobservice.AweClientDockerJobScript;
 import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
@@ -41,9 +44,10 @@ public class SubsequentCallRunner {
     
     private final ModuleRunVersion mrv;
     
-    public SubsequentCallRunner(File mainJobDir, String methodName, 
+    public SubsequentCallRunner(File mainJobDir, ModuleMethod modmeth, 
             String serviceVer, int callbackPort, Map<String, String> config,
-            DockerRunner.LineLogger logger) throws Exception {
+            DockerRunner.LineLogger logger) throws IOException,
+            JsonClientException {
         this.logger = logger;
         this.dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         String catalogUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
@@ -51,13 +55,7 @@ public class SubsequentCallRunner {
         catClient.setIsInsecureHttpConnectionAllowed(true);
         catClient.setAllSSLCertificatesTrusted(true);
         //TODO code duplicated in AweClientDockerJobScript
-        final String[] modMeth = methodName.split("\\.");
-        if (modMeth.length != 2) {
-            throw new IllegalStateException("Illegal method name: " +
-                    methodName);
-        }
-        this.moduleName = modMeth[0];
-        final String methodOnlyName = modMeth[1];
+        this.moduleName = modmeth.getModule();
         final ModuleInfo mi;
         try {
             mi = catClient.getModuleInfo(
@@ -96,7 +94,7 @@ public class SubsequentCallRunner {
             }
         }
         mrv = new ModuleRunVersion(
-                new URL(mi.getGitUrl()), moduleName, methodOnlyName,
+                new URL(mi.getGitUrl()), modmeth,
                 mvi.getGitCommitHash(), mvi.getVersion(), serviceVer);
         imageName = mvi.getDockerImgName();
         File srcWorkDir = new File(mainJobDir, "workdir");

@@ -35,6 +35,7 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
@@ -83,13 +84,7 @@ public class AweClientDockerJobScript {
             ujsClient.startJob(jobId, token, "running", "AWE job for " + job.getMethod(), 
                     new InitProgress().withPtype("none"), null);
             File jobDir = getJobDir(config, jobId);
-            final String[] modMeth = job.getMethod().split("\\.");
-            if (modMeth.length != 2) {
-                throw new IllegalStateException("Illegal method name: " +
-                        job.getMethod());
-            }
-            final String moduleName = modMeth[0];
-            final String methodName = modMeth[1];
+            final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
             if (context == null)
                 context = new RpcContext().withRunId("");
@@ -139,15 +134,16 @@ public class AweClientDockerJobScript {
             final ModuleInfo mi;
             final ModuleVersionInfo mvi;
             try {
-                mi = catClient.getModuleInfo(
-                        new SelectOneModuleParams().withModuleName(moduleName));
+                mi = catClient.getModuleInfo(new SelectOneModuleParams()
+                        .withModuleName(modMeth.getModule()));
                 mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName)
+                        .withModuleName(modMeth.getModule())
                         .withGitCommitHash(imageVersion));
             } catch (ServerException se) {
                 throw new IllegalArgumentException(String.format(
                         "Error looking up module %s with githash %s: %s",
-                        moduleName, imageVersion, se.getLocalizedMessage()));
+                        modMeth.getModule(), imageVersion,
+                        se.getLocalizedMessage()));
             }
             String imageName = mvi.getDockerImgName();
             File refDataDir = null;
@@ -162,7 +158,9 @@ public class AweClientDockerJobScript {
             }
             if (imageName == null) {
                 // TODO: We need to get rid of this line soon
-                imageName = dockerRegistry + "/" +moduleName.toLowerCase() + ":" + imageVersion;
+                imageName = dockerRegistry + "/" +
+                            modMeth.getModule().toLowerCase() + ":" +
+                            imageVersion;
                 //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
                 log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
             } else {
@@ -192,7 +190,7 @@ public class AweClientDockerJobScript {
             System.out.println("Docker runner found callback URL: " +
                     callbackUrl);
             final ModuleRunVersion runver = new ModuleRunVersion(
-                    new URL(mi.getGitUrl()), moduleName, methodName,
+                    new URL(mi.getGitUrl()), modMeth,
                     mvi.getGitCommitHash(), mvi.getVersion(),
                     requestedRelease);
             JsonServerServlet catalogSrv = new CallbackServer(
@@ -205,7 +203,8 @@ public class AweClientDockerJobScript {
             srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
             callbackServer.start();
             // Calling Docker run
-            new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, log, outputFile, false, 
+            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(),
+                    inputFile, token, log, outputFile, false, 
                     refDataDir, null, callbackUrl);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
