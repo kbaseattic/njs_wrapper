@@ -26,6 +26,7 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
@@ -125,9 +126,21 @@ public class CallbackServer extends JsonServerServlet {
                 final ModuleMethod modmeth = new ModuleMethod(
                         rpcCallData.getMethod());
                 final SubsequentCallRunner runner = getJobRunner(
-                        rpcCallData, modmeth);
+                        rpcCallData.getContext(), modmeth);
+                
+                // update method name to get rid of suffixes
+                rpcCallData.setMethod(modmeth.getModuleDotMethod());
+                
+                if (modmeth.isStandard()) {
+                    System.out.println(String.format(
+                            "Warning: the callback server recieved a " +
+                            "request to synchronously run the method %s. " +
+                            "The callback server will block until the" +
+                            "method is completed.",
+                            modmeth.getModuleDotMethod()));
                     // Run method in local docker container
                     jsonRpcResponse = runner.run(rpcCallData);
+                }
             } catch (Exception ex) {
                 ex.printStackTrace();
                 errorMessage = ex.getMessage();
@@ -159,7 +172,7 @@ public class CallbackServer extends JsonServerServlet {
     }
 
     private SubsequentCallRunner getJobRunner(
-            final RpcCallData rpcCallData,
+            final RpcContext rpcContext,
             final ModuleMethod modmeth)
             throws IOException, JsonClientException  {
         final SubsequentCallRunner runner;
@@ -180,9 +193,9 @@ public class CallbackServer extends JsonServerServlet {
                                 v.getGitHash(), v.getVersion(),
                                 v.getRelease()));
             } else {
-                serviceVer = rpcCallData.getContext() == null ? null : 
-                    (String)rpcCallData.getContext()
-                    .getAdditionalProperties().get("service_ver");
+                serviceVer = rpcContext == null ? null : 
+                    (String)rpcContext.getAdditionalProperties()
+                        .get("service_ver");
             }
             // Request docker image name from Catalog
             runner = new SubsequentCallRunner(
