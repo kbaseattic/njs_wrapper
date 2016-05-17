@@ -222,9 +222,9 @@ public class CallbackServer extends JsonServerServlet {
                                 "No more than %s concurrent methods " +
                                         "are allowed", MAX_JOBS));
                     }
+                    executor.execute(task);
                     runningJobs.put(jobId,task);
                 }
-                executor.execute(task);
                 jsonRpcResponse = new HashMap<String, Object>();
                 jsonRpcResponse.put("version", "1.1");
                 jsonRpcResponse.put("id", rpcCallData.getId());
