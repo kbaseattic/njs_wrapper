@@ -259,9 +259,10 @@ public class AweClientDockerJobScriptTest {
              moduleName2 + "." + methodName,
              "e1038b847b2f20a38f06799de509e7058b7d0d7e",
              moduleName + "." + methodName,
-             // this is the latest commit, but the prior commit is registered
+             // this is the latest commit, but a prior commit is registered
              //for dev
-             "b0d487271c22f793b381da29e266faa9bb0b2d1b",
+             //TODO NOW fix this when async tests work, dev is on this commit
+             "e8f628eb1c8295434293c7b5a0d4d26835b811da",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
@@ -472,7 +473,13 @@ public class AweClientDockerJobScriptTest {
         for (String o: wsobjs) {
             wsobjrefs.add(testWsName + "/" + o);
         }
-        runJob(moduleName, methodName, release, methparams, wsobjrefs);
+        JobState res = runJob(moduleName, methodName, release, methparams,
+                wsobjrefs);
+        if (res.getError() != null) {
+            System.out.println("Job had unexpected error:");
+            System.out.println(res.getError());
+            throw new TestException(res.getError().getMessage());
+        }
         checkProvenance(moduleName, methodName, release, ver, methparams,
                 objectName, subs, wsobjs);
     }

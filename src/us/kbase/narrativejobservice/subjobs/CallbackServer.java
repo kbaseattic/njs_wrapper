@@ -137,14 +137,13 @@ public class CallbackServer extends JsonServerServlet {
     }
 
     private static void cbLog(String log) {
-        System.out.println((System.currentTimeMillis() / 1000.0) +
-                " - CallbackServer: " + log);
+        System.out.println(String.format("%.2f - CallbackServer: %s",
+                (System.currentTimeMillis() / 1000.0), log));
     }
     
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
             String requestHeaderXForwardedFor, ResponseStatusSetter response, OutputStream output,
             boolean commandLine) {
-        cbLog("In processRpcCall");
         if (rpcCallData.getMethod().startsWith("CallbackServer.")) {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
@@ -194,7 +193,7 @@ public class CallbackServer extends JsonServerServlet {
             jsonRpcResponse = runCheck(rpcCallData);
         } else {
             final UUID jobId = UUID.randomUUID();
-            cbLog(String.format("Subjob method: %s ID: %s",
+            cbLog(String.format("Subjob method: %s JobID: %s",
                     modmeth.getModuleDotMethod(), jobId));
             final SubsequentCallRunner runner = getJobRunner(
                     jobId, rpcCallData.getContext(), modmeth);
@@ -204,7 +203,7 @@ public class CallbackServer extends JsonServerServlet {
             
             if (modmeth.isStandard()) {
                 cbLog(String.format(
-                        "Warning: the callback server recieved a " +
+                        "Warning: the callback server received a " +
                         "request to synchronously run the method " +
                         "%s. The callback server will block until " +
                         "the method is completed.",
@@ -367,9 +366,9 @@ public class CallbackServer extends JsonServerServlet {
         } else {
             hostIp = hostIps.get(0);
             if (hostIps.size() > 1) {
-                cbLog("WARNING! Several Docker host IP addresses are detected, first one is used: " + hostIp);
+                cbLog("WARNING! Several Docker host IP addresses are detected, first one used: " + hostIp);
             } else {
-                cbLog("Docker host IP address is detected: " + hostIp);
+                cbLog("Docker host IP address detected: " + hostIp);
             }
         }
         String callbackUrl = hostIp == null ? "" : ("http://" + hostIp + ":" + callbackPort);
