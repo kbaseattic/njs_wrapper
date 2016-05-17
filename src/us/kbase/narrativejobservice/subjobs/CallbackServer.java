@@ -237,45 +237,45 @@ public class CallbackServer extends JsonServerServlet {
     private Map<String, Object> runCheck(final RpcCallData rpcCallData)
             throws InterruptedException, IOException {
         
-        final Map<String, Object> resp;
-        int finished = 1;
-        //TODO putting finished in the top level breaks the jsonrpc spec
-        // need to think about how this should work
-        // putting the context object also breaks the spec
-        if (!(rpcCallData.getParams().size() == 1)) {
+        if (rpcCallData.getParams().size() != 1) {
             throw new IllegalArgumentException(
-                    "Check methods only take one argument");
+                    "Check methods take exactly one argument");
         }
         final UUID jobId = UUID.fromString(rpcCallData.getParams().get(0)
                 .asClassInstance(String.class));
+        
+        boolean finished = true;
+        final FutureTask<Map<String, Object>> task;
         synchronized (this) {
             if (runningJobs.containsKey(jobId)) {
                 if (runningJobs.get(jobId).isDone()) {
-                    final FutureTask<Map<String, Object>> task =
-                            runningJobs.get(jobId);
+                    task = runningJobs.get(jobId);
                     resultsCache.put(jobId, task);
                     runningJobs.remove(jobId);
-                    resp = getResults(task);
                 } else {
-                    resp = new HashMap<String, Object>();
-                    resp.put("version", "1.1");
-                    resp.put("id", rpcCallData.getId());
-                    finished = 0;
+                    finished = false;
+                    task = null;
                 }
             } else {
-                final FutureTask<Map<String, Object>> task =
-                        resultsCache.getIfPresent(jobId);
-                if (task == null) {
-                    throw new IllegalStateException(
-                            "Either there is no job with id " + jobId +
-                            "or it has expired from the cache");
-                }
-                resp = getResults(task);
+                task = resultsCache.getIfPresent(jobId);
             }
         }
+        final Map<String, Object> resp;
+        if (finished) {
+            if (task == null) {
+                throw new IllegalStateException(
+                        "Either there is no job with id " + jobId +
+                        "or it has expired from the cache");
+            }
+            resp = getResults(task);
+        } else {
+            resp = new HashMap<String, Object>();
+            resp.put("version", "1.1");
+            resp.put("id", rpcCallData.getId());
+        }
         final Map<String, Object> result = new HashMap<String, Object>();
-        result.put("finished", finished);
-        if (resp.containsKey("result")) { // otherwise an error occured
+        result.put("finished", finished ? 1 : 0);
+        if (resp.containsKey("result")) { // otherwise an error occurred
             result.put("result", resp.get("result"));
         }
         resp.put("result", result);
@@ -293,6 +293,8 @@ public class CallbackServer extends JsonServerServlet {
                 throw (InterruptedException) cause;
             } else if (cause instanceof IOException) {
                 throw (IOException) cause;
+            } else if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
             } else {
                 throw (Error) cause;
             }
@@ -311,13 +313,11 @@ public class CallbackServer extends JsonServerServlet {
             this.scr = scr;
             this.rpc = rpcData;
         }
-        
 
         @Override
         public Map<String, Object> call() throws Exception {
             return scr.run(rpc);
         }
-        
     }
     
     private SubsequentCallRunner getJobRunner(
@@ -329,7 +329,7 @@ public class CallbackServer extends JsonServerServlet {
         synchronized(this) {
             final String serviceVer;
             if (vers.containsKey(modmeth.getModule())) {
-                ModuleRunVersion v = vers.get(modmeth.getModule());
+                final ModuleRunVersion v = vers.get(modmeth.getModule());
                 serviceVer = v.getGitHash();
                 cbLog(String.format(
                         "Warning: Module %s was already used once " +
