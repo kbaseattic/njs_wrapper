@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -37,7 +38,8 @@ public class DockerRunner {
     
     public File run(String imageName, String moduleName, File inputData, String token, 
             final LineLogger log, File outputFile, boolean removeImage,
-            File refDataDir, File optionalScratchDir, String callbackUrl) throws Exception {
+            File refDataDir, File optionalScratchDir, String callbackUrl)
+            throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
@@ -159,7 +161,7 @@ public class DockerRunner {
     }
     
     public String checkImagePulled(DockerClient cl, String imageName)
-            throws Exception {
+            throws IOException {
         if (findImageId(cl, imageName) == null) {
             System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
             ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
@@ -197,7 +199,7 @@ public class DockerRunner {
         return null;
     }
     
-    public DockerClient createDockerClient() throws Exception {
+    public DockerClient createDockerClient() {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
         if (log instanceof ch.qos.logback.classic.Logger) {
@@ -214,6 +216,6 @@ public class DockerRunner {
     }
     
     public interface LineLogger {
-        public void logNextLine(String line, boolean isError) throws Exception;
+        public void logNextLine(String line, boolean isError);
     }
 }

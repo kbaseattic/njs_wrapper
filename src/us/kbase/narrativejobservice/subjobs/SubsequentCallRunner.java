@@ -6,6 +6,7 @@ import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 import org.apache.commons.io.FileUtils;
 
@@ -31,10 +32,8 @@ public class SubsequentCallRunner {
     private static final String RELEASE = AweClientDockerJobScript.RELEASE;
     private static final String DEV = AweClientDockerJobScript.DEV;
 
-    private String jobId;
     private String moduleName;
     private File sharedScratchDir;
-    private File jobDir;
     private File jobWorkDir;
     private String imageName;
     private String callbackUrl;
@@ -44,10 +43,15 @@ public class SubsequentCallRunner {
     
     private final ModuleRunVersion mrv;
     
-    public SubsequentCallRunner(File mainJobDir, ModuleMethod modmeth, 
-            String serviceVer, int callbackPort, Map<String, String> config,
-            DockerRunner.LineLogger logger) throws IOException,
-            JsonClientException {
+    public SubsequentCallRunner(
+            final UUID jobId,
+            final File mainJobDir,
+            final ModuleMethod modmeth, 
+            String serviceVer,
+            final int callbackPort,
+            final Map<String, String> config,
+            final DockerRunner.LineLogger logger)
+            throws IOException, JsonClientException {
         this.logger = logger;
         this.dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         String catalogUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
@@ -102,15 +106,10 @@ public class SubsequentCallRunner {
         File subjobsDir = new File(mainJobDir, "subjobs");
         if (!subjobsDir.exists())
             subjobsDir.mkdirs();
-        long pref = System.currentTimeMillis();
-        String suff = imageName.replace(':', '_').replace('/', '_');
-        for (;;pref++) {
-            jobId = pref + "_" + suff;
-            this.jobDir = new File(subjobsDir, jobId);
-            if (!jobDir.exists())
-                break;
-        }
-        this.jobDir.mkdirs();
+        final String suff = imageName.replace(':', '_').replace('/', '_');
+        final String workdir = jobId.toString() +  "_" + suff;
+        final File jobDir = new File(subjobsDir, workdir);
+        jobDir.mkdirs();
         this.jobWorkDir = new File(jobDir, "workdir");
         this.jobWorkDir.mkdirs();
         this.callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
@@ -128,7 +127,8 @@ public class SubsequentCallRunner {
         return mrv;
     }
     
-    public Map<String, Object> run(RpcCallData rpcCallData) throws Exception {
+    public Map<String, Object> run(RpcCallData rpcCallData)
+            throws IOException, InterruptedException {
         File inputFile = new File(jobWorkDir, "input.json");
         File outputFile = new File(jobWorkDir, "output.json");
         UObject.getMapper().writeValue(inputFile, rpcCallData);

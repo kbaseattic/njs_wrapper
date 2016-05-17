@@ -119,7 +119,7 @@ public class AweClientDockerJobScript {
             ujsClient.updateJob(jobId, token, "running", null);
             log = new DockerRunner.LineLogger() {
                 @Override
-                public void logNextLine(String line, boolean isError) throws Exception {
+                public void logNextLine(String line, boolean isError) {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
                 }
             };
@@ -293,7 +293,7 @@ public class AweClientDockerJobScript {
     }
 
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
-            String jobId, List<LogLine> logLines, LogLine line) throws Exception {
+            String jobId, List<LogLine> logLines, LogLine line) {
         logLines.add(line);
         if (line.getIsError() != null && line.getIsError() == 1L) {
             System.err.println(line.getLine());
