@@ -293,15 +293,16 @@ public class CallbackServer extends JsonServerServlet {
         if (resp.containsKey("result")) { // otherwise an error occurred
             result.put("result", resp.get("result"));
         }
-        resp.put("result", Arrays.asList(result));
-        return resp;
+        final Map<String, Object> copy = new HashMap<String, Object>(resp);
+        copy.put("result", Arrays.asList(result));
+        return copy;
     }
 
     private Map<String, Object> getResults(
             final FutureTask<Map<String, Object>> task)
             throws InterruptedException, IOException {
         try {
-            return task.get();
+            return Collections.unmodifiableMap(task.get());
         } catch (ExecutionException ee) {
             final Throwable cause = ee.getCause();
             if (cause instanceof InterruptedException) {
