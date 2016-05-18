@@ -41,6 +41,8 @@ import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
+import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
+import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
@@ -54,6 +56,8 @@ public class AweClientDockerJobScript {
     public static final String RELEASE = RunAppBuilder.RELEASE;
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
     public static final Set<String> RELEASE_TAGS = RunAppBuilder.RELEASE_TAGS;
+    
+    public static final String CONFIG_FILE = "config.properties";
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -114,7 +118,7 @@ public class AweClientDockerJobScript {
             File inputFile = new File(workDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(workDir, "output.json");
-            File configFile = new File(workDir, "config.properties");
+            File configFile = new File(workDir, CONFIG_FILE);
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
@@ -205,9 +209,12 @@ public class AweClientDockerJobScript {
                         new URL(mi.getGitUrl()), modMeth,
                         mvi.getGitCommitHash(), mvi.getVersion(),
                         requestedRelease);
+                final CallbackServerConfig cbcfg = 
+                        new CallbackServerConfigBuilder(config, callbackUrl,
+                                jobDir.toPath(), log).build();
                 final JsonServerServlet catalogSrv = new CallbackServer(
-                        token, jobDir, callbackUrl, dockerURI, catalogURL, log,
-                        runver, job.getParams(), job.getSourceWsObjects());
+                        token, cbcfg, runver, job.getParams(),
+                        job.getSourceWsObjects());
                 callbackServer = new Server(callbackPort);
                 final ServletContextHandler srvContext =
                         new ServletContextHandler(

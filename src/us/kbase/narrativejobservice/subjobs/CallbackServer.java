@@ -1,13 +1,12 @@
 package us.kbase.narrativejobservice.subjobs;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
 import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -48,7 +47,7 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.DockerRunner.LineLogger;
+import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
@@ -61,11 +60,7 @@ public class CallbackServer extends JsonServerServlet {
     private static final int MAX_JOBS = 10;
     
     private final AuthToken token;
-    private final File mainJobDir;
-    private final URL callbackURL;
-    private final DockerRunner.LineLogger logger;
-    private final URI dockerURI;
-    private final URL catalogURL;
+    private final CallbackServerConfig config;
     private final ProvenanceAction prov = new ProvenanceAction();
     
     private final static DateTimeFormatter DATE_FORMATTER =
@@ -88,21 +83,13 @@ public class CallbackServer extends JsonServerServlet {
     
     public CallbackServer(
             final AuthToken token,
-            final File mainJobDir,
-            final URL callbackURL,
-            final URI dockerURI,
-            final URL catalogURL,
-            final DockerRunner.LineLogger logger,
+            final CallbackServerConfig config,
             final ModuleRunVersion runver,
             final List<UObject> methodParameters,
             final List<String> inputWorkspaceObjects) {
         super("CallbackServer");
         this.token = token;
-        this.mainJobDir = mainJobDir;
-        this.callbackURL = callbackURL;
-        this.dockerURI = dockerURI;
-        this.catalogURL = catalogURL;
-        this.logger = logger;
+        this.config = config;
         vers.put(runver.getModuleMethod().getModule(), runver);
         prov.setTime(DATE_FORMATTER.print(new DateTime()));
         prov.setService(runver.getModuleMethod().getModule());
@@ -365,9 +352,8 @@ public class CallbackServer extends JsonServerServlet {
                         .get("service_ver");
             }
             // Request docker image name from Catalog
-            runner = new SubsequentCallRunner(token,
-                    jobId, mainJobDir, modmeth, serviceVer, callbackURL,
-                    dockerURI, catalogURL, logger);
+            runner = new SubsequentCallRunner(token, config,
+                    jobId, modmeth, serviceVer);
             if (!vers.containsKey(modmeth.getModule())) {
                 vers.put(modmeth.getModule(), runner.getModuleRunVersion());
             }
@@ -498,44 +484,31 @@ public class CallbackServer extends JsonServerServlet {
     }
     
     public static void main(final String[] args) throws Exception {
-        final AuthToken t = AuthService.login(args[0], args[1]).getToken();
-        String endpoint = "https://ci.kbase/us/services/";
-        File mainWorkDir = new File("CallbackServer_temp");
+        final AuthToken token = AuthService.login(args[0], args[1]).getToken();
         int port = 10000;
-        URI dockerURL = new URI("unix:///var/run/docker.sock");
-        URL catalogURL = new URL("https://ci.kbase.us/services/catalog");
+        CallbackServerConfig cfg = new CallbackServerConfigBuilder(
+                new URL("https://ci.kbase.us/services/"),
+                new URI("unix:///var/run/docker.sock"),
+                getCallbackUrl(port),
+                Paths.get("temp_CallbackServer"),
+                new DockerRunner.LineLogger() {
+                    @Override
+                    public void logNextLine(String line, boolean isError) {
+                        cbLog("Docker logger std" + (isError ? "err" : "out") +
+                                ": " + line);
+                    }
+                }).build();
         
-        File workDir = new File(mainWorkDir, "workdir");
-        workDir.mkdirs();
-        File configFile = new File(workDir, "config.properties");
-        PrintWriter pw = new PrintWriter(configFile);
-        pw.println("[global]");
-        pw.println("job_service_url = " + endpoint + "userandjobstate");
-        pw.println("workspace_url = " + endpoint + "ws");
-        pw.println("shock_url = " + endpoint + "shock-api");
-        pw.println("kbase_endpoint = " + endpoint);
-        pw.close();
-        
-        LineLogger log = new DockerRunner.LineLogger() {
-            @Override
-            public void logNextLine(String line, boolean isError) {
-                cbLog("Docker logger std" + (isError ? "err" : "out")  + ": " +
-                        line);
-            }
-        };
-        
+        System.out.println(cfg);
         ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/mcreosote/foo"),
                 new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
         
-        CallbackServer serv = new CallbackServer(
-                t, mainWorkDir, getCallbackUrl(port),
-                dockerURL,
-                catalogURL, log,
-                runver, new LinkedList<UObject>(), new LinkedList<String>());
+        CallbackServer serv = new CallbackServer(token, cfg,runver,
+                new LinkedList<UObject>(), new LinkedList<String>());
         
         new Thread(new CallbackRunner(serv, port)).start();
         System.out.println("Started on port " + port);
-        System.out.println("workdir: " + mainWorkDir);
+        System.out.println("workdir: " + cfg.getWorkDir());
     }
 }
