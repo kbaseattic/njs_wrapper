@@ -2,6 +2,7 @@ package us.kbase.narrativejobservice.subjobs;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,6 +13,8 @@ import org.apache.commons.io.FileUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 
+import us.kbase.auth.AuthToken;
+import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
@@ -24,7 +27,6 @@ import us.kbase.common.service.JsonServerServlet.RpcCallData;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.narrativejobservice.AweClientDockerJobScript;
 import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 public class SubsequentCallRunner {
     private static final Set<String> RELEASE_TAGS =
@@ -32,30 +34,34 @@ public class SubsequentCallRunner {
     private static final String RELEASE = AweClientDockerJobScript.RELEASE;
     private static final String DEV = AweClientDockerJobScript.DEV;
 
-    private String moduleName;
-    private File sharedScratchDir;
-    private File jobWorkDir;
-    private String imageName;
-    private String callbackUrl;
-    private DockerRunner.LineLogger logger;
-    private String dockerURI;
-    private String token;
-    
+    private final AuthToken token;
+    private final String moduleName;
+    private final File sharedScratchDir;
+    private final File jobWorkDir;
+    private final String imageName;
+    private final String callbackUrl;
+    private final DockerRunner.LineLogger logger;
+    private final URI dockerURI;
     private final ModuleRunVersion mrv;
     
     public SubsequentCallRunner(
+            final AuthToken token,
             final UUID jobId,
             final File mainJobDir,
             final ModuleMethod modmeth, 
             String serviceVer,
             final int callbackPort,
-            final Map<String, String> config,
+            final URI dockerURI,
+            final URL catalogURL,
             final DockerRunner.LineLogger logger)
-            throws IOException, JsonClientException {
+            throws IOException, JsonClientException,
+            TokenFormatException {
+        this.token = token;
         this.logger = logger;
-        this.dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
-        String catalogUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-        CatalogClient catClient = new CatalogClient(new URL(catalogUrl));
+        this.dockerURI = dockerURI;
+//        config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
+//        String catalogUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        CatalogClient catClient = new CatalogClient(catalogURL);
         catClient.setIsInsecureHttpConnectionAllowed(true);
         catClient.setAllSSLCertificatesTrusted(true);
         //TODO code duplicated in AweClientDockerJobScript
@@ -103,6 +109,8 @@ public class SubsequentCallRunner {
         imageName = mvi.getDockerImgName();
         File srcWorkDir = new File(mainJobDir, "workdir");
         this.sharedScratchDir = new File(srcWorkDir, "tmp");
+        if (!sharedScratchDir.exists())
+            sharedScratchDir.mkdirs();
         File subjobsDir = new File(mainJobDir, "subjobs");
         if (!subjobsDir.exists())
             subjobsDir.mkdirs();
@@ -113,8 +121,6 @@ public class SubsequentCallRunner {
         this.jobWorkDir = new File(jobDir, "workdir");
         this.jobWorkDir.mkdirs();
         this.callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
-        File srcTokenFile = new File(srcWorkDir, "token");
-        this.token = FileUtils.readFileToString(srcTokenFile);
         File srcConfigPropsFile = new File(srcWorkDir, "config.properties");
         File dstConfigPropsFile = new File(jobWorkDir, "config.properties");
         FileUtils.copyFile(srcConfigPropsFile, dstConfigPropsFile);
@@ -131,11 +137,15 @@ public class SubsequentCallRunner {
             throws IOException, InterruptedException {
         File inputFile = new File(jobWorkDir, "input.json");
         File outputFile = new File(jobWorkDir, "output.json");
+        //TODO NOW sometimes after starting the server for the first time 
+        // (directly from the CallbackServer main method) this will throw NPE
+        System.out.println("Params: " + rpcCallData.getParams());
         UObject.getMapper().writeValue(inputFile, rpcCallData);
         System.out.println("dockerURI=" + dockerURI);
         logger.logNextLine("Running docker container for image: " + imageName, false);
-        new DockerRunner(dockerURI).run(imageName, moduleName, inputFile, token, logger, outputFile, false, 
-                null, sharedScratchDir, callbackUrl);
+        new DockerRunner(dockerURI).run(
+                imageName, moduleName, inputFile, token, logger, outputFile,
+                false, null, sharedScratchDir, callbackUrl);
         if (outputFile.exists()) {
             return UObject.getMapper().readValue(outputFile, new TypeReference<Map<String, Object>>() {});
         } else {

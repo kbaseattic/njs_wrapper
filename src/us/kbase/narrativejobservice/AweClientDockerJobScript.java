@@ -8,6 +8,8 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
@@ -65,12 +67,14 @@ public class AweClientDockerJobScript {
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
         String jobSrvUrl = args[1];
-        String token = System.getenv("KB_AUTH_TOKEN");
-        if (token == null || token.isEmpty())
-            token = System.getProperty("KB_AUTH_TOKEN");  // For tests
-        if (token == null || token.isEmpty())
+        String tokenStr = System.getenv("KB_AUTH_TOKEN");
+        if (tokenStr == null || tokenStr.isEmpty())
+            tokenStr = System.getProperty("KB_AUTH_TOKEN");  // For tests
+        if (tokenStr == null || tokenStr.isEmpty())
             throw new IllegalStateException("Token is not defined");
-        final NarrativeJobServiceClient jobSrvClient = getJobClient(jobSrvUrl, token);
+        final AuthToken token = new AuthToken(tokenStr);
+        final NarrativeJobServiceClient jobSrvClient = getJobClient(
+                jobSrvUrl, token);
         UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
@@ -79,11 +83,15 @@ public class AweClientDockerJobScript {
         try {
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
-            ujsClient = getUjsClient(config, token);
+            final URL catalogURL = getURL(jobInput.getE2(),
+                    NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+            final URI dockerURI = getURI(jobInput.getE2(),
+                    NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
+            ujsClient = getUjsClient(jobInput.getE2(), token);
             RunJobParams job = jobInput.getE1();
-            ujsClient.startJob(jobId, token, "running", "AWE job for " + job.getMethod(), 
+            ujsClient.startJob(jobId, token.toString(), "running", "AWE job for " + job.getMethod(), 
                     new InitProgress().withPtype("none"), null);
-            File jobDir = getJobDir(config, jobId);
+            File jobDir = getJobDir(jobInput.getE2(), jobId);
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
             if (context == null)
@@ -116,7 +124,7 @@ public class AweClientDockerJobScript {
             if (kbaseEndpoint != null)
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
-            ujsClient.updateJob(jobId, token, "running", null);
+            ujsClient.updateJob(jobId, token.toString(), "running", null);
             log = new DockerRunner.LineLogger() {
                 @Override
                 public void logNextLine(String line, boolean isError) {
@@ -126,7 +134,10 @@ public class AweClientDockerJobScript {
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
             String dockerRegistry = getDockerRegistryURL(config);
-            CatalogClient catClient = getCatalogClient(config, token);
+            CatalogClient ret = new CatalogClient(catalogURL, token);
+            ret.setIsInsecureHttpConnectionAllowed(true);
+            ret.setAllSSLCertificatesTrusted(true);
+            CatalogClient catClient = ret;
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
@@ -166,7 +177,6 @@ public class AweClientDockerJobScript {
             } else {
                 log.logNextLine("Image name received from catalog: " + imageName, false);
             }
-            String dockerURI = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
             logFlusher = new Thread(new Runnable() {
                 @Override
                 public void run() {
@@ -193,9 +203,9 @@ public class AweClientDockerJobScript {
                     new URL(mi.getGitUrl()), modMeth,
                     mvi.getGitCommitHash(), mvi.getVersion(),
                     requestedRelease);
-            JsonServerServlet catalogSrv = new CallbackServer(
-                    jobDir, callbackPort, config, log, runver,
-                    job);
+            final JsonServerServlet catalogSrv = new CallbackServer(token,
+                    jobDir, callbackPort, dockerURI, catalogURL, log, runver,
+                    job.getParams(), job.getSourceWsObjects());
             callbackServer = new Server(callbackPort);
             ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
             srvContext.setContextPath("/");
@@ -203,7 +213,8 @@ public class AweClientDockerJobScript {
             srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
             callbackServer.start();
             // Calling Docker run
-            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(),
+            new DockerRunner(dockerURI).run(
+                    imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
                     refDataDir, null, callbackUrl);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
@@ -220,7 +231,8 @@ public class AweClientDockerJobScript {
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
             // save result into outputShockId;
             jobSrvClient.finishJob(jobId, result);
-            ujsClient.completeJob(jobId, token, "done", null, new Results());
+            ujsClient.completeJob(jobId, token.toString(), "done", null,
+                    new Results());
             if (result.getError() != null) {
                 String err = "";
                 if (notNullOrEmpty(result.getError().getName())) {
@@ -275,7 +287,8 @@ public class AweClientDockerJobScript {
                 String status = "Error: " + ex.getMessage();
                 if (status.length() > 200)
                     status = status.substring(0, 197) + "...";
-                ujsClient.completeJob(jobId, token, status, stacktrace, null);
+                ujsClient.completeJob(jobId, token.toString(), status,
+                        stacktrace, null);
             }
         } finally {
             if (callbackServer != null)
@@ -328,13 +341,12 @@ public class AweClientDockerJobScript {
         return ret;
     }
 
-    private static UserAndJobStateClient getUjsClient(Map<String, String> config, 
-            String token) throws Exception {
-        String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-        if (ujsUrl == null)
-            throw new IllegalStateException("Parameter '" + 
-                    NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "' is not defined in configuration");
-        UserAndJobStateClient ret = new UserAndJobStateClient(new URL(ujsUrl), new AuthToken(token));
+    private static UserAndJobStateClient getUjsClient(final 
+            Map<String, String> config, 
+            final AuthToken token) throws Exception {
+        final URL ujsURL = getURL(config,
+                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+        UserAndJobStateClient ret = new UserAndJobStateClient(ujsURL, token);
         ret.setIsInsecureHttpConnectionAllowed(true);
         return ret;
     }
@@ -348,24 +360,42 @@ public class AweClientDockerJobScript {
     }
     
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
-            String token) throws UnauthorizedException, IOException,
+            AuthToken token) throws UnauthorizedException, IOException,
             MalformedURLException, TokenFormatException {
-        final NarrativeJobServiceClient jobSrvClient = new NarrativeJobServiceClient(new URL(jobSrvUrl), 
-                new AuthToken(token));
+        final NarrativeJobServiceClient jobSrvClient =
+                new NarrativeJobServiceClient(new URL(jobSrvUrl), token);
         jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
         return jobSrvClient;
     }
 
-    private static CatalogClient getCatalogClient(Map<String, String> config, 
-            String token) throws Exception {
-        String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-        if (catUrl == null)
-            throw new IllegalStateException("Parameter '" + 
-                    NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "' is not defined in configuration");
-        CatalogClient ret = new CatalogClient(new URL(catUrl), new AuthToken(token));
-        ret.setIsInsecureHttpConnectionAllowed(true);
-        ret.setAllSSLCertificatesTrusted(true);
-        return ret;
+    private static URL getURL(final Map<String, String> config,
+            final String param) {
+        final String urlStr = config.get(param);
+        if (urlStr == null || urlStr.isEmpty()) {
+            throw new IllegalStateException("Parameter '" + param +
+                    "' is not defined in configuration");
+        }
+        try {
+            return new URL(urlStr);
+        } catch (MalformedURLException mal) {
+            throw new IllegalStateException("The configuration parameter '" +
+                    param + " = " + urlStr + "' is not a valid URL");
+        }
+    }
+    
+    private static URI getURI(final Map<String, String> config,
+            final String param) {
+        final String urlStr = config.get(param);
+        if (urlStr == null || urlStr.isEmpty()) {
+            throw new IllegalStateException("Parameter '" + param +
+                    "' is not defined in configuration");
+        }
+        try {
+            return new URI(urlStr);
+        } catch (URISyntaxException use) {
+            throw new IllegalStateException("The configuration parameter '" +
+                    param + " = " + urlStr + "' is not a valid URI");
+        }
     }
     
     public static String[] getHostnameAndIP() {

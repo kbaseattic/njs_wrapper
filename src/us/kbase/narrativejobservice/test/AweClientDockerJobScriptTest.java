@@ -45,6 +45,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -188,6 +189,33 @@ public class AweClientDockerJobScriptTest {
         } else {
             return mi.getRelease();
         }
+    }
+    
+    @Ignore
+    @Test
+    public void testBasicAsync() throws Exception {
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String objectName = "async-basic";
+        String release = "dev";
+        String ver = "0.0.1";
+        UObject methparams = UObject.fromJsonString(String.format(
+                "{\"save\": {\"ws\":\"%s\"," +
+                            "\"name\":\"%s\"" +
+                            "}," + 
+                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10}], \"%s\"]]" +
+                 "}", testWsName, objectName,
+                 moduleName, methodName, release));
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+            expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
     }
     
     @Test

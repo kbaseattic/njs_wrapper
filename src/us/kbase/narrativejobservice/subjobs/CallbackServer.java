@@ -3,7 +3,10 @@ package us.kbase.narrativejobservice.subjobs;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
 import java.net.SocketException;
+import java.net.URI;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +34,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import us.kbase.auth.AuthService;
+import us.kbase.auth.AuthToken;
+import us.kbase.auth.TokenFormatException;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
@@ -41,7 +47,7 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.RunJobParams;
+import us.kbase.narrativejobservice.DockerRunner.LineLogger;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
@@ -53,10 +59,12 @@ public class CallbackServer extends JsonServerServlet {
     
     private static final int MAX_JOBS = 10;
     
+    private final AuthToken token;
     private final File mainJobDir;
     private final int callbackPort;
-    private final Map<String, String> config;
     private final DockerRunner.LineLogger logger;
+    private final URI dockerURI;
+    private final URL catalogURL;
     private final ProvenanceAction prov = new ProvenanceAction();
     
     private final static DateTimeFormatter DATE_FORMATTER =
@@ -78,16 +86,21 @@ public class CallbackServer extends JsonServerServlet {
                 .build();
     
     public CallbackServer(
+            final AuthToken token,
             final File mainJobDir,
             final int callbackPort,
-            final Map<String, String> config,
+            final URI dockerURI,
+            final URL catalogURL,
             final DockerRunner.LineLogger logger,
             final ModuleRunVersion runver,
-            final RunJobParams job) {
+            final List<UObject> methodParameters,
+            final List<String> inputWorkspaceObjects) {
         super("CallbackServer");
+        this.token = token;
         this.mainJobDir = mainJobDir;
         this.callbackPort = callbackPort;
-        this.config = config;
+        this.dockerURI = dockerURI;
+        this.catalogURL = catalogURL;
         this.logger = logger;
         vers.put(runver.getModuleMethod().getModule(), runver);
         prov.setTime(DATE_FORMATTER.print(new DateTime()));
@@ -95,8 +108,8 @@ public class CallbackServer extends JsonServerServlet {
         prov.setMethod(runver.getModuleMethod().getMethod());
         prov.setDescription(
                 "KBase SDK method run via the KBase Execution Engine");
-        prov.setMethodParams(job.getParams());
-        prov.setInputWsObjects(job.getSourceWsObjects());
+        prov.setMethodParams(methodParameters);
+        prov.setInputWsObjects(inputWorkspaceObjects);
         prov.setServiceVer(runver.getVersionAndRelease());
         initSilentJettyLogger();
     }
@@ -139,6 +152,7 @@ public class CallbackServer extends JsonServerServlet {
     private static void cbLog(String log) {
         System.out.println(String.format("%.2f - CallbackServer: %s",
                 (System.currentTimeMillis() / 1000.0), log));
+//        System.out.flush();
     }
     
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
@@ -183,13 +197,15 @@ public class CallbackServer extends JsonServerServlet {
 
     private Map<String, Object> handleCall(
             final RpcCallData rpcCallData) throws IOException,
-            JsonClientException, InterruptedException {
+            JsonClientException, InterruptedException, TokenFormatException {
 
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
         final Map<String, Object> jsonRpcResponse;
-
+        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
+        
         if (modmeth.isCheck()) {
+            cbLog("runCheck");
             jsonRpcResponse = runCheck(rpcCallData);
         } else {
             final UUID jobId = UUID.randomUUID();
@@ -200,7 +216,6 @@ public class CallbackServer extends JsonServerServlet {
             
             // update method name to get rid of suffixes
             rpcCallData.setMethod(modmeth.getModuleDotMethod());
-            
             if (modmeth.isStandard()) {
                 cbLog(String.format(
                         "Warning: the callback server received a " +
@@ -211,6 +226,7 @@ public class CallbackServer extends JsonServerServlet {
                 // Run method in local docker container
                 jsonRpcResponse = runner.run(rpcCallData);
             } else {
+                cbLog("runAsync");
                 final FutureTask<Map<String, Object>> task =
                         new FutureTask<Map<String, Object>>(
                                 new SubsequentCallRunnerRunner(
@@ -277,7 +293,7 @@ public class CallbackServer extends JsonServerServlet {
         if (resp.containsKey("result")) { // otherwise an error occurred
             result.put("result", resp.get("result"));
         }
-        resp.put("result", result);
+        resp.put("result", Arrays.asList(result));
         return resp;
     }
 
@@ -323,7 +339,7 @@ public class CallbackServer extends JsonServerServlet {
             final UUID jobId,
             final RpcContext rpcContext,
             final ModuleMethod modmeth)
-            throws IOException, JsonClientException  {
+            throws IOException, JsonClientException, TokenFormatException  {
         final SubsequentCallRunner runner;
         synchronized(this) {
             final String serviceVer;
@@ -347,9 +363,9 @@ public class CallbackServer extends JsonServerServlet {
                         .get("service_ver");
             }
             // Request docker image name from Catalog
-            runner = new SubsequentCallRunner(
-                    jobId, mainJobDir, modmeth,
-                    serviceVer, callbackPort, config, logger);
+            runner = new SubsequentCallRunner(token,
+                    jobId, mainJobDir, modmeth, serviceVer, callbackPort,
+                    dockerURI, catalogURL, logger);
             if (!vers.containsKey(modmeth.getModule())) {
                 vers.put(modmeth.getModule(), runner.getModuleRunVersion());
             }
@@ -448,5 +464,71 @@ public class CallbackServer extends JsonServerServlet {
                 return;
             inner.write(b, off, len);
         }
+    }
+    
+    private static class CallbackRunner implements Runnable {
+
+        private final CallbackServer server;
+        private final int port;
+        
+        public CallbackRunner(CallbackServer server, int port) {
+            super();
+            this.server = server;
+            this.port = port;
+        }
+
+        @Override
+        public void run() {
+            try {
+                server.startupServer(port);
+            } catch (Exception e) {
+                System.err.println("Can't start server:");
+                e.printStackTrace();
+            }
+        }
+        
+        
+    }
+    
+    public static void main(final String[] args) throws Exception {
+        final AuthToken t = AuthService.login(args[0], args[1]).getToken();
+        String endpoint = "https://ci.kbase/us/services/";
+        File mainWorkDir = new File("CallbackServer_temp");
+        int port = 10000;
+        URI dockerURL = new URI("unix:///var/run/docker.sock");
+        URL catalogURL = new URL("https://ci.kbase.us/services/catalog");
+        
+        File workDir = new File(mainWorkDir, "workdir");
+        workDir.mkdirs();
+        File configFile = new File(workDir, "config.properties");
+        PrintWriter pw = new PrintWriter(configFile);
+        pw.println("[global]");
+        pw.println("job_service_url = " + endpoint + "userandjobstate");
+        pw.println("workspace_url = " + endpoint + "ws");
+        pw.println("shock_url = " + endpoint + "shock-api");
+        pw.println("kbase_endpoint = " + endpoint);
+        pw.close();
+        
+        LineLogger log = new DockerRunner.LineLogger() {
+            @Override
+            public void logNextLine(String line, boolean isError) {
+                cbLog("Docker logger std" + (isError ? "err" : "out")  + ": " +
+                        line);
+            }
+        };
+        
+        ModuleRunVersion runver = new ModuleRunVersion(
+                new URL("https://github.com/mcreosote/foo"),
+                new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
+        
+        CallbackServer serv = new CallbackServer(
+                t, mainWorkDir, port,
+                dockerURL,
+                catalogURL, log,
+                runver, new LinkedList<UObject>(), new LinkedList<String>());
+        
+        new Thread(new CallbackRunner(serv, port)).start();
+        System.out.println("Started on port " + port);
+        System.out.println("workdir: " + mainWorkDir);
     }
 }

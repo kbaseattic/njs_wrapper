@@ -6,6 +6,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import us.kbase.auth.AuthToken;
 import us.kbase.common.utils.ProcessHelper;
 
 import ch.qos.logback.classic.Level;
@@ -30,13 +32,14 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
-    private final String dockerURI;
+    private final URI dockerURI;
     
-    public DockerRunner(String dockerURI) {
+    public DockerRunner(final URI dockerURI) {
         this.dockerURI = dockerURI;
     }
     
-    public File run(String imageName, String moduleName, File inputData, String token, 
+    public File run(String imageName, String moduleName, File inputData,
+            AuthToken token, 
             final LineLogger log, File outputFile, boolean removeImage,
             File refDataDir, File optionalScratchDir, String callbackUrl)
             throws IOException, InterruptedException {
@@ -50,7 +53,7 @@ public class DockerRunner {
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
-            fw.write(token);
+            fw.write(token.toString());
             fw.close();
             if (outputFile.exists())
                 outputFile.delete();
@@ -206,9 +209,9 @@ public class DockerRunner {
             ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger)log;
             log2.setLevel(Level.ERROR);
         }
-        if (dockerURI != null && !dockerURI.isEmpty()) {
+        if (dockerURI != null) {
             DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
-                    .withUri(dockerURI).build();
+                    .withUri(dockerURI.toASCIIString()).build();
             return DockerClientBuilder.getInstance(config).build();
         } else {
             return DockerClientBuilder.getInstance().build();
