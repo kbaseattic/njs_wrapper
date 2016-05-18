@@ -124,6 +124,7 @@ public class SubsequentCallRunner {
     
     public Map<String, Object> run(RpcCallData rpcCallData)
             throws IOException, InterruptedException {
+        System.out.println("scr run");
         File inputFile = new File(jobWorkDir, "input.json");
         File outputFile = new File(jobWorkDir, "output.json");
         //TODO NOW sometimes after starting the server for the first time 

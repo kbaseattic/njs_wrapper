@@ -220,14 +220,17 @@ public class CallbackServer extends JsonServerServlet {
                                 new SubsequentCallRunnerRunner(
                                         runner, rpcCallData));
                 synchronized(this) {
+                    cbLog("sync block");
                     if (runningJobs.size() >= MAX_JOBS) {
                         throw new IllegalStateException(String.format(
                                 "No more than %s concurrent methods " +
                                         "are allowed", MAX_JOBS));
                     }
                     executor.execute(task);
+                    cbLog("exec");
                     runningJobs.put(jobId,task);
                 }
+                cbLog("ret");
                 jsonRpcResponse = new HashMap<String, Object>();
                 jsonRpcResponse.put("version", "1.1");
                 jsonRpcResponse.put("id", rpcCallData.getId());
@@ -320,6 +323,7 @@ public class CallbackServer extends JsonServerServlet {
 
         @Override
         public Map<String, Object> call() throws Exception {
+            cbLog("run");
             return scr.run(rpc);
         }
     }
@@ -499,7 +503,7 @@ public class CallbackServer extends JsonServerServlet {
                     }
                 }).build();
         
-        System.out.println(cfg);
+
         ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/mcreosote/foo"),
                 new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
