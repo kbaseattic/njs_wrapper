@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -38,10 +39,17 @@ public class DockerRunner {
         this.dockerURI = dockerURI;
     }
     
-    public File run(String imageName, String moduleName, File inputData,
-            AuthToken token, 
-            final LineLogger log, File outputFile, boolean removeImage,
-            File refDataDir, File optionalScratchDir, String callbackUrl)
+    public File run(
+            String imageName,
+            final String moduleName,
+            final File inputData,
+            final AuthToken token, 
+            final LineLogger log,
+            final File outputFile,
+            final boolean removeImage,
+            final File refDataDir,
+            final File optionalScratchDir,
+            final URL callbackUrl)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 

@@ -39,7 +39,7 @@ public class SubsequentCallRunner {
     private final File sharedScratchDir;
     private final File jobWorkDir;
     private final String imageName;
-    private final String callbackUrl;
+    private final URL callbackUrl;
     private final DockerRunner.LineLogger logger;
     private final URI dockerURI;
     private final ModuleRunVersion mrv;
@@ -50,7 +50,7 @@ public class SubsequentCallRunner {
             final File mainJobDir,
             final ModuleMethod modmeth, 
             String serviceVer,
-            final int callbackPort,
+            final URL callbackURL,
             final URI dockerURI,
             final URL catalogURL,
             final DockerRunner.LineLogger logger)
@@ -59,8 +59,7 @@ public class SubsequentCallRunner {
         this.token = token;
         this.logger = logger;
         this.dockerURI = dockerURI;
-//        config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
-//        String catalogUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        this.callbackUrl = callbackURL;
         CatalogClient catClient = new CatalogClient(catalogURL);
         catClient.setIsInsecureHttpConnectionAllowed(true);
         catClient.setAllSSLCertificatesTrusted(true);
@@ -120,7 +119,6 @@ public class SubsequentCallRunner {
         jobDir.mkdirs();
         this.jobWorkDir = new File(jobDir, "workdir");
         this.jobWorkDir.mkdirs();
-        this.callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
         File srcConfigPropsFile = new File(srcWorkDir, "config.properties");
         File dstConfigPropsFile = new File(jobWorkDir, "config.properties");
         FileUtils.copyFile(srcConfigPropsFile, dstConfigPropsFile);

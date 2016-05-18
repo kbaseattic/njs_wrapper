@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URL;
@@ -61,7 +62,7 @@ public class CallbackServer extends JsonServerServlet {
     
     private final AuthToken token;
     private final File mainJobDir;
-    private final int callbackPort;
+    private final URL callbackURL;
     private final DockerRunner.LineLogger logger;
     private final URI dockerURI;
     private final URL catalogURL;
@@ -88,7 +89,7 @@ public class CallbackServer extends JsonServerServlet {
     public CallbackServer(
             final AuthToken token,
             final File mainJobDir,
-            final int callbackPort,
+            final URL callbackURL,
             final URI dockerURI,
             final URL catalogURL,
             final DockerRunner.LineLogger logger,
@@ -98,7 +99,7 @@ public class CallbackServer extends JsonServerServlet {
         super("CallbackServer");
         this.token = token;
         this.mainJobDir = mainJobDir;
-        this.callbackPort = callbackPort;
+        this.callbackURL = callbackURL;
         this.dockerURI = dockerURI;
         this.catalogURL = catalogURL;
         this.logger = logger;
@@ -202,7 +203,7 @@ public class CallbackServer extends JsonServerServlet {
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
         final Map<String, Object> jsonRpcResponse;
-        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
+//        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
         
         if (modmeth.isCheck()) {
             cbLog("runCheck");
@@ -218,7 +219,7 @@ public class CallbackServer extends JsonServerServlet {
             rpcCallData.setMethod(modmeth.getModuleDotMethod());
             if (modmeth.isStandard()) {
                 cbLog(String.format(
-                        "Warning: the callback server received a " +
+                        "WARNING: the callback server received a " +
                         "request to synchronously run the method " +
                         "%s. The callback server will block until " +
                         "the method is completed.",
@@ -348,7 +349,7 @@ public class CallbackServer extends JsonServerServlet {
                 final ModuleRunVersion v = vers.get(modmeth.getModule());
                 serviceVer = v.getGitHash();
                 cbLog(String.format(
-                        "Warning: Module %s was already used once " +
+                        "WARNING: Module %s was already used once " +
                                 "for this job. Using cached " +
                                 "version:\n" +
                                 "url: %s\n" +
@@ -365,7 +366,7 @@ public class CallbackServer extends JsonServerServlet {
             }
             // Request docker image name from Catalog
             runner = new SubsequentCallRunner(token,
-                    jobId, mainJobDir, modmeth, serviceVer, callbackPort,
+                    jobId, mainJobDir, modmeth, serviceVer, callbackURL,
                     dockerURI, catalogURL, logger);
             if (!vers.containsKey(modmeth.getModule())) {
                 vers.put(modmeth.getModule(), runner.getModuleRunVersion());
@@ -374,22 +375,27 @@ public class CallbackServer extends JsonServerServlet {
         return runner;
     }
     
-    public static String getCallbackUrl(int callbackPort)
+    public static URL getCallbackUrl(int callbackPort)
             throws SocketException {
-        List<String> hostIps = NetUtils.findNetworkAddresses("docker0", "vboxnet0");
-        String hostIp = null;
+        final List<String> hostIps = NetUtils.findNetworkAddresses(
+                "docker0", "vboxnet0");
+        final String hostIp;
         if (hostIps.isEmpty()) {
-            cbLog("WARNING! No Docker host IP addresses was found. Subsequent local calls are not supported in test mode.");
+            return null;
         } else {
             hostIp = hostIps.get(0);
             if (hostIps.size() > 1) {
-                cbLog("WARNING! Several Docker host IP addresses are detected, first one used: " + hostIp);
-            } else {
-                cbLog("Docker host IP address detected: " + hostIp);
+                cbLog("WARNING! Several Docker host IP addresses " +
+                        "detected, used first:  " + hostIp);
             }
         }
-        String callbackUrl = hostIp == null ? "" : ("http://" + hostIp + ":" + callbackPort);
-        return callbackUrl;
+        try {
+            return new URL("http://" + hostIp + ":" + callbackPort);
+        } catch (MalformedURLException e) {
+            throw new IllegalStateException(
+                    "The discovered docker host IP address is invalid: " +
+                    hostIp, e);
+        }
     }
 
     public static void initSilentJettyLogger() {
@@ -523,7 +529,7 @@ public class CallbackServer extends JsonServerServlet {
                 new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
         
         CallbackServer serv = new CallbackServer(
-                t, mainWorkDir, port,
+                t, mainWorkDir, getCallbackUrl(port),
                 dockerURL,
                 catalogURL, log,
                 runver, new LinkedList<UObject>(), new LinkedList<String>());

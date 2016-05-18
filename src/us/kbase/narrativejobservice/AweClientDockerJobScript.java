@@ -195,23 +195,31 @@ public class AweClientDockerJobScript {
             logFlusher.setDaemon(true);
             logFlusher.start();
             // Starting up callback server
-            int callbackPort = NetUtils.findFreePort();
-            String callbackUrl = CallbackServer.getCallbackUrl(callbackPort);
-            System.out.println("Docker runner found callback URL: " +
-                    callbackUrl);
-            final ModuleRunVersion runver = new ModuleRunVersion(
-                    new URL(mi.getGitUrl()), modMeth,
-                    mvi.getGitCommitHash(), mvi.getVersion(),
-                    requestedRelease);
-            final JsonServerServlet catalogSrv = new CallbackServer(token,
-                    jobDir, callbackPort, dockerURI, catalogURL, log, runver,
-                    job.getParams(), job.getSourceWsObjects());
-            callbackServer = new Server(callbackPort);
-            ServletContextHandler srvContext = new ServletContextHandler(ServletContextHandler.SESSIONS);
-            srvContext.setContextPath("/");
-            callbackServer.setHandler(srvContext);
-            srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
-            callbackServer.start();
+            final int callbackPort = NetUtils.findFreePort();
+            final URL callbackUrl = CallbackServer.
+                    getCallbackUrl(callbackPort);
+            if (callbackUrl != null) {
+                System.out.println("Job runner recieved callback URL: " +
+                        callbackUrl);
+                final ModuleRunVersion runver = new ModuleRunVersion(
+                        new URL(mi.getGitUrl()), modMeth,
+                        mvi.getGitCommitHash(), mvi.getVersion(),
+                        requestedRelease);
+                final JsonServerServlet catalogSrv = new CallbackServer(
+                        token, jobDir, callbackUrl, dockerURI, catalogURL, log,
+                        runver, job.getParams(), job.getSourceWsObjects());
+                callbackServer = new Server(callbackPort);
+                final ServletContextHandler srvContext =
+                        new ServletContextHandler(
+                                ServletContextHandler.SESSIONS);
+                srvContext.setContextPath("/");
+                callbackServer.setHandler(srvContext);
+                srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
+                callbackServer.start();
+            } else {
+                System.out.println("WARNING: No callback URL was recieved " +
+                        "by the job runner. Local callbacks are disabled.");
+            }
             // Calling Docker run
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
