@@ -226,9 +226,10 @@ public class CallbackServer extends JsonServerServlet {
                                 "No more than %s concurrent methods " +
                                         "are allowed", MAX_JOBS));
                     }
+//                    System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
                     executor.execute(task);
                     cbLog("exec");
-                    runningJobs.put(jobId,task);
+                    runningJobs.put(jobId, task);
                 }
                 cbLog("ret");
                 jsonRpcResponse = new HashMap<String, Object>();
@@ -249,13 +250,17 @@ public class CallbackServer extends JsonServerServlet {
         }
         final UUID jobId = UUID.fromString(rpcCallData.getParams().get(0)
                 .asClassInstance(String.class));
-        
+        System.out.println("got job id " + jobId);
         boolean finished = true;
         final FutureTask<Map<String, Object>> task;
         synchronized (this) {
+            System.out.println("in check sync block");
             if (runningJobs.containsKey(jobId)) {
+                System.out.println("has job");
                 if (runningJobs.get(jobId).isDone()) {
+                    System.out.println("job is done");
                     task = runningJobs.get(jobId);
+                    System.out.println("has task");
                     resultsCache.put(jobId, task);
                     runningJobs.remove(jobId);
                 } else {
@@ -273,7 +278,10 @@ public class CallbackServer extends JsonServerServlet {
                         "Either there is no job with id " + jobId +
                         "or it has expired from the cache");
             }
+            System.out.println("getting task");
             resp = getResults(task);
+            System.out.println("got task");
+            
         } else {
             resp = new HashMap<String, Object>();
             resp.put("version", "1.1");
@@ -301,6 +309,7 @@ public class CallbackServer extends JsonServerServlet {
             } else if (cause instanceof IOException) {
                 throw (IOException) cause;
             } else if (cause instanceof RuntimeException) {
+                System.out.println("Caught RTE");
                 throw (RuntimeException) cause;
             } else {
                 throw (Error) cause;
