@@ -126,16 +126,9 @@ public class SubsequentCallRunner {
             throws IOException, InterruptedException {
         File inputFile = new File(jobWorkDir, "input.json");
         File outputFile = new File(jobWorkDir, "output.json");
-        System.out.println("scr run");
-        //TODO NOW sometimes after starting the server for the first time 
-        // (directly from the CallbackServer main method) this will throw NPE
-        try {
-        System.out.println("Params: " + rpcCallData.getParams());
-        } catch (NullPointerException npe) {
-            throw new IllegalStateException(String.format("%.02f npe", System.currentTimeMillis() / 1000.0), npe);
-        }
         UObject.getMapper().writeValue(inputFile, rpcCallData);
-        System.out.println("dockerURI=" + config.getDockerURI());
+        config.getLogger().logNextLine("dockerURI=" + config.getDockerURI(),
+                false);
         config.getLogger().logNextLine(
                 "Running docker container for image: " + imageName, false);
         new DockerRunner(config.getDockerURI()).run(
