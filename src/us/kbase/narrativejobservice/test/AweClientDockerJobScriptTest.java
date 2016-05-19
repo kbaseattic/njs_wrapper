@@ -48,6 +48,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -190,6 +191,77 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
+    //TODO NOW more tests, check result somehow
+    @Test
+    public void testNestedAsync() throws Exception {
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String objectName = "async-basic";
+        String release = "dev";
+        String ver = "0.0.1";
+        final String modmeth = moduleName + "." + methodName;
+        Map<String, Object> p = ImmutableMap.<String, Object>builder()
+            .put("save", ImmutableMap.<String,Object>builder()
+                .put("ws", testWsName)
+                .put("name", objectName)
+                .build()
+            )
+            .put("cli_async", Arrays.asList(
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("wait", 10)
+                            .put("id", "inner1").build()))
+                    .put("ver", release)
+                    .build(),
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("wait", 5)
+                            .put("id", "inner2")
+                            .put("cli_async", Arrays.asList(
+                                ImmutableMap.<String, Object>builder()
+                                    .put("method", modmeth)
+                                    .put("params", Arrays.asList(
+                                        ImmutableMap.<String, Object>builder()
+                                            .put("wait", 3)
+                                            .put("id", "inner2_1").build()))
+                                    .put("ver", release)
+                                    .build()
+                            )).build()
+                     ))
+                     .put("ver", release)
+                     .build()
+                )
+            )
+            .put("id", "outer")
+            .put("run_jobs_async", true)
+            .build();
+//        UObject methparams = UObject.fromJsonString(String.format(
+//                "{\"save\": {\"ws\":\"%s\"," +
+//                            "\"name\":\"%s\"" +
+//                            "}," + 
+//                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10, \"id\": \"inner\"}], \"%s\"]]," +
+//                 "\"id\": \"outer\"" +
+//                 "}", testWsName, objectName,
+//                 moduleName, methodName, release));
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+            expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, new UObject(p), objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
+        System.out.println("Results:\n" + res.getResult()
+                .asClassInstance(List.class));
+        
+    }
+    
     @Test
     public void testBasicProvenance() throws Exception {
         System.out.println("Test [testBasicProvenance]");
@@ -203,7 +275,7 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
                         "}," + 
-             "\"calls\": []" +
+             "\"id\": \"myid\"" + 
              "}");
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
@@ -242,26 +314,29 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
                         "}," + 
-             "\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
-                          "\"ver\": \"%s\"" +
-                          "}," +
-                          "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}," +
-                           "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}" +
-                         "]" +
+             "\"cli_sync\": [{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}," +
+                            "{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}," +
+                            "{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}" +
+                            "]," +
+             "\"run_jobs_async\": true," +
+             "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
-             "e1038b847b2f20a38f06799de509e7058b7d0d7e",
+             "dbe95962c04b95881ac2454651e4e1b866bf89bb",
              moduleName + "." + methodName,
-             // this is the latest commit, but the prior commit is registered
+             // this is the latest commit, but a prior commit is registered
              //for dev
-             "b0d487271c22f793b381da29e266faa9bb0b2d1b",
+             //TODO NOW fix this when async tests work, dev is on this commit
+             "e8f628eb1c8295434293c7b5a0d4d26835b811da",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
@@ -272,8 +347,8 @@ public class AweClientDockerJobScriptTest {
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.3")
-            .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
+            .withVer("0.0.4")
+            .withCommit("dbe95962c04b95881ac2454651e4e1b866bf89bb")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
                 methparams, objectName, expsas,
@@ -391,10 +466,11 @@ public class AweClientDockerJobScriptTest {
             ServerException {
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
+                          "\"params\": [{\"id\": \"id1\"}]," +
                           "\"ver\": %s" +
                           "}" +
-                         "]" +
+                         "]," +
+             "\"id\": \"myid\"" + 
              "}",
              innerModMeth, innerRel));
         JobState ret = runJob(outerModMeth, outerRel, methparams,
@@ -457,7 +533,7 @@ public class AweClientDockerJobScriptTest {
             return ver + "-" + release;
         }
     }
-    private void runJobAndCheckProvenance(
+    private JobState runJobAndCheckProvenance(
             String moduleName,
             String methodName,
             String release,
@@ -472,9 +548,16 @@ public class AweClientDockerJobScriptTest {
         for (String o: wsobjs) {
             wsobjrefs.add(testWsName + "/" + o);
         }
-        runJob(moduleName, methodName, release, methparams, wsobjrefs);
+        JobState res = runJob(moduleName, methodName, release, methparams,
+                wsobjrefs);
+        if (res.getError() != null) {
+            System.out.println("Job had unexpected error:");
+            System.out.println(res.getError());
+            throw new TestException(res.getError().getMessage());
+        }
         checkProvenance(moduleName, methodName, release, ver, methparams,
                 objectName, subs, wsobjs);
+        return res;
     }
 
     private void checkProvenance(
