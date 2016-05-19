@@ -45,7 +45,6 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -191,7 +190,6 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    @Ignore
     @Test
     public void testBasicAsync() throws Exception {
         execStats.clear();
@@ -204,7 +202,8 @@ public class AweClientDockerJobScriptTest {
                 "{\"save\": {\"ws\":\"%s\"," +
                             "\"name\":\"%s\"" +
                             "}," + 
-                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10}], \"%s\"]]" +
+                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10, \"id\": \"inner\"}], \"%s\"]]," +
+                 "\"id\": \"outer\"" +
                  "}", testWsName, objectName,
                  moduleName, methodName, release));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
@@ -213,9 +212,12 @@ public class AweClientDockerJobScriptTest {
             .withVer("0.0.1")
             .withRel("dev")
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, methparams, objectName, expsas,
                 Arrays.asList(STAGED1_NAME));
+        System.out.println("Results:\n" + res.getResult()
+                .asClassInstance(List.class));
+        
     }
     
     @Test
@@ -486,7 +488,7 @@ public class AweClientDockerJobScriptTest {
             return ver + "-" + release;
         }
     }
-    private void runJobAndCheckProvenance(
+    private JobState runJobAndCheckProvenance(
             String moduleName,
             String methodName,
             String release,
@@ -510,6 +512,7 @@ public class AweClientDockerJobScriptTest {
         }
         checkProvenance(moduleName, methodName, release, ver, methparams,
                 objectName, subs, wsobjs);
+        return res;
     }
 
     private void checkProvenance(

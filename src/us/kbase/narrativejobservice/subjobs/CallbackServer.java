@@ -226,7 +226,8 @@ public class CallbackServer extends JsonServerServlet {
                                 "No more than %s concurrent methods " +
                                         "are allowed", MAX_JOBS));
                     }
-//                    System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
+                    //TODO NOW need to understand why this fixes the NPE problem, fix that, and remove
+                    System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
                     executor.execute(task);
                     cbLog("exec");
                     runningJobs.put(jobId, task);
