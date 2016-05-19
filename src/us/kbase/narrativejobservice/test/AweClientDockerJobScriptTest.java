@@ -48,6 +48,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -190,6 +191,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
+    //TODO NOW more tests, check result somehow
     @Test
     public void testBasicAsync() throws Exception {
         execStats.clear();
@@ -198,14 +200,44 @@ public class AweClientDockerJobScriptTest {
         String objectName = "async-basic";
         String release = "dev";
         String ver = "0.0.1";
-        UObject methparams = UObject.fromJsonString(String.format(
-                "{\"save\": {\"ws\":\"%s\"," +
-                            "\"name\":\"%s\"" +
-                            "}," + 
-                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10, \"id\": \"inner\"}], \"%s\"]]," +
-                 "\"id\": \"outer\"" +
-                 "}", testWsName, objectName,
-                 moduleName, methodName, release));
+        final String modmeth = moduleName + "." + methodName;
+        Map<String, Object> p = ImmutableMap.<String, Object>builder()
+                .put("save", ImmutableMap.<String,Object>builder()
+                        .put("ws", testWsName)
+                        .put("name", objectName).build()
+                     )
+                .put("async_jobs", Arrays.asList(
+                        Arrays.asList(
+                        modmeth,
+                        Arrays.asList(ImmutableMap.<String, Object>builder()
+                            .put("wait", 10)
+                            .put("id", "inner1").build()),
+                        release),
+                        Arrays.asList(
+                        modmeth,
+                        Arrays.asList(ImmutableMap.<String, Object>builder()
+                            .put("wait", 5)
+                            .put("id", "inner2")
+                            .put("async_jobs", Arrays.asList(Arrays.asList(
+                                    modmeth,
+                                    Arrays.asList(
+                                    ImmutableMap.<String, Object>builder()
+                                        .put("wait", 3)
+                                        .put("id", "inner12").build()),
+                                    release))
+                             ).build()),
+                        release)
+                        )
+                 )
+                .put("id", "outer").build();
+//        UObject methparams = UObject.fromJsonString(String.format(
+//                "{\"save\": {\"ws\":\"%s\"," +
+//                            "\"name\":\"%s\"" +
+//                            "}," + 
+//                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10, \"id\": \"inner\"}], \"%s\"]]," +
+//                 "\"id\": \"outer\"" +
+//                 "}", testWsName, objectName,
+//                 moduleName, methodName, release));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
             expsas.add(new SubActionSpec()
             .withMod(moduleName)
@@ -213,7 +245,7 @@ public class AweClientDockerJobScriptTest {
             .withRel("dev")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
-                release, ver, methparams, objectName, expsas,
+                release, ver, new UObject(p), objectName, expsas,
                 Arrays.asList(STAGED1_NAME));
         System.out.println("Results:\n" + res.getResult()
                 .asClassInstance(List.class));
