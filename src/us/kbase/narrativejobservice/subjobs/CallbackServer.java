@@ -58,6 +58,7 @@ public class CallbackServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     
     private static final int MAX_JOBS = 10;
+    private static volatile int currentJobs = 0;
     
     private final AuthToken token;
     private final CallbackServerConfig config;
@@ -195,48 +196,34 @@ public class CallbackServer extends JsonServerServlet {
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
         final Map<String, Object> jsonRpcResponse;
-//        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
+        //TODO NOW need to understand why this fixes the NPE problem, fix that, and remove
+        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
         
         if (modmeth.isCheck()) {
             cbLog("runCheck");
             jsonRpcResponse = runCheck(rpcCallData);
         } else {
+            incrementJobCount();
             final UUID jobId = UUID.randomUUID();
             cbLog(String.format("Subjob method: %s JobID: %s",
                     modmeth.getModuleDotMethod(), jobId));
             final SubsequentCallRunner runner = getJobRunner(
                     jobId, rpcCallData.getContext(), modmeth);
-            
+
             // update method name to get rid of suffixes
             rpcCallData.setMethod(modmeth.getModuleDotMethod());
             if (modmeth.isStandard()) {
-                cbLog(String.format(
-                        "WARNING: the callback server received a " +
-                        "request to synchronously run the method " +
-                        "%s. The callback server will block until " +
-                        "the method is completed.",
-                        modmeth.getModuleDotMethod()));
-                // Run method in local docker container
                 jsonRpcResponse = runner.run(rpcCallData);
+                decrementJobCount();
             } else {
                 cbLog("runAsync");
                 final FutureTask<Map<String, Object>> task =
                         new FutureTask<Map<String, Object>>(
                                 new SubsequentCallRunnerRunner(
                                         runner, rpcCallData));
-                synchronized(this) {
-                    cbLog("sync block");
-                    if (runningJobs.size() >= MAX_JOBS) {
-                        throw new IllegalStateException(String.format(
-                                "No more than %s concurrent methods " +
-                                        "are allowed", MAX_JOBS));
-                    }
-                    //TODO NOW need to understand why this fixes the NPE problem, fix that, and remove
-                    System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
-                    executor.execute(task);
-                    cbLog("exec");
-                    runningJobs.put(jobId, task);
-                }
+                cbLog("exec");
+                executor.execute(task);
+                runningJobs.put(jobId, task);
                 cbLog("ret");
                 jsonRpcResponse = new HashMap<String, Object>();
                 jsonRpcResponse.put("version", "1.1");
@@ -245,6 +232,20 @@ public class CallbackServer extends JsonServerServlet {
             }
         }
         return jsonRpcResponse;
+    }
+
+    private synchronized void incrementJobCount() {
+        if (currentJobs >= MAX_JOBS) {
+            throw new IllegalStateException(String.format(
+                    "No more than %s concurrently running methods " +
+                            "are allowed", MAX_JOBS));
+        }
+        currentJobs++;
+    }
+    
+    private synchronized void decrementJobCount() {
+        //decrement is not atomic
+        currentJobs--;
     }
 
     private Map<String, Object> runCheck(final RpcCallData rpcCallData)
@@ -269,6 +270,7 @@ public class CallbackServer extends JsonServerServlet {
                     System.out.println("has task");
                     resultsCache.put(jobId, task);
                     runningJobs.remove(jobId);
+                    decrementJobCount();
                 } else {
                     finished = false;
                     task = null;
@@ -349,7 +351,7 @@ public class CallbackServer extends JsonServerServlet {
             final ModuleMethod modmeth)
             throws IOException, JsonClientException, TokenFormatException  {
         final SubsequentCallRunner runner;
-        synchronized(this) {
+        synchronized (this) {
             final String serviceVer;
             if (vers.containsKey(modmeth.getModule())) {
                 final ModuleRunVersion v = vers.get(modmeth.getModule());

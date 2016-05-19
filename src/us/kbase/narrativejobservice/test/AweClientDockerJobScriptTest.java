@@ -270,7 +270,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.3";
+        String ver = "0.0.4";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -287,6 +287,7 @@ public class AweClientDockerJobScriptTest {
                 methparams, objectName, expsas,
                 Arrays.asList(STAGED1_NAME));
         
+        //TODO NOW update beta release to 0.0.5 & down grade dev to 0.0.4 
         release = "beta";
         ver = "0.0.4";
         expsas.set(0, new SubActionSpec()
@@ -327,7 +328,6 @@ public class AweClientDockerJobScriptTest {
                              "\"ver\": \"%s\"" +
                              "}" +
                             "]," +
-             "\"run_jobs_async\": true," +
              "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
@@ -465,7 +465,7 @@ public class AweClientDockerJobScriptTest {
             throws IOException, JsonClientException, InterruptedException,
             ServerException {
         UObject methparams = UObject.fromJsonString(String.format(
-            "{\"calls\": [{\"method\": \"%s\"," +
+            "{\"cli_sync\": [{\"method\": \"%s\"," +
                           "\"params\": [{\"id\": \"id1\"}]," +
                           "\"ver\": %s" +
                           "}" +
