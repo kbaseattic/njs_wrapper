@@ -1,5 +1,6 @@
 package us.kbase.narrativejobservice.subjobs;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
@@ -42,6 +43,7 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
+import us.kbase.common.service.JsonTokenStream;
 import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ModuleMethod;
@@ -58,6 +60,7 @@ public class CallbackServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     
     private static final int MAX_JOBS = 10;
+    private static volatile int currentJobs = 0;
     
     private final AuthToken token;
     private final CallbackServerConfig config;
@@ -80,6 +83,9 @@ public class CallbackServer extends JsonServerServlet {
                 .maximumSize(1000)
                 .expireAfterWrite(10, TimeUnit.MINUTES)
                 .build();
+    
+    private final Object getRunnerLock = new Object();
+    private final Object removeJobLock = new Object();
     
     public CallbackServer(
             final AuthToken token,
@@ -145,7 +151,6 @@ public class CallbackServer extends JsonServerServlet {
     private static void cbLog(String log) {
         System.out.println(String.format("%.2f - CallbackServer: %s",
                 (System.currentTimeMillis() / 1000.0), log));
-//        System.out.flush();
     }
     
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
@@ -195,10 +200,8 @@ public class CallbackServer extends JsonServerServlet {
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
         final Map<String, Object> jsonRpcResponse;
-//        System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
         
         if (modmeth.isCheck()) {
-            cbLog("runCheck");
             jsonRpcResponse = runCheck(rpcCallData);
         } else {
             final UUID jobId = UUID.randomUUID();
@@ -206,38 +209,46 @@ public class CallbackServer extends JsonServerServlet {
                     modmeth.getModuleDotMethod(), jobId));
             final SubsequentCallRunner runner = getJobRunner(
                     jobId, rpcCallData.getContext(), modmeth);
-            
+
             // update method name to get rid of suffixes
             rpcCallData.setMethod(modmeth.getModuleDotMethod());
+            incrementJobCount();
             if (modmeth.isStandard()) {
-                cbLog(String.format(
-                        "WARNING: the callback server received a " +
-                        "request to synchronously run the method " +
-                        "%s. The callback server will block until " +
-                        "the method is completed.",
-                        modmeth.getModuleDotMethod()));
-                // Run method in local docker container
-                jsonRpcResponse = runner.run(rpcCallData);
+                try {
+                    jsonRpcResponse = runner.run(rpcCallData);
+                } finally {
+                    decrementJobCount();
+                }
             } else {
-                cbLog("runAsync");
+                /* need to make a copy of the RPC data because it contains a
+                 * list of UObjects which each contain a reference to a
+                 * JsonTokenStream. The JTS is closed by the superclass
+                 * when this call returns and can't be read when the subjob
+                 * runner starts. 
+                 * This implementation assumes the UObjects are reasonably
+                 * small. If they're really big need to do something smarter,
+                 * or check the size before serializing them and throw an
+                 * error.
+                 * 
+                 * At least this doesn't instantiate the objects.
+                 */
+                final List<UObject> newobjs = new LinkedList<UObject>();
+                for (final UObject uo: rpcCallData.getParams()) {
+                    final ByteArrayOutputStream baos =
+                            new ByteArrayOutputStream();
+                    uo.write(baos);
+                    final JsonTokenStream jts = new JsonTokenStream(
+                            baos.toByteArray());
+                    jts.setTrustedWholeJson(true);
+                    newobjs.add(new UObject(jts));
+                }
+                rpcCallData.setParams(newobjs);
                 final FutureTask<Map<String, Object>> task =
                         new FutureTask<Map<String, Object>>(
                                 new SubsequentCallRunnerRunner(
                                         runner, rpcCallData));
-                synchronized(this) {
-                    cbLog("sync block");
-                    if (runningJobs.size() >= MAX_JOBS) {
-                        throw new IllegalStateException(String.format(
-                                "No more than %s concurrent methods " +
-                                        "are allowed", MAX_JOBS));
-                    }
-                    //TODO NOW need to understand why this fixes the NPE problem, fix that, and remove
-                    System.out.println("handle call rpc params:\n" + rpcCallData.getParams());
-                    executor.execute(task);
-                    cbLog("exec");
-                    runningJobs.put(jobId, task);
-                }
-                cbLog("ret");
+                executor.execute(task);
+                runningJobs.put(jobId, task);
                 jsonRpcResponse = new HashMap<String, Object>();
                 jsonRpcResponse.put("version", "1.1");
                 jsonRpcResponse.put("id", rpcCallData.getId());
@@ -245,6 +256,20 @@ public class CallbackServer extends JsonServerServlet {
             }
         }
         return jsonRpcResponse;
+    }
+
+    private synchronized void incrementJobCount() {
+        if (currentJobs >= MAX_JOBS) {
+            throw new IllegalStateException(String.format(
+                    "No more than %s concurrently running methods " +
+                            "are allowed", MAX_JOBS));
+        }
+        currentJobs++;
+    }
+    
+    private synchronized void decrementJobCount() {
+        //decrement is not atomic
+        currentJobs--;
     }
 
     private Map<String, Object> runCheck(final RpcCallData rpcCallData)
@@ -256,19 +281,15 @@ public class CallbackServer extends JsonServerServlet {
         }
         final UUID jobId = UUID.fromString(rpcCallData.getParams().get(0)
                 .asClassInstance(String.class));
-        System.out.println("got job id " + jobId);
         boolean finished = true;
         final FutureTask<Map<String, Object>> task;
-        synchronized (this) {
-            System.out.println("in check sync block");
+        synchronized (removeJobLock) {
             if (runningJobs.containsKey(jobId)) {
-                System.out.println("has job");
                 if (runningJobs.get(jobId).isDone()) {
-                    System.out.println("job is done");
                     task = runningJobs.get(jobId);
-                    System.out.println("has task");
                     resultsCache.put(jobId, task);
                     runningJobs.remove(jobId);
+                    decrementJobCount();
                 } else {
                     finished = false;
                     task = null;
@@ -284,9 +305,7 @@ public class CallbackServer extends JsonServerServlet {
                         "Either there is no job with id " + jobId +
                         "or it has expired from the cache");
             }
-            System.out.println("getting task");
             resp = getResults(task);
-            System.out.println("got task");
             
         } else {
             resp = new HashMap<String, Object>();
@@ -315,7 +334,6 @@ public class CallbackServer extends JsonServerServlet {
             } else if (cause instanceof IOException) {
                 throw (IOException) cause;
             } else if (cause instanceof RuntimeException) {
-                System.out.println("Caught RTE");
                 throw (RuntimeException) cause;
             } else {
                 throw (Error) cause;
@@ -338,7 +356,6 @@ public class CallbackServer extends JsonServerServlet {
 
         @Override
         public Map<String, Object> call() throws Exception {
-            cbLog("run");
             return scr.run(rpc);
         }
     }
@@ -349,7 +366,7 @@ public class CallbackServer extends JsonServerServlet {
             final ModuleMethod modmeth)
             throws IOException, JsonClientException, TokenFormatException  {
         final SubsequentCallRunner runner;
-        synchronized(this) {
+        synchronized (getRunnerLock) {
             final String serviceVer;
             if (vers.containsKey(modmeth.getModule())) {
                 final ModuleRunVersion v = vers.get(modmeth.getModule());
@@ -507,7 +524,6 @@ public class CallbackServer extends JsonServerServlet {
         int port = 10000;
         CallbackServerConfig cfg = new CallbackServerConfigBuilder(
                 new URL("https://ci.kbase.us/services/"),
-                new URI("unix:///var/run/docker.sock"),
                 getCallbackUrl(port),
                 Paths.get("temp_CallbackServer"),
                 new DockerRunner.LineLogger() {
@@ -516,8 +532,9 @@ public class CallbackServer extends JsonServerServlet {
                         cbLog("Docker logger std" + (isError ? "err" : "out") +
                                 ": " + line);
                     }
-                }).build();
-        
+                })
+                .withDockerURI(new URI("unix:///var/run/docker.sock"))
+                .build();
 
         ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/mcreosote/foo"),

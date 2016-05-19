@@ -90,7 +90,8 @@ public class AweClientDockerJobScript {
             final URL catalogURL = getURL(jobInput.getE2(),
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
             final URI dockerURI = getURI(jobInput.getE2(),
-                    NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
+                    NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                    true);
             ujsClient = getUjsClient(jobInput.getE2(), token);
             RunJobParams job = jobInput.getE1();
             ujsClient.startJob(jobId, token.toString(), "running", "AWE job for " + job.getMethod(), 
@@ -399,9 +400,12 @@ public class AweClientDockerJobScript {
     }
     
     private static URI getURI(final Map<String, String> config,
-            final String param) {
+            final String param, boolean allowAbsent) {
         final String urlStr = config.get(param);
         if (urlStr == null || urlStr.isEmpty()) {
+            if (allowAbsent) {
+                return null;
+            }
             throw new IllegalStateException("Parameter '" + param +
                     "' is not defined in configuration");
         }
