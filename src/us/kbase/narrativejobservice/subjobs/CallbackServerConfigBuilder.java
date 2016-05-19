@@ -36,7 +36,7 @@ public class CallbackServerConfigBuilder {
     private URL shockURL;
     private URL userJobStateURL;
     private URL catalogURL;
-    final private URI dockerURI;
+    private URI dockerURI = null;
     final private URL callbackURL;
     final private Path workDir;
     final private DockerRunner.LineLogger logger;
@@ -50,12 +50,11 @@ public class CallbackServerConfigBuilder {
      */
     public CallbackServerConfigBuilder(
             final URL kbaseEndpointURL,
-            final URI dockerURI,
             final URL callbackURL,
             final Path workDir,
             final LineLogger logger) {
         super();
-        checkNulls(kbaseEndpointURL, dockerURI, callbackURL, workDir, logger);
+        checkNulls(kbaseEndpointURL, callbackURL, workDir, logger);
         this.kbaseEndpointURL = kbaseEndpointURL;
         
         this.workspaceURL = resolveURL(kbaseEndpointURL, EP_WS);
@@ -63,7 +62,6 @@ public class CallbackServerConfigBuilder {
         this.userJobStateURL = resolveURL(kbaseEndpointURL, EP_UJS);
         this.catalogURL = resolveURL(kbaseEndpointURL, EP_CAT);
         
-        this.dockerURI = dockerURI;
         this.callbackURL = callbackURL;
         this.workDir = workDir;
         this.logger = logger;
@@ -98,7 +96,8 @@ public class CallbackServerConfigBuilder {
                 this.catalogURL);
         
         this.dockerURI = getURI(config,
-                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
+                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                true);
         this.callbackURL = callbackURL;
         this.workDir = workDir;
         this.logger = logger;
@@ -127,6 +126,12 @@ public class CallbackServerConfigBuilder {
     public CallbackServerConfigBuilder withCatalogURL(final URL catalogURL) {
         checkNulls(workspaceURL);
         this.catalogURL = catalogURL;
+        return this;
+    }
+    
+    public CallbackServerConfigBuilder withDockerURI(final URI dockerURI) {
+        checkNulls(dockerURI);
+        this.dockerURI = dockerURI;
         return this;
     }
 
@@ -169,7 +174,7 @@ public class CallbackServerConfigBuilder {
     private static URL getURL(
             final Map<String, String> config,
             final String param) {
-        final String urlStr = getParam(config, param);
+        final String urlStr = getParam(config, param, false);
         try {
             return new URL(urlStr);
         } catch (MalformedURLException mal) {
@@ -180,9 +185,13 @@ public class CallbackServerConfigBuilder {
 
     private static String getParam(
             final Map<String, String> config,
-            final String param) {
+            final String param,
+            final boolean allowMissing) {
         final String pval = config.get(param);
         if (pval == null || pval.isEmpty()) {
+            if (allowMissing) {
+                return null;
+            }
             throw new IllegalStateException("Parameter '" + param +
                     "' is not defined in configuration");
         }
@@ -191,8 +200,12 @@ public class CallbackServerConfigBuilder {
     
     private static URI getURI(
             final Map<String, String> config,
-            final String param) {
-        final String urlStr = getParam(config, param);
+            final String param,
+            final boolean allowMissing) {
+        final String urlStr = getParam(config, param, allowMissing);
+        if (urlStr == null) {
+            return null;
+        }
         try {
             return new URI(urlStr);
         } catch (URISyntaxException use) {

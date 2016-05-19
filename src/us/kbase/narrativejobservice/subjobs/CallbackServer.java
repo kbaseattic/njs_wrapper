@@ -524,7 +524,6 @@ public class CallbackServer extends JsonServerServlet {
         int port = 10000;
         CallbackServerConfig cfg = new CallbackServerConfigBuilder(
                 new URL("https://ci.kbase.us/services/"),
-                new URI("unix:///var/run/docker.sock"),
                 getCallbackUrl(port),
                 Paths.get("temp_CallbackServer"),
                 new DockerRunner.LineLogger() {
@@ -533,8 +532,9 @@ public class CallbackServer extends JsonServerServlet {
                         cbLog("Docker logger std" + (isError ? "err" : "out") +
                                 ": " + line);
                     }
-                }).build();
-        
+                })
+                .withDockerURI(new URI("unix:///var/run/docker.sock"))
+                .build();
 
         ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/mcreosote/foo"),
