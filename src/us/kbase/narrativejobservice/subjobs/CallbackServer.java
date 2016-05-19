@@ -100,6 +100,11 @@ public class CallbackServer extends JsonServerServlet {
         prov.setInputWsObjects(inputWorkspaceObjects);
         prov.setServiceVer(runver.getVersionAndRelease());
         initSilentJettyLogger();
+        /* might want to consider a reaper thread that moves jobs to the cache
+         * if they've been done for X amount of time
+         * Might want to increase the cache lifetime or have a separate
+         * cache for jobs that are done but haven't been checked by the user
+         */
     }
     
     @JsonServerMethod(rpc = "CallbackServer.get_provenance")

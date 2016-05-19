@@ -193,7 +193,7 @@ public class AweClientDockerJobScriptTest {
     
     //TODO NOW more tests, check result somehow
     @Test
-    public void testBasicAsync() throws Exception {
+    public void testNestedAsync() throws Exception {
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
         String methodName = "run";
@@ -202,34 +202,44 @@ public class AweClientDockerJobScriptTest {
         String ver = "0.0.1";
         final String modmeth = moduleName + "." + methodName;
         Map<String, Object> p = ImmutableMap.<String, Object>builder()
-                .put("save", ImmutableMap.<String,Object>builder()
-                        .put("ws", testWsName)
-                        .put("name", objectName).build()
-                     )
-                .put("async_jobs", Arrays.asList(
-                        Arrays.asList(
-                        modmeth,
-                        Arrays.asList(ImmutableMap.<String, Object>builder()
+            .put("save", ImmutableMap.<String,Object>builder()
+                .put("ws", testWsName)
+                .put("name", objectName)
+                .build()
+            )
+            .put("cli_async", Arrays.asList(
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
                             .put("wait", 10)
-                            .put("id", "inner1").build()),
-                        release),
-                        Arrays.asList(
-                        modmeth,
-                        Arrays.asList(ImmutableMap.<String, Object>builder()
+                            .put("id", "inner1").build()))
+                    .put("ver", release)
+                    .build(),
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
                             .put("wait", 5)
                             .put("id", "inner2")
-                            .put("async_jobs", Arrays.asList(Arrays.asList(
-                                    modmeth,
-                                    Arrays.asList(
-                                    ImmutableMap.<String, Object>builder()
-                                        .put("wait", 3)
-                                        .put("id", "inner12").build()),
-                                    release))
-                             ).build()),
-                        release)
-                        )
-                 )
-                .put("id", "outer").build();
+                            .put("cli_async", Arrays.asList(
+                                ImmutableMap.<String, Object>builder()
+                                    .put("method", modmeth)
+                                    .put("params", Arrays.asList(
+                                        ImmutableMap.<String, Object>builder()
+                                            .put("wait", 3)
+                                            .put("id", "inner2_1").build()))
+                                    .put("ver", release)
+                                    .build()
+                            )).build()
+                     ))
+                     .put("ver", release)
+                     .build()
+                )
+            )
+            .put("id", "outer")
+            .put("run_jobs_async", true)
+            .build();
 //        UObject methparams = UObject.fromJsonString(String.format(
 //                "{\"save\": {\"ws\":\"%s\"," +
 //                            "\"name\":\"%s\"" +
@@ -265,7 +275,7 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
                         "}," + 
-             "\"calls\": []" +
+             "\"id\": \"myid\"" + 
              "}");
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
@@ -304,22 +314,24 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
                         "}," + 
-             "\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
-                          "\"ver\": \"%s\"" +
-                          "}," +
-                          "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}," +
-                           "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}" +
-                         "]" +
+             "\"cli_sync\": [{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}," +
+                            "{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}," +
+                            "{\"method\": \"%s\"," +
+                             "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
+                             "\"ver\": \"%s\"" +
+                             "}" +
+                            "]," +
+             "\"run_jobs_async\": true," +
+             "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
-             "e1038b847b2f20a38f06799de509e7058b7d0d7e",
+             "dbe95962c04b95881ac2454651e4e1b866bf89bb",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
@@ -335,8 +347,8 @@ public class AweClientDockerJobScriptTest {
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.3")
-            .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
+            .withVer("0.0.4")
+            .withCommit("dbe95962c04b95881ac2454651e4e1b866bf89bb")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
                 methparams, objectName, expsas,
@@ -454,10 +466,11 @@ public class AweClientDockerJobScriptTest {
             ServerException {
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
+                          "\"params\": [{\"id\": \"id1\"}]," +
                           "\"ver\": %s" +
                           "}" +
-                         "]" +
+                         "]," +
+             "\"id\": \"myid\"" + 
              "}",
              innerModMeth, innerRel));
         JobState ret = runJob(outerModMeth, outerRel, methparams,
