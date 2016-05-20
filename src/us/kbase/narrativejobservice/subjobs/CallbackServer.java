@@ -220,39 +220,62 @@ public class CallbackServer extends JsonServerServlet {
                     decrementJobCount();
                 }
             } else {
-                /* need to make a copy of the RPC data because it contains a
-                 * list of UObjects which each contain a reference to a
-                 * JsonTokenStream. The JTS is closed by the superclass
-                 * when this call returns and can't be read when the subjob
-                 * runner starts. 
-                 * This implementation assumes the UObjects are reasonably
-                 * small. If they're really big need to do something smarter,
-                 * or check the size before serializing them and throw an
-                 * error.
-                 * 
-                 * At least this doesn't instantiate the objects.
-                 */
-                final List<UObject> newobjs = new LinkedList<UObject>();
-                for (final UObject uo: rpcCallData.getParams()) {
-                    final ByteArrayOutputStream baos =
-                            new ByteArrayOutputStream();
-                    uo.write(baos);
-                    final JsonTokenStream jts = new JsonTokenStream(
-                            baos.toByteArray());
-                    jts.setTrustedWholeJson(true);
-                    newobjs.add(new UObject(jts));
+                FutureTask<Map<String, Object>> task = null;
+                try {
+                    /* need to make a copy of the RPC data because it contains
+                     * a list of UObjects which each contain a reference to a
+                     * JsonTokenStream. The JTS is closed by the superclass
+                     * when this call returns and can't be read when the subjob
+                     * runner starts. 
+                     * This implementation assumes the UObjects are reasonably
+                     * small. If they're really big need to do something
+                     * smarter, or check the size before serializing them and
+                     * throw an error.
+                     * 
+                     * Winds up with 3 copies of the object - the UObject,
+                     * the ByteArrayOutputStream, and the new byte array
+                     * returned by toByteArray().
+                     * 
+                     * At least this doesn't instantiate the objects which
+                     * uses 5-10x memory.
+                     * 
+                     * Possible improvement:
+                     * 1) Add constructor to UObject that allows specifying
+                     * the size (currently runs through the object).
+                     * 2) Make class like BAOS but with a specific size,
+                     * then write JTS into exact size array. toByteArray can
+                     * then just return the array.
+                     * 3) Also gets rid of BAOS synchronization which isn't
+                     * needed here.
+                     * 
+                     */
+                    final List<UObject> newobjs = new LinkedList<UObject>();
+                    for (final UObject uo: rpcCallData.getParams()) {
+                        final ByteArrayOutputStream baos =
+                                new ByteArrayOutputStream();
+                        uo.write(baos);
+                        final JsonTokenStream jts = new JsonTokenStream(
+                                baos.toByteArray()); //makes another copy
+                        jts.setTrustedWholeJson(true);
+                        newobjs.add(new UObject(jts));
+                    }
+                    rpcCallData.setParams(newobjs);
+                    jsonRpcResponse = new HashMap<String, Object>();
+                    jsonRpcResponse.put("version", "1.1");
+                    jsonRpcResponse.put("id", rpcCallData.getId());
+                    jsonRpcResponse.put("result", Arrays.asList(jobId));
+                    task = new FutureTask<Map<String, Object>>(
+                            new SubsequentCallRunnerRunner(
+                                    runner, rpcCallData));
+                    executor.execute(task);
+                    runningJobs.put(jobId, task);
+                } catch (IOException | RuntimeException | Error e) {
+                    decrementJobCount();
+                    if (task != null) {
+                        task.cancel(true);
+                    }
+                    throw e;
                 }
-                rpcCallData.setParams(newobjs);
-                final FutureTask<Map<String, Object>> task =
-                        new FutureTask<Map<String, Object>>(
-                                new SubsequentCallRunnerRunner(
-                                        runner, rpcCallData));
-                executor.execute(task);
-                runningJobs.put(jobId, task);
-                jsonRpcResponse = new HashMap<String, Object>();
-                jsonRpcResponse.put("version", "1.1");
-                jsonRpcResponse.put("id", rpcCallData.getId());
-                jsonRpcResponse.put("result", Arrays.asList(jobId));
             }
         }
         return jsonRpcResponse;
