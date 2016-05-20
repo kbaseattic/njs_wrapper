@@ -420,6 +420,15 @@ public class CallbackServer extends JsonServerServlet {
         return runner;
     }
     
+    @Override
+    public void destroy() {
+        cbLog("Shutting down executor service");
+        final List<Runnable> failed = executor.shutdownNow();
+        if (!failed.isEmpty()) {
+            cbLog(String.format("Failed to stop %s tasks", failed.size()));
+        }
+    }
+    
     public static URL getCallbackUrl(int callbackPort)
             throws SocketException {
         final List<String> hostIps = NetUtils.findNetworkAddresses(
@@ -563,7 +572,7 @@ public class CallbackServer extends JsonServerServlet {
                 new URL("https://github.com/mcreosote/foo"),
                 new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
         
-        CallbackServer serv = new CallbackServer(token, cfg,runver,
+        CallbackServer serv = new CallbackServer(token, cfg, runver,
                 new LinkedList<UObject>(), new LinkedList<String>());
         
         new Thread(new CallbackRunner(serv, port)).start();
