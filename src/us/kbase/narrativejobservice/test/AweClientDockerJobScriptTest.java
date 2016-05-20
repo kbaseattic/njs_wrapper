@@ -1,6 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -191,7 +192,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    //TODO NOW more tests, check result somehow
+    //TODO NOW more tests
     @Test
     public void testNestedAsync() throws Exception {
         execStats.clear();
@@ -207,7 +208,7 @@ public class AweClientDockerJobScriptTest {
                 .put("name", objectName)
                 .build()
             )
-            .put("cli_async", Arrays.asList(
+            .put("jobs", Arrays.asList(
                 ImmutableMap.<String, Object>builder()
                     .put("method", modmeth)
                     .put("params", Arrays.asList(
@@ -215,6 +216,7 @@ public class AweClientDockerJobScriptTest {
                             .put("wait", 10)
                             .put("id", "inner1").build()))
                     .put("ver", release)
+                    .put("cli_async", true)
                     .build(),
                 ImmutableMap.<String, Object>builder()
                     .put("method", modmeth)
@@ -222,7 +224,7 @@ public class AweClientDockerJobScriptTest {
                         ImmutableMap.<String, Object>builder()
                             .put("wait", 5)
                             .put("id", "inner2")
-                            .put("cli_async", Arrays.asList(
+                            .put("jobs", Arrays.asList(
                                 ImmutableMap.<String, Object>builder()
                                     .put("method", modmeth)
                                     .put("params", Arrays.asList(
@@ -230,24 +232,18 @@ public class AweClientDockerJobScriptTest {
                                             .put("wait", 3)
                                             .put("id", "inner2_1").build()))
                                     .put("ver", release)
+                                    .put("cli_async", true)
                                     .build()
                             )).build()
                      ))
                      .put("ver", release)
+                     .put("cli_async", true)
                      .build()
                 )
             )
             .put("id", "outer")
             .put("run_jobs_async", true)
             .build();
-//        UObject methparams = UObject.fromJsonString(String.format(
-//                "{\"save\": {\"ws\":\"%s\"," +
-//                            "\"name\":\"%s\"" +
-//                            "}," + 
-//                 "\"async_jobs\": [[\"%s.%s\", [{\"wait\": 10, \"id\": \"inner\"}], \"%s\"]]," +
-//                 "\"id\": \"outer\"" +
-//                 "}", testWsName, objectName,
-//                 moduleName, methodName, release));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
             expsas.add(new SubActionSpec()
             .withMod(moduleName)
@@ -259,9 +255,51 @@ public class AweClientDockerJobScriptTest {
                 Arrays.asList(STAGED1_NAME));
         System.out.println("Results:\n" + res.getResult()
                 .asClassInstance(List.class));
+        checkResults(res, p, moduleName);
         
     }
     
+    private void checkResults(JobState res, Map<String, Object> params,
+            String name) {
+        Map<String, Object> got = (Map<String, Object>) res.getResult()
+                .asClassInstance(List.class).get(0);
+        checkResults(got, params, name);
+    }
+
+    private void checkResults(Map<String, Object> got,
+            Map<String, Object> params, String name) {
+        assertThat("incorrect name", (String) got.get("name"), is(name));
+        if (params.containsKey("wait")) {
+            assertThat("incorrect wait time", (Integer) got.get("wait"),
+                    is(params.get("wait")));
+        }
+        assertThat("incorrect id", (String) got.get("id"),
+                is(params.get("id")));
+        System.out.println(params.get("id"));
+        assertNotNull("missing hash", (String) got.get("hash"));
+        List<Map<String, Object>> parjobs =
+                (List<Map<String, Object>>) params.get("jobs");
+        if (params.containsKey("jobs")) {
+            List<List<Map<String,Object>>> gotjobs =
+                    (List<List<Map<String, Object>>>) got.get("jobs");
+            assertNotNull("missing jobs", gotjobs);
+            assertThat("not same number of jobs", gotjobs.size(),
+                    is(parjobs.size()));
+            Iterator<List<Map<String, Object>>> gotiter = gotjobs.iterator();
+            Iterator<Map<String, Object>> pariter = parjobs.iterator();
+            while (gotiter.hasNext()) {
+                Map<String, Object> p = pariter.next();
+                String modmeth = (String) p.get("method");
+                String module = modmeth.split("\\.")[0];
+                //results are always wrapped in a list
+                checkResults(gotiter.next().get(0),
+                        //as are parameters
+                        ((List<Map<String, Object>>) p.get("params")).get(0),
+                        (String) module);
+            }
+        }
+    }
+
     @Test
     public void testBasicProvenance() throws Exception {
         System.out.println("Test [testBasicProvenance]");
