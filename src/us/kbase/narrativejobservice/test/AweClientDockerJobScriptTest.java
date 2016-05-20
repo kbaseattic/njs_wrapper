@@ -259,7 +259,16 @@ public class AweClientDockerJobScriptTest {
                 Arrays.asList(STAGED1_NAME));
         System.out.println("Results:\n" + res.getResult()
                 .asClassInstance(List.class));
-        
+        /*System.out.println("Logs:");
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(res.getJobId())
+                .withSkipLines(0L)).getLines();
+        for (LogLine l : lines) {
+            if (l.getIsError() == 0L) {
+                System.out.println(l.getLine());
+            } else {
+                System.err.println(l.getLine());
+            }
+        }*/
     }
     
     @Test

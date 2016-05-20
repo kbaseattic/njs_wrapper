@@ -2,16 +2,19 @@ package us.kbase.narrativejobservice;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,6 +129,11 @@ public class DockerRunner {
                 }
                 throw new IllegalStateException("Container was still running");
             }
+            InputStream is = cl.logContainerCmd(cntId).withStdOut().withStdErr().exec();
+            OutputStream os = new FileOutputStream(new File(workDir, "docker.log"));
+            IOUtils.copy(is, os);
+            os.close();
+            is.close();
             if (outputFile.exists()) {
                 return outputFile;
             } else {
