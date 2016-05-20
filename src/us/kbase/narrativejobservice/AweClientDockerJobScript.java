@@ -245,10 +245,7 @@ public class AweClientDockerJobScript {
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
-            // save result into outputShockId;
-            jobSrvClient.finishJob(jobId, result);
-            ujsClient.completeJob(jobId, token.toString(), "done", null,
-                    new Results());
+            // flush logs to execution engine
             if (result.getError() != null) {
                 String err = "";
                 if (notNullOrEmpty(result.getError().getName())) {
@@ -273,6 +270,10 @@ public class AweClientDockerJobScript {
                 log.logNextLine("Job is done", false);
             }
             flushLog(jobSrvClient, jobId, logLines);
+            // push results to execution engine
+            jobSrvClient.finishJob(jobId, result);
+            ujsClient.completeJob(jobId, token.toString(), "done", null,
+                    new Results());
             logFlusher.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -333,6 +334,8 @@ public class AweClientDockerJobScript {
     
     private static synchronized void flushLog(NarrativeJobServiceClient jobSrvClient,
             String jobId, List<LogLine> logLines) {
+        if (logLines.isEmpty())
+            return;
         try {
             jobSrvClient.addJobLogs(jobId, logLines);
             logLines.clear();

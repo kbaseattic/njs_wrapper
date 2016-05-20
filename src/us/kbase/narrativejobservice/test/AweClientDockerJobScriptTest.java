@@ -70,6 +70,7 @@ import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
+import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
@@ -100,6 +101,7 @@ public class AweClientDockerJobScriptTest {
     private static File mongoDir = null;
     //private static File shockDir = null;
     private static File aweServerDir = null;
+    private static int awePort = -1;
     private static File aweClientDir = null;
     private static File njsServiceDir = null;
     private static Server catalogWrapper = null;
@@ -195,6 +197,7 @@ public class AweClientDockerJobScriptTest {
     //TODO NOW more tests
     @Test
     public void testNestedAsync() throws Exception {
+        System.out.println("Test [testNestedAsync]");
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
         String methodName = "run";
@@ -260,6 +263,21 @@ public class AweClientDockerJobScriptTest {
                 .withSkipLines(0L)).getLines();
         Assert.assertTrue(!lines.isEmpty());
         Assert.assertEquals("Job is done", lines.get(lines.size() - 1).getLine());
+        // Let's check that AWE script is done
+        String aweServerUrl = "http://localhost:" + awePort;
+        String aweJobId = (String)res.getAdditionalProperties().get("awe_job_id");
+        String aweState = null;
+        for (int i = 0; i < 5; i++) {
+            Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, token.toString());
+            Map<String, Object> aweData = (Map<String, Object>)aweJob.get("data");
+            if (aweData != null)
+                aweState = (String)aweData.get("state");
+            if (aweState != null && aweState.equals("completed"))
+                break;
+            Thread.sleep(1000);
+        }
+        Assert.assertNotNull(aweState);
+        Assert.assertEquals("completed", aweState);
     }
     
     private void checkResults(JobState res, Map<String, Object> params,
@@ -697,7 +715,7 @@ public class AweClientDockerJobScriptTest {
             .withParams(Arrays.asList(methparams));
         String jobId = client.runJob(params);
         JobState ret = null;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 40; i++) {
             try {
                 ret = client.checkJob(jobId);
                 System.out.println("Job finished: " + ret.getFinished());
@@ -1077,7 +1095,7 @@ public class AweClientDockerJobScriptTest {
         mongo = new MongoController(mongoExepath, mongoDir.toPath());
         System.out.println("Done. Port " + mongo.getServerPort());
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
+        awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
                 aweServerDir, mongo.getServerPort());
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
