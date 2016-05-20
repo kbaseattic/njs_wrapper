@@ -308,7 +308,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.4";
+        String ver = "0.0.5";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -353,23 +353,24 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
                         "}," + 
-             "\"cli_sync\": [{\"method\": \"%s\"," +
-                             "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
-                             "\"ver\": \"%s\"" +
-                             "}," +
-                            "{\"method\": \"%s\"," +
-                             "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
-                             "\"ver\": \"%s\"" +
-                             "}," +
-                            "{\"method\": \"%s\"," +
-                             "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
-                             "\"ver\": \"%s\"" +
-                             "}" +
-                            "]," +
+             "\"jobs\": [{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}" +
+                        "]," +
              "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
-             "dbe95962c04b95881ac2454651e4e1b866bf89bb",
+           //TODO NOW fix this when async tests work, dev is on this commit
+             "570b5963d50710d4e15621a77673a9bc0c7a7857",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
@@ -385,8 +386,8 @@ public class AweClientDockerJobScriptTest {
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.4")
-            .withCommit("dbe95962c04b95881ac2454651e4e1b866bf89bb")
+            .withVer("0.0.5")
+            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
         );
         runJobAndCheckProvenance(moduleName, methodName, release, ver,
                 methparams, objectName, expsas,
@@ -503,11 +504,11 @@ public class AweClientDockerJobScriptTest {
             throws IOException, JsonClientException, InterruptedException,
             ServerException {
         UObject methparams = UObject.fromJsonString(String.format(
-            "{\"cli_sync\": [{\"method\": \"%s\"," +
-                          "\"params\": [{\"id\": \"id1\"}]," +
-                          "\"ver\": %s" +
-                          "}" +
-                         "]," +
+            "{\"jobs\": [{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id1\"}]," +
+                         "\"ver\": %s" +
+                         "}" +
+                        "]," +
              "\"id\": \"myid\"" + 
              "}",
              innerModMeth, innerRel));
