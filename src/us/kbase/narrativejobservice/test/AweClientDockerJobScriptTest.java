@@ -259,17 +259,26 @@ public class AweClientDockerJobScriptTest {
         System.out.println("Results:\n" + res.getResult()
                 .asClassInstance(List.class));
         checkResults(res, p, moduleName);
-        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(res.getJobId())
+        checkLoggingComplete(res);
+    }
+
+    private void checkLoggingComplete(JobState res) throws Exception {
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams()
+                .withJobId(res.getJobId())
                 .withSkipLines(0L)).getLines();
         Assert.assertTrue(!lines.isEmpty());
-        Assert.assertEquals("Job is done", lines.get(lines.size() - 1).getLine());
+        Assert.assertEquals("Job is done", lines.get(lines.size() - 1)
+                .getLine());
         // Let's check that AWE script is done
         String aweServerUrl = "http://localhost:" + awePort;
-        String aweJobId = (String)res.getAdditionalProperties().get("awe_job_id");
+        String aweJobId = (String)res.getAdditionalProperties()
+                .get("awe_job_id");
         String aweState = null;
         for (int i = 0; i < 5; i++) {
-            Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, token.toString());
-            Map<String, Object> aweData = (Map<String, Object>)aweJob.get("data");
+            Map<String, Object> aweJob = AweUtils.getAweJobDescr(
+                    aweServerUrl, aweJobId, token.toString());
+            Map<String, Object> aweData =
+                    (Map<String, Object>)aweJob.get("data");
             if (aweData != null)
                 aweState = (String)aweData.get("state");
             if (aweState != null && aweState.equals("completed"))
@@ -342,21 +351,24 @@ public class AweClientDockerJobScriptTest {
             .withVer(ver)
             .withRel(release)
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, methparams, objectName, expsas,
                 Arrays.asList(STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
         
         //TODO NOW update beta release to 0.0.5 & down grade dev to 0.0.4 
         release = "beta";
-        ver = "0.0.4";
+        ver = "0.0.5";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
             .withRel(release)
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
-                Arrays.asList(STAGED1_NAME));
+        res = runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas, Arrays.asList(STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
     }
     
     @Test
@@ -410,9 +422,11 @@ public class AweClientDockerJobScriptTest {
             .withVer("0.0.5")
             .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, methparams, objectName, expsas,
                 Arrays.asList(STAGED2_NAME, STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
     }
 
     @Test
@@ -521,9 +535,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private void failJobMultiCall(String outerModMeth, String innerModMeth,
-            String outerRel, String innerRel, String msg)
-            throws IOException, JsonClientException, InterruptedException,
-            ServerException {
+            String outerRel, String innerRel, String msg) throws Exception {
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"jobs\": [{\"method\": \"%s\"," +
                          "\"params\": [{\"id\": \"id1\"}]," +

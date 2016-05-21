@@ -237,7 +237,7 @@ public class CallbackServer extends JsonServerServlet {
                      * returned by toByteArray().
                      * 
                      * At least this doesn't instantiate the objects which
-                     * uses 5-10x memory.
+                     * uses 5-20x memory.
                      * 
                      * Possible improvement:
                      * 1) Add constructor to UObject that allows specifying

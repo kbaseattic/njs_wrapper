@@ -139,10 +139,9 @@ public class AweClientDockerJobScript {
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
             String dockerRegistry = getDockerRegistryURL(config);
-            CatalogClient ret = new CatalogClient(catalogURL, token);
-            ret.setIsInsecureHttpConnectionAllowed(true);
-            ret.setAllSSLCertificatesTrusted(true);
-            CatalogClient catClient = ret;
+            CatalogClient catClient = new CatalogClient(catalogURL, token);
+            catClient.setIsInsecureHttpConnectionAllowed(true);
+            catClient.setAllSSLCertificatesTrusted(true);
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
@@ -213,7 +212,7 @@ public class AweClientDockerJobScript {
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
                                 jobDir.toPath(), log).build();
-                final JsonServerServlet catalogSrv = new CallbackServer(
+                final JsonServerServlet callback = new CallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects());
                 callbackServer = new Server(callbackPort);
@@ -222,7 +221,7 @@ public class AweClientDockerJobScript {
                                 ServletContextHandler.SESSIONS);
                 srvContext.setContextPath("/");
                 callbackServer.setHandler(srvContext);
-                srvContext.addServlet(new ServletHolder(catalogSrv),"/*");
+                srvContext.addServlet(new ServletHolder(callback),"/*");
                 callbackServer.start();
             } else {
                 System.out.println("WARNING: No callback URL was recieved " +
@@ -360,9 +359,10 @@ public class AweClientDockerJobScript {
         return ret;
     }
 
-    private static UserAndJobStateClient getUjsClient(final 
-            Map<String, String> config, 
-            final AuthToken token) throws Exception {
+    private static UserAndJobStateClient getUjsClient(
+            final Map<String, String> config, 
+            final AuthToken token)
+            throws Exception {
         final URL ujsURL = getURL(config,
                 NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
         UserAndJobStateClient ret = new UserAndJobStateClient(ujsURL, token);

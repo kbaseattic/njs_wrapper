@@ -41,13 +41,6 @@ public class CallbackServerConfigBuilder {
     final private Path workDir;
     final private DockerRunner.LineLogger logger;
     
-    /**
-     * @param kbaseEndpointURL
-     * @param dockerURI
-     * @param callbackURL
-     * @param workDir
-     * @param logger
-     */
     public CallbackServerConfigBuilder(
             final URL kbaseEndpointURL,
             final URL callbackURL,
@@ -111,20 +104,20 @@ public class CallbackServerConfigBuilder {
     }
 
     public CallbackServerConfigBuilder withShockURL(final URL shockURL) {
-        checkNulls(workspaceURL);
+        checkNulls(shockURL);
         this.shockURL = shockURL;
         return this;
     }
 
     public CallbackServerConfigBuilder withUserJobStateURL(
             final URL userJobStateURL) {
-        checkNulls(workspaceURL);
+        checkNulls(userJobStateURL);
         this.userJobStateURL = userJobStateURL;
         return this;
     }
 
     public CallbackServerConfigBuilder withCatalogURL(final URL catalogURL) {
-        checkNulls(workspaceURL);
+        checkNulls(catalogURL);
         this.catalogURL = catalogURL;
         return this;
     }
