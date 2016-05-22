@@ -305,7 +305,7 @@ public class CallbackServerConfigBuilder {
                     KBASE_EP  + "=" + kbaseEndpointURL,
                     UJS_URL   + "=" + userJobStateURL,
                     WS_URL    + "=" + workspaceURL,
-                    SHOCK_URL + "=" + SHOCK_URL),
+                    SHOCK_URL + "=" + shockURL),
                     StandardCharsets.UTF_8);
         }
 
