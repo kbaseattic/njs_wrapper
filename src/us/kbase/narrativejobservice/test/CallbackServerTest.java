@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -143,23 +144,20 @@ public class CallbackServerTest {
                     (HttpURLConnection) callbackURL.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("POST");
-            final OutputStream os = conn.getOutputStream();
-            JsonGenerator g = mapper.getFactory().createGenerator(
-                    os, JsonEncoding.UTF8);
-            g.writeStartObject();
-            final String id = ("" + Math.random()).replace(".", "");
-            g.writeObjectField("params", args);
-            g.writeStringField("method", method);
-            g.writeStringField("version", "1.1");
-            g.writeStringField("id", id);
-            if (serviceVer != null) {
-                g.writeObjectField("context",
-                        ImmutableMap.<String, String>builder()
-                            .put("service_ver", serviceVer).build());
+            try (final OutputStream os = conn.getOutputStream()) {
+                final Map<String, Object> req = new HashMap<String, Object>();
+                final String id = ("" + Math.random()).replace(".", "");
+                req.put("params", args);
+                req.put("method", method);
+                req.put("version", "1.1");
+                req.put("id", id);
+                if (serviceVer != null) {
+                    req.put("context", ImmutableMap.<String, String>builder()
+                                .put("service_ver", serviceVer).build());
+                }
+                mapper.writeValue(os, req);
+                os.flush();
             }
-            g.writeEndObject();
-            g.close();
-            os.flush();
             final int code = conn.getResponseCode();
             if (code == 500) {
                 @SuppressWarnings("unchecked")
@@ -180,7 +178,7 @@ public class CallbackServerTest {
                 @SuppressWarnings("unchecked")
                 final List<List<Object>> ret =
                         (List<List<Object>>) msg.get("result");
-                RET res = UObject.transformObjectToObject(
+                final RET res = UObject.transformObjectToObject(
                         ret.get(0), retType);
                 return res;
             }
@@ -188,7 +186,7 @@ public class CallbackServerTest {
     }
     
     private static String get(Properties props, String propName) {
-        String ret = props.getProperty(propName);
+        final String ret = props.getProperty(propName);
         if (ret == null)
             throw new IllegalStateException("Property is not defined: " +
                     propName);

@@ -552,8 +552,6 @@ public class CallbackServer extends JsonServerServlet {
                 e.printStackTrace();
             }
         }
-        
-        
     }
     
     public static void main(final String[] args) throws Exception {
