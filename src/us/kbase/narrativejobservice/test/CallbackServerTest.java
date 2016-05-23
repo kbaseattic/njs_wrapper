@@ -26,7 +26,6 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -395,13 +394,12 @@ public class CallbackServerTest {
             res.checkAsync(randomUUID);
         } catch (ServerException ise) {
             assertThat("wrong exception message", ise.getLocalizedMessage(),
-                   is(String.format("Either there is no job with id %s " + 
+                   is(String.format("Either there is no job with ID %s " + 
                            "or it has expired from the cache", randomUUID)));
         }
         res.server.stop();
     }
     
-    @Ignore
     @Test
     public void checkWithBadArgs() throws Exception {
         final CallbackStuff res = startCallBackServer();
@@ -413,8 +411,19 @@ public class CallbackServerTest {
             res.checkAsync(Arrays.asList(badUUID));
         } catch (ServerException ise) {
             assertThat("wrong exception message", ise.getLocalizedMessage(),
-                   is(String.format("Either there is no job with id %s " + 
-                           "or it has expired from the cache", badUUID)));
+                   is("Invalid job ID: " + badUUID));
+        }
+        try {
+            res.checkAsync(Arrays.asList(new HashMap<>()));
+        } catch (ServerException ise) {
+            assertThat("wrong exception message", ise.getLocalizedMessage(),
+                   is("The job ID must be a string"));
+        }
+        try {
+            res.checkAsync(Arrays.asList(1, 2));
+        } catch (ServerException ise) {
+            assertThat("wrong exception message", ise.getLocalizedMessage(),
+                   is("Check methods take exactly one argument"));
         }
     }
 }

@@ -307,8 +307,19 @@ public class CallbackServer extends JsonServerServlet {
             throw new IllegalArgumentException(
                     "Check methods take exactly one argument");
         }
-        final UUID jobId = UUID.fromString(rpcCallData.getParams().get(0)
-                .asClassInstance(String.class));
+        final String jobIdStr;
+        try {
+            jobIdStr = rpcCallData.getParams().get(0)
+                    .asClassInstance(String.class);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            throw new IllegalArgumentException("The job ID must be a string");
+        }
+        final UUID jobId;
+        try {
+            jobId = UUID.fromString(jobIdStr);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Invalid job ID: " + jobIdStr);
+        }
         boolean finished = true;
         final FutureTask<Map<String, Object>> task;
         synchronized (removeJobLock) {
@@ -330,7 +341,7 @@ public class CallbackServer extends JsonServerServlet {
         if (finished) {
             if (task == null) {
                 throw new IllegalStateException(
-                        "Either there is no job with id " + jobId +
+                        "Either there is no job with ID " + jobId +
                         " or it has expired from the cache");
             }
             resp = getResults(task);
