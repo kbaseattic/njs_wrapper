@@ -546,13 +546,12 @@ public class CallbackServerTest {
              "\"id\": \"myid\"" + 
              "}",
              moduleName2 + "." + methodName,
-           //TODO NOW fix this when async tests work, dev is on this commit
+             // dev is on this commit
              "570b5963d50710d4e15621a77673a9bc0c7a7857",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             //TODO NOW fix this when async tests work, dev is on this commit
-             "e8f628eb1c8295434293c7b5a0d4d26835b811da",
+             "17f87270741e6b59bdfc083f143137d208e3f135",
              moduleName2 + "." + methodName,
              "dev"), Map.class);
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();

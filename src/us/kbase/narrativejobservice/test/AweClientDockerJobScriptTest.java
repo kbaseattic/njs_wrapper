@@ -356,9 +356,8 @@ public class AweClientDockerJobScriptTest {
         checkResults(res, methparams.asClassInstance(Map.class), moduleName);
         checkLoggingComplete(res);
         
-        //TODO NOW update beta release to 0.0.5 & down grade dev to 0.0.4 
         release = "beta";
-        ver = "0.0.5";
+        ver = "0.0.6";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
@@ -400,13 +399,12 @@ public class AweClientDockerJobScriptTest {
              "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
-           //TODO NOW fix this when async tests work, dev is on this commit
+             // dev is on this commit
              "570b5963d50710d4e15621a77673a9bc0c7a7857",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             //TODO NOW fix this when async tests work, dev is on this commit
-             "e8f628eb1c8295434293c7b5a0d4d26835b811da",
+             "17f87270741e6b59bdfc083f143137d208e3f135",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
