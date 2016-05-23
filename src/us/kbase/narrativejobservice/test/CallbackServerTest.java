@@ -15,6 +15,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -65,6 +66,17 @@ public class CallbackServerTest {
         
     }
 
+    private static CallbackStuff startCallBackServer()
+            throws Exception {
+        final ModuleRunVersion runver = new ModuleRunVersion(
+                new URL("https://fakefakefake.com"),
+                new ModuleMethod("foo.bar"),
+                "githash", "0.0.5", "dev");
+        final List<UObject> params = new LinkedList<UObject>();
+        final List<String> wsobjs = new ArrayList<String>();
+        return startCallBackServer(runver, params, wsobjs);
+    }
+    
     private static CallbackStuff startCallBackServer(
             final ModuleRunVersion runver,
             final List<UObject> params,
@@ -193,30 +205,85 @@ public class CallbackServerTest {
         return ret;
     }
     
-    @Test
-    public void sometest() throws Exception {
-        final ModuleRunVersion runver = new ModuleRunVersion(
-                new URL("https://foo.com"), new ModuleMethod("foo.bar"),
-                "githash", "0.0.5", "dev");
-        final List<UObject> params = new LinkedList<UObject>();
-        final List<String> wsobjs = new ArrayList<String>();
-        final CallbackStuff res =
-                startCallBackServer(runver, params, wsobjs);
-        System.out.println("Running sometest in dir " + res.tempdir);
-        ProvenanceAction pa = res.getProvenance().get(0);
-        System.out.println("serv " + pa.getService());
-        System.out.println("code url " + pa.getSubactions().get(0).getCodeUrl());
-        
-        Map<String, Object> r = null;
-        try {
-            r = res.callMethod("njs_sdk_test_1.run",
-                    ImmutableMap.<String, Object>builder()
-                        .put("wait", 1)
-                        .put("id", "whee").build(), "dev");
-        } catch (ServerException se) {
-            System.out.println("err" + se);
-            System.out.println("data\n" + se.getData());
+    private void checkResults(Map<String, Object> got,
+            Map<String, Object> params, String name) {
+        assertThat("incorrect name", (String) got.get("name"), is(name));
+        if (params.containsKey("wait")) {
+            assertThat("incorrect wait time", (Integer) got.get("wait"),
+                    is(params.get("wait")));
         }
+        assertThat("incorrect id", (String) got.get("id"),
+                is(params.get("id")));
+        System.out.println(params.get("id"));
+        assertNotNull("missing hash", (String) got.get("hash"));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> parjobs =
+                (List<Map<String, Object>>) params.get("jobs");
+        if (params.containsKey("jobs")) {
+            @SuppressWarnings("unchecked")
+            List<List<Map<String,Object>>> gotjobs =
+                    (List<List<Map<String, Object>>>) got.get("jobs");
+            assertNotNull("missing jobs", gotjobs);
+            assertThat("not same number of jobs", gotjobs.size(),
+                    is(parjobs.size()));
+            Iterator<List<Map<String, Object>>> gotiter = gotjobs.iterator();
+            Iterator<Map<String, Object>> pariter = parjobs.iterator();
+            while (gotiter.hasNext()) {
+                Map<String, Object> p = pariter.next();
+                String modmeth = (String) p.get("method");
+                String module = modmeth.split("\\.")[0];
+                //params are always wrapped in a list
+                @SuppressWarnings("unchecked")
+                final Map<String, Object> innerparams =
+                    ((List<Map<String, Object>>) p.get("params")).get(0);
+                //as are results
+                checkResults(gotiter.next().get(0), innerparams,
+                        (String) module);
+            }
+        }
+    }
+    
+    @Test
+    public void maxJobs() throws Exception {
+        final CallbackStuff res = startCallBackServer();
+        System.out.println("Running maxJobs in dir " + res.tempdir);
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id", "outer");
+        params.put("wait", 1);
+        LinkedList<Map<String, Object>> jobs =
+                new LinkedList<Map<String, Object>>();
+        params.put("jobs", jobs);
+        params.put("run_jobs_async", true);
+        for (int i = 0; i < 5; i++) {
+            Map<String, Object> inner2 = new HashMap<String, Object>();
+            inner2.put("wait", 5);
+            inner2.put("id", "inner2-" + i);
+            Map<String, Object> injob = new HashMap<String, Object>();
+            injob.put("method", "njs_sdk_test_1.run");
+            injob.put("ver", "dev");
+            injob.put("params", Arrays.asList(inner2));
+            if (i % 2 == 0) {
+                injob.put("cli_async", true);
+            }
+            Map<String, Object> innerparams = new HashMap<String, Object>();
+            innerparams.put("wait", 4);
+            innerparams.put("id", "inner-" + i);
+            innerparams.put("jobs", Arrays.asList(injob));
+            
+            Map<String, Object> outerjob = new HashMap<String, Object>();
+            outerjob.put("method", "njs_sdk_test_1.run");
+            outerjob.put("ver", "dev");
+            outerjob.put("params", Arrays.asList(innerparams));
+            if (i % 2 == 0) {
+                outerjob.put("cli_async", true);
+            };
+            jobs.add(outerjob);
+        }
+        
+        
+        Map<String, Object> r = res.callMethod(
+                "njs_sdk_test_1.run", params, "dev");
+        checkResults(r, params, "njs_sdk_test_1");
         System.out.println(r);
         
         res.server.stop();
