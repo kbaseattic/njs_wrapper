@@ -155,13 +155,13 @@ public class CallbackServerTest {
         
         public Map<String, Object> checkAsync(final UUID jobId)
                 throws Exception {
-            return callServer("foo.bar_check", Arrays.asList(jobId), "dev",
+            return callServer("foo.bar_check", Arrays.asList(jobId), "fake",
                     new TypeReference<Map<String,Object>>() {});
         }
         
         public Map<String, Object> checkAsync(final List<?> params)
                 throws Exception {
-            return callServer("foo.bar_check", params, "dev",
+            return callServer("foo.bar_check", params, "fake",
                     new TypeReference<Map<String,Object>>() {});
         }
 
@@ -424,6 +424,64 @@ public class CallbackServerTest {
         } catch (ServerException ise) {
             assertThat("wrong exception message", ise.getLocalizedMessage(),
                    is("Check methods take exactly one argument"));
+        }
+        
+        res.server.stop();
+    }
+    
+    @Test
+    public void badRelease() throws Exception {
+        final CallbackStuff res = startCallBackServer();
+        System.out.println("Running badRelease in dir " + res.tempdir);
+        // note that dev and beta releases can only have one version each,
+        // version tracking only happens for prod
+        
+        failJob(res, "njs_sdk_test_1foo.run", "beta",
+                "Error looking up module njs_sdk_test_1foo: Operation " +
+                "failed - module/repo is not registered.");
+        failJob(res, "njs_sdk_test_1.run", "beta",
+                "There is no release version 'beta' for module njs_sdk_test_1");
+        failJob(res, "njs_sdk_test_1.run", "release",
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
+        failJob(res, "njs_sdk_test_1.run", null,
+                "There is no release version 'release' for module " +
+                "njs_sdk_test_1");
+
+        //TODO fix these when catalog is fixed
+        //this is the newest git commit and was registered in dev but 
+        //then the previous git commit was registered in dev
+        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
+        failJob(res, "njs_sdk_test_1.run", git,
+                "Error looking up module njs_sdk_test_1 with version " +
+                git + ": 'NoneType' object has no attribute '__getitem__'");
+        failJob(res, "njs_sdk_test_1.run", "foo",
+                "Error looking up module njs_sdk_test_1 with version foo: " +
+                "'NoneType' object has no attribute '__getitem__'");
+        
+        res.server.stop();
+    }
+    
+    @Test
+    public void badMethod() throws Exception {
+        final CallbackStuff res = startCallBackServer();
+        System.out.println("Running badMethod in dir " + res.tempdir);
+        failJob(res, "njs_sdk_test_1run", "foo",
+                "Can not find method [CallbackServer.njs_sdk_test_1run_async] " +
+                "in server class us.kbase.narrativejobservice.subjobs.CallbackServer");
+        failJob(res, "njs_sdk_test_1.r.un", "foo",
+                "Illegal method name: njs_sdk_test_1.r.un_async");
+        res.server.stop();
+    }
+    
+    private void failJob(CallbackStuff cbs, String moduleMeth, String release,
+            String exp)
+            throws Exception{
+        try {
+            cbs.callAsync(moduleMeth, new HashMap<String, Object>(), release);
+            fail("Ran bad job");
+        } catch (ServerException se) {
+            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
         }
     }
 }
