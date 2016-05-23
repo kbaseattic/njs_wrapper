@@ -184,7 +184,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    private ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
+    public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
         } else if (release.equals("beta")) {
@@ -194,7 +194,6 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    //TODO NOW more tests
     @Test
     public void testNestedAsync() throws Exception {
         System.out.println("Test [testNestedAsync]");
@@ -373,7 +372,6 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testMultiCallProvenance() throws Exception {
-        // for now can't go more than 1 layer deep
         System.out.println("Test [testMultiCallProvenance]");
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
@@ -572,7 +570,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    private static class SubActionSpec {
+    public static class SubActionSpec {
         public String module;
         public String release;
         public String ver;

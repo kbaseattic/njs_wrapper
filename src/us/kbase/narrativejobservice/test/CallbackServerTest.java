@@ -3,8 +3,13 @@ package us.kbase.narrativejobservice.test;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import static us.kbase.narrativejobservice.test.AweClientDockerJobScriptTest.loadConfig;
+import static us.kbase.narrativejobservice.test.AweClientDockerJobScriptTest.getMVI;
+
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -13,7 +18,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,6 +32,10 @@ import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.ini4j.InvalidFileFormatException;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -34,18 +45,23 @@ import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
+import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JacksonTupleModule;
+import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.controllers.ControllerCommon;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
 import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.workspace.ProvenanceAction;
+import us.kbase.workspace.SubAction;
 
 public class CallbackServerTest {
 
@@ -53,6 +69,14 @@ public class CallbackServerTest {
     
     public static AuthToken token;
 
+    
+    private final static DateTimeFormatter DATE_PARSER =
+            new DateTimeFormatterBuilder()
+                .append(DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss"))
+                .appendOptional(DateTimeFormat.forPattern(".SSS").getParser())
+                .append(DateTimeFormat.forPattern("Z"))
+                .toFormatter();
+    
     @BeforeClass
     public static void beforeClass() throws Exception {
         FileUtils.deleteDirectory(TEST_DIR.toFile());
@@ -483,5 +507,179 @@ public class CallbackServerTest {
         } catch (ServerException se) {
             assertThat("correct exception", se.getLocalizedMessage(), is(exp));
         }
+    }
+    
+    @Test
+    public void multiCallProvenance() throws Exception {
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String release = "dev";
+        String ver = "0.0.1";
+        final ModuleRunVersion runver = new ModuleRunVersion(
+                new URL("https://github.com/kbasetest/njs_sdk_test_1"),
+                new ModuleMethod(moduleName + "." + methodName),
+                "ed8038b12b9ebd424c60697204fb49f89a9df906", ver, release);
+        List<String> wsobjs = Arrays.asList("foo", "bar", "baz");
+        List<UObject> params = new ArrayList<UObject>();
+        params.add(new UObject(Arrays.asList("foo", "bar")));
+        params.add(new UObject(ImmutableMap.<String, String>builder()
+                        .put("foo", "bar").build()));
+        final CallbackStuff res = startCallBackServer(runver, params, wsobjs);
+        System.out.println("Running multiCallProvenance in dir " + res.tempdir);
+        String moduleName2 = "njs_sdk_test_2";
+        @SuppressWarnings("unchecked")
+        Map<String, Object> methparams = UObject.transformStringToObject(
+                String.format(
+            "{\"jobs\": [{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
+             "}",
+             moduleName2 + "." + methodName,
+           //TODO NOW fix this when async tests work, dev is on this commit
+             "570b5963d50710d4e15621a77673a9bc0c7a7857",
+             moduleName + "." + methodName,
+             // this is the latest commit, but a prior commit is registered
+             //for dev
+             //TODO NOW fix this when async tests work, dev is on this commit
+             "e8f628eb1c8295434293c7b5a0d4d26835b811da",
+             moduleName2 + "." + methodName,
+             "dev"), Map.class);
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        expsas.add(new SubActionSpec()
+            .withMod(moduleName2)
+            .withVer("0.0.5")
+            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
+        );
+        Map<String, Object> results = res.callMethod(
+                moduleName + '.' + methodName, methparams, "dev");
+        List<ProvenanceAction> p = res.getProvenance();
+        checkProvenance(moduleName, methodName, release, ver, params,
+                expsas, wsobjs, p);
+        checkResults(results, methparams, moduleName);
+        
+        res.server.stop();
+    }
+    
+    private static class SubActionSpec {
+        public String module;
+        public String release;
+        public String ver;
+        public String commit;
+        
+        public SubActionSpec (){}
+        public SubActionSpec withMod(String mod) {
+            this.module = mod;
+            return this;
+        }
+        
+        public SubActionSpec withRel(String rel) {
+            this.release = rel;
+            return this;
+        }
+        
+        public SubActionSpec withVer(String ver) {
+            this.ver = ver;
+            return this;
+        }
+        
+        public SubActionSpec withCommit(String commit) {
+            this.commit = commit;
+            return this;
+        }
+        public String getVerRel() {
+            if (release == null) {
+                return ver;
+            }
+            return ver + "-" + release;
+        }
+    }
+
+    private void checkProvenance(
+            String moduleName,
+            String methodName,
+            String release,
+            String ver,
+            List<UObject> methparams,
+            List<SubActionSpec> subs,
+            List<String> wsobjs,
+            List<ProvenanceAction> prov)
+            throws Exception, IOException, InvalidFileFormatException,
+            JsonClientException {
+        if (release != null) {
+            ver = ver + "-" + release;
+        }
+
+        assertThat("number of provenance actions",
+                prov.size(), is(1));
+        ProvenanceAction pa = prov.get(0);
+        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
+        long now = new Date().getTime();
+        assertTrue("got prov time < now ", got < now);
+        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
+        assertThat("correct service", pa.getService(), is(moduleName));
+        assertThat("correct service version", pa.getServiceVer(),
+                is(ver));
+        assertThat("correct method", pa.getMethod(), is(methodName));
+        assertThat("number of params", pa.getMethodParams().size(),
+                is(methparams.size()));
+        for (int i = 1; i < methparams.size(); i++) {
+            assertThat("params not equal",
+                    pa.getMethodParams().get(i).asClassInstance(Object.class),
+                    is(methparams.get(i).asClassInstance(Object.class)));
+        }
+        assertThat("correct incoming ws objs",
+                new HashSet<String>(pa.getInputWsObjects()),
+                is(new HashSet<String>(wsobjs)));
+        checkSubActions(pa.getSubactions(), subs);
+    }
+    
+    private void checkSubActions(List<SubAction> gotsas,
+            List<SubActionSpec> expsas) throws Exception {
+        CatalogClient cat = getCatalogClient(token, loadConfig());
+        assertThat("correct # of subactions",
+                gotsas.size(), is(expsas.size()));
+        for (SubActionSpec sa: expsas) {
+            if (sa.commit == null) {
+                sa.commit = getMVI(cat.getModuleInfo(
+                        new SelectOneModuleParams().withModuleName(sa.module)),
+                        sa.release).getGitCommitHash();
+            }
+        }
+        Iterator<SubAction> giter = gotsas.iterator();
+        Iterator<SubActionSpec> eiter = expsas.iterator();
+        while (giter.hasNext()) {
+            SubAction got = giter.next();
+            SubActionSpec sa = eiter.next();
+            assertThat("correct code url", got.getCodeUrl(),
+                    is("https://github.com/kbasetest/" + sa.module));
+            assertThat("correct commit", got.getCommit(), is(sa.commit));
+            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct version", got.getVer(), is(sa.getVerRel()));
+        }
+    }
+    
+    private static CatalogClient getCatalogClient(AuthToken auth, 
+            Map<String, String> config) throws Exception {
+        String catUrl = config.get(
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        CatalogClient ret = new CatalogClient(new URL(catUrl), auth);
+        ret.setIsInsecureHttpConnectionAllowed(true);
+        return ret;
     }
 }
