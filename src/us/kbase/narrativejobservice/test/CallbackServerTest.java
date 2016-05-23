@@ -28,8 +28,6 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.fasterxml.jackson.core.JsonEncoding;
-import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -254,9 +252,9 @@ public class CallbackServerTest {
                 new LinkedList<Map<String, Object>>();
         params.put("jobs", jobs);
         params.put("run_jobs_async", true);
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 4; i++) {
             Map<String, Object> inner2 = new HashMap<String, Object>();
-            inner2.put("wait", 5);
+            inner2.put("wait", 3);
             inner2.put("id", "inner2-" + i);
             Map<String, Object> injob = new HashMap<String, Object>();
             injob.put("method", "njs_sdk_test_1.run");
@@ -266,7 +264,7 @@ public class CallbackServerTest {
                 injob.put("cli_async", true);
             }
             Map<String, Object> innerparams = new HashMap<String, Object>();
-            innerparams.put("wait", 4);
+            innerparams.put("wait", 2);
             innerparams.put("id", "inner-" + i);
             innerparams.put("jobs", Arrays.asList(injob));
             
@@ -279,12 +277,41 @@ public class CallbackServerTest {
             };
             jobs.add(outerjob);
         }
+        jobs.add(ImmutableMap.<String, Object>builder()
+                .put("method", "njs_sdk_test_1.run")
+                .put("ver", "dev")
+                .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("id", "singlejob")
+                            .put("wait", 2)
+                            .build()))
+                .build());
         
-        
+        // should run
         Map<String, Object> r = res.callMethod(
                 "njs_sdk_test_1.run", params, "dev");
         checkResults(r, params, "njs_sdk_test_1");
-        System.out.println(r);
+        
+        // run again to ensure the job counter is back to 0
+        r = res.callMethod("njs_sdk_test_1.run", params, "dev");
+        checkResults(r, params, "njs_sdk_test_1");
+        
+        // run with 11 jobs to force an exception
+        jobs.add(ImmutableMap.<String, Object>builder()
+                .put("method", "njs_sdk_test_1.run")
+                .put("ver", "dev")
+                .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("id", "singlejob2")
+                            .put("wait", 2)
+                            .build()))
+                .build());
+        try {
+            res.callMethod("njs_sdk_test_1.run", params, "dev");
+        } catch (ServerException se) {
+            assertThat("incorrect error message", se.getLocalizedMessage(),
+                    is("No more than 10 concurrently running methods are allowed"));
+        }
         
         res.server.stop();
     }
