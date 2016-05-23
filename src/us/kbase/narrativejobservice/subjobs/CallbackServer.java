@@ -331,7 +331,7 @@ public class CallbackServer extends JsonServerServlet {
             if (task == null) {
                 throw new IllegalStateException(
                         "Either there is no job with id " + jobId +
-                        "or it has expired from the cache");
+                        " or it has expired from the cache");
             }
             resp = getResults(task);
             

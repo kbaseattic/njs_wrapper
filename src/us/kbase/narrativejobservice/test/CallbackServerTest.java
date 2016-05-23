@@ -3,7 +3,6 @@ package us.kbase.narrativejobservice.test;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.OutputStream;
@@ -20,12 +19,14 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -143,6 +144,27 @@ public class CallbackServerTest {
             return callServer(method, Arrays.asList(params), serviceVer,
                     new TypeReference<Map<String,Object>>() {});
         }
+        
+        public UUID callAsync(
+                final String method,
+                final Map<String, Object> params,
+                final String serviceVer)
+                throws Exception {
+            return callServer(method + "_async", Arrays.asList(params),
+                    serviceVer, new TypeReference<UUID>() {});
+        }
+        
+        public Map<String, Object> checkAsync(final UUID jobId)
+                throws Exception {
+            return callServer("foo.bar_check", Arrays.asList(jobId), "dev",
+                    new TypeReference<Map<String,Object>>() {});
+        }
+        
+        public Map<String, Object> checkAsync(final List<?> params)
+                throws Exception {
+            return callServer("foo.bar_check", params, "dev",
+                    new TypeReference<Map<String,Object>>() {});
+        }
 
         private <RET> RET callServer(
                 final String method,
@@ -178,6 +200,8 @@ public class CallbackServerTest {
                         (Map<String, Object>) msg.get("error"); 
                 final String data = (String) (err.get("data") == null ?
                         err.get("error") : err.get("data"));
+                System.out.println("got traceback from server in test:");
+                System.out.println(data);
                 throw new ServerException((String) err.get("message"),
                         (Integer) err.get("code"), (String) err.get("name"),
                         data);
@@ -212,7 +236,6 @@ public class CallbackServerTest {
         }
         assertThat("incorrect id", (String) got.get("id"),
                 is(params.get("id")));
-        System.out.println(params.get("id"));
         assertNotNull("missing hash", (String) got.get("hash"));
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> parjobs =
@@ -277,20 +300,34 @@ public class CallbackServerTest {
             };
             jobs.add(outerjob);
         }
-        jobs.add(ImmutableMap.<String, Object>builder()
-                .put("method", "njs_sdk_test_1.run")
-                .put("ver", "dev")
-                .put("params", Arrays.asList(
+        final ImmutableMap<String, Object> singlejob =
+                ImmutableMap.<String, Object>builder()
+                    .put("method", "njs_sdk_test_1.run")
+                    .put("ver", "dev")
+                    .put("params", Arrays.asList(
                         ImmutableMap.<String, Object>builder()
                             .put("id", "singlejob")
                             .put("wait", 2)
                             .build()))
-                .build());
+                    .build();
+        jobs.add(singlejob);
         
         // should run
         Map<String, Object> r = res.callMethod(
                 "njs_sdk_test_1.run", params, "dev");
         checkResults(r, params, "njs_sdk_test_1");
+        
+        //throw an error during a sync job to check the job counter is
+        // decremented
+        Map<String, Object> errparam = new HashMap<String, Object>();
+        errparam.put("id", "errjob");
+        errparam.put("except", "planned exception");
+        try {
+            res.callMethod("njs_sdk_test_1.run", errparam, "dev");
+        } catch (ServerException se) {
+            assertThat("incorrect error message", se.getLocalizedMessage(),
+                    is("planned exception errjob"));
+        }
         
         // run again to ensure the job counter is back to 0
         r = res.callMethod("njs_sdk_test_1.run", params, "dev");
@@ -316,4 +353,68 @@ public class CallbackServerTest {
         res.server.stop();
     }
 
+    @Test
+    public void async() throws Exception {
+        final CallbackStuff res = startCallBackServer();
+        System.out.println("Running async in dir " + res.tempdir);
+        final Map<String, Object> simplejob =
+                ImmutableMap.<String, Object>builder()
+                    .put("id", "simplejob")
+                    .put("wait", 10)
+                    .build();
+        UUID jobId = res.callAsync("njs_sdk_test_1.run", simplejob, "dev");
+        int attempts = 1;
+        List<Map<String, Object>> got;
+        while (true) {
+            if (attempts > 20) {
+                fail("timed out waiting for async results");
+            }
+            Map<String, Object> status = res.checkAsync(jobId);
+            if (((Integer) status.get("finished")) == 1) {
+                @SuppressWarnings("unchecked")
+                final List<Map<String, Object>> tempgot =
+                        (List<Map<String, Object>>) status.get("result");
+                got = tempgot;
+                break;
+            }
+            Thread.sleep(1000);
+            attempts++;
+        }
+        checkResults(got.get(0), simplejob, "njs_sdk_test_1");
+        
+        // now the result should be in the cache, so check again
+        Map<String, Object> status = res.checkAsync(jobId);
+        assertThat("job not done", (Integer) status.get("finished"), is(1));
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tempgot =
+                (List<Map<String, Object>>) status.get("result");
+        checkResults(tempgot.get(0), simplejob, "njs_sdk_test_1");
+        
+        final UUID randomUUID = UUID.randomUUID();
+        try {
+            res.checkAsync(randomUUID);
+        } catch (ServerException ise) {
+            assertThat("wrong exception message", ise.getLocalizedMessage(),
+                   is(String.format("Either there is no job with id %s " + 
+                           "or it has expired from the cache", randomUUID)));
+        }
+        res.server.stop();
+    }
+    
+    @Ignore
+    @Test
+    public void checkWithBadArgs() throws Exception {
+        final CallbackStuff res = startCallBackServer();
+        System.out.println("Running checkwithBadArgs in dir " + res.tempdir);
+        String badUUID = UUID.randomUUID().toString();
+        badUUID = badUUID.substring(0, badUUID.length() - 1) + "g";
+        
+        try {
+            res.checkAsync(Arrays.asList(badUUID));
+        } catch (ServerException ise) {
+            assertThat("wrong exception message", ise.getLocalizedMessage(),
+                   is(String.format("Either there is no job with id %s " + 
+                           "or it has expired from the cache", badUUID)));
+        }
+    }
 }
