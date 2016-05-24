@@ -233,8 +233,4 @@ public class DockerRunner {
             return DockerClientBuilder.getInstance().build();
         }
     }
-    
-    public interface LineLogger {
-        public void logNextLine(String line, boolean isError);
-    }
 }

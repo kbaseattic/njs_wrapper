@@ -54,7 +54,7 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.controllers.ControllerCommon;
 import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.LineLogger;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
@@ -104,7 +104,7 @@ public class CallbackServerTest {
             final List<UObject> params,
             final List<String> wsobjs)
             throws Exception {
-        final DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
+        final LineLogger log = new LineLogger() {
             
             @Override
             public void logNextLine(String line, boolean isError) {

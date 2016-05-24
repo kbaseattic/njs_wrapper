@@ -48,7 +48,7 @@ import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.UObject;
 import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.LineLogger;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
@@ -572,7 +572,7 @@ public class CallbackServer extends JsonServerServlet {
                 new URL("https://ci.kbase.us/services/"),
                 getCallbackUrl(port),
                 Paths.get("temp_CallbackServer"),
-                new DockerRunner.LineLogger() {
+                new LineLogger() {
                     @Override
                     public void logNextLine(String line, boolean isError) {
                         cbLog("Docker logger std" + (isError ? "err" : "out") +

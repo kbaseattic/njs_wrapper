@@ -13,9 +13,8 @@ import java.util.Map;
 
 import javax.ws.rs.core.UriBuilder;
 
-import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.DockerRunner.LineLogger;
+import us.kbase.narrativejobservice.LineLogger;
 
 public class CallbackServerConfigBuilder {
     
@@ -39,7 +38,7 @@ public class CallbackServerConfigBuilder {
     private URI dockerURI = null;
     final private URL callbackURL;
     final private Path workDir;
-    final private DockerRunner.LineLogger logger;
+    final private LineLogger logger;
     
     public CallbackServerConfigBuilder(
             final URL kbaseEndpointURL,
@@ -216,7 +215,7 @@ public class CallbackServerConfigBuilder {
         final private URI dockerURI;
         final private URL callbackURL;
         final private Path workDir;
-        final private DockerRunner.LineLogger logger;
+        final private LineLogger logger;
 
         private CallbackServerConfig(URL kbaseEndpointURL, URL workspaceURL,
                 URL shockURL, URL userJobStateURL, URL catalogURL,
@@ -293,7 +292,7 @@ public class CallbackServerConfigBuilder {
         /**
          * @return the logger
          */
-        public DockerRunner.LineLogger getLogger() {
+        public LineLogger getLogger() {
             return logger;
         }
         

@@ -82,7 +82,7 @@ public class AweClientDockerJobScript {
         UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
-        DockerRunner.LineLogger log = null;
+        LineLogger log = null;
         Server callbackServer = null;
         try {
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
@@ -130,7 +130,7 @@ public class AweClientDockerJobScript {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             ujsClient.updateJob(jobId, token.toString(), "running", null);
-            log = new DockerRunner.LineLogger() {
+            log = new LineLogger() {
                 @Override
                 public void logNextLine(String line, boolean isError) {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
