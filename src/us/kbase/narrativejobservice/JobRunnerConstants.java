@@ -7,6 +7,8 @@ import java.util.Set;
 
 public class JobRunnerConstants {
 
+    //TODO NJS_SDK move to shared repo
+    
     public static final String JOB_CONFIG_FILE = "config.properties";
 
     //TODO consider an enum here

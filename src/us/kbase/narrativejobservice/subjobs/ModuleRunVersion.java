@@ -12,6 +12,7 @@ import us.kbase.narrativejobservice.AweClientDockerJobScript;
  *
  */
 public class ModuleRunVersion {
+  //TODO NJS_SDK move to shared repo
 
     final private Set<String> RELEASE_TAGS =
             AweClientDockerJobScript.RELEASE_TAGS;

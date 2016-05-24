@@ -17,6 +17,7 @@ import us.kbase.narrativejobservice.JobRunnerConstants;
 import us.kbase.narrativejobservice.LineLogger;
 
 public class CallbackServerConfigBuilder {
+    //TODO NJS_SDK move to shared repo
     
     //TODO unit tests
     
