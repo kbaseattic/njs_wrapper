@@ -16,4 +16,15 @@ public class JobRunnerConstants {
     public static final Set<String> RELEASE_TAGS =
             Collections.unmodifiableSet(new LinkedHashSet<String>(
                     Arrays.asList(DEV, BETA, RELEASE)));
+    
+    public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
+    public static final String CFG_PROP_WORKSPACE_SRV_URL =
+            "workspace.srv.url";
+    public static final String CFG_PROP_SHOCK_URL = "shock.url";
+    public static final String CFG_PROP_JOBSTATUS_SRV_URL =
+            "jobstatus.srv.url";
+    public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
+    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
+            "awe.client.docker.uri";
+
 }

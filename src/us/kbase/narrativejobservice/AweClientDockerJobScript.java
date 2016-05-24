@@ -41,6 +41,7 @@ import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
+import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
@@ -213,7 +214,7 @@ public class AweClientDockerJobScript {
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
                                 jobDir.toPath(), log).build();
-                final JsonServerServlet callback = new CallbackServer(
+                final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects());
                 callbackServer = new Server(callbackPort);

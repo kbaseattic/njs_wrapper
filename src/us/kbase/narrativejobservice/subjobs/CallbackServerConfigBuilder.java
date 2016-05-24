@@ -13,7 +13,7 @@ import java.util.Map;
 
 import javax.ws.rs.core.UriBuilder;
 
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.JobRunnerConstants;
 import us.kbase.narrativejobservice.LineLogger;
 
 public class CallbackServerConfigBuilder {
@@ -67,7 +67,7 @@ public class CallbackServerConfigBuilder {
         super();
         checkNulls(config, callbackURL, workDir, logger);
         this.kbaseEndpointURL = getURL(config,
-                NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+                JobRunnerConstants.CFG_PROP_KBASE_ENDPOINT);
         
         this.workspaceURL = resolveURL(kbaseEndpointURL, EP_WS);
         this.shockURL = resolveURL(kbaseEndpointURL, EP_SHOCK);
@@ -75,20 +75,20 @@ public class CallbackServerConfigBuilder {
         this.catalogURL = resolveURL(kbaseEndpointURL, EP_CAT);
         
         this.workspaceURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL,
+                JobRunnerConstants.CFG_PROP_WORKSPACE_SRV_URL,
                 this.workspaceURL);
         this.shockURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
+                JobRunnerConstants.CFG_PROP_SHOCK_URL,
                 this.shockURL);
         this.userJobStateURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL,
+                JobRunnerConstants.CFG_PROP_JOBSTATUS_SRV_URL,
                 this.userJobStateURL);
         this.catalogURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
+                JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL,
                 this.catalogURL);
         
         this.dockerURI = getURI(config,
-                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                JobRunnerConstants.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                 true);
         this.callbackURL = callbackURL;
         this.workDir = workDir;

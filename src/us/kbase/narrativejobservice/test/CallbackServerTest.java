@@ -57,6 +57,7 @@ import us.kbase.common.utils.ModuleMethod;
 import us.kbase.narrativejobservice.LineLogger;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServer;
+import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
 import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
@@ -120,7 +121,7 @@ public class CallbackServerTest {
                 new CallbackServerConfigBuilder(
                 AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
                         temp, log).build();
-        final JsonServerServlet callback = new CallbackServer(
+        final JsonServerServlet callback = new NJSCallbackServer(
                 token, cbcfg, runver, params, wsobjs);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =

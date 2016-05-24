@@ -61,25 +61,31 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String SERVICE_DEPLOYMENT_NAME = "NarrativeJobService";
     
     public static final String CFG_PROP_SCRATCH = "scratch";
-    public static final String CFG_PROP_WORKSPACE_SRV_URL = "workspace.srv.url";
-    public static final String CFG_PROP_JOBSTATUS_SRV_URL = "jobstatus.srv.url";
+    public static final String CFG_PROP_WORKSPACE_SRV_URL =
+            JobRunnerConstants.CFG_PROP_WORKSPACE_SRV_URL;
+    public static final String CFG_PROP_JOBSTATUS_SRV_URL =
+            JobRunnerConstants.CFG_PROP_JOBSTATUS_SRV_URL;
     public static final String CFG_PROP_QUEUE_DB_DIR = "queue.db.dir";
     public static final String CFG_PROP_THREAD_COUNT = "thread.count";
     public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
     public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
     public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
     public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
-    public static final String CFG_PROP_SHOCK_URL = "shock.url";
+    public static final String CFG_PROP_SHOCK_URL =
+            JobRunnerConstants.CFG_PROP_SHOCK_URL;
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_MAX_JOB_SIZE = "max.job.size";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
-    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI = "awe.client.docker.uri";
+    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_DOCKER_URI;
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
-    public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
+    public static final String CFG_PROP_CATALOG_SRV_URL = 
+            JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL;
     public static final String CFG_PROP_CATALOG_ADMIN_USER = "catalog.admin.user";
     public static final String CFG_PROP_CATALOG_ADMIN_PWD = "catalog.admin.pwd";
-    public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
+    public static final String CFG_PROP_KBASE_ENDPOINT =
+            JobRunnerConstants.CFG_PROP_KBASE_ENDPOINT;
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
