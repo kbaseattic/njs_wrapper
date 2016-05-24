@@ -22,15 +22,15 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
 import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.AweClientDockerJobScript;
 import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.JobRunnerConstants;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 
 public class SubsequentCallRunner {
     private static final Set<String> RELEASE_TAGS =
-            AweClientDockerJobScript.RELEASE_TAGS;
-    private static final String RELEASE = AweClientDockerJobScript.RELEASE;
-    private static final String DEV = AweClientDockerJobScript.DEV;
+            JobRunnerConstants.RELEASE_TAGS;
+    private static final String RELEASE = JobRunnerConstants.RELEASE;
+    private static final String DEV = JobRunnerConstants.DEV;
 
     private final AuthToken token;
     private final String moduleName;
@@ -51,8 +51,8 @@ public class SubsequentCallRunner {
         this.token = token;
         this.config = config;
         CatalogClient catClient = new CatalogClient(config.getCatalogURL());
+        //TODO is this needed?
         catClient.setIsInsecureHttpConnectionAllowed(true);
-        catClient.setAllSSLCertificatesTrusted(true);
         //TODO code duplicated in AweClientDockerJobScript
         this.moduleName = modmeth.getModule();
         final ModuleInfo mi;
@@ -112,7 +112,7 @@ public class SubsequentCallRunner {
         this.jobWorkDir = new File(jobDir, "workdir");
         this.jobWorkDir.mkdirs();
         config.writeJobConfigToFile(new File(jobWorkDir,
-                AweClientDockerJobScript.CONFIG_FILE).toPath());
+                JobRunnerConstants.JOB_CONFIG_FILE).toPath());
     }
     
     /**

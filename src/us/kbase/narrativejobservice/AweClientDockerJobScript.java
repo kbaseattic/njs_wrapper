@@ -50,14 +50,15 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
     
-    // TODO consider an enum here
-    public static final String DEV = RunAppBuilder.DEV;
-    public static final String BETA = RunAppBuilder.BETA;
-    public static final String RELEASE = RunAppBuilder.RELEASE;
+    public static final String DEV = JobRunnerConstants.DEV;
+    public static final String BETA = JobRunnerConstants.BETA;
+    public static final String RELEASE = JobRunnerConstants.RELEASE;
+    public static final Set<String> RELEASE_TAGS =
+            JobRunnerConstants.RELEASE_TAGS;
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    public static final Set<String> RELEASE_TAGS = RunAppBuilder.RELEASE_TAGS;
     
-    public static final String CONFIG_FILE = "config.properties";
+    public static final String JOB_CONFIG_FILE =
+            JobRunnerConstants.JOB_CONFIG_FILE;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -119,7 +120,7 @@ public class AweClientDockerJobScript {
             File inputFile = new File(workDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(workDir, "output.json");
-            File configFile = new File(workDir, CONFIG_FILE);
+            File configFile = new File(workDir, JOB_CONFIG_FILE);
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
