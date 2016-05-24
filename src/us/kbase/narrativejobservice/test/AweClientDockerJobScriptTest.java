@@ -1,6 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -48,6 +49,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -68,6 +70,7 @@ import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
+import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
@@ -98,6 +101,7 @@ public class AweClientDockerJobScriptTest {
     private static File mongoDir = null;
     //private static File shockDir = null;
     private static File aweServerDir = null;
+    private static int awePort = -1;
     private static File aweClientDir = null;
     private static File njsServiceDir = null;
     private static Server catalogWrapper = null;
@@ -180,7 +184,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    private ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
+    public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
         } else if (release.equals("beta")) {
@@ -191,6 +195,141 @@ public class AweClientDockerJobScriptTest {
     }
     
     @Test
+    public void testNestedAsync() throws Exception {
+        System.out.println("Test [testNestedAsync]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String objectName = "async-basic";
+        String release = "dev";
+        String ver = "0.0.1";
+        final String modmeth = moduleName + "." + methodName;
+        Map<String, Object> p = ImmutableMap.<String, Object>builder()
+            .put("save", ImmutableMap.<String,Object>builder()
+                .put("ws", testWsName)
+                .put("name", objectName)
+                .build()
+            )
+            .put("jobs", Arrays.asList(
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("wait", 10)
+                            .put("id", "inner1").build()))
+                    .put("ver", release)
+                    .put("cli_async", true)
+                    .build(),
+                ImmutableMap.<String, Object>builder()
+                    .put("method", modmeth)
+                    .put("params", Arrays.asList(
+                        ImmutableMap.<String, Object>builder()
+                            .put("wait", 5)
+                            .put("id", "inner2")
+                            .put("jobs", Arrays.asList(
+                                ImmutableMap.<String, Object>builder()
+                                    .put("method", modmeth)
+                                    .put("params", Arrays.asList(
+                                        ImmutableMap.<String, Object>builder()
+                                            .put("wait", 3)
+                                            .put("id", "inner2_1").build()))
+                                    .put("ver", release)
+                                    .put("cli_async", true)
+                                    .build()
+                            )).build()
+                     ))
+                     .put("ver", release)
+                     .put("cli_async", true)
+                     .build()
+                )
+            )
+            .put("id", "outer")
+            .put("run_jobs_async", true)
+            .build();
+        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
+            expsas.add(new SubActionSpec()
+            .withMod(moduleName)
+            .withVer("0.0.1")
+            .withRel("dev")
+        );
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, new UObject(p), objectName, expsas,
+                Arrays.asList(STAGED1_NAME));
+        System.out.println("Results:\n" + res.getResult()
+                .asClassInstance(List.class));
+        checkResults(res, p, moduleName);
+        checkLoggingComplete(res);
+    }
+
+    private void checkLoggingComplete(JobState res) throws Exception {
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams()
+                .withJobId(res.getJobId())
+                .withSkipLines(0L)).getLines();
+        Assert.assertTrue(!lines.isEmpty());
+        Assert.assertEquals("Job is done", lines.get(lines.size() - 1)
+                .getLine());
+        // Let's check that AWE script is done
+        String aweServerUrl = "http://localhost:" + awePort;
+        String aweJobId = (String)res.getAdditionalProperties()
+                .get("awe_job_id");
+        String aweState = null;
+        for (int i = 0; i < 5; i++) {
+            Map<String, Object> aweJob = AweUtils.getAweJobDescr(
+                    aweServerUrl, aweJobId, token.toString());
+            Map<String, Object> aweData =
+                    (Map<String, Object>)aweJob.get("data");
+            if (aweData != null)
+                aweState = (String)aweData.get("state");
+            if (aweState != null && aweState.equals("completed"))
+                break;
+            Thread.sleep(1000);
+        }
+        Assert.assertNotNull(aweState);
+        Assert.assertEquals("completed", aweState);
+    }
+    
+    private void checkResults(JobState res, Map<String, Object> params,
+            String name) {
+        Map<String, Object> got = (Map<String, Object>) res.getResult()
+                .asClassInstance(List.class).get(0);
+        checkResults(got, params, name);
+    }
+
+    private void checkResults(Map<String, Object> got,
+            Map<String, Object> params, String name) {
+        assertThat("incorrect name", (String) got.get("name"), is(name));
+        if (params.containsKey("wait")) {
+            assertThat("incorrect wait time", (Integer) got.get("wait"),
+                    is(params.get("wait")));
+        }
+        assertThat("incorrect id", (String) got.get("id"),
+                is(params.get("id")));
+        System.out.println(params.get("id"));
+        assertNotNull("missing hash", (String) got.get("hash"));
+        List<Map<String, Object>> parjobs =
+                (List<Map<String, Object>>) params.get("jobs");
+        if (params.containsKey("jobs")) {
+            List<List<Map<String,Object>>> gotjobs =
+                    (List<List<Map<String, Object>>>) got.get("jobs");
+            assertNotNull("missing jobs", gotjobs);
+            assertThat("not same number of jobs", gotjobs.size(),
+                    is(parjobs.size()));
+            Iterator<List<Map<String, Object>>> gotiter = gotjobs.iterator();
+            Iterator<Map<String, Object>> pariter = parjobs.iterator();
+            while (gotiter.hasNext()) {
+                Map<String, Object> p = pariter.next();
+                String modmeth = (String) p.get("method");
+                String module = modmeth.split("\\.")[0];
+                //results are always wrapped in a list
+                checkResults(gotiter.next().get(0),
+                        //as are parameters
+                        ((List<Map<String, Object>>) p.get("params")).get(0),
+                        (String) module);
+            }
+        }
+    }
+
+    @Test
     public void testBasicProvenance() throws Exception {
         System.out.println("Test [testBasicProvenance]");
         execStats.clear();
@@ -198,12 +337,12 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.3";
+        String ver = "0.0.5";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
                         "}," + 
-             "\"calls\": []" +
+             "\"id\": \"myid\"" + 
              "}");
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
@@ -211,25 +350,27 @@ public class AweClientDockerJobScriptTest {
             .withVer(ver)
             .withRel(release)
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, methparams, objectName, expsas,
                 Arrays.asList(STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
         
         release = "beta";
-        ver = "0.0.4";
+        ver = "0.0.6";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
             .withRel(release)
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
-                Arrays.asList(STAGED1_NAME));
+        res = runJobAndCheckProvenance(moduleName, methodName, release, ver,
+                methparams, objectName, expsas, Arrays.asList(STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
     }
     
     @Test
     public void testMultiCallProvenance() throws Exception {
-        // for now can't go more than 1 layer deep
         System.out.println("Test [testMultiCallProvenance]");
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
@@ -242,26 +383,28 @@ public class AweClientDockerJobScriptTest {
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
                         "}," + 
-             "\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
-                          "\"ver\": \"%s\"" +
-                          "}," +
-                          "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}," +
-                           "{\"method\": \"%s\"," +
-                           "\"params\": [{}]," +
-                           "\"ver\": \"%s\"" +
-                           "}" +
-                         "]" +
+             "\"jobs\": [{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}," +
+                        "{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
+                         "\"ver\": \"%s\"" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
-             "e1038b847b2f20a38f06799de509e7058b7d0d7e",
+             // dev is on this commit
+             "570b5963d50710d4e15621a77673a9bc0c7a7857",
              moduleName + "." + methodName,
-             // this is the latest commit, but the prior commit is registered
+             // this is the latest commit, but a prior commit is registered
              //for dev
-             "b0d487271c22f793b381da29e266faa9bb0b2d1b",
+             "17f87270741e6b59bdfc083f143137d208e3f135",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
@@ -272,12 +415,14 @@ public class AweClientDockerJobScriptTest {
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.3")
-            .withCommit("e1038b847b2f20a38f06799de509e7058b7d0d7e")
+            .withVer("0.0.5")
+            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
         );
-        runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas,
+        JobState res = runJobAndCheckProvenance(moduleName, methodName,
+                release, ver, methparams, objectName, expsas,
                 Arrays.asList(STAGED2_NAME, STAGED1_NAME));
+        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
+        checkLoggingComplete(res);
     }
 
     @Test
@@ -386,15 +531,14 @@ public class AweClientDockerJobScriptTest {
     }
 
     private void failJobMultiCall(String outerModMeth, String innerModMeth,
-            String outerRel, String innerRel, String msg)
-            throws IOException, JsonClientException, InterruptedException,
-            ServerException {
+            String outerRel, String innerRel, String msg) throws Exception {
         UObject methparams = UObject.fromJsonString(String.format(
-            "{\"calls\": [{\"method\": \"%s\"," +
-                          "\"params\": [{}]," +
-                          "\"ver\": %s" +
-                          "}" +
-                         "]" +
+            "{\"jobs\": [{\"method\": \"%s\"," +
+                         "\"params\": [{\"id\": \"id1\"}]," +
+                         "\"ver\": %s" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
              "}",
              innerModMeth, innerRel));
         JobState ret = runJob(outerModMeth, outerRel, methparams,
@@ -424,7 +568,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    private static class SubActionSpec {
+    public static class SubActionSpec {
         public String module;
         public String release;
         public String ver;
@@ -457,7 +601,7 @@ public class AweClientDockerJobScriptTest {
             return ver + "-" + release;
         }
     }
-    private void runJobAndCheckProvenance(
+    private JobState runJobAndCheckProvenance(
             String moduleName,
             String methodName,
             String release,
@@ -472,9 +616,16 @@ public class AweClientDockerJobScriptTest {
         for (String o: wsobjs) {
             wsobjrefs.add(testWsName + "/" + o);
         }
-        runJob(moduleName, methodName, release, methparams, wsobjrefs);
+        JobState res = runJob(moduleName, methodName, release, methparams,
+                wsobjrefs);
+        if (res.getError() != null) {
+            System.out.println("Job had unexpected error:");
+            System.out.println(res.getError());
+            throw new TestException(res.getError().getMessage());
+        }
         checkProvenance(moduleName, methodName, release, ver, methparams,
                 objectName, subs, wsobjs);
+        return res;
     }
 
     private void checkProvenance(
@@ -572,7 +723,7 @@ public class AweClientDockerJobScriptTest {
             .withParams(Arrays.asList(methparams));
         String jobId = client.runJob(params);
         JobState ret = null;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 40; i++) {
             try {
                 ret = client.checkJob(jobId);
                 System.out.println("Job finished: " + ret.getFinished());
@@ -952,7 +1103,7 @@ public class AweClientDockerJobScriptTest {
         mongo = new MongoController(mongoExepath, mongoDir.toPath());
         System.out.println("Done. Port " + mongo.getServerPort());
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
+        awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
                 aweServerDir, mongo.getServerPort());
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 

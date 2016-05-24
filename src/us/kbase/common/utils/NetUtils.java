@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -19,7 +20,8 @@ public class NetUtils {
             "([01]?\\d\\d?|2[0-4]\\d|25[0-5])\\." +
             "([01]?\\d\\d?|2[0-4]\\d|25[0-5])$");
 
-    public static List<String> findNetworkAddresses(String... networkNames) throws Exception {
+    public static List<String> findNetworkAddresses(String... networkNames)
+            throws SocketException {
         Set<String> networkNameSet = new HashSet<String>(Arrays.asList(networkNames));
         List<String> ret = new ArrayList<String>();
         for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
