@@ -7,7 +7,7 @@ package us.kbase.common.utils;
  *
  */
 public class ModuleMethod {
-
+    //TODO NJS_SDK move to common repo
     //TODO unit tests
     
     public static final String CHECK_SUFFIX = "_check";
