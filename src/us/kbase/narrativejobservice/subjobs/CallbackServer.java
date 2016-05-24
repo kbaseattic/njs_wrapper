@@ -207,7 +207,7 @@ public class CallbackServer extends JsonServerServlet {
             final UUID jobId = UUID.randomUUID();
             cbLog(String.format("Subjob method: %s JobID: %s",
                     modmeth.getModuleDotMethod(), jobId));
-            final SubsequentCallRunner runner = getJobRunner(
+            final NJSSubsequentCallRunner runner = getJobRunner(
                     jobId, rpcCallData.getContext(), modmeth);
 
             // update method name to get rid of suffixes
@@ -231,7 +231,7 @@ public class CallbackServer extends JsonServerServlet {
     }
 
     private void startJob(final RpcCallData rpcCallData, final UUID jobId,
-            final SubsequentCallRunner runner) throws IOException {
+            final NJSSubsequentCallRunner runner) throws IOException {
         FutureTask<Map<String, Object>> task = null;
         try {
             /* need to make a copy of the RPC data because it contains
@@ -383,11 +383,11 @@ public class CallbackServer extends JsonServerServlet {
     private static class SubsequentCallRunnerRunner
             implements Callable<Map<String, Object>> {
 
-        private final SubsequentCallRunner scr;
+        private final NJSSubsequentCallRunner scr;
         private final RpcCallData rpc;
 
         public SubsequentCallRunnerRunner(
-                final SubsequentCallRunner scr,
+                final NJSSubsequentCallRunner scr,
                 final RpcCallData rpcData) {
             this.scr = scr;
             this.rpc = rpcData;
@@ -399,12 +399,12 @@ public class CallbackServer extends JsonServerServlet {
         }
     }
     
-    private SubsequentCallRunner getJobRunner(
+    private NJSSubsequentCallRunner getJobRunner(
             final UUID jobId,
             final RpcContext rpcContext,
             final ModuleMethod modmeth)
             throws IOException, JsonClientException, TokenFormatException  {
-        final SubsequentCallRunner runner;
+        final NJSSubsequentCallRunner runner;
         synchronized (getRunnerLock) {
             final String serviceVer;
             if (vers.containsKey(modmeth.getModule())) {
@@ -427,7 +427,7 @@ public class CallbackServer extends JsonServerServlet {
                         .get("service_ver");
             }
             // Request docker image name from Catalog
-            runner = new SubsequentCallRunner(token, config,
+            runner = new NJSSubsequentCallRunner(token, config,
                     jobId, modmeth, serviceVer);
             if (!vers.containsKey(modmeth.getModule())) {
                 vers.put(modmeth.getModule(), runner.getModuleRunVersion());

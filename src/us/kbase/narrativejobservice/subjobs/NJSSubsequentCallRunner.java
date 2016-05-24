@@ -22,29 +22,25 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
 import us.kbase.common.utils.ModuleMethod;
+import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.JobRunnerConstants;
 import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 
-public abstract class AbstractSubsequentCallRunner {
-    
-    //TODO NJS_SDK move to common repo
-    
+public class NJSSubsequentCallRunner {
     private static final Set<String> RELEASE_TAGS =
             JobRunnerConstants.RELEASE_TAGS;
     private static final String RELEASE = JobRunnerConstants.RELEASE;
     private static final String DEV = JobRunnerConstants.DEV;
-    
-    public static final String WORKDIR = "workdir";
-    public static final String TEMPDIR = "tmp";
 
     private final AuthToken token;
     private final String moduleName;
+    private final File sharedScratchDir;
     private final File jobWorkDir;
     private final String imageName;
     private final ModuleRunVersion mrv;
     private CallbackServerConfig config;
     
-    public AbstractSubsequentCallRunner(
+    public NJSSubsequentCallRunner(
             final AuthToken token,
             final CallbackServerConfig config,
             final UUID jobId,
@@ -100,7 +96,9 @@ public abstract class AbstractSubsequentCallRunner {
                 new URL(mi.getGitUrl()), modmeth,
                 mvi.getGitCommitHash(), mvi.getVersion(), serviceVer);
         imageName = mvi.getDockerImgName();
-        final File sharedScratchDir = getSharedScratchDir(config);
+        final File srcWorkDir = new File(config.getWorkDir().toFile(),
+                "workdir");
+        this.sharedScratchDir = new File(srcWorkDir, "tmp");
         if (!sharedScratchDir.exists())
             sharedScratchDir.mkdirs();
         final File subjobsDir = new File(config.getWorkDir().toFile(),
@@ -127,9 +125,16 @@ public abstract class AbstractSubsequentCallRunner {
     public Map<String, Object> run(RpcCallData rpcCallData)
             throws IOException, InterruptedException {
         File inputFile = new File(jobWorkDir, "input.json");
+        File outputFile = new File(jobWorkDir, "output.json");
         UObject.getMapper().writeValue(inputFile, rpcCallData);
-        final File outputFile = runModule(inputFile, config, imageName,
-                moduleName, token);
+        config.getLogger().logNextLine("dockerURI=" + config.getDockerURI(),
+                false);
+        config.getLogger().logNextLine(
+                "Running docker container for image: " + imageName, false);
+        new DockerRunner(config.getDockerURI()).run(
+                imageName, moduleName, inputFile, token, config.getLogger(),
+                outputFile, false, null, sharedScratchDir,
+                config.getCallbackURL());
         if (outputFile.exists()) {
             return UObject.getMapper().readValue(outputFile, new TypeReference<Map<String, Object>>() {});
         } else {
@@ -144,22 +149,5 @@ public abstract class AbstractSubsequentCallRunner {
             jsonRpcResponse.put("error", error);
             return jsonRpcResponse;
         }
-    }
-
-    protected abstract File runModule(
-            final File inputFile,
-            final CallbackServerConfig config,
-            final String imageName,
-            final String moduleName,
-            final AuthToken token)
-            throws IOException,
-            InterruptedException;
-
-    protected static File getSharedScratchDir(
-            final CallbackServerConfig config) {
-        final File srcWorkDir = new File(config.getWorkDir().toFile(),
-                WORKDIR);
-        final File sharedScratchDir = new File(srcWorkDir, TEMPDIR);
-        return sharedScratchDir;
     }
 }
