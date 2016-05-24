@@ -4,7 +4,7 @@ import java.net.URL;
 import java.util.Set;
 
 import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.AweClientDockerJobScript;
+import us.kbase.narrativejobservice.JobRunnerConstants;
 
 
 /** The version of a KBase SDK method run during an NJS Execution Engine job.
@@ -15,7 +15,7 @@ public class ModuleRunVersion {
   //TODO NJS_SDK move to shared repo
 
     final private Set<String> RELEASE_TAGS =
-            AweClientDockerJobScript.RELEASE_TAGS;
+            JobRunnerConstants.RELEASE_TAGS;
 
     //TODO unit tests
 
