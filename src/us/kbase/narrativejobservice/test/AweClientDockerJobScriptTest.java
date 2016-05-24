@@ -523,7 +523,7 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
                 "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
                 "server class us.kbase.narrativejobservice.subjobs." +
-                "CallbackServer");
+                "NJSCallbackServer");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
                 "Illegal method name: njs_sdk_test_1.r.un");

@@ -493,7 +493,7 @@ public class CallbackServerTest {
         System.out.println("Running badMethod in dir " + res.tempdir);
         failJob(res, "njs_sdk_test_1run", "foo",
                 "Can not find method [CallbackServer.njs_sdk_test_1run_async] " +
-                "in server class us.kbase.narrativejobservice.subjobs.CallbackServer");
+                "in server class us.kbase.narrativejobservice.subjobs.NJSCallbackServer");
         failJob(res, "njs_sdk_test_1.r.un", "foo",
                 "Illegal method name: njs_sdk_test_1.r.un_async");
         res.server.stop();
