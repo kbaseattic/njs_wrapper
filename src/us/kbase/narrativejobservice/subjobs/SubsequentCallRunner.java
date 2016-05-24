@@ -1,8 +1,9 @@
 package us.kbase.narrativejobservice.subjobs;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -34,12 +35,13 @@ public abstract class SubsequentCallRunner {
     private static final String RELEASE = JobRunnerConstants.RELEASE;
     private static final String DEV = JobRunnerConstants.DEV;
     
+    public static final String SUBJOBSDIR = "subjobs";
     public static final String WORKDIR = "workdir";
     public static final String TEMPDIR = "tmp";
 
     private final AuthToken token;
     private final String moduleName;
-    private final File jobWorkDir;
+    private final UUID jobId;
     private final String imageName;
     private final ModuleRunVersion mrv;
     private CallbackServerConfig config;
@@ -54,11 +56,13 @@ public abstract class SubsequentCallRunner {
             TokenFormatException {
         this.token = token;
         this.config = config;
-        CatalogClient catClient = new CatalogClient(config.getCatalogURL());
+        final CatalogClient catClient = new CatalogClient(
+                config.getCatalogURL());
         //TODO is this needed?
         catClient.setIsInsecureHttpConnectionAllowed(true);
         //TODO code duplicated in AweClientDockerJobScript
         this.moduleName = modmeth.getModule();
+        this.jobId = jobId;
         final ModuleInfo mi;
         try {
             mi = catClient.getModuleInfo(
@@ -100,21 +104,26 @@ public abstract class SubsequentCallRunner {
                 new URL(mi.getGitUrl()), modmeth,
                 mvi.getGitCommitHash(), mvi.getVersion(), serviceVer);
         imageName = mvi.getDockerImgName();
-        final File sharedScratchDir = getSharedScratchDir(config);
-        if (!sharedScratchDir.exists())
-            sharedScratchDir.mkdirs();
-        final File subjobsDir = new File(config.getWorkDir().toFile(),
-                "subjobs");
-        if (!subjobsDir.exists())
-            subjobsDir.mkdirs();
+        Files.createDirectories(getSharedScratchDir(config));
+        final Path jobWorkDir = getJobWorkDir(jobId, config, imageName);
+        Files.createDirectories(jobWorkDir);
+        config.writeJobConfigToFile(jobWorkDir.resolve(
+                JobRunnerConstants.JOB_CONFIG_FILE));
+    }
+
+    protected static Path getJobWorkDir(
+            final UUID jobId,
+            final CallbackServerConfig config,
+            final String imageName) {
+        final Path subjobsDir = config.getWorkDir().resolve(SUBJOBSDIR);
         final String suff = imageName.replace(':', '_').replace('/', '_');
         final String workdir = jobId.toString() +  "_" + suff;
-        final File jobDir = new File(subjobsDir, workdir);
-        jobDir.mkdirs();
-        this.jobWorkDir = new File(jobDir, "workdir");
-        this.jobWorkDir.mkdirs();
-        config.writeJobConfigToFile(new File(jobWorkDir,
-                JobRunnerConstants.JOB_CONFIG_FILE).toPath());
+        return subjobsDir.resolve(workdir).resolve(WORKDIR);
+    }
+    
+    protected static Path getSharedScratchDir(
+            final CallbackServerConfig config) {
+        return config.getWorkDir().resolve(WORKDIR).resolve(TEMPDIR);
     }
     
     /**
@@ -126,40 +135,38 @@ public abstract class SubsequentCallRunner {
     
     public Map<String, Object> run(RpcCallData rpcCallData)
             throws IOException, InterruptedException {
-        File inputFile = new File(jobWorkDir, "input.json");
-        UObject.getMapper().writeValue(inputFile, rpcCallData);
-        final File outputFile = runModule(inputFile, config, imageName,
-                moduleName, token);
-        if (outputFile.exists()) {
-            return UObject.getMapper().readValue(outputFile, new TypeReference<Map<String, Object>>() {});
+        final Path inputFile = getJobWorkDir(jobId, config, imageName)
+                .resolve("input.json");
+        UObject.getMapper().writeValue(inputFile.toFile(), rpcCallData);
+        final Path outputFile = runModule(jobId, inputFile, config,
+                imageName, moduleName, token);
+        if (Files.exists(outputFile)) {
+            return UObject.getMapper().readValue(outputFile.toFile(),
+                    new TypeReference<Map<String, Object>>() {});
         } else {
-            String errorMessage = "Unknown server error (output data wasn't produced)";
-            Map<String, Object> error = new LinkedHashMap<String, Object>();
+            final String errorMessage =
+                    "Unknown server error (output data wasn't produced)";
+            final Map<String, Object> error =
+                    new LinkedHashMap<String, Object>();
             error.put("name", "JSONRPCError");
             error.put("code", -32601);
             error.put("message", errorMessage);
             error.put("error", errorMessage);
-            Map<String, Object> jsonRpcResponse = new LinkedHashMap<String, Object>();
+            final Map<String, Object> jsonRpcResponse =
+                    new LinkedHashMap<String, Object>();
             jsonRpcResponse.put("version", "1.1");
             jsonRpcResponse.put("error", error);
             return jsonRpcResponse;
         }
     }
 
-    protected abstract File runModule(
-            final File inputFile,
+    protected abstract Path runModule(
+            final UUID jobId,
+            final Path inputFile,
             final CallbackServerConfig config,
             final String imageName,
             final String moduleName,
             final AuthToken token)
             throws IOException,
             InterruptedException;
-
-    protected static File getSharedScratchDir(
-            final CallbackServerConfig config) {
-        final File srcWorkDir = new File(config.getWorkDir().toFile(),
-                WORKDIR);
-        final File sharedScratchDir = new File(srcWorkDir, TEMPDIR);
-        return sharedScratchDir;
-    }
 }
