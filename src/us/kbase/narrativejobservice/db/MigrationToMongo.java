@@ -188,11 +188,7 @@ public class MigrationToMongo {
                             target.updateExecLogLines(taskId, newLineCount, part);
                         }
                     } catch (WriteConcernException ex2) {
-                        if (ex2.getCode() == 10334) {
-                            target.updateExecLogOriginalLineCount(taskId, lines.size());
-                        } else {
-                            throw ex2;
-                        }
+                        target.updateExecLogOriginalLineCount(taskId, lines.size());
                     }
                     truncatedLogs++;
                 }
