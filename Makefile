@@ -5,8 +5,10 @@ TARGET ?= /kb/deployment
 CURR_DIR = $(shell pwd)
 SERVICE_NAME = $(shell basename $(CURR_DIR))
 SERVICE_CAPS = NarrativeJobService
+SERVICE_SPEC = NJSWrapper
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
 WAR_FILE = NJSWrapper.war
+URL = https://kbase.us/services/njs_wrapper/
 ANT = ant
 BIN = $(TARGET)/bin
 JAVA_HOME ?= $(KB_RUNTIME)/java
@@ -17,6 +19,21 @@ SERVICE_PORT = 8200
 THREADPOOL_SIZE = 50
 
 default: compile
+
+compile-specs: compile-typespec compile-typespec-java
+
+compile-typespec:
+	kb-sdk compile \
+		--out lib \
+		--jsclname javascript/$(SERVICE_NAME)/Client \
+		--plclname Bio::KBase::$(SERVICE_NAME)::Client \
+		--pyclname biokbase.$(SERVICE_NAME).client \
+		--url $(URL) \
+		$(SERVICE_SPEC).spec
+
+compile-typespec-java:
+	kb-sdk compile  --java --javasrc src --javasrv --out . \
+		--url $(URL) $(SERVICE_SPEC).spec
 
 deploy-all: deploy
 

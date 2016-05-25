@@ -2,13 +2,10 @@ package us.kbase.narrativejobservice;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -16,6 +13,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -34,6 +32,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.mongodb.WriteConcernException;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -43,18 +42,28 @@ import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
+import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
-import us.kbase.common.taskqueue2.TaskQueue;
+import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
-import us.kbase.common.utils.DbConn;
+import us.kbase.narrativejobservice.db.ExecApp;
+import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
+import us.kbase.narrativejobservice.db.ExecLog;
+import us.kbase.narrativejobservice.db.ExecLogLine;
+import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.shock.client.BasicShockClient;
 import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.workspace.GetObjectInfoNewParams;
+import us.kbase.workspace.ObjectIdentity;
+import us.kbase.workspace.WorkspaceClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static boolean debug = false;
@@ -63,13 +72,19 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_DONE = "completed";
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
-    public static final long MAX_APP_SIZE = 30000;
-    public static final Set<String> asyncVersionTags = Collections.unmodifiableSet(
-            new LinkedHashSet<String>(Arrays.asList("dev", "beta", "release")));
+    public static final long MAX_APP_SIZE = 3000000;
+    //TODO consider an enum here
+    public static final String DEV = "dev";
+    public static final String BETA = "beta";
+    public static final String RELEASE = "release";
+    public static final Set<String> RELEASE_TAGS =
+            Collections.unmodifiableSet(new LinkedHashSet<String>(
+                    Arrays.asList(DEV, BETA, RELEASE)));
     public static final int ERROR_HEAD_TAIL_LOG_LINES = 100;
-    public static final int MAX_LOG_LINE_LENGTH = 10000;
+    public static final int MAX_LOG_LINE_LENGTH = 1000;
+    public static String REQ_REL = "requested_release";
 
-    private static DbConn conn = null;
+    private static ExecEngineMongoDb db = null;
 
 	@Override
 	public Class<String> getInputDataType() {
@@ -141,30 +156,23 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	            .withJobId(appJobId).withJobState(RunAppBuilder.APP_STATE_QUEUED);
 	    long startTime = System.currentTimeMillis();
 	    appState.getAdditionalProperties().put("start_timestamp", startTime);
-	    DbConn conn = getDbConnection(config);
-	    conn.exec("insert into " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " " +
-	    		"(app_job_id,app_job_state,app_state_data,creation_time, modification_time) " +
-	    		"values (?,?,?,?,?)", appJobId, appState.getJobState(),
-	    		UObject.getMapper().writeValueAsString(appState), startTime, startTime);
+	    ExecEngineMongoDb db = getDb(config);
+	    ExecApp dbApp = new ExecApp();
+	    dbApp.setAppJobId(appJobId);
+	    dbApp.setAppJobState(appState.getJobState());
+	    dbApp.setAppStateData(UObject.getMapper().writeValueAsString(appState));
+	    dbApp.setCreationTime(startTime);
+	    dbApp.setModificationTime(startTime);
+	    db.insertExecApp(dbApp);
 	    return appState;
 	}
 
 	public static synchronized AppState loadAppState(String appJobId, Map<String, String> config)
 	        throws Exception {
-	    DbConn conn = getDbConnection(config);
-	    List<AppState> ret = conn.collect("select app_state_data from " + 
-	            NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " where app_job_id=?", 
-	            new DbConn.SqlLoader<AppState>() {
-	        @Override
-	        public AppState collectRow(ResultSet rs) throws SQLException {
-	            try {
-	                return UObject.getMapper().readValue(rs.getString(1), AppState.class);
-	            } catch (IOException ex) {
-	                throw new IllegalStateException(ex);
-	            }
-	        }
-	    }, appJobId);
-	    return ret.size() > 0 ? ret.get(0) : null;
+	    ExecEngineMongoDb db = getDb(config);
+	    ExecApp dbApp = db.getExecApp(appJobId);
+	    return dbApp == null ? null : UObject.getMapper().readValue(
+	            dbApp.getAppStateData(), AppState.class);
 	}
 
 	public static synchronized void updateAppState(AppState appState,
@@ -172,29 +180,17 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	    String appData = UObject.getMapper().writeValueAsString(appState);
 	    if (appData.length() > MAX_APP_SIZE)
 	        throw new IllegalStateException("App data is too large (>" + MAX_APP_SIZE + ")");
-	    DbConn conn = getDbConnection(config);
-	    conn.exec("update " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " set " +
-	    		"app_job_state=?, app_state_data=?, modification_time=? where " +
-	    		"app_job_id=?", appState.getJobState(), appData, 
-	    		System.currentTimeMillis(), appState.getJobId());
+	    ExecEngineMongoDb db = getDb(config);
+	    db.updateExecAppData(appState.getJobId(), appState.getJobState(), appData);
 	}
 	
 	public static synchronized List<AppState> listRunningApps(Map<String, String> config) 
 	        throws Exception {
-        DbConn conn = getDbConnection(config);
-        List<AppState> ret = conn.collect("select app_state_data from " +
-                NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " where app_job_state=?", 
-                new DbConn.SqlLoader<AppState>() {
-            @Override
-            public AppState collectRow(ResultSet rs)
-                    throws SQLException {
-                try {
-                    return UObject.getMapper().readValue(rs.getString(1), AppState.class);
-                } catch (IOException ex) {
-                    throw new IllegalStateException(ex);
-                }
-            }
-        }, RunAppBuilder.APP_STATE_STARTED);
+        ExecEngineMongoDb db = getDb(config);
+        List<ExecApp> dbApps = db.getExecAppsWithState(RunAppBuilder.APP_STATE_STARTED);
+        List<AppState> ret = new ArrayList<AppState>();
+        for (ExecApp dbApp : dbApps)
+            ret.add(UObject.getMapper().readValue(dbApp.getAppStateData(), AppState.class));
         return ret;
 	}
 
@@ -491,32 +487,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	
     public static String runAweDockerScript(RunJobParams params, String token, 
             String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-        if (params.getServiceVer() == null || asyncVersionTags.contains(params.getServiceVer())) {
-            CatalogClient catCl = getCatalogClient(config, false);
-            String moduleName = params.getMethod().split(Pattern.quote("."))[0];
-            ModuleVersionInfo mvi;
-            try {
-                ModuleInfo mi = catCl.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName));
-                String ver = params.getServiceVer();
-                if (ver == null) {
-                    mvi = mi.getRelease();
-                } else if (ver.equals("dev")) {
-                    mvi = mi.getDev();
-                } else if (ver.equals("beta")) {
-                    mvi = mi.getBeta();
-                } else {
-                    mvi = mi.getRelease();
-                }
-            } catch (Exception ex) {
-                throw new IllegalStateException("Error loading info from catalog for module: " + moduleName, ex);
-            }
-            if (mvi == null)
-                throw new IllegalStateException("Cannot extract release version from catalog for module: " + moduleName);
-            String serviceVer = mvi.getGitCommitHash();
-            params.setServiceVer(serviceVer);
-        }
-        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         AuthToken authPart = new AuthToken(token);
+        checkWSObjects(authPart, config, params.getSourceWsObjects());
+        
+        checkModuleAndUpdateRunJobParams(params, config);
+        String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         UObject.getMapper().writeValue(baos, params);
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
@@ -555,10 +530,119 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
         return ujsJobId;
     }
+
+    private static void checkModuleAndUpdateRunJobParams(
+            final RunJobParams params,
+            final Map<String, String> config)
+            throws IOException, JsonClientException {
+        final String[] modMeth = params.getMethod().split("\\.");
+        if (modMeth.length != 2) {
+            throw new IllegalStateException("Illegal method name: " +
+                    params.getMethod());
+        }
+        final String moduleName = modMeth[0];
+        
+        CatalogClient catClient = getCatalogClient(config, false);
+        final ModuleInfo mi;
+        try {
+            mi = catClient.getModuleInfo(
+                new SelectOneModuleParams().withModuleName(moduleName));
+        } catch (ServerException se) {
+            throw new IllegalArgumentException(String.format(
+                    "Error looking up module %s: %s", moduleName,
+                    se.getLocalizedMessage()));
+        }
+        String version = params.getServiceVer();
+        final ModuleVersionInfo mvi;
+        if (version == null || RELEASE_TAGS.contains(version)) {
+            if (version == null || version == RELEASE) {
+                mvi = mi.getRelease();
+                version = RELEASE;
+            } else if (version.equals(DEV)) {
+                mvi = mi.getDev();
+            } else {
+                mvi = mi.getBeta();
+            }
+            if (mvi == null) {
+                // the requested release does not exist
+                throw new IllegalArgumentException(String.format(
+                        "There is no release version '%s' for module %s",
+                        version, moduleName));
+            }
+        } else {
+            try {
+                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
+                        .withModuleName(moduleName).withGitCommitHash(version));
+                version = null;
+            } catch (ServerException se) {
+                throw new IllegalArgumentException(String.format(
+                        "Error looking up module %s with version %s: %s",
+                        moduleName, version, se.getLocalizedMessage()));
+            }
+        }
+        params.setServiceVer(mvi.getGitCommitHash());
+        params.setAdditionalProperties(REQ_REL, version);
+    }
+    
+    private static void checkWSObjects(
+            final AuthToken token,
+            final Map<String, String> config,
+            final List<String> objrefs)
+            throws UnauthorizedException, IOException, JsonClientException {
+        if (objrefs == null || objrefs.isEmpty()) {
+            return;
+        }
+        final String wsUrlstr = config.get(
+                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+        if (wsUrlstr == null || wsUrlstr.isEmpty())
+            throw new IllegalStateException("Parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is not defined in configuration");
+        final URL wsURL;
+        try {
+            wsURL = new URL(wsUrlstr);
+        } catch (MalformedURLException mue) {
+            throw new IllegalStateException("Config parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL +
+                    " is invalid: " + wsUrlstr);
+        }
+        final WorkspaceClient wscli = new WorkspaceClient(wsURL, token);
+        final List<ObjectIdentity> ois = new LinkedList<ObjectIdentity>();
+        for (final String obj: objrefs) {
+            ois.add(new ObjectIdentity().withRef(obj));
+        }
+        final List<Tuple11<Long, String, String, String, Long, String, Long,
+                String, String, Long, Map<String, String>>> objinfo;
+        try {
+            objinfo = wscli.getObjectInfoNew(new GetObjectInfoNewParams()
+                    .withObjects(ois).withIgnoreErrors(1L));
+        } catch (ServerException se) {
+            if (se.getLocalizedMessage().indexOf(
+                    "Error on ObjectIdentity") != -1) {
+                throw new ServerException(se.getLocalizedMessage().replace(
+                        "ObjectIdentity", "workspace reference"),
+                        se.getCode(), se.getName(), se.getData());
+            } else {
+                throw se;
+            }
+        }
+        final Set<String> inaccessible = new LinkedHashSet<String>();
+        for (int i = 0; i < objinfo.size(); i++) {
+            if (objinfo.get(i) == null) {
+                inaccessible.add(objrefs.get(i));
+            }
+        }
+        if (!inaccessible.isEmpty()) {
+            throw new IllegalArgumentException(String.format(
+                    "The workspace objects %s either don't exist or were " +
+                    "inaccessible to the user %s.",
+                    inaccessible, token.getUserName()));
+        }
+    }
     
     public static RunJobParams getAweDockerScriptInput(String ujsJobId, String token, 
             Map<String, String> config, Map<String,String> resultConfig) throws Exception {
-        updateAweTaskExecTime(ujsJobId, config, "exec_start_time");
+        updateAweTaskExecTime(ujsJobId, config, false);
         AuthToken authPart = new AuthToken(token);
         String inputShockId = getAweTaskInputShockId(ujsJobId, config);
         BasicShockClient shockClient = getShockClient(authPart, config);
@@ -605,7 +689,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         ByteArrayInputStream bais = new ByteArrayInputStream(
                 UObject.getMapper().writeValueAsBytes(params));
         updateShockNode(shockUrl, token, outputShockId, bais, "output.json", "json");
-        updateAweTaskExecTime(ujsJobId, config, "finish_time");
+        updateAweTaskExecTime(ujsJobId, config, true);
         // let's make a call to catalog sending execution stats
         try {
             AuthToken auth = new AuthToken(token);
@@ -706,26 +790,48 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         AuthToken authPart = new AuthToken(token);
         UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
         ujsClient.getJobStatus(ujsJobId);
-        DbConn conn = getDbConnection(config);
-        List<Integer> r1 = conn.collect("select count(*) from " + 
-                NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + " where ujs_job_id=?", 
-                new DbConn.SqlLoader<Integer>() {
-            @Override
-            public Integer collectRow(ResultSet rs) throws SQLException {
-                return rs.getInt(1);
-            }
-        }, ujsJobId);
-        int linePos = r1.size() == 1 ? r1.get(0) : 0;
-        for (LogLine line : lines) {
-            String text = line.getLine();
-            if (text.length() > MAX_LOG_LINE_LENGTH)
-                text = text.substring(0, MAX_LOG_LINE_LENGTH - 3) + "...";
-            conn.exec("insert into " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
-                    " (ujs_job_id,line_pos,line,is_error) values (?,?,?,?)", 
-                    ujsJobId, linePos, text, line.getIsError());
-            linePos++;
+        ExecEngineMongoDb db = getDb(config);
+        ExecLog dbLog = db.getExecLog(ujsJobId);
+        if (dbLog == null) {
+            dbLog = new ExecLog();
+            dbLog.setUjsJobId(ujsJobId);
+            dbLog.setOriginalLineCount(0);
+            dbLog.setStoredLineCount(0);
+            dbLog.setLines(new ArrayList<ExecLogLine>());
+            db.insertExecLog(dbLog);
         }
-        return linePos;
+        if (dbLog.getOriginalLineCount() > dbLog.getStoredLineCount()) {
+            // Error with out of space happened previously. So we just update line count.
+            db.updateExecLogOriginalLineCount(ujsJobId, dbLog.getOriginalLineCount() + lines.size());
+            return dbLog.getStoredLineCount();
+        }
+        int linePos = dbLog.getOriginalLineCount();
+        try {
+            int partSize = 1000;
+            int partCount = (lines.size() + partSize - 1) / partSize;
+            for (int i = 0; i < partCount; i++) {
+                int newLineCount = Math.min((i + 1) * partSize, lines.size());
+                List<ExecLogLine> dbLines = new ArrayList<ExecLogLine>();
+                for (int j = i * partSize; j < newLineCount; j++) {
+                    LogLine line = lines.get(j);
+                    String text = line.getLine();
+                    if (text.length() > MAX_LOG_LINE_LENGTH)
+                        text = text.substring(0, MAX_LOG_LINE_LENGTH - 3) + "...";
+                    ExecLogLine dbLine = new ExecLogLine();
+                    dbLine.setLinePos(linePos);
+                    dbLine.setLine(text);
+                    dbLine.setIsError((long)line.getIsError() == 1L);
+                    dbLines.add(dbLine);
+                    linePos++;
+                }
+                db.updateExecLogLines(ujsJobId, linePos, dbLines);
+            }
+            return linePos;
+        } catch (WriteConcernException ex) {
+            ex.getCode();
+            db.updateExecLogOriginalLineCount(ujsJobId, dbLog.getOriginalLineCount() + lines.size());
+            return dbLog.getStoredLineCount();
+        }
     }
     
     public static GetJobLogsResults getAweDockerScriptLogs(String ujsJobId, Long skipLines,
@@ -737,16 +843,20 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
             ujsClient.getJobStatus(ujsJobId);
         }
-        DbConn conn = getDbConnection(config);
-        String sql = "select line,is_error from " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + 
-                " where ujs_job_id=?" + (skipLines == null ? "" : " and line_pos>=" + skipLines) + 
-                " order by line_pos";
-        List<LogLine> lines = conn.collect(sql, new DbConn.SqlLoader<LogLine>() {
-            @Override
-            public LogLine collectRow(ResultSet rs) throws SQLException {
-                return new LogLine().withLine(rs.getString(1)).withIsError(rs.getLong(2));
+        ExecEngineMongoDb db = getDb(config);
+        ExecLog dbLog = db.getExecLog(ujsJobId);
+        List<LogLine> lines;
+        if (dbLog == null || (skipLines != null && dbLog.getStoredLineCount() <= skipLines)) {
+            lines = Collections.<LogLine>emptyList();
+        } else {
+            lines = new ArrayList<LogLine>();
+            int from = skipLines == null ? 0 : (int)(long)skipLines;
+            int count = dbLog.getStoredLineCount() - from;
+            for (ExecLogLine dbLine : db.getExecLogLines(ujsJobId, from, count)) {
+                lines.add(new LogLine().withLine(dbLine.getLine())
+                        .withIsError(dbLine.getIsError() ? 1L : 0L));
             }
-        }, ujsJobId);
+        }
         return new GetJobLogsResults().withLines(lines)
                 .withLastLineNumber((long)lines.size() + (skipLines == null ? 0L : skipLines));
     }
@@ -782,30 +892,6 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         } finally {
             response.close();
             file.close();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static String addShockNodePublicReadACL(String shockUrl, String token, 
-            String shockNodeId) throws Exception {
-        String nodeurl = shockUrl;
-        if (!nodeurl.endsWith("/"))
-            nodeurl += "/";
-        nodeurl += "node/" + shockNodeId + "/acl/public_read";
-        final HttpPut htp = new HttpPut(nodeurl);
-        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
-        cm.setMaxTotal(1000);
-        cm.setDefaultMaxPerRoute(1000);
-        CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
-        htp.setHeader("Authorization", "OAuth " + token);
-        final CloseableHttpResponse response = client.execute(htp);
-        try {
-            String resp = EntityUtils.toString(response.getEntity());
-            Map<String, String> node = (Map<String, String>)UObject.getMapper()
-                    .readValue(resp, Map.class).get("data");
-            return node.get("id");
-        } finally {
-            response.close();
         }
     }
 
@@ -948,18 +1034,28 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return aweUrl;
     }
 
-    private static CatalogClient getCatalogClient(Map<String, String> config, boolean asAdmin) throws Exception {
-        String catalogUrl = getRequiredConfigParam(config, 
+    private static CatalogClient getCatalogClient(Map<String, String> config,
+            boolean asAdmin)
+            throws UnauthorizedException, IOException  {
+        final String catalogUrl = getRequiredConfigParam(config, 
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-        CatalogClient ret;
+        final CatalogClient ret;
+        final URL catURL;
+        try {
+            catURL = new URL(catalogUrl);
+        } catch (MalformedURLException mue) {
+            throw new IllegalStateException("Config parameter " +
+                    NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL +
+                    " is invalid: " + catalogUrl);
+        }
         if (asAdmin) {
             String catalogUser = getRequiredConfigParam(config, 
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
             String catalogPwd = getRequiredConfigParam(config, 
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
-            ret = new CatalogClient(new URL(catalogUrl), catalogUser, catalogPwd);
+            ret = new CatalogClient(catURL, catalogUser, catalogPwd);
         } else {
-            ret = new CatalogClient(new URL(catalogUrl));
+            ret = new CatalogClient(catURL);
         }
         ret.setIsInsecureHttpConnectionAllowed(true);
         ret.setAllSSLCertificatesTrusted(true);
@@ -974,195 +1070,65 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return ret;
     }
 
-    public static File getQueueDbDir(Map<String, String> config) {
-        String ret = config.get(NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR);
-        if (ret == null)
-            throw new IllegalStateException("Parameter " + 
-                    NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + " is not " +
-                    "defined in configuration");
-        File dir = new File(ret);
-        if (!dir.exists())
-            dir.mkdirs();
-        return dir;
-    }
-
-    private static DbConn getDbConnection(Map<String, String> config) throws Exception {
-        if (conn != null)
-            return conn;
-        Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
-        File dbDir = new File(getQueueDbDir(config), TaskQueue.DERBY_DB_NAME);
-        String url = "jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName();
-        if (!dbDir.exists())
-            url += ";create=true";
-        conn = new DbConn(DriverManager.getConnection(url));
-        if (!conn.checkTable(NarrativeJobServiceServer.AWE_TASK_TABLE_NAME)) {
-            conn.exec("create table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " (" +
-                    "ujs_job_id varchar(100) primary key," +
-                    "awe_job_id varchar(100)," +
-                    "input_shock_id varchar(100)," +
-                    "output_shock_id varchar(100)," +
-                    "creation_time bigint," +
-                    "app_job_id varchar(100)," +
-                    "exec_start_time bigint," +
-                    "finish_time bigint" +
-                    ")");
-            conn.exec("create index " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + "_app_job_id on " + 
-                    NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " (app_job_id)");
-        }
-        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "creation_time")) {
-            System.out.println("Adding column creation_time into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
-            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                    " add column creation_time bigint with default " + System.currentTimeMillis());
-        }
-        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "app_job_id")) {
-            System.out.println("Adding column app_job_id into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
-            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                    " add column app_job_id varchar(100)");
-            conn.exec("create index " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + "_app_job_id on " + 
-                    NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " (app_job_id)");
-        }
-        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "exec_start_time")) {
-            System.out.println("Adding column exec_start_time into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
-            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                    " add column exec_start_time bigint");
-        }
-        if (!checkColumn(conn, NarrativeJobServiceServer.AWE_TASK_TABLE_NAME, "finish_time")) {
-            System.out.println("Adding column finish_time into table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME);
-            conn.exec("alter table " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                    " add column finish_time bigint");
-        }
-        if (!conn.checkTable(NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME)) {
-            conn.exec("create table " + NarrativeJobServiceServer.AWE_LOGS_TABLE_NAME + " (" +
-            		"ujs_job_id varchar(100)," +
-            		"line_pos integer," +
-            		"line long varchar," +
-            		"is_error smallint," +
-            		"primary key (ujs_job_id, line_pos)" +
-                    ")");
-        }
-        if (!conn.checkTable(NarrativeJobServiceServer.AWE_APPS_TABLE_NAME)) {
-            conn.exec("create table " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " (" +
-                    "app_job_id varchar(100) primary key," +
-                    "app_job_state varchar(100)," +
-                    "app_state_data long varchar," +
-                    "creation_time bigint," +
-                    "modification_time bigint" +
-                    ")");
-            conn.exec("create index " + NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + "_app_job_state on " + 
-                    NarrativeJobServiceServer.AWE_APPS_TABLE_NAME + " (app_job_state)");
-        }
-        return conn;
+    private static ExecEngineMongoDb getDb(Map<String, String> config) throws Exception {
+        if (db == null)
+            db = NarrativeJobServiceServer.getMongoDb(config);
+        return db;
     }
     
-    private static boolean checkColumn(DbConn conn, String tableName, final String columnName) throws Exception {
-        try {
-            conn.collect("select " + columnName + " from " + tableName + " FETCH FIRST 1 ROWS ONLY", 
-                    new DbConn.SqlLoader<Boolean>() {
-                @Override
-                public Boolean collectRow(ResultSet rs) throws SQLException {
-                    return true;
-                }
-            });
-            return true;
-        } catch (SQLException ex) {
-            if (ex.getMessage().toLowerCase().contains(columnName.toLowerCase()))
-                return false;
-            throw ex;
-        }
-    }
-
     private static void addAweTaskDescription(String ujsJobId, String aweJobId, String inputShockId, 
             String outputShockId, String appJobId, Map<String, String> config) throws Exception {
-        DbConn conn = getDbConnection(config);
-        conn.exec("insert into " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + 
-                " (ujs_job_id,awe_job_id,input_shock_id,output_shock_id,creation_time," +
-                "app_job_id) values (?,?,?,?,?,?)", 
-                ujsJobId, aweJobId, inputShockId, outputShockId, System.currentTimeMillis(), appJobId);
+        ExecEngineMongoDb db = getDb(config);
+        ExecTask dbTask = new ExecTask();
+        dbTask.setUjsJobId(ujsJobId);
+        dbTask.setAweJobId(aweJobId);
+        dbTask.setInputShockId(inputShockId);
+        dbTask.setOutputShockId(outputShockId);
+        dbTask.setCreationTime(System.currentTimeMillis());
+        dbTask.setAppJobId(appJobId);
+        db.insertExecTask(dbTask);
     }
 
-    private static String[] getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
-        List<String[]> rows = getDbConnection(config).collect(
-                "select ujs_job_id,awe_job_id,input_shock_id,output_shock_id " +
-                "from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " " +
-                "where ujs_job_id=?", new DbConn.SqlLoader<String[]>() {
-            @Override
-            public String[] collectRow(ResultSet rs) throws SQLException {
-                return new String[] {rs.getString(1), rs.getString(2), 
-                        rs.getString(3), rs.getString(4)};
-            }
-        }, ujsJobId);
-        if (rows.size() != 1)
-            throw new IllegalStateException("AWE task rows found in DB for jobid=" + 
-                    ujsJobId + ": " + rows.size());
-        return rows.get(0);
+    private static ExecTask getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
+        ExecEngineMongoDb db = getDb(config);
+        ExecTask dbTask = db.getExecTask(ujsJobId);
+        if (dbTask == null)
+            throw new IllegalStateException("AWE task wasn't found in DB for jobid=" + ujsJobId);
+        return dbTask;
     }
 
     private static String getAweTaskAppId(String ujsJobId, Map<String, String> config) throws Exception {
-        List<String> rows = getDbConnection(config).collect(
-                "select app_job_id " +
-                "from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " " +
-                "where ujs_job_id=?", new DbConn.SqlLoader<String>() {
-            @Override
-            public String collectRow(ResultSet rs) throws SQLException {
-                return rs.getString(1);
-            }
-        }, ujsJobId);
-        return rows.size() == 1 ? rows.get(0) : null;
+        return getAweTaskDescription(ujsJobId, config).getAppJobId();
     }
 
     public static boolean isAweTask(String ujsJobId, Map<String, String> config) throws Exception {
-        List<Integer> rows = getDbConnection(config).collect(
-                "select count(*) " +
-                "from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " " +
-                "where ujs_job_id=?", new DbConn.SqlLoader<Integer>() {
-            @Override
-            public Integer collectRow(ResultSet rs) throws SQLException {
-                return rs.getInt(1);
-            }
-        }, ujsJobId);
-        return rows.size() == 1 && rows.get(0) > 0;
+        ExecEngineMongoDb db = getDb(config);
+        ExecTask dbTask = db.getExecTask(ujsJobId);
+        return dbTask != null;
     }
     
     private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
-        return getAweTaskDescription(ujsJobId, config)[1];
+        return getAweTaskDescription(ujsJobId, config).getAweJobId();
     }
 
     private static String getAweTaskInputShockId(String ujsJobId, Map<String, String> config) throws Exception {
-        return getAweTaskDescription(ujsJobId, config)[2];
+        return getAweTaskDescription(ujsJobId, config).getInputShockId();
     }
 
     private static String getAweTaskOutputShockId(String ujsJobId, Map<String, String> config) throws Exception {
-        return getAweTaskDescription(ujsJobId, config)[3];
+        return getAweTaskDescription(ujsJobId, config).getOutputShockId();
     }
     
-    private static void updateAweTaskExecTime(String ujsJobId, Map<String, String> config, String timeField) throws Exception {
-        DbConn conn = getDbConnection(config);
-        conn.exec("update " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " set " + timeField + "=? " +
-        		"where ujs_job_id=?", System.currentTimeMillis(), ujsJobId);
+    private static void updateAweTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
+        ExecEngineMongoDb db = getDb(config);
+        db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
     }
     
     private static Long[] getAweTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
-        List<Long[]> rows = getDbConnection(config).collect(
-                "select creation_time, exec_start_time, finish_time " +
-                "from " + NarrativeJobServiceServer.AWE_TASK_TABLE_NAME + " " +
-                "where ujs_job_id=?", new DbConn.SqlLoader<Long[]>() {
-            @Override
-            public Long[] collectRow(ResultSet rs) throws SQLException {
-                Long[] ret = new Long[3];
-                long creationTime = rs.getLong(1);
-                if (!rs.wasNull())
-                    ret[0] = creationTime;
-                long execStartTime = rs.getLong(2);
-                if (!rs.wasNull())
-                    ret[1] = execStartTime;
-                long finishTime = rs.getLong(3);
-                if (!rs.wasNull())
-                    ret[2] = finishTime;
-                return ret;
-            }
-        }, ujsJobId);
-        if (rows.size() != 1)
+        ExecEngineMongoDb db = getDb(config);
+        ExecTask dbTask = db.getExecTask(ujsJobId);
+        if (dbTask == null)
             return null;
-        return rows.get(0);
+        return new Long[] {dbTask.getCreationTime(), dbTask.getExecStartTime(), dbTask.getFinishTime()};
     }
 }
