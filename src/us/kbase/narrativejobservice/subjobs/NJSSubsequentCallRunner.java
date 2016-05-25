@@ -42,7 +42,8 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, null,
-                sharedScratchDir.toFile(), config.getCallbackURL());
+                sharedScratchDir.toFile(), config.getCallbackURL(),
+                jobId.toString());
         return outputFile;
     }
     
