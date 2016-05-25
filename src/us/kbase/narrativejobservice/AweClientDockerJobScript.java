@@ -231,7 +231,7 @@ public class AweClientDockerJobScript {
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl);
+                    refDataDir, null, callbackUrl, jobId);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
