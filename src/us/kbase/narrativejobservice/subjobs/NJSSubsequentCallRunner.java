@@ -6,10 +6,11 @@ import java.util.UUID;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.executionengine.ModuleMethod;
+import us.kbase.common.executionengine.SubsequentCallRunner;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JsonClientException;
-import us.kbase.common.utils.ModuleMethod;
 import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
 

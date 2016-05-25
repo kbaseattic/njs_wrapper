@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice.subjobs;
+package us.kbase.common.executionengine;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -11,8 +11,6 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
-import us.kbase.narrativejobservice.JobRunnerConstants;
-import us.kbase.narrativejobservice.LineLogger;
 
 public class CallbackServerConfigBuilder {
     //TODO NJS_SDK move to shared repo

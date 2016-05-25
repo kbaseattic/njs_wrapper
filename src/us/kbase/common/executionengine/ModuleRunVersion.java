@@ -1,10 +1,8 @@
-package us.kbase.narrativejobservice.subjobs;
+package us.kbase.common.executionengine;
 
 import java.net.URL;
 import java.util.Set;
 
-import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.JobRunnerConstants;
 
 
 /** The version of a KBase SDK method run during an NJS Execution Engine job.

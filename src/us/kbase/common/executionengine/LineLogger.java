@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.common.executionengine;
 
 public interface LineLogger {
     
