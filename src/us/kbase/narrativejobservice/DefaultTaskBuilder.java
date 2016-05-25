@@ -103,7 +103,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 				if (client != null)
 					return client;
 				WorkspaceClient client = new WorkspaceClient(new URL(wsUrl), new AuthToken(authToken));
-				client.setAuthAllowedForHttp(true);
+				client.setIsInsecureHttpConnectionAllowed(true);
 				return client;
 			}
 		};
