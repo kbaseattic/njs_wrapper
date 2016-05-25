@@ -202,7 +202,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "async-basic";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.2";
         final String modmeth = moduleName + "." + methodName;
         Map<String, Object> p = ImmutableMap.<String, Object>builder()
             .put("save", ImmutableMap.<String,Object>builder()
@@ -249,7 +249,7 @@ public class AweClientDockerJobScriptTest {
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
             expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
+            .withVer("0.0.2")
             .withRel("dev")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
@@ -337,7 +337,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.5";
+        String ver = "0.0.7";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -378,7 +378,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov_multi";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.2";
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
@@ -400,23 +400,23 @@ public class AweClientDockerJobScriptTest {
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
              // dev is on this commit
-             "570b5963d50710d4e15621a77673a9bc0c7a7857",
+             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             "17f87270741e6b59bdfc083f143137d208e3f135",
+             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
+            .withVer("0.0.2")
             .withRel("dev")
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.5")
-            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
+            .withVer("0.0.7")
+            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
                 release, ver, methparams, objectName, expsas,

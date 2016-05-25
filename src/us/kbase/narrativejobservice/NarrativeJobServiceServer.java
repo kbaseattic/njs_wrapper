@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
@@ -322,7 +323,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (rpcCallData.getMethod().startsWith("NarrativeJobService.")) {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
-            String rpcName = rpcCallData.getMethod();
+            final ModuleMethod modmeth = new ModuleMethod(
+                    rpcCallData.getMethod());
             List<UObject> paramsList = rpcCallData.getParams();
             List<Object> result = null;
             String errorMessage = null;
@@ -331,38 +333,48 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     UObject.transformObjectToObject(rpcCallData.getContext(),
                             us.kbase.narrativejobservice.RpcContext.class);
             try {
-                if (rpcName.endsWith("_async")) {
-                    String origRpcName = rpcName.substring(0, rpcName.lastIndexOf('_'));
+                if (modmeth.isSubmit()) {
                     RunJobParams runJobParams = new RunJobParams();
                     String serviceVer = rpcCallData.getContext() == null ? null : 
                         (String)rpcCallData.getContext().getAdditionalProperties().get("service_ver");
                     runJobParams.setServiceVer(serviceVer);
-                    runJobParams.setMethod(origRpcName);
+                    runJobParams.setMethod(modmeth.getModuleDotMethod());
                     runJobParams.setParams(paramsList);
                     runJobParams.setRpcContext(context);
                     result = new ArrayList<Object>(); 
                     result.add(runJob(runJobParams, new AuthToken(token),
                             rpcCallData.getContext()));
-                } else if (rpcName.endsWith("_check") && paramsList.size() == 1) {
-                    String jobId = paramsList.get(0).asClassInstance(String.class);
-                    JobState jobState = checkJob(jobId, new AuthToken(token),
-                            rpcCallData.getContext());
-                    Long finished = jobState.getFinished();
-                    if (finished != 0L) {
-                        Object error = jobState.getError();
-                        if (error != null) {
-                            Map<String, Object> ret = new LinkedHashMap<String, Object>();
-                            ret.put("version", "1.1");
-                            ret.put("error", error);
-                            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                            mapper.writeValue(new UnclosableOutputStream(output), ret);
-                            return;
+                } else if (modmeth.isCheck()) {
+                    if (paramsList.size() == 1) {
+                        String jobId = paramsList.get(0).asClassInstance(
+                                String.class);
+                        JobState jobState = checkJob(jobId,
+                                new AuthToken(token),
+                                rpcCallData.getContext());
+                        Long finished = jobState.getFinished();
+                        if (finished != 0L) {
+                            Object error = jobState.getError();
+                            if (error != null) {
+                                Map<String, Object> ret =
+                                        new LinkedHashMap<String, Object>();
+                                ret.put("version", "1.1");
+                                ret.put("error", error);
+                                response.setStatus(HttpServletResponse
+                                        .SC_INTERNAL_SERVER_ERROR);
+                                mapper.writeValue(new UnclosableOutputStream(
+                                        output), ret);
+                                return;
+                            }
                         }
+                        result = new ArrayList<Object>();
+                        result.add(jobState);
+                    } else {
+                        errorMessage =
+                                "Check method expects exactly one argument";
                     }
-                    result = new ArrayList<Object>();
-                    result.add(jobState);
                 } else {
-                    errorMessage = "Method [" + rpcName + "] doesn't ends with \"_async\" or \"_check\" suffix";
+                    errorMessage = "Method [" + rpcCallData.getMethod() +
+                            "is not a valid method name for asynchronous job execution";
                 }
                 if (errorMessage == null && result != null) {
                     Map<String, Object> ret = new LinkedHashMap<String, Object>();
