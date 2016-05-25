@@ -32,32 +32,36 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.executionengine.CallbackServer;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder;
+import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.executionengine.LineLogger;
+import us.kbase.common.executionengine.ModuleMethod;
+import us.kbase.common.executionengine.ModuleRunVersion;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
-import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
-import us.kbase.narrativejobservice.subjobs.CallbackServer;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
-import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
+import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class AweClientDockerJobScript {
     
-    // TODO consider an enum here
-    public static final String DEV = RunAppBuilder.DEV;
-    public static final String BETA = RunAppBuilder.BETA;
-    public static final String RELEASE = RunAppBuilder.RELEASE;
+    public static final String DEV = JobRunnerConstants.DEV;
+    public static final String BETA = JobRunnerConstants.BETA;
+    public static final String RELEASE = JobRunnerConstants.RELEASE;
+    public static final Set<String> RELEASE_TAGS =
+            JobRunnerConstants.RELEASE_TAGS;
     private static final long MAX_OUTPUT_SIZE = 15 * 1024;
-    public static final Set<String> RELEASE_TAGS = RunAppBuilder.RELEASE_TAGS;
     
-    public static final String CONFIG_FILE = "config.properties";
+    public static final String JOB_CONFIG_FILE =
+            JobRunnerConstants.JOB_CONFIG_FILE;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -82,7 +86,7 @@ public class AweClientDockerJobScript {
         UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
-        DockerRunner.LineLogger log = null;
+        LineLogger log = null;
         Server callbackServer = null;
         try {
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
@@ -119,7 +123,7 @@ public class AweClientDockerJobScript {
             File inputFile = new File(workDir, "input.json");
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(workDir, "output.json");
-            File configFile = new File(workDir, CONFIG_FILE);
+            File configFile = new File(workDir, JOB_CONFIG_FILE);
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
             pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
@@ -130,7 +134,7 @@ public class AweClientDockerJobScript {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             ujsClient.updateJob(jobId, token.toString(), "running", null);
-            log = new DockerRunner.LineLogger() {
+            log = new LineLogger() {
                 @Override
                 public void logNextLine(String line, boolean isError) {
                     addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
@@ -212,7 +216,7 @@ public class AweClientDockerJobScript {
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
                                 jobDir.toPath(), log).build();
-                final JsonServerServlet callback = new CallbackServer(
+                final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects());
                 callbackServer = new Server(callbackPort);

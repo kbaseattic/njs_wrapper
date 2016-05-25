@@ -1,13 +1,11 @@
-package us.kbase.narrativejobservice.subjobs;
+package us.kbase.common.executionengine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.SocketException;
-import java.net.URI;
 import java.net.URL;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -35,9 +33,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
-import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
@@ -46,14 +44,13 @@ import us.kbase.common.service.JsonServerSyslog;
 import us.kbase.common.service.JsonTokenStream;
 import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.UObject;
-import us.kbase.common.utils.ModuleMethod;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
-public class CallbackServer extends JsonServerServlet {
+public abstract class CallbackServer extends JsonServerServlet {
+    //TODO NJS_SDK move to common repo
+    
     //TODO identical (or close to it) to kb_sdk call back server.
     // should probably go in java_common or make a common repo for shared
     // NJSW & KB_SDK code, since they're tightly coupled
@@ -64,7 +61,7 @@ public class CallbackServer extends JsonServerServlet {
     
     private final AuthToken token;
     private final CallbackServerConfig config;
-    private final ProvenanceAction prov = new ProvenanceAction();
+    private ProvenanceAction prov = new ProvenanceAction();
     
     private final static DateTimeFormatter DATE_FORMATTER =
             DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
@@ -113,6 +110,16 @@ public class CallbackServer extends JsonServerServlet {
          */
     }
     
+    protected void resetProvenanceAndMethods(final ProvenanceAction newProv) {
+        if (newProv == null) {
+            throw new NullPointerException("Provenance cannot be null");
+        }
+        synchronized (this) {
+            vers.clear();
+            prov = newProv;
+        }
+    }
+    
     @JsonServerMethod(rpc = "CallbackServer.get_provenance")
     public List<ProvenanceAction> getProvenance()
             throws IOException, JsonClientException {
@@ -148,7 +155,7 @@ public class CallbackServer extends JsonServerServlet {
         return new UObject(data);
     }
 
-    private static void cbLog(String log) {
+    protected static void cbLog(String log) {
         System.out.println(String.format("%.2f - CallbackServer: %s",
                 (System.currentTimeMillis() / 1000.0), log));
     }
@@ -427,14 +434,22 @@ public class CallbackServer extends JsonServerServlet {
                         .get("service_ver");
             }
             // Request docker image name from Catalog
-            runner = new SubsequentCallRunner(token, config,
-                    jobId, modmeth, serviceVer);
+            runner = createJobRunner(token, config, jobId, modmeth,
+                    serviceVer);
             if (!vers.containsKey(modmeth.getModule())) {
                 vers.put(modmeth.getModule(), runner.getModuleRunVersion());
             }
         }
         return runner;
     }
+
+    protected abstract SubsequentCallRunner createJobRunner(
+            final AuthToken token,
+            final CallbackServerConfig config,
+            final UUID jobId,
+            final ModuleMethod modmeth,
+            final String serviceVer)
+            throws IOException, JsonClientException, TokenFormatException;
     
     @Override
     public void destroy() {
@@ -543,7 +558,7 @@ public class CallbackServer extends JsonServerServlet {
         }
     }
     
-    private static class CallbackRunner implements Runnable {
+    public static class CallbackRunner implements Runnable {
 
         private final CallbackServer server;
         private final int port;
@@ -563,34 +578,5 @@ public class CallbackServer extends JsonServerServlet {
                 e.printStackTrace();
             }
         }
-    }
-    
-    public static void main(final String[] args) throws Exception {
-        final AuthToken token = AuthService.login(args[0], args[1]).getToken();
-        int port = 10000;
-        CallbackServerConfig cfg = new CallbackServerConfigBuilder(
-                new URL("https://ci.kbase.us/services/"),
-                getCallbackUrl(port),
-                Paths.get("temp_CallbackServer"),
-                new DockerRunner.LineLogger() {
-                    @Override
-                    public void logNextLine(String line, boolean isError) {
-                        cbLog("Docker logger std" + (isError ? "err" : "out") +
-                                ": " + line);
-                    }
-                })
-                .withDockerURI(new URI("unix:///var/run/docker.sock"))
-                .build();
-
-        ModuleRunVersion runver = new ModuleRunVersion(
-                new URL("https://github.com/mcreosote/foo"),
-                new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
-        
-        CallbackServer serv = new CallbackServer(token, cfg, runver,
-                new LinkedList<UObject>(), new LinkedList<String>());
-        
-        new Thread(new CallbackRunner(serv, port)).start();
-        System.out.println("Started on port " + port);
-        System.out.println("workdir: " + cfg.getWorkDir());
     }
 }

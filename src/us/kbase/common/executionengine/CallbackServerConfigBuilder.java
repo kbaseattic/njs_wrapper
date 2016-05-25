@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice.subjobs;
+package us.kbase.common.executionengine;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -11,20 +11,15 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Map;
 
-import javax.ws.rs.core.UriBuilder;
-
-import us.kbase.narrativejobservice.DockerRunner;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.DockerRunner.LineLogger;
-
 public class CallbackServerConfigBuilder {
+    //TODO NJS_SDK move to shared repo
     
     //TODO unit tests
     
-    private static final  String EP_WS = "/ws";
-    private static final  String EP_SHOCK = "/shock-api";
-    private static final  String EP_CAT = "/catalog";
-    private static final  String EP_UJS = "/userandjobstate";
+    private static final  String EP_WS = "ws";
+    private static final  String EP_SHOCK = "shock-api";
+    private static final  String EP_CAT = "catalog";
+    private static final  String EP_UJS = "userandjobstate";
     
     private static final String KBASE_EP = "kbase_endpoint";
     private static final String UJS_URL = "job_service_url";
@@ -39,7 +34,7 @@ public class CallbackServerConfigBuilder {
     private URI dockerURI = null;
     final private URL callbackURL;
     final private Path workDir;
-    final private DockerRunner.LineLogger logger;
+    final private LineLogger logger;
     
     public CallbackServerConfigBuilder(
             final URL kbaseEndpointURL,
@@ -68,7 +63,7 @@ public class CallbackServerConfigBuilder {
         super();
         checkNulls(config, callbackURL, workDir, logger);
         this.kbaseEndpointURL = getURL(config,
-                NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+                JobRunnerConstants.CFG_PROP_KBASE_ENDPOINT);
         
         this.workspaceURL = resolveURL(kbaseEndpointURL, EP_WS);
         this.shockURL = resolveURL(kbaseEndpointURL, EP_SHOCK);
@@ -76,20 +71,20 @@ public class CallbackServerConfigBuilder {
         this.catalogURL = resolveURL(kbaseEndpointURL, EP_CAT);
         
         this.workspaceURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL,
+                JobRunnerConstants.CFG_PROP_WORKSPACE_SRV_URL,
                 this.workspaceURL);
         this.shockURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
+                JobRunnerConstants.CFG_PROP_SHOCK_URL,
                 this.shockURL);
         this.userJobStateURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL,
+                JobRunnerConstants.CFG_PROP_JOBSTATUS_SRV_URL,
                 this.userJobStateURL);
         this.catalogURL = optionallyGetURLfromConfig(config,
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
+                JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL,
                 this.catalogURL);
         
         this.dockerURI = getURI(config,
-                NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                JobRunnerConstants.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                 true);
         this.callbackURL = callbackURL;
         this.workDir = workDir;
@@ -156,10 +151,13 @@ public class CallbackServerConfigBuilder {
     }
 
     
-    private static URL resolveURL(final URL url, final String ext) {
+    private static URL resolveURL(URL url, final String ext) {
         try {
-            return UriBuilder.fromUri(url.toURI()).path(ext).build().toURL();
-        } catch (MalformedURLException | URISyntaxException e) {
+            if (!url.getPath().endsWith("/")) {
+                url = new URL(url.toExternalForm() + "/");
+            }
+            return new URL(url, ext);
+        } catch (MalformedURLException e) {
             throw new RuntimeException(e); //something is really messed up
         }
     }
@@ -216,7 +214,7 @@ public class CallbackServerConfigBuilder {
         final private URI dockerURI;
         final private URL callbackURL;
         final private Path workDir;
-        final private DockerRunner.LineLogger logger;
+        final private LineLogger logger;
 
         private CallbackServerConfig(URL kbaseEndpointURL, URL workspaceURL,
                 URL shockURL, URL userJobStateURL, URL catalogURL,
@@ -293,7 +291,7 @@ public class CallbackServerConfigBuilder {
         /**
          * @return the logger
          */
-        public DockerRunner.LineLogger getLogger() {
+        public LineLogger getLogger() {
             return logger;
         }
         

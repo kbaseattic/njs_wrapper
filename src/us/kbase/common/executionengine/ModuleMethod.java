@@ -1,4 +1,6 @@
-package us.kbase.common.utils;
+package us.kbase.common.executionengine;
+
+import us.kbase.common.utils.StringUtils;
 
 
 /** A specifier for a module and a method. If the specifier string ends with
@@ -7,7 +9,7 @@ package us.kbase.common.utils;
  *
  */
 public class ModuleMethod {
-
+    //TODO NJS_SDK move to common repo
     //TODO unit tests
     
     public static final String CHECK_SUFFIX = "_check";

@@ -47,19 +47,20 @@ import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.executionengine.CallbackServer;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder;
+import us.kbase.common.executionengine.LineLogger;
+import us.kbase.common.executionengine.ModuleMethod;
+import us.kbase.common.executionengine.ModuleRunVersion;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.controllers.ControllerCommon;
-import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.subjobs.CallbackServer;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
-import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
+import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
@@ -104,7 +105,7 @@ public class CallbackServerTest {
             final List<UObject> params,
             final List<String> wsobjs)
             throws Exception {
-        final DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
+        final LineLogger log = new LineLogger() {
             
             @Override
             public void logNextLine(String line, boolean isError) {
@@ -120,7 +121,7 @@ public class CallbackServerTest {
                 new CallbackServerConfigBuilder(
                 AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
                         temp, log).build();
-        final JsonServerServlet callback = new CallbackServer(
+        final JsonServerServlet callback = new NJSCallbackServer(
                 token, cbcfg, runver, params, wsobjs);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =
@@ -492,7 +493,7 @@ public class CallbackServerTest {
         System.out.println("Running badMethod in dir " + res.tempdir);
         failJob(res, "njs_sdk_test_1run", "foo",
                 "Can not find method [CallbackServer.njs_sdk_test_1run_async] " +
-                "in server class us.kbase.narrativejobservice.subjobs.CallbackServer");
+                "in server class us.kbase.narrativejobservice.subjobs.NJSCallbackServer");
         failJob(res, "njs_sdk_test_1.r.un", "foo",
                 "Illegal method name: njs_sdk_test_1.r.un_async");
         res.server.stop();

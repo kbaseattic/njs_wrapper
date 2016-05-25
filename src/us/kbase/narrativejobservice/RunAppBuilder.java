@@ -44,6 +44,7 @@ import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.executionengine.JobRunnerConstants;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
@@ -73,13 +74,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
     public static final long MAX_APP_SIZE = 3000000;
-    //TODO consider an enum here
-    public static final String DEV = "dev";
-    public static final String BETA = "beta";
-    public static final String RELEASE = "release";
+    public static final String DEV = JobRunnerConstants.DEV;
+    public static final String BETA = JobRunnerConstants.BETA;
+    public static final String RELEASE = JobRunnerConstants.RELEASE;
     public static final Set<String> RELEASE_TAGS =
-            Collections.unmodifiableSet(new LinkedHashSet<String>(
-                    Arrays.asList(DEV, BETA, RELEASE)));
+            JobRunnerConstants.RELEASE_TAGS;
     public static final int ERROR_HEAD_TAIL_LOG_LINES = 100;
     public static final int MAX_LOG_LINE_LENGTH = 1000;
     public static String REQ_REL = "requested_release";
