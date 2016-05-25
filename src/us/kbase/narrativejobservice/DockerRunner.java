@@ -52,7 +52,8 @@ public class DockerRunner {
             final boolean removeImage,
             final File refDataDir,
             final File optionalScratchDir,
-            final URL callbackUrl)
+            final URL callbackUrl,
+            final String jobId)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
@@ -70,7 +71,7 @@ public class DockerRunner {
                 outputFile.delete();
             long suffix = System.currentTimeMillis();
             while (true) {
-                cntName = moduleName.toLowerCase() + "_" + suffix;
+                cntName = moduleName.toLowerCase() + "_" + jobId.replace('-', '_') + "_" + suffix;
                 if (findContainerByNameOrIdPrefix(cl, cntName) == null)
                     break;
                 suffix++;

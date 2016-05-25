@@ -38,6 +38,7 @@ public class SubsequentCallRunner {
     private final File jobWorkDir;
     private final String imageName;
     private final ModuleRunVersion mrv;
+    private final UUID jobId;
     private CallbackServerConfig config;
     
     public SubsequentCallRunner(
@@ -50,6 +51,7 @@ public class SubsequentCallRunner {
             TokenFormatException {
         this.token = token;
         this.config = config;
+        this.jobId = jobId;
         CatalogClient catClient = new CatalogClient(config.getCatalogURL());
         catClient.setIsInsecureHttpConnectionAllowed(true);
         catClient.setAllSSLCertificatesTrusted(true);
@@ -134,7 +136,7 @@ public class SubsequentCallRunner {
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile, token, config.getLogger(),
                 outputFile, false, null, sharedScratchDir,
-                config.getCallbackURL());
+                config.getCallbackURL(), jobId.toString());
         if (outputFile.exists()) {
             return UObject.getMapper().readValue(outputFile, new TypeReference<Map<String, Object>>() {});
         } else {
