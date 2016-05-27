@@ -40,10 +40,9 @@ import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
-import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SelectModuleVersionParams;
-import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SelectModuleVersion;
+import us.kbase.common.executionengine.JobRunnerConstants;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.ServerException;
@@ -62,7 +61,7 @@ import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
-import us.kbase.workspace.ObjectIdentity;
+import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.WorkspaceClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
@@ -73,13 +72,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	public static final String APP_STATE_ERROR = "suspend";
 	public static final int MAX_HOURS_FOR_NJS_STEP = 24;
     public static final long MAX_APP_SIZE = 3000000;
-    //TODO consider an enum here
-    public static final String DEV = "dev";
-    public static final String BETA = "beta";
-    public static final String RELEASE = "release";
+    public static final String DEV = JobRunnerConstants.DEV;
+    public static final String BETA = JobRunnerConstants.BETA;
+    public static final String RELEASE = JobRunnerConstants.RELEASE;
     public static final Set<String> RELEASE_TAGS =
-            Collections.unmodifiableSet(new LinkedHashSet<String>(
-                    Arrays.asList(DEV, BETA, RELEASE)));
+            JobRunnerConstants.RELEASE_TAGS;
     public static final int ERROR_HEAD_TAIL_LOG_LINES = 100;
     public static final int MAX_LOG_LINE_LENGTH = 1000;
     public static String REQ_REL = "requested_release";
@@ -543,45 +540,26 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         final String moduleName = modMeth[0];
         
         CatalogClient catClient = getCatalogClient(config, false);
-        final ModuleInfo mi;
+        final String servVer;
+        if (params.getServiceVer() == null ||
+                params.getServiceVer().isEmpty()) {
+            servVer = RELEASE;
+        } else {
+            servVer = params.getServiceVer();
+        }
+        final ModuleVersion mv;
         try {
-            mi = catClient.getModuleInfo(
-                new SelectOneModuleParams().withModuleName(moduleName));
+            mv = catClient.getModuleVersion(new SelectModuleVersion()
+                .withModuleName(moduleName)
+                .withVersion(servVer));
         } catch (ServerException se) {
             throw new IllegalArgumentException(String.format(
-                    "Error looking up module %s: %s", moduleName,
-                    se.getLocalizedMessage()));
+                    "Error looking up module %s with version %s: %s",
+                    moduleName, servVer, se.getLocalizedMessage()));
         }
-        String version = params.getServiceVer();
-        final ModuleVersionInfo mvi;
-        if (version == null || RELEASE_TAGS.contains(version)) {
-            if (version == null || version == RELEASE) {
-                mvi = mi.getRelease();
-                version = RELEASE;
-            } else if (version.equals(DEV)) {
-                mvi = mi.getDev();
-            } else {
-                mvi = mi.getBeta();
-            }
-            if (mvi == null) {
-                // the requested release does not exist
-                throw new IllegalArgumentException(String.format(
-                        "There is no release version '%s' for module %s",
-                        version, moduleName));
-            }
-        } else {
-            try {
-                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(version));
-                version = null;
-            } catch (ServerException se) {
-                throw new IllegalArgumentException(String.format(
-                        "Error looking up module %s with version %s: %s",
-                        moduleName, version, se.getLocalizedMessage()));
-            }
-        }
-        params.setServiceVer(mvi.getGitCommitHash());
-        params.setAdditionalProperties(REQ_REL, version);
+        params.setServiceVer(mv.getGitCommitHash());
+        params.setAdditionalProperties(REQ_REL,
+                RELEASE_TAGS.contains(servVer) ? servVer : null);
     }
     
     private static void checkWSObjects(
@@ -607,9 +585,10 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     " is invalid: " + wsUrlstr);
         }
         final WorkspaceClient wscli = new WorkspaceClient(wsURL, token);
-        final List<ObjectIdentity> ois = new LinkedList<ObjectIdentity>();
+        final List<ObjectSpecification> ois =
+                new LinkedList<ObjectSpecification>();
         for (final String obj: objrefs) {
-            ois.add(new ObjectIdentity().withRef(obj));
+            ois.add(new ObjectSpecification().withRef(obj));
         }
         final List<Tuple11<Long, String, String, String, Long, String, Long,
                 String, String, Long, Map<String, String>>> objinfo;

@@ -58,7 +58,9 @@ import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
+import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
@@ -84,9 +86,10 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
-import us.kbase.workspace.ObjectIdentity;
 import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SaveObjectsParams;
 import us.kbase.workspace.SubAction;
@@ -202,7 +205,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "async-basic";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.2";
         final String modmeth = moduleName + "." + methodName;
         Map<String, Object> p = ImmutableMap.<String, Object>builder()
             .put("save", ImmutableMap.<String,Object>builder()
@@ -249,7 +252,7 @@ public class AweClientDockerJobScriptTest {
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
             expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
+            .withVer("0.0.2")
             .withRel("dev")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
@@ -337,7 +340,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.5";
+        String ver = "0.0.7";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -378,7 +381,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov_multi";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.2";
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
@@ -400,23 +403,23 @@ public class AweClientDockerJobScriptTest {
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
              // dev is on this commit
-             "570b5963d50710d4e15621a77673a9bc0c7a7857",
+             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             "17f87270741e6b59bdfc083f143137d208e3f135",
+             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
+            .withVer("0.0.2")
             .withRel("dev")
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.5")
-            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
+            .withVer("0.0.7")
+            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
                 release, ver, methparams, objectName, expsas,
@@ -444,7 +447,7 @@ public class AweClientDockerJobScriptTest {
         List<String> input = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + STAGED1_NAME,
                 testWsName + "/" + "objectdoesntexist/badver"));
-        failJobWSRefs(input, String.format("Error on workspace reference #2:" +
+        failJobWSRefs(input, String.format("Error on ObjectSpecification #2:" +
                 " Unable to parse version portion of object reference " +
                 testWsName + "/objectdoesntexist/badver to an integer"));
     }
@@ -455,27 +458,28 @@ public class AweClientDockerJobScriptTest {
         // version tracking only happens for prod
         
         failJob("njs_sdk_test_1foo.run", "beta",
-                "Error looking up module njs_sdk_test_1foo: Operation " +
-                "failed - module/repo is not registered.");
+                "Error looking up module njs_sdk_test_1foo with version " +
+                "beta: Module cannot be found based on module_name or " +
+                "git_url parameters.");
         failJob("njs_sdk_test_1.run", "beta",
-                "There is no release version 'beta' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "beta: No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", "release",
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", null,
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
 
-        //TODO fix these when catalog is fixed
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
         failJob("njs_sdk_test_1.run", git,
                 "Error looking up module njs_sdk_test_1 with version " +
-                git + ": 'NoneType' object has no attribute '__getitem__'");
+                git + ": No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", "foo",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
-                "'NoneType' object has no attribute '__getitem__'");
+                "No module version found that matches your criteria!");
     }
     
     @Test
@@ -483,18 +487,21 @@ public class AweClientDockerJobScriptTest {
         
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
-                "Error looking up module njs_sdk_test_1foo: Operation " +
-                "failed - module/repo is not registered.");
+                "Error looking up module njs_sdk_test_1foo with version " +
+                "release: Module cannot be found based on module_name or " +
+                "git_url parameters.");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"beta\"",
-                "There is no release version 'beta' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "beta: No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"release\"",
-                "There is no release version 'release' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "null",
-                "There is no release version 'release' for module njs_sdk_test_1");
-      //TODO fix these when catalog is fixed
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
@@ -502,11 +509,11 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev",
                 "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
                 "Error looking up module njs_sdk_test_1 with version " +
-                git + ": 'NoneType' object has no attribute '__getitem__'");
+                git + ": No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"foo\"",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
-                "'NoneType' object has no attribute '__getitem__'");
+                "No module version found that matches your criteria!");
     }
     
     @Test
@@ -523,7 +530,7 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
                 "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
                 "server class us.kbase.narrativejobservice.subjobs." +
-                "CallbackServer");
+                "NJSCallbackServer");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
                 "Illegal method name: njs_sdk_test_1.r.un");
@@ -644,9 +651,9 @@ public class AweClientDockerJobScriptTest {
         }
 
         WorkspaceClient ws = getWsClient(token, loadConfig());
-        ObjectData od = ws.getObjects(Arrays.asList(
-                new ObjectIdentity().withWorkspace(testWsName)
-                .withName(objectName))).get(0);
+        ObjectData od = ws.getObjects2(new GetObjects2Params().withObjects(Arrays.asList(
+                new ObjectSpecification().withWorkspace(testWsName)
+                .withName(objectName)))).getData().get(0);
         System.out.println(od);
         List<ProvenanceAction> prov = od.getProvenance();
         assertThat("number of provenance actions",
@@ -1588,6 +1595,11 @@ public class AweClientDockerJobScriptTest {
         @JsonServerMethod(rpc = "Catalog.get_module_info")
         public ModuleInfo getModuleInfo(SelectOneModuleParams selection) throws IOException, JsonClientException {
             return fwd().getModuleInfo(selection);
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_module_version")
+        public ModuleVersion getModuleVersion(SelectModuleVersion selection) throws IOException, JsonClientException {
+            return fwd().getModuleVersion(selection);
         }
         
         @JsonServerMethod(rpc = "Catalog.get_version_info")

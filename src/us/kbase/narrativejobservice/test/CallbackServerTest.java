@@ -47,19 +47,20 @@ import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.common.executionengine.CallbackServer;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder;
+import us.kbase.common.executionengine.LineLogger;
+import us.kbase.common.executionengine.ModuleMethod;
+import us.kbase.common.executionengine.ModuleRunVersion;
+import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.controllers.ControllerCommon;
-import us.kbase.common.utils.ModuleMethod;
-import us.kbase.narrativejobservice.DockerRunner;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.subjobs.CallbackServer;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder;
-import us.kbase.narrativejobservice.subjobs.ModuleRunVersion;
-import us.kbase.narrativejobservice.subjobs.CallbackServerConfigBuilder.CallbackServerConfig;
+import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SubAction;
 
@@ -104,7 +105,7 @@ public class CallbackServerTest {
             final List<UObject> params,
             final List<String> wsobjs)
             throws Exception {
-        final DockerRunner.LineLogger log = new DockerRunner.LineLogger() {
+        final LineLogger log = new LineLogger() {
             
             @Override
             public void logNextLine(String line, boolean isError) {
@@ -120,7 +121,7 @@ public class CallbackServerTest {
                 new CallbackServerConfigBuilder(
                 AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
                         temp, log).build();
-        final JsonServerServlet callback = new CallbackServer(
+        final JsonServerServlet callback = new NJSCallbackServer(
                 token, cbcfg, runver, params, wsobjs);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =
@@ -173,19 +174,21 @@ public class CallbackServerTest {
                 final Map<String, Object> params,
                 final String serviceVer)
                 throws Exception {
-            return callServer(method + "_async", Arrays.asList(params),
+            final String[] modMeth = method.split("\\.");
+            return callServer(modMeth[0] + "._" + modMeth[1] + "_submit",
+                    Arrays.asList(params),
                     serviceVer, new TypeReference<UUID>() {});
         }
         
         public Map<String, Object> checkAsync(final UUID jobId)
                 throws Exception {
-            return callServer("foo.bar_check", Arrays.asList(jobId), "fake",
+            return callServer("foo._check_job", Arrays.asList(jobId), "fake",
                     new TypeReference<Map<String,Object>>() {});
         }
         
         public Map<String, Object> checkAsync(final List<?> params)
                 throws Exception {
-            return callServer("foo.bar_check", params, "fake",
+            return callServer("foo._check_job", params, "fake",
                     new TypeReference<Map<String,Object>>() {});
         }
 
@@ -461,27 +464,28 @@ public class CallbackServerTest {
         // version tracking only happens for prod
         
         failJob(res, "njs_sdk_test_1foo.run", "beta",
-                "Error looking up module njs_sdk_test_1foo: Operation " +
-                "failed - module/repo is not registered.");
+                "Error looking up module njs_sdk_test_1foo with version " +
+                "beta: Module cannot be found based on module_name or " +
+                "git_url parameters.");
         failJob(res, "njs_sdk_test_1.run", "beta",
-                "There is no release version 'beta' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "beta: No module version found that matches your criteria!");
         failJob(res, "njs_sdk_test_1.run", "release",
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         failJob(res, "njs_sdk_test_1.run", null,
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                 "release: No module version found that matches your criteria!");
 
-        //TODO fix these when catalog is fixed
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
         failJob(res, "njs_sdk_test_1.run", git,
                 "Error looking up module njs_sdk_test_1 with version " +
-                git + ": 'NoneType' object has no attribute '__getitem__'");
+                git + ": No module version found that matches your criteria!");
         failJob(res, "njs_sdk_test_1.run", "foo",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
-                "'NoneType' object has no attribute '__getitem__'");
+                "No module version found that matches your criteria!");
         
         res.server.stop();
     }
@@ -491,10 +495,10 @@ public class CallbackServerTest {
         final CallbackStuff res = startCallBackServer();
         System.out.println("Running badMethod in dir " + res.tempdir);
         failJob(res, "njs_sdk_test_1run", "foo",
-                "Can not find method [CallbackServer.njs_sdk_test_1run_async] " +
-                "in server class us.kbase.narrativejobservice.subjobs.CallbackServer");
+                "Can not find method [CallbackServer.njs_sdk_test_1run] " +
+                "in server class us.kbase.narrativejobservice.subjobs.NJSCallbackServer");
         failJob(res, "njs_sdk_test_1.r.un", "foo",
-                "Illegal method name: njs_sdk_test_1.r.un_async");
+                "Illegal method name: njs_sdk_test_1.r.un");
         res.server.stop();
     }
     
@@ -502,7 +506,7 @@ public class CallbackServerTest {
             String exp)
             throws Exception{
         try {
-            cbs.callAsync(moduleMeth, new HashMap<String, Object>(), release);
+            cbs.callMethod(moduleMeth, new HashMap<String, Object>(), release);
             fail("Ran bad job");
         } catch (ServerException se) {
             assertThat("correct exception", se.getLocalizedMessage(), is(exp));
@@ -514,11 +518,11 @@ public class CallbackServerTest {
         String moduleName = "njs_sdk_test_1";
         String methodName = "run";
         String release = "dev";
-        String ver = "0.0.1";
+        String ver = "0.0.2";
         final ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/kbasetest/njs_sdk_test_1"),
                 new ModuleMethod(moduleName + "." + methodName),
-                "ed8038b12b9ebd424c60697204fb49f89a9df906", ver, release);
+                "d0a452d6194cf4289df03585912ab1c7d8ee180c", ver, release);
         List<String> wsobjs = Arrays.asList("foo", "bar", "baz");
         List<UObject> params = new ArrayList<UObject>();
         params.add(new UObject(Arrays.asList("foo", "bar")));
@@ -547,23 +551,23 @@ public class CallbackServerTest {
              "}",
              moduleName2 + "." + methodName,
              // dev is on this commit
-             "570b5963d50710d4e15621a77673a9bc0c7a7857",
+             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             "17f87270741e6b59bdfc083f143137d208e3f135",
+             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
              moduleName2 + "." + methodName,
              "dev"), Map.class);
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.1")
+            .withVer("0.0.2")
             .withRel("dev")
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.5")
-            .withCommit("570b5963d50710d4e15621a77673a9bc0c7a7857")
+            .withVer("0.0.7")
+            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
         );
         Map<String, Object> results = res.callMethod(
                 moduleName + '.' + methodName, methparams, "dev");

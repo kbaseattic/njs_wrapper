@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import us.kbase.auth.AuthToken;
+import us.kbase.common.executionengine.LineLogger;
 import us.kbase.common.utils.ProcessHelper;
 
 import ch.qos.logback.classic.Level;
@@ -233,9 +234,5 @@ public class DockerRunner {
         } else {
             return DockerClientBuilder.getInstance().build();
         }
-    }
-    
-    public interface LineLogger {
-        public void logNextLine(String line, boolean isError);
     }
 }

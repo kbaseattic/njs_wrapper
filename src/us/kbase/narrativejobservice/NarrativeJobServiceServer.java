@@ -4,6 +4,8 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
+import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
@@ -61,25 +63,31 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String SERVICE_DEPLOYMENT_NAME = "NarrativeJobService";
     
     public static final String CFG_PROP_SCRATCH = "scratch";
-    public static final String CFG_PROP_WORKSPACE_SRV_URL = "workspace.srv.url";
-    public static final String CFG_PROP_JOBSTATUS_SRV_URL = "jobstatus.srv.url";
+    public static final String CFG_PROP_WORKSPACE_SRV_URL =
+            JobRunnerConstants.CFG_PROP_WORKSPACE_SRV_URL;
+    public static final String CFG_PROP_JOBSTATUS_SRV_URL =
+            JobRunnerConstants.CFG_PROP_JOBSTATUS_SRV_URL;
     public static final String CFG_PROP_QUEUE_DB_DIR = "queue.db.dir";
     public static final String CFG_PROP_THREAD_COUNT = "thread.count";
     public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
     public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
     public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
     public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
-    public static final String CFG_PROP_SHOCK_URL = "shock.url";
+    public static final String CFG_PROP_SHOCK_URL =
+            JobRunnerConstants.CFG_PROP_SHOCK_URL;
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_MAX_JOB_SIZE = "max.job.size";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
-    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI = "awe.client.docker.uri";
+    public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_DOCKER_URI;
     public static final String CFG_PROP_DOCKER_REGISTRY_URL = "docker.registry.url";
     public static final String AWE_CLIENT_SCRIPT_NAME = "run_async_srv_method.sh";
-    public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
+    public static final String CFG_PROP_CATALOG_SRV_URL = 
+            JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL;
     public static final String CFG_PROP_CATALOG_ADMIN_USER = "catalog.admin.user";
     public static final String CFG_PROP_CATALOG_ADMIN_PWD = "catalog.admin.pwd";
-    public static final String CFG_PROP_KBASE_ENDPOINT = "kbase.endpoint";
+    public static final String CFG_PROP_KBASE_ENDPOINT =
+            JobRunnerConstants.CFG_PROP_KBASE_ENDPOINT;
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
@@ -315,7 +323,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (rpcCallData.getMethod().startsWith("NarrativeJobService.")) {
             super.processRpcCall(rpcCallData, token, info, requestHeaderXForwardedFor, response, output, commandLine);
         } else {
-            String rpcName = rpcCallData.getMethod();
+            final ModuleMethod modmeth = new ModuleMethod(
+                    rpcCallData.getMethod());
             List<UObject> paramsList = rpcCallData.getParams();
             List<Object> result = null;
             String errorMessage = null;
@@ -324,38 +333,48 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     UObject.transformObjectToObject(rpcCallData.getContext(),
                             us.kbase.narrativejobservice.RpcContext.class);
             try {
-                if (rpcName.endsWith("_async")) {
-                    String origRpcName = rpcName.substring(0, rpcName.lastIndexOf('_'));
+                if (modmeth.isSubmit()) {
                     RunJobParams runJobParams = new RunJobParams();
                     String serviceVer = rpcCallData.getContext() == null ? null : 
                         (String)rpcCallData.getContext().getAdditionalProperties().get("service_ver");
                     runJobParams.setServiceVer(serviceVer);
-                    runJobParams.setMethod(origRpcName);
+                    runJobParams.setMethod(modmeth.getModuleDotMethod());
                     runJobParams.setParams(paramsList);
                     runJobParams.setRpcContext(context);
                     result = new ArrayList<Object>(); 
                     result.add(runJob(runJobParams, new AuthToken(token),
                             rpcCallData.getContext()));
-                } else if (rpcName.endsWith("_check") && paramsList.size() == 1) {
-                    String jobId = paramsList.get(0).asClassInstance(String.class);
-                    JobState jobState = checkJob(jobId, new AuthToken(token),
-                            rpcCallData.getContext());
-                    Long finished = jobState.getFinished();
-                    if (finished != 0L) {
-                        Object error = jobState.getError();
-                        if (error != null) {
-                            Map<String, Object> ret = new LinkedHashMap<String, Object>();
-                            ret.put("version", "1.1");
-                            ret.put("error", error);
-                            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-                            mapper.writeValue(new UnclosableOutputStream(output), ret);
-                            return;
+                } else if (modmeth.isCheck()) {
+                    if (paramsList.size() == 1) {
+                        String jobId = paramsList.get(0).asClassInstance(
+                                String.class);
+                        JobState jobState = checkJob(jobId,
+                                new AuthToken(token),
+                                rpcCallData.getContext());
+                        Long finished = jobState.getFinished();
+                        if (finished != 0L) {
+                            Object error = jobState.getError();
+                            if (error != null) {
+                                Map<String, Object> ret =
+                                        new LinkedHashMap<String, Object>();
+                                ret.put("version", "1.1");
+                                ret.put("error", error);
+                                response.setStatus(HttpServletResponse
+                                        .SC_INTERNAL_SERVER_ERROR);
+                                mapper.writeValue(new UnclosableOutputStream(
+                                        output), ret);
+                                return;
+                            }
                         }
+                        result = new ArrayList<Object>();
+                        result.add(jobState);
+                    } else {
+                        errorMessage =
+                                "Check method expects exactly one argument";
                     }
-                    result = new ArrayList<Object>();
-                    result.add(jobState);
                 } else {
-                    errorMessage = "Method [" + rpcName + "] doesn't ends with \"_async\" or \"_check\" suffix";
+                    errorMessage = "Method [" + rpcCallData.getMethod() +
+                            "is not a valid method name for asynchronous job execution";
                 }
                 if (errorMessage == null && result != null) {
                     Map<String, Object> ret = new LinkedHashMap<String, Object>();
