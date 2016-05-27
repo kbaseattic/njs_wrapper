@@ -28,10 +28,8 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SelectModuleVersionParams;
-import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.common.executionengine.CallbackServer;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder;
 import us.kbase.common.executionengine.JobRunnerConstants;
@@ -150,28 +148,25 @@ public class AweClientDockerJobScript {
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
                     .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
-            final ModuleInfo mi;
-            final ModuleVersionInfo mvi;
+            final ModuleVersion mv;
             try {
-                mi = catClient.getModuleInfo(new SelectOneModuleParams()
-                        .withModuleName(modMeth.getModule()));
-                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(modMeth.getModule())
-                        .withGitCommitHash(imageVersion));
+                mv = catClient.getModuleVersion(new SelectModuleVersion()
+                    .withModuleName(modMeth.getModule())
+                    .withVersion(imageVersion));
             } catch (ServerException se) {
                 throw new IllegalArgumentException(String.format(
-                        "Error looking up module %s with githash %s: %s",
+                        "Error looking up module %s with version %s: %s",
                         modMeth.getModule(), imageVersion,
                         se.getLocalizedMessage()));
             }
-            String imageName = mvi.getDockerImgName();
+            String imageName = mv.getDockerImgName();
             File refDataDir = null;
-            if (mvi.getDataFolder() != null && mvi.getDataVersion() != null) {
+            if (mv.getDataFolder() != null && mv.getDataVersion() != null) {
                 String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
                 if (refDataBase == null)
                     throw new IllegalStateException("Reference data parameters are defined for image but " + 
                             NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
-                refDataDir = new File(new File(refDataBase, mvi.getDataFolder()), mvi.getDataVersion());
+                refDataDir = new File(new File(refDataBase, mv.getDataFolder()), mv.getDataVersion());
                 if (!refDataDir.exists())
                     throw new IllegalStateException("Reference data directory doesn't exist: " + refDataDir);
             }
@@ -210,8 +205,8 @@ public class AweClientDockerJobScript {
                 System.out.println("Job runner recieved callback URL: " +
                         callbackUrl);
                 final ModuleRunVersion runver = new ModuleRunVersion(
-                        new URL(mi.getGitUrl()), modMeth,
-                        mvi.getGitCommitHash(), mvi.getVersion(),
+                        new URL(mv.getGitUrl()), modMeth,
+                        mv.getGitCommitHash(), mv.getVersion(),
                         requestedRelease);
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
