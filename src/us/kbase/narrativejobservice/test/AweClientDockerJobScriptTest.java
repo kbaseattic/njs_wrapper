@@ -58,7 +58,9 @@ import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
+import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
@@ -455,27 +457,28 @@ public class AweClientDockerJobScriptTest {
         // version tracking only happens for prod
         
         failJob("njs_sdk_test_1foo.run", "beta",
-                "Error looking up module njs_sdk_test_1foo: Operation " +
-                "failed - module/repo is not registered.");
+                "Error looking up module njs_sdk_test_1foo with version " +
+                "beta: Module cannot be found based on module_name or " +
+                "git_url parameters.");
         failJob("njs_sdk_test_1.run", "beta",
-                "There is no release version 'beta' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "beta: No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", "release",
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", null,
-                "There is no release version 'release' for module " +
-                "njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
 
-        //TODO fix these when catalog is fixed
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
         failJob("njs_sdk_test_1.run", git,
                 "Error looking up module njs_sdk_test_1 with version " +
-                git + ": 'NoneType' object has no attribute '__getitem__'");
+                git + ": No module version found that matches your criteria!");
         failJob("njs_sdk_test_1.run", "foo",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
-                "'NoneType' object has no attribute '__getitem__'");
+                "No module version found that matches your criteria!");
     }
     
     @Test
@@ -483,18 +486,21 @@ public class AweClientDockerJobScriptTest {
         
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
-                "Error looking up module njs_sdk_test_1foo: Operation " +
-                "failed - module/repo is not registered.");
+                "Error looking up module njs_sdk_test_1foo with version " +
+                "release: Module cannot be found based on module_name or " +
+                "git_url parameters.");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"beta\"",
-                "There is no release version 'beta' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "beta: No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"release\"",
-                "There is no release version 'release' for module njs_sdk_test_1");
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "null",
-                "There is no release version 'release' for module njs_sdk_test_1");
-      //TODO fix these when catalog is fixed
+                "Error looking up module njs_sdk_test_1 with version " +
+                "release: No module version found that matches your criteria!");
         //this is the newest git commit and was registered in dev but 
         //then the previous git commit was registered in dev
         String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
@@ -502,11 +508,11 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev",
                 "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
                 "Error looking up module njs_sdk_test_1 with version " +
-                git + ": 'NoneType' object has no attribute '__getitem__'");
+                git + ": No module version found that matches your criteria!");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"foo\"",
                 "Error looking up module njs_sdk_test_1 with version foo: " +
-                "'NoneType' object has no attribute '__getitem__'");
+                "No module version found that matches your criteria!");
     }
     
     @Test
@@ -1588,6 +1594,11 @@ public class AweClientDockerJobScriptTest {
         @JsonServerMethod(rpc = "Catalog.get_module_info")
         public ModuleInfo getModuleInfo(SelectOneModuleParams selection) throws IOException, JsonClientException {
             return fwd().getModuleInfo(selection);
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_module_version")
+        public ModuleVersion getModuleVersion(SelectModuleVersion selection) throws IOException, JsonClientException {
+            return fwd().getModuleVersion(selection);
         }
         
         @JsonServerMethod(rpc = "Catalog.get_version_info")

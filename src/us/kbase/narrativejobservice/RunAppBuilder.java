@@ -40,10 +40,8 @@ import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
-import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SelectModuleVersionParams;
-import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.common.executionengine.JobRunnerConstants;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
@@ -542,45 +540,26 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         final String moduleName = modMeth[0];
         
         CatalogClient catClient = getCatalogClient(config, false);
-        final ModuleInfo mi;
+        final String servVer;
+        if (params.getServiceVer() == null ||
+                params.getServiceVer().isEmpty()) {
+            servVer = RELEASE;
+        } else {
+            servVer = params.getServiceVer();
+        }
+        final ModuleVersion mv;
         try {
-            mi = catClient.getModuleInfo(
-                new SelectOneModuleParams().withModuleName(moduleName));
+            mv = catClient.getModuleVersion(new SelectModuleVersion()
+                .withModuleName(moduleName)
+                .withVersion(servVer));
         } catch (ServerException se) {
             throw new IllegalArgumentException(String.format(
-                    "Error looking up module %s: %s", moduleName,
-                    se.getLocalizedMessage()));
+                    "Error looking up module %s with version %s: %s",
+                    moduleName, servVer, se.getLocalizedMessage()));
         }
-        String version = params.getServiceVer();
-        final ModuleVersionInfo mvi;
-        if (version == null || RELEASE_TAGS.contains(version)) {
-            if (version == null || version == RELEASE) {
-                mvi = mi.getRelease();
-                version = RELEASE;
-            } else if (version.equals(DEV)) {
-                mvi = mi.getDev();
-            } else {
-                mvi = mi.getBeta();
-            }
-            if (mvi == null) {
-                // the requested release does not exist
-                throw new IllegalArgumentException(String.format(
-                        "There is no release version '%s' for module %s",
-                        version, moduleName));
-            }
-        } else {
-            try {
-                mvi = catClient.getVersionInfo(new SelectModuleVersionParams()
-                        .withModuleName(moduleName).withGitCommitHash(version));
-                version = null;
-            } catch (ServerException se) {
-                throw new IllegalArgumentException(String.format(
-                        "Error looking up module %s with version %s: %s",
-                        moduleName, version, se.getLocalizedMessage()));
-            }
-        }
-        params.setServiceVer(mvi.getGitCommitHash());
-        params.setAdditionalProperties(REQ_REL, version);
+        params.setServiceVer(mv.getGitCommitHash());
+        params.setAdditionalProperties(REQ_REL,
+                RELEASE_TAGS.contains(servVer) ? servVer : null);
     }
     
     private static void checkWSObjects(
