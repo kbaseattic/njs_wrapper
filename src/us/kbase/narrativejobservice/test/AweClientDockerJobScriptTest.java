@@ -86,9 +86,10 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.workspace.CreateWorkspaceParams;
+import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
-import us.kbase.workspace.ObjectIdentity;
 import us.kbase.workspace.ObjectSaveData;
+import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SaveObjectsParams;
 import us.kbase.workspace.SubAction;
@@ -446,7 +447,7 @@ public class AweClientDockerJobScriptTest {
         List<String> input = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + STAGED1_NAME,
                 testWsName + "/" + "objectdoesntexist/badver"));
-        failJobWSRefs(input, String.format("Error on workspace reference #2:" +
+        failJobWSRefs(input, String.format("Error on ObjectSpecification #2:" +
                 " Unable to parse version portion of object reference " +
                 testWsName + "/objectdoesntexist/badver to an integer"));
     }
@@ -650,9 +651,9 @@ public class AweClientDockerJobScriptTest {
         }
 
         WorkspaceClient ws = getWsClient(token, loadConfig());
-        ObjectData od = ws.getObjects(Arrays.asList(
-                new ObjectIdentity().withWorkspace(testWsName)
-                .withName(objectName))).get(0);
+        ObjectData od = ws.getObjects2(new GetObjects2Params().withObjects(Arrays.asList(
+                new ObjectSpecification().withWorkspace(testWsName)
+                .withName(objectName)))).getData().get(0);
         System.out.println(od);
         List<ProvenanceAction> prov = od.getProvenance();
         assertThat("number of provenance actions",

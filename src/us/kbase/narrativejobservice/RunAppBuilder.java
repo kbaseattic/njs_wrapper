@@ -61,7 +61,7 @@ import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
-import us.kbase.workspace.ObjectIdentity;
+import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.WorkspaceClient;
 
 public class RunAppBuilder extends DefaultTaskBuilder<String> {
@@ -585,9 +585,10 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                     " is invalid: " + wsUrlstr);
         }
         final WorkspaceClient wscli = new WorkspaceClient(wsURL, token);
-        final List<ObjectIdentity> ois = new LinkedList<ObjectIdentity>();
+        final List<ObjectSpecification> ois =
+                new LinkedList<ObjectSpecification>();
         for (final String obj: objrefs) {
-            ois.add(new ObjectIdentity().withRef(obj));
+            ois.add(new ObjectSpecification().withRef(obj));
         }
         final List<Tuple11<Long, String, String, String, Long, String, Long,
                 String, String, Long, Map<String, String>>> objinfo;
