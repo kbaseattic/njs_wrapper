@@ -27,6 +27,7 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ini4j.Ini;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -327,11 +328,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     rpcCallData.getMethod());
             List<UObject> paramsList = rpcCallData.getParams();
             List<Object> result = null;
-            String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             us.kbase.narrativejobservice.RpcContext context =
                     UObject.transformObjectToObject(rpcCallData.getContext(),
                             us.kbase.narrativejobservice.RpcContext.class);
+            Exception exc = null;
             try {
                 if (modmeth.isSubmit()) {
                     RunJobParams runJobParams = new RunJobParams();
@@ -369,37 +370,36 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                         result = new ArrayList<Object>();
                         result.add(jobState);
                     } else {
-                        errorMessage =
-                                "Check method expects exactly one argument";
+                        throw new IllegalArgumentException(
+                                "Check method expects exactly one argument");
                     }
                 } else {
-                    errorMessage = "Method [" + rpcCallData.getMethod() +
-                            "is not a valid method name for asynchronous job execution";
+                    throw new IllegalArgumentException(
+                            "Method [" + rpcCallData.getMethod() +
+                            "] is not a valid method name for asynchronous job execution");
                 }
-                if (errorMessage == null && result != null) {
-                    Map<String, Object> ret = new LinkedHashMap<String, Object>();
-                    ret.put("version", "1.1");
-                    ret.put("result", result);
-                    mapper.writeValue(new UnclosableOutputStream(output), ret);
-                    return;
-                } else if (errorMessage == null) {
-                    errorMessage = "Unknown server error";
-                }
+                Map<String, Object> ret = new LinkedHashMap<String, Object>();
+                ret.put("version", "1.1");
+                ret.put("result", result);
+                mapper.writeValue(new UnclosableOutputStream(output), ret);
+                return;
             } catch (Exception ex) {
-                errorMessage = ex.getMessage();
+                exc = ex;
             }
             try {
                 Map<String, Object> error = new LinkedHashMap<String, Object>();
                 error.put("name", "JSONRPCError");
                 error.put("code", -32601);
-                error.put("message", errorMessage);
-                error.put("error", errorMessage);
+                error.put("message", exc.getLocalizedMessage());
+                error.put("error", ExceptionUtils.getStackTrace(exc));
                 Map<String, Object> ret = new LinkedHashMap<String, Object>();
                 ret.put("version", "1.1");
                 ret.put("error", error);
                 mapper.writeValue(new UnclosableOutputStream(output), ret);
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             } catch (Exception ex) {
-                new Exception("Error sending error: " + errorMessage, ex).printStackTrace();
+                new Exception("Error sending error: " +
+                        exc.getLocalizedMessage(), ex).printStackTrace();
             }
         }
     }
