@@ -58,7 +58,7 @@ import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
-public class AweClientDockerJobScript {
+public class SDKLocalMethodRunner {
     
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
