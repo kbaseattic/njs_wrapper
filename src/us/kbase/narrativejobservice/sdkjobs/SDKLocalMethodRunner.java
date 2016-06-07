@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.File;
 import java.io.FileReader;
@@ -44,12 +44,20 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
+import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.JsonRpcError;
+import us.kbase.narrativejobservice.LogLine;
+import us.kbase.narrativejobservice.MethodCall;
+import us.kbase.narrativejobservice.NarrativeJobServiceClient;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RpcContext;
+import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
-public class AweClientDockerJobScript {
+public class SDKLocalMethodRunner {
     
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
@@ -147,7 +155,7 @@ public class AweClientDockerJobScript {
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
-                    .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
+                    .getAdditionalProperties().get(SDKMethodRunner.REQ_REL);
             final ModuleVersion mv;
             try {
                 mv = catClient.getModuleVersion(new SelectModuleVersion()
