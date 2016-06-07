@@ -19,6 +19,7 @@ import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.google.common.collect.Lists;
 import com.mongodb.DB;
+import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoException;
@@ -32,7 +33,6 @@ public class ExecEngineMongoDb {
 	private MongoCollection execTasks;
 	private MongoCollection execLogs;
 	private MongoCollection srvProps;
-	private volatile boolean wasDbVersionChecked = false;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = 
 			new HashMap<String, MongoClient>();
@@ -48,6 +48,7 @@ public class ExecEngineMongoDb {
 	public static final String PK_EXEC_LOGS = "ujs_job_id";
 	public static final String COL_SRV_PROPS = "srv_props";
 	public static final String PK_SRV_PROPS = "prop_id";
+	private static final String SRV_PROPS_VALUE = "value";
 	public static final String SRV_PROP_DB_VERSION = "db_version";
 
 	public static final String DB_VERSION = "1.0";
@@ -69,6 +70,14 @@ public class ExecEngineMongoDb {
 		execApps.ensureIndex(String.format("{%s:1}", FLD_EXEC_APPS_APP_JOB_STATE), "{unique:false}");
 		execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
 		srvProps.ensureIndex(String.format("{%s:1}", PK_SRV_PROPS), "{unique:true}");
+		
+		try {
+			srvProps.insert(String.format("{%s: #, %s: #}",
+					PK_SRV_PROPS, SRV_PROPS_VALUE),
+					SRV_PROP_DB_VERSION, DB_VERSION);
+		} catch (DuplicateKeyException e) {
+			//version is already there so do nothing
+		}
 	}
 
 	public List<QueuedTask> getQueuedTasks() throws Exception {
@@ -76,17 +85,14 @@ public class ExecEngineMongoDb {
 	}
 
 	public void insertQueuedTask(QueuedTask task) throws Exception {
-		checkForDbVersion();
 		taskQueue.insert(task);
 	}
 
 	public void deleteQueuedTask(String jobId) throws Exception {
-		checkForDbVersion();
 		taskQueue.remove(String.format("{%s:#}", PK_TASK_QUEUE), jobId);
 	}
 
 	public void insertExecApp(ExecApp execApp) throws Exception {
-		checkForDbVersion();
 		execApps.insert(execApp);
 	}
 
@@ -98,7 +104,6 @@ public class ExecEngineMongoDb {
 
 	public void updateExecAppData(String appJobId, String appJobState, 
 			String appStateData) throws Exception {
-		checkForDbVersion();
 		ExecApp execApp = getExecApp(appJobId);
 		if (execApp == null)
 			throw new IllegalStateException("App id=" + appJobId + " wasn't found in database");
@@ -122,19 +127,16 @@ public class ExecEngineMongoDb {
 	}
 
 	public void insertExecLog(ExecLog execLog) throws Exception {
-		checkForDbVersion();
 		execLogs.insert(execLog);
 	}
 
 	public void insertExecLogs(List<ExecLog> execLogList) throws Exception {
-		checkForDbVersion();
 		Object[] execLogArray = execLogList.toArray(new Object[execLogList.size()]);
 		execLogs.insert(execLogArray);
 	}
 
 	public void updateExecLogLines(String ujsJobId, int newLineCount, 
 			List<ExecLogLine> newLines) throws Exception {
-		checkForDbVersion();
 		execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
 				String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}", 
 						"original_line_count", "stored_line_count", "lines"), 
@@ -142,7 +144,6 @@ public class ExecEngineMongoDb {
 	}
 
 	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
-		checkForDbVersion();
 		execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
 				String.format("{$set:{%s:#}}", "original_line_count"), newLineCount);
 	}
@@ -153,7 +154,6 @@ public class ExecEngineMongoDb {
 	}
 
 	public void insertExecTask(ExecTask execTask) throws Exception {
-		checkForDbVersion();
 		execTasks.insert(execTask);
 	}
 
@@ -164,37 +164,22 @@ public class ExecEngineMongoDb {
 	}
 
 	public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time) throws Exception {
-		checkForDbVersion();
 		execTasks.update(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
 				String.format("{$set:{%s:#}}", finishTime ? "finish_time" : "exec_start_time"), time);
 	}
 
 	public String getServiceProperty(String propId) throws Exception {
-		String valueField = "value";
 		@SuppressWarnings("rawtypes")
 		List<Map> ret = Lists.newArrayList(srvProps.find(String.format("{%s:#}", PK_SRV_PROPS), propId)
-				.projection(String.format("{%s:1}", valueField)).as(Map.class));
+				.projection(String.format("{%s:1}", SRV_PROPS_VALUE)).as(Map.class));
 		if (ret.size() == 0)
 			return null;
-		return (String)ret.get(0).get(valueField);
+		return (String)ret.get(0).get(SRV_PROPS_VALUE);
 	}
 
 	public void setServiceProperty(String propId, String value) throws Exception {
-		String valueField = "value";
 		srvProps.update(String.format("{%s:#}", PK_SRV_PROPS), propId).upsert().with(
-				String.format("{$set:{%s:#}}", valueField), value);
-	}
-
-	private void checkForDbVersion() throws Exception {
-		if (!wasDbVersionChecked) {
-			//TODO SYNC needs removal
-			synchronized(this) {
-				String ver = getServiceProperty(SRV_PROP_DB_VERSION);
-				if (ver == null)
-					setServiceProperty(SRV_PROP_DB_VERSION, DB_VERSION);
-				wasDbVersionChecked = true;
-			}
-		}
+				String.format("{$set:{%s:#}}", SRV_PROPS_VALUE), value);
 	}
 
 	private synchronized static MongoClient getMongoClient(final String hosts)
