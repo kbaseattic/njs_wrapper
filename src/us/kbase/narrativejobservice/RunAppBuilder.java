@@ -105,12 +105,12 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 		Map<String, Object> data = UObject.transformStringToObject(json, new TypeReference<Map<String, Object>>() {});
 		if (data.get("step_id") == null) {		// APP
 			App app = UObject.transformStringToObject(json, App.class);
-	        AppState appState = initAppState(jobId, config);
+			AppState appState = initAppState(jobId, config);
 			try {
 				runApp(token, app, appState, jobId, outRef);
 			} catch (Exception ex) {
-			    String defaultStepId = app.getSteps().size() > 0 ? app.getSteps().get(0).getStepId() : "nostepid";
-		        registerAppError(appState, ex, defaultStepId, config);
+				String defaultStepId = app.getSteps().size() > 0 ? app.getSteps().get(0).getStepId() : "nostepid";
+				registerAppError(appState, ex, defaultStepId, config);
 				throw ex;
 			}
 		} else {		// STEP

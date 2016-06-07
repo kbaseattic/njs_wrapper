@@ -187,6 +187,7 @@ public class ExecEngineMongoDb {
     
     private void checkForDbVersion() throws Exception {
         if (!wasDbVersionChecked) {
+            //TODO SYNC needs removal
             synchronized(this) {
                 String ver = getServiceProperty(SRV_PROP_DB_VERSION);
                 if (ver == null)
@@ -225,7 +226,7 @@ public class ExecEngineMongoDb {
     }
 
     @SuppressWarnings("deprecation")
-    public static DB getDB(final String hosts, final String database,
+    private static DB getDB(final String hosts, final String database,
             final String user, final String pwd,
             final int retryCount, final int logIntervalCount)
             throws UnknownHostException, InvalidHostException, IOException,
