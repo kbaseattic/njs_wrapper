@@ -136,7 +136,7 @@ commit=${git.commit}</echo>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
 export JAVA_HOME=${java.home}
 export PATH=${java.home}/bin:$PATH
-java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.AweClientDockerJobScript $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.AweClientDockerJobScript $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>

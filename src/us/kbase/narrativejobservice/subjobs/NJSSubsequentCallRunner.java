@@ -10,7 +10,7 @@ import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.executionengine.SubsequentCallRunner;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JsonClientException;
-import us.kbase.narrativejobservice.DockerRunner;
+import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
 

@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.File;
 import java.io.FileReader;
@@ -44,6 +44,15 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.common.utils.UTCDateFormat;
+import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.JsonRpcError;
+import us.kbase.narrativejobservice.LogLine;
+import us.kbase.narrativejobservice.MethodCall;
+import us.kbase.narrativejobservice.NarrativeJobServiceClient;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RpcContext;
+import us.kbase.narrativejobservice.RunAppBuilder;
+import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
