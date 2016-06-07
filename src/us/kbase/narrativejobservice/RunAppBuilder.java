@@ -460,16 +460,15 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         }
 	}
 	
-	@SuppressWarnings("unused")
-    private static void waitForJob(String token, String ujsUrl, String jobId, AppState appState) throws Exception {
+	private static void waitForJob(String token, String ujsUrl, String jobId, AppState appState) throws Exception {
 		UserAndJobStateClient jscl = new UserAndJobStateClient(new URL(ujsUrl), new AuthToken(token));
 		jscl.setAllSSLCertificatesTrusted(true);
 		jscl.setIsInsecureHttpConnectionAllowed(true);
-		for (int iter = 0; ; iter++) {
+		for (@SuppressWarnings("unused") int iter = 0; ; iter++) {
 			Thread.sleep(5000);
 			Tuple7<String, String, String, Long, String, Long, Long> data = jscl.getJobStatus(jobId);
-    		Long complete = data.getE6();
-    		Long wasError = data.getE7();
+			Long complete = data.getE6();
+			Long wasError = data.getE7();
 			if (complete != null && complete == 1L) {
 				if (wasError == 0L) {
 					break;

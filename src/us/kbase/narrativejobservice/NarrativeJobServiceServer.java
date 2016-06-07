@@ -4,8 +4,6 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
-import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
@@ -33,6 +31,8 @@ import org.ini4j.Ini;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.UObject;
@@ -57,8 +57,8 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
-    private static final String gitUrl = "https://github.com/kbase/njs_wrapper";
-    private static final String gitCommitHash = "9c7f556b42ce052b184f64a29d9f70354b12f948";
+    private static final String gitUrl = "https://github.com/mrcreosote/njs_wrapper";
+    private static final String gitCommitHash = "49902d721bb439d6a505faa4ee73aeb9f24a6eaa";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -664,6 +664,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         		.withTasksInQueue((long)queued)
         		.withConfig(safeConfig)
         		.withGitCommit(gitCommit);
+        
+        // make warnings shut up
+        @SuppressWarnings("unused")
+        String foo = gitUrl;
+        @SuppressWarnings("unused")
+        String bar = gitCommitHash;
+        @SuppressWarnings("unused")
+        String baz = version;
         //END status
         return returnVal;
     }
@@ -788,23 +796,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //BEGIN check_job
         returnVal = RunAppBuilder.checkJob(jobId, authPart.toString(), config());
         //END check_job
-        return returnVal;
-    }
-    
-    @JsonServerMethod(rpc = "NarrativeJobService.status")
-    public Map<String, Object> status() {
-        Map<String, Object> returnVal = null;
-        //BEGIN_STATUS
-        returnVal = new LinkedHashMap<String, Object>();
-        returnVal.put("state", "OK");
-        returnVal.put("message", "");
-        returnVal.put("version", VERSION);
-        returnVal.put("git_url", gitUrl);
-        @SuppressWarnings("unused")
-        String foo = gitCommitHash;
-        @SuppressWarnings("unused")
-        String ver = version;
-        //END_STATUS
         return returnVal;
     }
 
