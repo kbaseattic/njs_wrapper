@@ -77,11 +77,9 @@ public class SDKMethodRunner {
 
 	private static ExecEngineMongoDb db = null;
 
-	//TODO SYNC remove sync after checking DB
-	public static synchronized AppState loadAppState(String appJobId, Map<String, String> config)
+	public static AppState loadAppState(String appJobId, Map<String, String> config)
 			throws Exception {
-		ExecEngineMongoDb db = getDb(config);
-		ExecApp dbApp = db.getExecApp(appJobId);
+		ExecApp dbApp = getDb(config).getExecApp(appJobId);
 		return dbApp == null ? null : UObject.getMapper().readValue(
 				dbApp.getAppStateData(), AppState.class);
 	}
