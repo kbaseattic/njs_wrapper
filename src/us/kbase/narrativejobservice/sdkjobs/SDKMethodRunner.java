@@ -77,6 +77,7 @@ public class SDKMethodRunner {
 
 	private static ExecEngineMongoDb db = null;
 
+	//TODO SYNC remove sync after checking DB
 	public static synchronized AppState loadAppState(String appJobId, Map<String, String> config)
 			throws Exception {
 		ExecEngineMongoDb db = getDb(config);
@@ -616,7 +617,7 @@ public class SDKMethodRunner {
 		return aweUrl;
 	}
 
-	private static CatalogClient getCatalogClient(Map<String, String> config,
+	public static CatalogClient getCatalogClient(Map<String, String> config,
 			boolean asAdmin)
 					throws UnauthorizedException, IOException  {
 		final String catalogUrl = getRequiredConfigParam(config, 
@@ -652,7 +653,7 @@ public class SDKMethodRunner {
 		return ret;
 	}
 
-	private static ExecEngineMongoDb getDb(Map<String, String> config) throws Exception {
+	public static ExecEngineMongoDb getDb(Map<String, String> config) throws Exception {
 		if (db == null)
 			db = NarrativeJobServiceServer.getMongoDb(config);
 		return db;

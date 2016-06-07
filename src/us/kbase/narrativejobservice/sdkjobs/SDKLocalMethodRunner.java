@@ -51,7 +51,6 @@ import us.kbase.narrativejobservice.MethodCall;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RpcContext;
-import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.userandjobstate.InitProgress;
@@ -156,7 +155,7 @@ public class SDKLocalMethodRunner {
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
-                    .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
+                    .getAdditionalProperties().get(SDKMethodRunner.REQ_REL);
             final ModuleVersion mv;
             try {
                 mv = catClient.getModuleVersion(new SelectModuleVersion()

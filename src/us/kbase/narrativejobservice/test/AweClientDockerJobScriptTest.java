@@ -81,10 +81,10 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
@@ -814,8 +814,8 @@ public class AweClientDockerJobScriptTest {
                 stepJobId = st.getStepJobIds().get("step1");
                 if (stepJobId != null)
                     System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                if (st.getJobState().equals(SDKMethodRunner.APP_STATE_DONE) ||
+                        st.getJobState().equals(SDKMethodRunner.APP_STATE_ERROR)) {
                     break;
                 }
                 Thread.sleep(5000);
@@ -930,7 +930,7 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, stepErrorText);
             Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
             Assert.assertTrue(st.toString(), stepErrorText.contains("Preparing to generate an error..."));
-            Assert.assertEquals(errMsg, RunAppBuilder.APP_STATE_ERROR, st.getJobState());
+            Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_ERROR, st.getJobState());
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

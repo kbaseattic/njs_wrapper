@@ -36,6 +36,7 @@ import us.kbase.narrativejobservice.Step;
 import us.kbase.narrativejobservice.StepParameter;
 import us.kbase.narrativejobservice.Util;
 import us.kbase.narrativejobservice.WorkspaceObject;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 
@@ -143,7 +144,7 @@ public class RunAppTest {
 		String jobId = taskHolder.addTask(appJson, token);
         RunAppBuilder.initAppState(jobId, dbCfg);
 		Util.waitForJob(token, ujsUrl, jobId);
-		AppState appState = RunAppBuilder.loadAppState(jobId, dbCfg);
+		AppState appState = SDKMethodRunner.loadAppState(jobId, dbCfg);
 		System.out.println("Outputs: " + appState.getStepOutputs());
 		System.out.println("Errors: " + appState.getStepErrors());
 	}

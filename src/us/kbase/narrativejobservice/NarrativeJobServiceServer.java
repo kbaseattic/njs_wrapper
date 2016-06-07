@@ -44,6 +44,7 @@ import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.MigrationToMongo;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -509,7 +510,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).checkAppState(jobId);
         } else {
-        	returnVal = RunAppBuilder.loadAppState(jobId, config());
+        	returnVal = SDKMethodRunner.loadAppState(jobId, config());
         	if (returnVal == null)
         		throw new IllegalStateException("Information is not available");
         	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart.toString(), returnVal, config());
@@ -573,7 +574,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).deleteApp(jobId);
         } else {
-        	AppState appState = RunAppBuilder.loadAppState(jobId, config());
+        	AppState appState = SDKMethodRunner.loadAppState(jobId, config());
         	if (appState != null) {
         		appState.setIsDeleted(1L);
         		returnVal = "App " + jobId + " was marked for deletion";
@@ -706,7 +707,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config(), null);
+        returnVal = SDKMethodRunner.runAweDockerScript(params, authPart.toString(), null, config(), null);
         //END run_job
         return returnVal;
     }
@@ -725,7 +726,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         Map<String,String> return2 = null;
         //BEGIN get_job_params
         return2 = new LinkedHashMap<String, String>();
-        return1 = RunAppBuilder.getAweDockerScriptInput(jobId, authPart.toString(), config(), return2);
+        return1 = SDKMethodRunner.getAweDockerScriptInput(jobId, authPart.toString(), config(), return2);
         //END get_job_params
         Tuple2<RunJobParams, Map<String,String>> returnVal = new Tuple2<RunJobParams, Map<String,String>>();
         returnVal.setE1(return1);
@@ -745,7 +746,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
-        returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
+        returnVal = (long)SDKMethodRunner.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
         //END add_job_logs
         return returnVal;
     }
@@ -761,7 +762,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
-        returnVal = RunAppBuilder.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
+        returnVal = SDKMethodRunner.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
                 authPart.toString(), getAdminUsers(), config());
         //END get_job_logs
         return returnVal;
@@ -778,7 +779,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
-        RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
+    	SDKMethodRunner.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
         //END finish_job
     }
 
@@ -794,7 +795,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public JobState checkJob(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         JobState returnVal = null;
         //BEGIN check_job
-        returnVal = RunAppBuilder.checkJob(jobId, authPart.toString(), config());
+        returnVal = SDKMethodRunner.checkJob(jobId, authPart.toString(), config());
         //END check_job
         return returnVal;
     }

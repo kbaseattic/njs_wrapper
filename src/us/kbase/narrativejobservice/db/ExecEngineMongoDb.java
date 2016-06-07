@@ -187,7 +187,7 @@ public class ExecEngineMongoDb {
     
     private void checkForDbVersion() throws Exception {
         if (!wasDbVersionChecked) {
-            //TODO SYNC needs removal
+        //TODO SYNC needs removal
             synchronized(this) {
                 String ver = getServiceProperty(SRV_PROP_DB_VERSION);
                 if (ver == null)
