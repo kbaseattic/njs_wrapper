@@ -292,6 +292,18 @@ public class SDKMethodRunner {
 		return UObject.getMapper().readValue(baos.toByteArray(),
 				new TypeReference<T>() {});
 	}
+	
+	private static class LegacyAppInfo {
+		public final String uiModuleName;
+		public final String methodSpecId;
+		
+		private LegacyAppInfo(String uiModuleName, String methodSpecId) {
+			super();
+			this.uiModuleName = uiModuleName;
+			this.methodSpecId = methodSpecId;
+		}
+		
+	}
 
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 			String token, ErrorLogger log, Map<String, String> config) throws Exception {
@@ -303,39 +315,7 @@ public class SDKMethodRunner {
 		// let's make a call to catalog sending execution stats
 		try {
 			AuthToken auth = new AuthToken(token);
-			String appJobId = getAweTaskAppId(ujsJobId, config);
-			AppState appState = null;
-			if (appJobId != null)
-				appState = loadAppState(appJobId, config);
-			String stepId = null;
-			App app = null;
-			if (appState != null && appState.getStepJobIds() != null
-					&& appState.getOriginalApp() != null) {
-				app = appState.getOriginalApp();
-				for (String sId : appState.getStepJobIds().keySet()) {
-					if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
-						stepId = sId;
-						break;
-					}
-				}
-			}
-			String methodSpecId = null;
-			if (stepId != null && app != null && app.getSteps() != null) {
-				for (Step step : app.getSteps()) {
-					if (step.getStepId().equals(stepId)) {
-						methodSpecId = step.getMethodSpecId();
-						break;
-					}
-				}
-			}
-			String uiModuleName = null;
-			if (methodSpecId != null) {
-				String[] parts = methodSpecId.split("/");
-				if (parts.length > 1) {
-					uiModuleName = parts[0];
-					methodSpecId = parts[1];
-				}
-			}
+			final LegacyAppInfo info = getLegacyAppInfo(ujsJobId, config);
 			final RunJobParams input = getJobInput(ujsJobId, auth, config);
 			String[] parts = input.getMethod().split(Pattern.quote("."));
 			String funcModuleName = parts.length > 1 ? parts[0] : null;
@@ -348,8 +328,10 @@ public class SDKMethodRunner {
 			boolean isError = params.getError() != null;
 			String errorMessage = null;
 			try {
-				sendExecStatsToCatalog(auth.getClientId(), uiModuleName, methodSpecId, funcModuleName, 
-						funcName, gitCommitHash, creationTime, execStartTime, finishTime, isError, config);
+				sendExecStatsToCatalog(auth.getClientId(), info.uiModuleName,
+						info.methodSpecId, funcModuleName, funcName,
+						gitCommitHash, creationTime, execStartTime, finishTime,
+						isError, config);
 			} catch (ServerException ex) {
 				errorMessage = ex.getData();
 				if (errorMessage == null)
@@ -363,7 +345,7 @@ public class SDKMethodRunner {
 			}
 			if (errorMessage != null) {
 				String message = "Error sending execution stats to catalog (" + auth.getClientId() + ", " + 
-						uiModuleName + ", " + methodSpecId + ", " + funcModuleName + ", " + funcName + ", " + 
+						info.uiModuleName + ", " + info.methodSpecId + ", " + funcModuleName + ", " + funcName + ", " + 
 						gitCommitHash + ", " + creationTime + ", " + execStartTime + ", " + finishTime + ", " + 
 						isError + "): " + errorMessage;
 				System.err.println(message);
@@ -375,6 +357,46 @@ public class SDKMethodRunner {
 			if (log != null)
 				log.logErr(ex);
 		}
+	}
+
+	private static LegacyAppInfo getLegacyAppInfo(
+			final String ujsJobId,
+			final Map<String, String> config)
+			throws Exception {
+		String appJobId = getAweTaskAppId(ujsJobId, config);
+		AppState appState = null;
+		if (appJobId != null)
+			appState = loadAppState(appJobId, config);
+		String stepId = null;
+		App app = null;
+		if (appState != null && appState.getStepJobIds() != null
+				&& appState.getOriginalApp() != null) {
+			app = appState.getOriginalApp();
+			for (String sId : appState.getStepJobIds().keySet()) {
+				if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
+					stepId = sId;
+					break;
+				}
+			}
+		}
+		String methodSpecId = null;
+		if (stepId != null && app != null && app.getSteps() != null) {
+			for (Step step : app.getSteps()) {
+				if (step.getStepId().equals(stepId)) {
+					methodSpecId = step.getMethodSpecId();
+					break;
+				}
+			}
+		}
+		String uiModuleName = null;
+		if (methodSpecId != null) {
+			String[] parts = methodSpecId.split("/");
+			if (parts.length > 1) {
+				uiModuleName = parts[0];
+				methodSpecId = parts[1];
+			}
+		}
+		return new LegacyAppInfo(uiModuleName, methodSpecId);
 	}
 
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
