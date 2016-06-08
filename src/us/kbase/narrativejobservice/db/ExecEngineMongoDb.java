@@ -156,6 +156,13 @@ public class ExecEngineMongoDb {
 	public void insertExecTask(ExecTask execTask) throws Exception {
 		execTasks.insert(execTask);
 	}
+	
+	public void addExecTaskResult(
+			final String ujsJobId,
+			final Map<String, Object> result) {
+		execTasks.update(String.format("{%s: #}", PK_EXEC_TASKS), ujsJobId)
+			.with(String.format("{$set:{%s: #}}", "job_output"), result);
+	}
 
 	public ExecTask getExecTask(String ujsJobId) throws Exception {
 		List<ExecTask> ret = Lists.newArrayList(execTasks.find(

@@ -1,13 +1,10 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -16,19 +13,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
-
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.mongodb.WriteConcernException;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
+import us.kbase.auth.TokenExpiredException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleVersion;
@@ -57,8 +47,9 @@ import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.shock.client.BasicShockClient;
-import us.kbase.shock.client.ShockACLType;
 import us.kbase.shock.client.ShockNodeId;
+import us.kbase.shock.client.exceptions.InvalidShockUrlException;
+import us.kbase.shock.client.exceptions.ShockHttpException;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
 import us.kbase.workspace.ObjectSpecification;
@@ -84,27 +75,14 @@ public class SDKMethodRunner {
 				dbApp.getAppStateData(), AppState.class);
 	}
 
-	public static String runAweDockerScript(RunJobParams params, String token, 
+	public static String runJob(RunJobParams params, String token, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
 		AuthToken authPart = new AuthToken(token);
 		checkWSObjects(authPart, config, params.getSourceWsObjects());
 
 		checkModuleAndUpdateRunJobParams(params, config);
-		String narrativeProxyUser = config.get(NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER);
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		UObject.getMapper().writeValue(baos, params);
-		ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
-		BasicShockClient shockClient = getShockClient(authPart, config);
-		String inputShockId = shockClient.addNode(bais, "job.json", "json").getId().getId();
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		final String ujsJobId = ujsClient.createJob();
-		String outputShockId = shockClient.addNode().getId().getId();
-		if (narrativeProxyUser != null) {
-			shockClient.addToNodeAcl(new ShockNodeId(inputShockId), Arrays.asList(narrativeProxyUser), 
-					ShockACLType.READ);
-			shockClient.addToNodeAcl(new ShockNodeId(outputShockId), Arrays.asList(narrativeProxyUser), 
-					ShockACLType.READ);
-		}
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
 		if (kbaseEndpoint == null) {
 			String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -126,7 +104,10 @@ public class SDKMethodRunner {
 				authPart, aweClientGroups);
 		if (appJobId != null && appJobId.isEmpty())
 			appJobId = ujsJobId;
-		addAweTaskDescription(ujsJobId, aweJobId, inputShockId, outputShockId, appJobId, config);
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> jobInput =
+			UObject.transformObjectToObject(params, Map.class);
+		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
 		return ujsJobId;
 	}
 
@@ -221,16 +202,11 @@ public class SDKMethodRunner {
 		}
 	}
 
-	public static RunJobParams getAweDockerScriptInput(String ujsJobId, String token, 
+	public static RunJobParams getJobInputParams(String ujsJobId, String token, 
 			Map<String, String> config, Map<String,String> resultConfig) throws Exception {
 		updateAweTaskExecTime(ujsJobId, config, false);
-		AuthToken authPart = new AuthToken(token);
-		String inputShockId = getAweTaskInputShockId(ujsJobId, config);
-		BasicShockClient shockClient = getShockClient(authPart, config);
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		shockClient.getFile(new ShockNodeId(inputShockId), baos);
-		baos.close();
-		RunJobParams input = UObject.getMapper().readValue(baos.toByteArray(), RunJobParams.class);
+		final RunJobParams input = getJobInput(ujsJobId, new AuthToken(token),
+				config);
 		String[] propsToSend = {
 				NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
 				NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
@@ -263,13 +239,66 @@ public class SDKMethodRunner {
 		return input;
 	}
 
-	public static void finishAweDockerScript(String ujsJobId, FinishJobParams params, 
+	private static RunJobParams getJobInput(
+			final String ujsJobId,
+			final AuthToken token,
+			final Map<String, String> config)
+			throws Exception {
+		final ExecTask task = getDb(config).getExecTask(ujsJobId);
+		if (task.getJobInput() != null) {
+			return UObject.transformObjectToObject(task.getJobInput(),
+					RunJobParams.class);
+		}
+		if (task.getInputShockId() == null) {
+			throw new IllegalStateException(String.format(
+					"A programming error has occured - there is no job " +
+					"input on record for job ID %s", ujsJobId));
+		}
+		return getJobDataFromShock(task.getInputShockId(), token, config);
+	}
+	
+	//TODO SHOCK size limits on input & output 5MB
+	//TODO SHOCK test with existing shock nodes as input & output
+	//TODO SHOCK db converter - test
+	private static FinishJobParams getJobOutput(
+			final String ujsJobId,
+			final AuthToken token,
+			final Map<String, String> config) throws Exception {
+		final ExecTask task = getDb(config).getExecTask(ujsJobId);
+		if (task.getJobOutput() != null) {
+			return UObject.transformObjectToObject(task.getJobOutput(),
+					FinishJobParams.class);
+		}
+		return getJobDataFromShock(task.getOutputShockId(), token, config);
+	}
+
+	private static <T> T getJobDataFromShock(
+			final String shockId,
+			final AuthToken token,
+			final Map<String, String> config) throws
+			TokenExpiredException, InvalidShockUrlException,
+			ShockHttpException, IOException {
+		if (shockId == null) {
+			return null;
+		}
+		final BasicShockClient cli = new BasicShockClient(
+				getShockUrl(config), token);
+		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		cli.getFile(new ShockNodeId(shockId), baos);
+		baos.close();
+		if (baos.size() == 0) {
+			return null;
+		}
+		return UObject.getMapper().readValue(baos.toByteArray(),
+				new TypeReference<T>() {});
+	}
+
+	public static void finishJob(String ujsJobId, FinishJobParams params, 
 			String token, ErrorLogger log, Map<String, String> config) throws Exception {
-		String outputShockId = getAweTaskOutputShockId(ujsJobId, config);
-		String shockUrl = getShockUrl(config);
-		ByteArrayInputStream bais = new ByteArrayInputStream(
-				UObject.getMapper().writeValueAsBytes(params));
-		updateShockNode(shockUrl, token, outputShockId, bais, "output.json", "json");
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> jobOutput =
+				UObject.transformObjectToObject(params, Map.class);
+		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 		updateAweTaskExecTime(ujsJobId, config, true);
 		// let's make a call to catalog sending execution stats
 		try {
@@ -307,12 +336,7 @@ public class SDKMethodRunner {
 					methodSpecId = parts[1];
 				}
 			}
-			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			BasicShockClient shockClient = getShockClient(auth, config);
-			String inputShockId = getAweTaskInputShockId(ujsJobId, config);
-			shockClient.getFile(new ShockNodeId(inputShockId), baos);
-			baos.close();
-			RunJobParams input = UObject.getMapper().readValue(baos.toByteArray(), RunJobParams.class);
+			final RunJobParams input = getJobInput(ujsJobId, auth, config);
 			String[] parts = input.getMethod().split(Pattern.quote("."));
 			String funcModuleName = parts.length > 1 ? parts[0] : null;
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
@@ -366,7 +390,7 @@ public class SDKMethodRunner {
 				.withIsError(isError ? 1L : 0L));
 	}
 
-	public static int addAweDockerScriptLogs(String ujsJobId, List<LogLine> lines,
+	public static int addJobLogs(String ujsJobId, List<LogLine> lines,
 			String token, Map<String, String> config) throws Exception {
 		AuthToken authPart = new AuthToken(token);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
@@ -415,7 +439,7 @@ public class SDKMethodRunner {
 		}
 	}
 
-	public static GetJobLogsResults getAweDockerScriptLogs(String ujsJobId, Long skipLines,
+	public static GetJobLogsResults getJobLogs(String ujsJobId, Long skipLines,
 			String token, Set<String> admins, Map<String, String> config) throws Exception {
 		AuthToken authPart = new AuthToken(token);
 		boolean isAdmin = admins != null && admins.contains(authPart.getClientId());
@@ -443,40 +467,6 @@ public class SDKMethodRunner {
 	}
 
 	@SuppressWarnings("unchecked")
-	private static String updateShockNode(String shockUrl, String token, String shockNodeId, 
-			InputStream file, final String filename, final String format) throws Exception {
-		String nodeurl = shockUrl;
-		if (!nodeurl.endsWith("/"))
-			nodeurl += "/";
-		nodeurl += "node/" + shockNodeId;
-		final HttpPut htp = new HttpPut(nodeurl);
-		final MultipartEntityBuilder mpeb = MultipartEntityBuilder.create();
-		if (file != null) {
-			mpeb.addBinaryBody("upload", file, ContentType.DEFAULT_BINARY,
-					filename);
-		}
-		if (format != null) {
-			mpeb.addTextBody("format", format);
-		}
-		htp.setEntity(mpeb.build());
-		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
-		cm.setMaxTotal(1000);
-		cm.setDefaultMaxPerRoute(1000);
-		CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
-		htp.setHeader("Authorization", "OAuth " + token);
-		final CloseableHttpResponse response = client.execute(htp);
-		try {
-			String resp = EntityUtils.toString(response.getEntity());
-			Map<String, String> node = (Map<String, String>)UObject.getMapper()
-					.readValue(resp, Map.class).get("data");
-			return node.get("id");
-		} finally {
-			response.close();
-			file.close();
-		}
-	}
-
-	@SuppressWarnings("unchecked")
 	public static JobState checkJob(String jobId, String token, 
 			Map<String, String> config) throws Exception {
 		AuthToken authPart = new AuthToken(token);
@@ -489,14 +479,11 @@ public class SDKMethodRunner {
 				ujsClient.getJobStatus(jobId);
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
-		String outputShockId = getAweTaskOutputShockId(jobId, config);
-		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		FinishJobParams params = null;
 		if (complete) {
-			BasicShockClient shockClient = getShockClient(authPart, config);
-			shockClient.getFile(new ShockNodeId(outputShockId), baos);
+			params = getJobOutput(jobId, authPart, config);
 		}
-		baos.close();
-		if (baos.size() == 0) {
+		if (params == null) {
 			// We should consult AWE for case the job was killed or gone with no reason.
 			String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
 			String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
@@ -525,10 +512,7 @@ public class SDKMethodRunner {
 				complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 				if (complete) { // Yes, we are switching to "complete" scenario
 					returnVal.setStatus(new UObject(jobStatus));
-					baos = new ByteArrayOutputStream();
-					BasicShockClient shockClient = getShockClient(authPart, config);
-					shockClient.getFile(new ShockNodeId(outputShockId), baos);
-					baos.close();
+					params = getJobOutput(jobId, authPart, config);
 				} else {
 					if (aweState.equals("suspend"))
 						throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
@@ -555,12 +539,10 @@ public class SDKMethodRunner {
 			}
 		}
 		if (complete) {
-			FinishJobParams result = UObject.getMapper().readValue(
-					new ByteArrayInputStream(baos.toByteArray()), FinishJobParams.class);
 			returnVal.setFinished(1L);
-			returnVal.setResult(result.getResult());
-			returnVal.setError(result.getError());
-			if (result.getError() != null) {
+			returnVal.setResult(params.getResult());
+			returnVal.setError(params.getError());
+			if (params.getError() != null) {
 				returnVal.setJobState(APP_STATE_ERROR);
 			} else {
 				returnVal.setJobState(APP_STATE_DONE);
@@ -591,19 +573,21 @@ public class SDKMethodRunner {
 		return ret;
 	}
 
-	private static String getShockUrl(Map<String, String> config) throws Exception {
-		String shockUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
-		if (shockUrl == null)
+	private static URL getShockUrl(Map<String, String> config) {
+		final String shockUrl =
+				config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
+		if (shockUrl == null || shockUrl.isEmpty()) {
 			throw new IllegalStateException("Parameter '" + 
 					NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
 					"' is not defined in configuration");
-		return shockUrl;
-	}
-
-	private static BasicShockClient getShockClient(AuthToken auth, 
-			Map<String, String> config) throws Exception {
-		BasicShockClient ret = new BasicShockClient(new URL(getShockUrl(config)), auth);
-		return ret;
+		}
+		try {
+			return new URL(shockUrl);
+		} catch (MalformedURLException e) {
+			throw new IllegalStateException("Config parameter " +
+					NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
+					" is invalid: " + shockUrl);
+		}
 	}
 
 	private static String getAweServerURL(Map<String, String> config) throws Exception {
@@ -657,14 +641,17 @@ public class SDKMethodRunner {
 		return db;
 	}
 
-	private static void addAweTaskDescription(String ujsJobId, String aweJobId, String inputShockId, 
-			String outputShockId, String appJobId, Map<String, String> config) throws Exception {
+	private static void addAweTaskDescription(
+			final String ujsJobId,
+			final String aweJobId,
+			final Map<String, Object> jobInput,
+			final String appJobId,
+			final Map<String, String> config) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = new ExecTask();
 		dbTask.setUjsJobId(ujsJobId);
 		dbTask.setAweJobId(aweJobId);
-		dbTask.setInputShockId(inputShockId);
-		dbTask.setOutputShockId(outputShockId);
+		dbTask.setJobInput(jobInput);
 		dbTask.setCreationTime(System.currentTimeMillis());
 		dbTask.setAppJobId(appJobId);
 		db.insertExecTask(dbTask);
@@ -684,14 +671,6 @@ public class SDKMethodRunner {
 
 	private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
 		return getAweTaskDescription(ujsJobId, config).getAweJobId();
-	}
-
-	private static String getAweTaskInputShockId(String ujsJobId, Map<String, String> config) throws Exception {
-		return getAweTaskDescription(ujsJobId, config).getInputShockId();
-	}
-
-	private static String getAweTaskOutputShockId(String ujsJobId, Map<String, String> config) throws Exception {
-		return getAweTaskDescription(ujsJobId, config).getOutputShockId();
 	}
 
 	private static void updateAweTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {

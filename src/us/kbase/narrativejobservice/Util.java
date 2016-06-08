@@ -1,19 +1,10 @@
 package us.kbase.narrativejobservice;
 
 import java.net.URL;
-import java.util.Map;
 import java.util.UUID;
-
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPut;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple7;
-import us.kbase.common.service.UObject;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class Util {
@@ -58,30 +49,5 @@ public class Util {
 	public static boolean isUjsJobId(String jobId) {
 		// 545a7b6ee4b0d82af0eafa16
 		return jobId.length() == 24;
-	}
-	
-	// currently unused in the NJS wrapper codebase
-	@SuppressWarnings("unchecked")
-	public static String addShockNodePublicReadACL(String shockUrl, String token, 
-			String shockNodeId) throws Exception {
-		String nodeurl = shockUrl;
-		if (!nodeurl.endsWith("/"))
-			nodeurl += "/";
-		nodeurl += "node/" + shockNodeId + "/acl/public_read";
-		final HttpPut htp = new HttpPut(nodeurl);
-		PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
-		cm.setMaxTotal(1000);
-		cm.setDefaultMaxPerRoute(1000);
-		CloseableHttpClient client = HttpClients.custom().setConnectionManager(cm).build();
-		htp.setHeader("Authorization", "OAuth " + token);
-		final CloseableHttpResponse response = client.execute(htp);
-		try {
-			String resp = EntityUtils.toString(response.getEntity());
-			Map<String, String> node = (Map<String, String>)UObject.getMapper()
-					.readValue(resp, Map.class).get("data");
-			return node.get("id");
-		} finally {
-			response.close();
-		}
 	}
 }
