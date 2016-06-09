@@ -148,6 +148,10 @@ public class SDKLocalMethodRunner {
             };
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
+            String clientGroup = System.getenv("AWE_CLIENTGROUP");
+            if (clientGroup == null)
+                clientGroup = "<unknown>";
+            log.logNextLine("Client group: " + clientGroup, false);
             String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = new CatalogClient(catalogURL, token);
             catClient.setIsInsecureHttpConnectionAllowed(true);
