@@ -8,8 +8,6 @@ import java.util.Map.Entry;
 
 public class SanitizeMongoObject {
 
-	//TODO SHOCK add tests for this junk
-	
 	public static void sanitize(final Map<String, Object> data) {
 		alterKeys(data, new KeyModifier() {
 			

@@ -423,9 +423,11 @@ public class SDKMethodRunner {
 				throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
 						"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
 			}
-			if (aweState == null)
+			if (aweState == null) {
+				final String aweDataStr = new ObjectMapper().writeValueAsString(aweData);
 				throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
-						"for ujs-id=" + jobId + " (state is null)");
+						"for ujs-id=" + jobId + " - state is null. AWE returned:\n " + aweDataStr);
+			}
 			if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
 					(!aweState.equals("in-progress"))) {
 				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
@@ -633,7 +635,6 @@ public class SDKMethodRunner {
 				"impossible occurred and a job was started without parameters");
 	}
 	
-	//TODO SHOCK test size limits on input & output
 	//TODO SHOCK db converter - test
 	private static FinishJobParams getJobOutput(
 			final String ujsJobId,
