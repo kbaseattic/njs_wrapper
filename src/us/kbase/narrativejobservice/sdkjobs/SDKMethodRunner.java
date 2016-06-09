@@ -236,74 +236,6 @@ public class SDKMethodRunner {
 		return input;
 	}
 
-	private static void checkObjectLength(
-			final Map<String, Object> o,
-			final int max,
-			final String type,
-			final String jobId) {
-		final CountingOutputStream cos = new CountingOutputStream();
-		try {
-			//writes in UTF8
-			new ObjectMapper().writeValue(cos, o);
-		} catch (IOException ioe) {
-			throw new RuntimeException("something's broken", ioe);
-		} finally {
-			try {
-				cos.close();
-			} catch (IOException ioe) {
-				throw new RuntimeException("something's broken", ioe);
-			}
-		}
-		if (cos.getSize() > max) {
-			throw new IllegalArgumentException(String.format(
-					"%s parameters%s are above %sB maximum: %s",
-					type, jobId == null ? " for job ID " + jobId : "", max,
-					cos.getSize()));
-		}
-	}
-	
-	private static RunJobParams getJobInput(
-			final String ujsJobId,
-			final AuthToken token,
-			final Map<String, String> config)
-			throws Exception {
-		final ExecTask task = getAweTaskDescription(ujsJobId, config);
-		if (task.getJobInput() != null) {
-			SanitizeMongoObject.befoul(task.getJobInput());
-			return UObject.transformObjectToObject(task.getJobInput(),
-					RunJobParams.class);
-		} 
-		throw new IllegalStateException("According to the database, the " +
-				"impossible occurred and a job was started without parameters");
-	}
-	
-	//TODO SHOCK test size limits on input & output
-	//TODO SHOCK db converter - test
-	private static FinishJobParams getJobOutput(
-			final String ujsJobId,
-			final AuthToken token,
-			final Map<String, String> config) throws Exception {
-		final ExecTask task = getAweTaskDescription(ujsJobId, config);
-		if (task.getJobOutput() != null) {
-			SanitizeMongoObject.befoul(task.getJobOutput());
-			return UObject.transformObjectToObject(task.getJobOutput(),
-					FinishJobParams.class);
-		}
-		return null;
-	}
-
-	private static class LegacyAppInfo {
-		public final String uiModuleName;
-		public final String methodSpecId;
-		
-		private LegacyAppInfo(String uiModuleName, String methodSpecId) {
-			super();
-			this.uiModuleName = uiModuleName;
-			this.methodSpecId = methodSpecId;
-		}
-		
-	}
-
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 			String token, ErrorLogger log, Map<String, String> config) throws Exception {
 		@SuppressWarnings("unchecked")
@@ -358,46 +290,6 @@ public class SDKMethodRunner {
 			if (log != null)
 				log.logErr(ex);
 		}
-	}
-
-	private static LegacyAppInfo getLegacyAppInfo(
-			final String ujsJobId,
-			final Map<String, String> config)
-			throws Exception {
-		String appJobId = getAweTaskAppId(ujsJobId, config);
-		AppState appState = null;
-		if (appJobId != null)
-			appState = loadAppState(appJobId, config);
-		String stepId = null;
-		App app = null;
-		if (appState != null && appState.getStepJobIds() != null
-				&& appState.getOriginalApp() != null) {
-			app = appState.getOriginalApp();
-			for (String sId : appState.getStepJobIds().keySet()) {
-				if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
-					stepId = sId;
-					break;
-				}
-			}
-		}
-		String methodSpecId = null;
-		if (stepId != null && app != null && app.getSteps() != null) {
-			for (Step step : app.getSteps()) {
-				if (step.getStepId().equals(stepId)) {
-					methodSpecId = step.getMethodSpecId();
-					break;
-				}
-			}
-		}
-		String uiModuleName = null;
-		if (methodSpecId != null) {
-			String[] parts = methodSpecId.split("/");
-			if (parts.length > 1) {
-				uiModuleName = parts[0];
-				methodSpecId = parts[1];
-			}
-		}
-		return new LegacyAppInfo(uiModuleName, methodSpecId);
 	}
 
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
@@ -692,5 +584,114 @@ public class SDKMethodRunner {
 		if (dbTask == null)
 			return null;
 		return new Long[] {dbTask.getCreationTime(), dbTask.getExecStartTime(), dbTask.getFinishTime()};
+	}
+	
+
+	private static void checkObjectLength(
+			final Map<String, Object> o,
+			final int max,
+			final String type,
+			final String jobId) {
+		final CountingOutputStream cos = new CountingOutputStream();
+		try {
+			//writes in UTF8
+			new ObjectMapper().writeValue(cos, o);
+		} catch (IOException ioe) {
+			throw new RuntimeException("something's broken", ioe);
+		} finally {
+			try {
+				cos.close();
+			} catch (IOException ioe) {
+				throw new RuntimeException("something's broken", ioe);
+			}
+		}
+		if (cos.getSize() > max) {
+			throw new IllegalArgumentException(String.format(
+					"%s parameters%s are above %sB maximum: %s",
+					type, jobId == null ? " for job ID " + jobId : "", max,
+					cos.getSize()));
+		}
+	}
+	
+	private static RunJobParams getJobInput(
+			final String ujsJobId,
+			final AuthToken token,
+			final Map<String, String> config)
+			throws Exception {
+		final ExecTask task = getAweTaskDescription(ujsJobId, config);
+		if (task.getJobInput() != null) {
+			SanitizeMongoObject.befoul(task.getJobInput());
+			return UObject.transformObjectToObject(task.getJobInput(),
+					RunJobParams.class);
+		} 
+		throw new IllegalStateException("According to the database, the " +
+				"impossible occurred and a job was started without parameters");
+	}
+	
+	//TODO SHOCK test size limits on input & output
+	//TODO SHOCK db converter - test
+	private static FinishJobParams getJobOutput(
+			final String ujsJobId,
+			final AuthToken token,
+			final Map<String, String> config) throws Exception {
+		final ExecTask task = getAweTaskDescription(ujsJobId, config);
+		if (task.getJobOutput() != null) {
+			SanitizeMongoObject.befoul(task.getJobOutput());
+			return UObject.transformObjectToObject(task.getJobOutput(),
+					FinishJobParams.class);
+		}
+		return null;
+	}
+
+	private static class LegacyAppInfo {
+		public final String uiModuleName;
+		public final String methodSpecId;
+		
+		private LegacyAppInfo(String uiModuleName, String methodSpecId) {
+			super();
+			this.uiModuleName = uiModuleName;
+			this.methodSpecId = methodSpecId;
+		}
+	}
+	
+
+	private static LegacyAppInfo getLegacyAppInfo(
+			final String ujsJobId,
+			final Map<String, String> config)
+			throws Exception {
+		String appJobId = getAweTaskAppId(ujsJobId, config);
+		AppState appState = null;
+		if (appJobId != null)
+			appState = loadAppState(appJobId, config);
+		String stepId = null;
+		App app = null;
+		if (appState != null && appState.getStepJobIds() != null
+				&& appState.getOriginalApp() != null) {
+			app = appState.getOriginalApp();
+			for (String sId : appState.getStepJobIds().keySet()) {
+				if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
+					stepId = sId;
+					break;
+				}
+			}
+		}
+		String methodSpecId = null;
+		if (stepId != null && app != null && app.getSteps() != null) {
+			for (Step step : app.getSteps()) {
+				if (step.getStepId().equals(stepId)) {
+					methodSpecId = step.getMethodSpecId();
+					break;
+				}
+			}
+		}
+		String uiModuleName = null;
+		if (methodSpecId != null) {
+			String[] parts = methodSpecId.split("/");
+			if (parts.length > 1) {
+				uiModuleName = parts[0];
+				methodSpecId = parts[1];
+			}
+		}
+		return new LegacyAppInfo(uiModuleName, methodSpecId);
 	}
 }
