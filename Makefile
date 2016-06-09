@@ -73,6 +73,9 @@ deploy-service: deploy-scripts
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
 
+create-shock-to-mongo-script:
+	$(ANT) shockmigscript
+
 deploy-docs:
 	@echo "No documentation"
 

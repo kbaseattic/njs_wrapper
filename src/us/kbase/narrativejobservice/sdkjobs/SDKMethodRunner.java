@@ -257,8 +257,11 @@ public class SDKMethodRunner {
 		return getJobDataFromShock(task.getInputShockId(), token, config);
 	}
 	
+	//TODO SHOCK clean object before save and after retrieval
+	//TODO SHOCK remove all shock node code
+	//TODO SHOCK test with null input
+	//TODO SHOCK test with null output
 	//TODO SHOCK size limits on input & output 5MB
-	//TODO SHOCK test with existing shock nodes as input & output
 	//TODO SHOCK db converter - test
 	private static FinishJobParams getJobOutput(
 			final String ujsJobId,
