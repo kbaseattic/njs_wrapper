@@ -69,6 +69,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -187,6 +188,77 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    private Map<String, Object> buildInsanitaryObject() {
+        Map<String, Object> inner = new HashMap<String, Object>();
+        inner.put("$$.%%%bad...$$%%%key", "value");
+        inner.put("key1", 1);
+        inner.put("key2", null);
+        inner.put("key3", true);
+        Map<String, Object> outer = new HashMap<String, Object>();
+        outer.put("id", "foo");
+        outer.put("bad%.$key$.%", "value");
+        outer.put("key", Arrays.asList(inner));
+        outer.put("key2", 2);
+        outer.put("key4", null);
+        outer.put("key5", false);
+        return outer;
+    }
+    
+    @Test
+    public void testInsanitaryParams() throws Exception {
+        System.out.println("Test [testInsanitaryParams]");
+        Map<String, Object> outer = buildInsanitaryObject();
+
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(outer),
+                null);
+        Tuple2<RunJobParams, Map<String, String>> rjp =
+                client.getJobParams(js.getJobId());
+        Map<String, Object> got = rjp.getE1().getParams().get(0)
+            .asClassInstance(Map.class);
+        assertThat("incorrect params", got, is(outer));
+    }
+    
+    @Test
+    public void testInsanitaryReturns() throws Exception {
+        System.out.println("Test [testInsanitaryReturns]");
+        Map<String, Object> ret = buildInsanitaryObject();
+        String ref = saveObjectToWs(ret, "testInsanitaryReturns");
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id", "bar");
+        params.put("ret", ref);
+        
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(params),
+                null);
+        System.out.println(js.getResult());
+        List<Map<String, Object>> got =
+                js.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+        
+        JobState jres = client.checkJob(js.getJobId());
+        got = jres.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+    }
+
+    private String saveObjectToWs(
+            Map<String, Object> ret, final String objname) throws IOException,
+            JsonClientException, Exception, InvalidFileFormatException {
+        Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>> obj =
+                getWsClient(token, loadConfig())
+                    .saveObjects(new SaveObjectsParams()
+                        .withWorkspace(testWsName)
+                        .withObjects(Arrays.asList(
+                                new ObjectSaveData()
+                                    .withData(new UObject(ret))
+                                    .withName(objname)
+                                    .withType("Empty.AType")
+                                )
+                    )).get(0);
+        return obj.getE7() + "/" + obj.getE1();
+    }
+    
     public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
