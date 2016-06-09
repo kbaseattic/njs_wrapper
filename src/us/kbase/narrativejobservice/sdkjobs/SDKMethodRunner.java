@@ -75,9 +75,16 @@ public class SDKMethodRunner {
 	public static String runJob(RunJobParams params, String token, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
 		AuthToken authPart = new AuthToken(token);
-		checkWSObjects(authPart, config, params.getSourceWsObjects());
 
+		//perform sanity checks before creating job
+		checkWSObjects(authPart, config, params.getSourceWsObjects());
+		//need to update the params before transforming to a Map
 		checkModuleAndUpdateRunJobParams(params, config);
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> jobInput =
+			UObject.transformObjectToObject(params, Map.class);
+		checkObjectLength(jobInput, MAX_PARAM_B, "Input", null);
+
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		final String ujsJobId = ujsClient.createJob();
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
@@ -101,9 +108,6 @@ public class SDKMethodRunner {
 				authPart, aweClientGroups);
 		if (appJobId != null && appJobId.isEmpty())
 			appJobId = ujsJobId;
-		@SuppressWarnings("unchecked")
-		final Map<String, Object> jobInput =
-			UObject.transformObjectToObject(params, Map.class);
 		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
 		return ujsJobId;
 	}
@@ -241,6 +245,8 @@ public class SDKMethodRunner {
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobOutput =
 				UObject.transformObjectToObject(params, Map.class);
+		//should never trigger since the local method runner limits uploads to
+		//15k
 		checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
 		SanitizeMongoObject.sanitize(jobOutput);
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
@@ -545,7 +551,6 @@ public class SDKMethodRunner {
 			final Map<String, Object> jobInput,
 			final String appJobId,
 			final Map<String, String> config) throws Exception {
-		checkObjectLength(jobInput, MAX_PARAM_B, "Input", null);
 		SanitizeMongoObject.sanitize(jobInput);
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = new ExecTask();
@@ -608,7 +613,7 @@ public class SDKMethodRunner {
 		if (cos.getSize() > max) {
 			throw new IllegalArgumentException(String.format(
 					"%s parameters%s are above %sB maximum: %s",
-					type, jobId == null ? " for job ID " + jobId : "", max,
+					type, jobId != null ? " for job ID " + jobId : "", max,
 					cos.getSize()));
 		}
 	}

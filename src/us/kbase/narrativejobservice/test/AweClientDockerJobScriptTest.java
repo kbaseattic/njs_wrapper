@@ -241,6 +241,35 @@ public class AweClientDockerJobScriptTest {
                 (Map<String, Object>) got.get(0).get("ret"), is(ret));
     }
 
+    private Map<String, Object> buildLargeObject() {
+        
+        Map<String, Object> ret = new HashMap<String, Object>();
+        for (int i = 0; i < 255548; i++) {
+            ret.put("key" + i, "01234");
+        }
+        ret.put("id", "foo");
+        return ret;
+    }
+    
+    @Test
+    public void testLargeParams() throws Exception {
+        //note the SDKLocalMethodRunner limits returns to 15k
+        System.out.println("Test [testLargeParams]");
+        Map<String, Object> p = buildLargeObject();
+
+        //should work
+        runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+        p.put("foo", "wheeeee");
+        
+        try {
+            runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+            fail("started job with too large object");
+        } catch (ServerException se) {
+            assertThat("incorrect exception message", se.getLocalizedMessage(),
+                    is("Input parameters are above 5000000B maximum: 5000004"));
+        }
+    }
+    
     private String saveObjectToWs(
             Map<String, Object> ret, final String objname) throws IOException,
             JsonClientException, Exception, InvalidFileFormatException {
