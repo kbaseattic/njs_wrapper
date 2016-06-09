@@ -103,7 +103,7 @@ public class MigrateShockDataToMongo {
 			DBObject q = new BasicDBObject("ujs_job_id", jobId);
 			if (!dryrun) {
 				try {
-					col.update(q, update);
+					col.update(q, new BasicDBObject("$set", update));
 				} catch (WriteConcernException e) {
 					log("Failed mongo write with update\n" + update);
 					throw e;
@@ -135,7 +135,8 @@ public class MigrateShockDataToMongo {
 			@SuppressWarnings("unchecked")
 			final Map<String, Object> data = UObject.getMapper()
 					.readValue(baos.toByteArray(), Map.class);
-			update.put("$set", new BasicDBObject("job_" + type, data));
+			SanitizeMongoObject.sanitize(data);
+			update.put("job_" + type, data);
 		}
 	}
 	

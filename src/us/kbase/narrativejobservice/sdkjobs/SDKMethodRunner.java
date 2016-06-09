@@ -1,6 +1,5 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -13,12 +12,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.WriteConcernException;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenExpiredException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleVersion;
@@ -31,6 +29,7 @@ import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
+import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.FinishJobParams;
@@ -45,11 +44,8 @@ import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.ExecLog;
 import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
+import us.kbase.narrativejobservice.db.SanitizeMongoObject;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
-import us.kbase.shock.client.BasicShockClient;
-import us.kbase.shock.client.ShockNodeId;
-import us.kbase.shock.client.exceptions.InvalidShockUrlException;
-import us.kbase.shock.client.exceptions.ShockHttpException;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
 import us.kbase.workspace.ObjectSpecification;
@@ -65,6 +61,7 @@ public class SDKMethodRunner {
 			JobRunnerConstants.RELEASE_TAGS;
 	public static final int MAX_LOG_LINE_LENGTH = 1000;
 	public static String REQ_REL = "requested_release";
+	private static final int MAX_PARAM_B = 5000000;
 
 	private static ExecEngineMongoDb db = null;
 
@@ -239,63 +236,64 @@ public class SDKMethodRunner {
 		return input;
 	}
 
+	private static void checkObjectLength(
+			final Map<String, Object> o,
+			final int max,
+			final String type,
+			final String jobId) {
+		final CountingOutputStream cos = new CountingOutputStream();
+		try {
+			//writes in UTF8
+			new ObjectMapper().writeValue(cos, o);
+		} catch (IOException ioe) {
+			throw new RuntimeException("something's broken", ioe);
+		} finally {
+			try {
+				cos.close();
+			} catch (IOException ioe) {
+				throw new RuntimeException("something's broken", ioe);
+			}
+		}
+		if (cos.getSize() > max) {
+			throw new IllegalArgumentException(String.format(
+					"%s parameters%s are above %sB maximum: %s",
+					type, jobId == null ? " for job ID " + jobId : "", max,
+					cos.getSize()));
+		}
+	}
+	
 	private static RunJobParams getJobInput(
 			final String ujsJobId,
 			final AuthToken token,
 			final Map<String, String> config)
 			throws Exception {
-		final ExecTask task = getDb(config).getExecTask(ujsJobId);
+		final ExecTask task = getAweTaskDescription(ujsJobId, config);
 		if (task.getJobInput() != null) {
+			SanitizeMongoObject.befoul(task.getJobInput());
 			return UObject.transformObjectToObject(task.getJobInput(),
 					RunJobParams.class);
-		}
-		if (task.getInputShockId() == null) {
-			throw new IllegalStateException(String.format(
-					"A programming error has occured - there is no job " +
-					"input on record for job ID %s", ujsJobId));
-		}
-		return getJobDataFromShock(task.getInputShockId(), token, config);
+		} 
+		throw new IllegalStateException("According to the database, the " +
+				"impossible occurred and a job was started without parameters");
 	}
 	
-	//TODO SHOCK clean object before save and after retrieval
-	//TODO SHOCK remove all shock node code
 	//TODO SHOCK test with null input
 	//TODO SHOCK test with null output
-	//TODO SHOCK size limits on input & output 5MB
+	//TODO SHOCK test size limits on input & output
 	//TODO SHOCK db converter - test
 	private static FinishJobParams getJobOutput(
 			final String ujsJobId,
 			final AuthToken token,
 			final Map<String, String> config) throws Exception {
-		final ExecTask task = getDb(config).getExecTask(ujsJobId);
+		final ExecTask task = getAweTaskDescription(ujsJobId, config);
 		if (task.getJobOutput() != null) {
+			SanitizeMongoObject.befoul(task.getJobOutput());
 			return UObject.transformObjectToObject(task.getJobOutput(),
 					FinishJobParams.class);
 		}
-		return getJobDataFromShock(task.getOutputShockId(), token, config);
+		return null;
 	}
 
-	private static <T> T getJobDataFromShock(
-			final String shockId,
-			final AuthToken token,
-			final Map<String, String> config) throws
-			TokenExpiredException, InvalidShockUrlException,
-			ShockHttpException, IOException {
-		if (shockId == null) {
-			return null;
-		}
-		final BasicShockClient cli = new BasicShockClient(
-				getShockUrl(config), token);
-		final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-		cli.getFile(new ShockNodeId(shockId), baos);
-		baos.close();
-		if (baos.size() == 0) {
-			return null;
-		}
-		return UObject.getMapper().readValue(baos.toByteArray(),
-				new TypeReference<T>() {});
-	}
-	
 	private static class LegacyAppInfo {
 		public final String uiModuleName;
 		public final String methodSpecId;
@@ -313,6 +311,8 @@ public class SDKMethodRunner {
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobOutput =
 				UObject.transformObjectToObject(params, Map.class);
+		checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
+		SanitizeMongoObject.sanitize(jobOutput);
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 		updateAweTaskExecTime(ujsJobId, config, true);
 		// let's make a call to catalog sending execution stats
@@ -598,23 +598,6 @@ public class SDKMethodRunner {
 		return ret;
 	}
 
-	private static URL getShockUrl(Map<String, String> config) {
-		final String shockUrl =
-				config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL);
-		if (shockUrl == null || shockUrl.isEmpty()) {
-			throw new IllegalStateException("Parameter '" + 
-					NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
-					"' is not defined in configuration");
-		}
-		try {
-			return new URL(shockUrl);
-		} catch (MalformedURLException e) {
-			throw new IllegalStateException("Config parameter " +
-					NarrativeJobServiceServer.CFG_PROP_SHOCK_URL +
-					" is invalid: " + shockUrl);
-		}
-	}
-
 	private static String getAweServerURL(Map<String, String> config) throws Exception {
 		String aweUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_SRV_URL);
 		if (aweUrl == null)
@@ -672,6 +655,8 @@ public class SDKMethodRunner {
 			final Map<String, Object> jobInput,
 			final String appJobId,
 			final Map<String, String> config) throws Exception {
+		checkObjectLength(jobInput, MAX_PARAM_B, "Input", null);
+		SanitizeMongoObject.sanitize(jobInput);
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = new ExecTask();
 		dbTask.setUjsJobId(ujsJobId);
