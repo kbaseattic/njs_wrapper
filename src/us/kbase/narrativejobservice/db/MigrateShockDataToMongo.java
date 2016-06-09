@@ -10,7 +10,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URL;
 import java.net.UnknownHostException;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 
 import com.fasterxml.jackson.core.JsonParseException;
@@ -83,30 +85,36 @@ public class MigrateShockDataToMongo {
 				.getCollection(ExecEngineMongoDb.COL_EXEC_TASKS);
 		log("Mongo connection: " + col.getDB().getMongo().getConnectPoint() +
 				" db: " + col.getDB());
+		log("Objects to convert: " + col.count());
 		final URL shockURL = new URL(config.get(CFG_PROP_SHOCK_URL));
 		log("Shock URL: " + shockURL);
 		final BasicShockClient bsc = new BasicShockClient(shockURL, token);
+		final Set<String> seenIDs = new HashSet<String>();
 		int count = 1;
 		for (DBObject j: col.find()) {
 			final String jobId = (String) j.get("ujs_job_id");
+			if (seenIDs.contains(jobId)) {
+				log("Skipping " + jobId + ", already processed");
+				continue;
+			}
+			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
 			final String shockIn = (String) j.get("input_shock_id");
 			final String shockOut = (String) j.get("output_shock_id");
 			final DBObject update = new BasicDBObject();
 			log("    input shock id: " + shockIn);
 			log("    output shock id: " + shockOut);
-			if (DONT_PULL_SHOCK_NODES) {
-				continue;
-			}
-			getShockData(bsc, shockIn, update, "input");
-			getShockData(bsc, shockOut, update, "output");
-			DBObject q = new BasicDBObject("ujs_job_id", jobId);
-			if (!dryrun) {
-				try {
-					col.update(q, new BasicDBObject("$set", update));
-				} catch (WriteConcernException e) {
-					log("Failed mongo write with update\n" + update);
-					throw e;
+			if (!DONT_PULL_SHOCK_NODES) {
+				getShockData(bsc, shockIn, update, "input");
+				getShockData(bsc, shockOut, update, "output");
+				DBObject q = new BasicDBObject("ujs_job_id", jobId);
+				if (!dryrun) {
+					try {
+						col.update(q, new BasicDBObject("$set", update));
+					} catch (WriteConcernException e) {
+						log("Failed mongo write with update\n" + update);
+						throw e;
+					}
 				}
 			}
 			count++;

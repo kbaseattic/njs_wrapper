@@ -277,8 +277,6 @@ public class SDKMethodRunner {
 				"impossible occurred and a job was started without parameters");
 	}
 	
-	//TODO SHOCK test with null input
-	//TODO SHOCK test with null output
 	//TODO SHOCK test size limits on input & output
 	//TODO SHOCK db converter - test
 	private static FinishJobParams getJobOutput(
