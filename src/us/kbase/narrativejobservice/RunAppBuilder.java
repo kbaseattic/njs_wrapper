@@ -2,9 +2,9 @@ package us.kbase.narrativejobservice;
 
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getDb;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.loadAppState;
-import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.runAweDockerScript;
+import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.runJob;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.checkJob;
-import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getAweDockerScriptLogs;
+import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getJobLogs;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getCatalogClient;
 
 import java.net.URL;
@@ -203,7 +203,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			        srvUrl.isEmpty()) {
 			    RunJobParams params = new RunJobParams().withMethod(srvMethod)
 			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
-			    String stepJobId = runAweDockerScript(params, token, jobId, config, null);
+			    String stepJobId = runJob(params, token, jobId, config, null);
 			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
 	            updateAppState(appState, config);
 			    JobState jobState = null;
@@ -314,7 +314,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                         step.getMethodSpecId() + "]: " + ex.getMessage());
             }
         }
-        String jobId = runAweDockerScript(params, token, "", config, aweClientGroups);
+        String jobId = runJob(params, token, "", config, aweClientGroups);
         AppState appState = initAppState(jobId, config);
         appState.setOriginalApp(app);
         appState.setJobState(APP_STATE_QUEUED);
@@ -376,7 +376,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	                String errorText = retError.getError();
 	                if (errorText == null)
 	                    errorText = "Message: " + retError.getMessage();
-	                List<LogLine> logLines = getAweDockerScriptLogs(stepJobId, null, token, null, config).getLines();
+	                List<LogLine> logLines = getJobLogs(stepJobId, null, token, null, config).getLines();
 	                if (logLines.size() > 0) {
 	                    StringBuilder logPart = new StringBuilder("\nConsole output/error logs:\n");
 	                    for (int i = 0; i < Math.min(ERROR_HEAD_TAIL_LOG_LINES, logLines.size()); i++)
