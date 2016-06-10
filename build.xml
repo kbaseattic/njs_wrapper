@@ -150,6 +150,14 @@ java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkj
     <mkdir dir="${env.JENKINS_REPORT_DIR}"/>
   </target>
 
+  <target name="shockmigscript" depends="compile" description="create script to run shock->mongo migration">
+    <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
+    <echo file="./migrate_shock_data_to_mongo.sh">#!/bin/sh
+java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
+    </echo>
+    <chmod file="./migrate_shock_data_to_mongo.sh" perm="a+x"/>
+  </target>
+
   <target name="test" depends="compile, preparejunitreportdir" description="run all tests">
     <!-- Define absolute path to main jar file-->
     <junit printsummary="yes" haltonfailure="yes" fork="true">

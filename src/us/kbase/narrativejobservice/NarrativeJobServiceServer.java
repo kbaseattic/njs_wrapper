@@ -94,7 +94,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
-    public static final String CFG_PROP_NARRATIVE_PROXY_SHARING_USER = "narrative.proxy.sharing.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
     public static final String CFG_PROP_MONGO_HOSTS = "mongodb-host";
@@ -707,7 +706,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = SDKMethodRunner.runAweDockerScript(params, authPart.toString(), null, config(), null);
+        returnVal = SDKMethodRunner.runJob(params, authPart.toString(), null, config(), null);
         //END run_job
         return returnVal;
     }
@@ -726,7 +725,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         Map<String,String> return2 = null;
         //BEGIN get_job_params
         return2 = new LinkedHashMap<String, String>();
-        return1 = SDKMethodRunner.getAweDockerScriptInput(jobId, authPart.toString(), config(), return2);
+        return1 = SDKMethodRunner.getJobInputParams(jobId, authPart.toString(), config(), return2);
         //END get_job_params
         Tuple2<RunJobParams, Map<String,String>> returnVal = new Tuple2<RunJobParams, Map<String,String>>();
         returnVal.setE1(return1);
@@ -746,7 +745,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
-        returnVal = (long)SDKMethodRunner.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
+        returnVal = (long)SDKMethodRunner.addJobLogs(jobId, lines, authPart.toString(), config());
         //END add_job_logs
         return returnVal;
     }
@@ -762,7 +761,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
-        returnVal = SDKMethodRunner.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
+        returnVal = SDKMethodRunner.getJobLogs(params.getJobId(), params.getSkipLines(), 
                 authPart.toString(), getAdminUsers(), config());
         //END get_job_logs
         return returnVal;
@@ -779,7 +778,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
-    	SDKMethodRunner.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
+    	SDKMethodRunner.finishJob(jobId, params, authPart.toString(), logger, config());
         //END finish_job
     }
 

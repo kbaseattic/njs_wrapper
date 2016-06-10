@@ -69,6 +69,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -187,6 +188,106 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    private Map<String, Object> buildInsanitaryObject() {
+        Map<String, Object> inner = new HashMap<String, Object>();
+        inner.put("$$.%%%bad...$$%%%key", "value");
+        inner.put("key1", 1);
+        inner.put("key2", null);
+        inner.put("key3", true);
+        Map<String, Object> outer = new HashMap<String, Object>();
+        outer.put("id", "foo");
+        outer.put("bad%.$key$.%", "value");
+        outer.put("key", Arrays.asList(inner));
+        outer.put("key2", 2);
+        outer.put("key4", null);
+        outer.put("key5", false);
+        return outer;
+    }
+    
+    @Test
+    public void testInsanitaryParams() throws Exception {
+        System.out.println("Test [testInsanitaryParams]");
+        Map<String, Object> outer = buildInsanitaryObject();
+
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(outer),
+                null);
+        Tuple2<RunJobParams, Map<String, String>> rjp =
+                client.getJobParams(js.getJobId());
+        Map<String, Object> got = rjp.getE1().getParams().get(0)
+            .asClassInstance(Map.class);
+        assertThat("incorrect params", got, is(outer));
+    }
+    
+    @Test
+    public void testInsanitaryReturns() throws Exception {
+        System.out.println("Test [testInsanitaryReturns]");
+        Map<String, Object> ret = buildInsanitaryObject();
+        String ref = saveObjectToWs(ret, "testInsanitaryReturns");
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id", "bar");
+        params.put("ret", ref);
+        
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(params),
+                null);
+        System.out.println(js.getResult());
+        List<Map<String, Object>> got =
+                js.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+        
+        JobState jres = client.checkJob(js.getJobId());
+        got = jres.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+    }
+
+    private Map<String, Object> buildLargeObject() {
+        
+        Map<String, Object> ret = new HashMap<String, Object>();
+        for (int i = 0; i < 255548; i++) {
+            ret.put("key" + i, "01234");
+        }
+        ret.put("id", "foo");
+        return ret;
+    }
+    
+    @Test
+    public void testLargeParams() throws Exception {
+        //note the SDKLocalMethodRunner limits returns to 15k
+        System.out.println("Test [testLargeParams]");
+        Map<String, Object> p = buildLargeObject();
+
+        //should work
+        runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+        p.put("foo", "wheeeee");
+        
+        try {
+            runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+            fail("started job with too large object");
+        } catch (ServerException se) {
+            assertThat("incorrect exception message", se.getLocalizedMessage(),
+                    is("Input parameters are above 5000000B maximum: 5000004"));
+        }
+    }
+    
+    private String saveObjectToWs(
+            Map<String, Object> ret, final String objname) throws IOException,
+            JsonClientException, Exception, InvalidFileFormatException {
+        Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>> obj =
+                getWsClient(token, loadConfig())
+                    .saveObjects(new SaveObjectsParams()
+                        .withWorkspace(testWsName)
+                        .withObjects(Arrays.asList(
+                                new ObjectSaveData()
+                                    .withData(new UObject(ret))
+                                    .withName(objname)
+                                    .withType("Empty.AType")
+                                )
+                    )).get(0);
+        return obj.getE7() + "/" + obj.getE1();
+    }
+    
     public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
@@ -1409,7 +1510,6 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
