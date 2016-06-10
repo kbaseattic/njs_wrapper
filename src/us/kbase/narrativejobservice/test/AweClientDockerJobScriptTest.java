@@ -1480,6 +1480,7 @@ public class AweClientDockerJobScriptTest {
                 "#!/bin/bash",
                 "cd " + dir.getAbsolutePath(),
                 "export PATH=" + binDir.getAbsolutePath() + ":$PATH",
+                "export AWE_CLIENTGROUP=test_client_group",
                 aweClientExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
                 "echo $pid > pid.txt"
                 ), scriptFile);
@@ -1760,8 +1761,8 @@ public class AweClientDockerJobScriptTest {
 
         @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
         public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
-            File customDir = new File(workDir, token.getClientId());
-            if (customDir.exists()) {
+            if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
+                    filter.getClientGroup().equals("test_client_group")) {
                 VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
                         new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/custom")));
                 return Arrays.asList(ret);

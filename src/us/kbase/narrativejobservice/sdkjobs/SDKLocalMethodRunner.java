@@ -218,16 +218,16 @@ public class SDKLocalMethodRunner {
             logFlusher.start();
             // Let's check if there are some volume mount rules set up for this module
             List<Bind> additionalBinds = null;
-            String adminTokenStr = System.getenv("KB_AUTH_TOKEN");
+            String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
             if (adminTokenStr == null || adminTokenStr.isEmpty())
-                adminTokenStr = System.getProperty("KB_AUTH_TOKEN");  // For tests
+                adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
             if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
                 final AuthToken adminToken = new AuthToken(adminTokenStr);
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
                 adminCatClient.setAllSSLCertificatesTrusted(true);
                 List<VolumeMountConfig> vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
-                        modMeth.getModule()));
+                        modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
                 if (vmc != null && vmc.size() > 0) {
                     if (vmc.size() > 1)
                         throw new IllegalStateException("More than one rule for Docker volume mounts was found");
