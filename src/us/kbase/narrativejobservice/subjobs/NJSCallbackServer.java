@@ -8,6 +8,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.UUID;
 
+import com.github.dockerjava.api.model.Bind;
+
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
@@ -25,13 +27,17 @@ public class NJSCallbackServer extends CallbackServer {
 
     private static final long serialVersionUID = 1L;
 
+    protected final List<Bind> additionalBinds;
+    
     public NJSCallbackServer(
             final AuthToken token,
             final CallbackServerConfig config,
             final ModuleRunVersion runver,
             final List<UObject> methodParameters,
-            final List<String> inputWorkspaceObjects) {
+            final List<String> inputWorkspaceObjects,
+            final List<Bind> additionalBinds) {
         super(token, config, runver, methodParameters, inputWorkspaceObjects);
+        this.additionalBinds = additionalBinds;
     }
 
     @Override
@@ -43,7 +49,7 @@ public class NJSCallbackServer extends CallbackServer {
             final String serviceVer)
             throws IOException, JsonClientException, TokenFormatException {
         return new NJSSubsequentCallRunner(token, config,
-                jobId, modmeth, serviceVer);
+                jobId, modmeth, serviceVer, additionalBinds);
     }
     
     public static void main(final String[] args) throws Exception {
@@ -68,7 +74,7 @@ public class NJSCallbackServer extends CallbackServer {
                 new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
         
         NJSCallbackServer serv = new NJSCallbackServer(token, cfg, runver,
-                new LinkedList<UObject>(), new LinkedList<String>());
+                new LinkedList<UObject>(), new LinkedList<String>(), null);
         
         new Thread(new CallbackRunner(serv, port)).start();
         System.out.println("Started on port " + port);

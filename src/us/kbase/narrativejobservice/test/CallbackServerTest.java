@@ -122,7 +122,7 @@ public class CallbackServerTest {
                 AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
                         temp, log).build();
         final JsonServerServlet callback = new NJSCallbackServer(
-                token, cbcfg, runver, params, wsobjs);
+                token, cbcfg, runver, params, wsobjs, null);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =
                 new ServletContextHandler(

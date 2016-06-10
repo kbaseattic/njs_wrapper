@@ -2,7 +2,10 @@ package us.kbase.narrativejobservice.subjobs;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
+
+import com.github.dockerjava.api.model.Bind;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
@@ -13,15 +16,18 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
-
+    protected final List<Bind> additionalBinds;
+    
     public NJSSubsequentCallRunner(
             final AuthToken token,
             final CallbackServerConfig config,
             final UUID jobId,
             final ModuleMethod modmeth,
-            final String serviceVer)
+            final String serviceVer,
+            final List<Bind> additionalBinds)
             throws IOException, JsonClientException, TokenFormatException {
         super(token, config, jobId, modmeth, serviceVer);
+        this.additionalBinds = additionalBinds;
     }
 
     @Override
@@ -44,7 +50,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, null,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString());
+                jobId.toString(), additionalBinds);
         return outputFile;
     }
     

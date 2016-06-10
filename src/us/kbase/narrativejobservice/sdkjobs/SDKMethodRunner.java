@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.WriteConcernException;
 
+import us.kbase.auth.AuthException;
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
@@ -60,8 +61,10 @@ public class SDKMethodRunner {
 	public static final Set<String> RELEASE_TAGS =
 			JobRunnerConstants.RELEASE_TAGS;
 	public static final int MAX_LOG_LINE_LENGTH = 1000;
-	public static String REQ_REL = "requested_release";
+	public static final String REQ_REL = "requested_release";
 	private static final int MAX_PARAM_B = 5000000;
+	
+	private static AuthToken cachedCatalogAdminAuth = null;
 
 	private static ExecEngineMongoDb db = null;
 
@@ -105,17 +108,32 @@ public class SDKMethodRunner {
 			aweClientGroups = "";
 		String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
 				ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-				authPart, aweClientGroups);
+				authPart, aweClientGroups, getCatalogAdminAuth(config));
 		if (appJobId != null && appJobId.isEmpty())
 			appJobId = ujsJobId;
 		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
 		return ujsJobId;
 	}
 
+	private static AuthToken getCatalogAdminAuth(Map<String, String> config) 
+	        throws IOException, AuthException {
+	    if (cachedCatalogAdminAuth != null && cachedCatalogAdminAuth.isExpired())
+	        cachedCatalogAdminAuth = null;
+	    if (cachedCatalogAdminAuth == null) {
+	        String adminUser = getRequiredConfigParam(config, 
+	                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
+	        String adminPwd = getRequiredConfigParam(config, 
+	                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
+	        cachedCatalogAdminAuth = AuthService.login(adminUser, adminPwd).getToken();
+	    }
+	    return cachedCatalogAdminAuth;
+	}
+	
 	private static void checkModuleAndUpdateRunJobParams(
 			final RunJobParams params,
 			final Map<String, String> config)
-					throws IOException, JsonClientException {
+					throws IOException, JsonClientException, 
+					AuthException {
 		final String[] modMeth = params.getMethod().split("\\.");
 		if (modMeth.length != 2) {
 			throw new IllegalStateException("Illegal method name: " +
@@ -507,7 +525,8 @@ public class SDKMethodRunner {
 
 	public static CatalogClient getCatalogClient(Map<String, String> config,
 			boolean asAdmin)
-					throws UnauthorizedException, IOException  {
+			        throws UnauthorizedException, IOException, 
+			        AuthException {
 		final String catalogUrl = getRequiredConfigParam(config, 
 				NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
 		final CatalogClient ret;
@@ -520,11 +539,7 @@ public class SDKMethodRunner {
 					" is invalid: " + catalogUrl);
 		}
 		if (asAdmin) {
-			String catalogUser = getRequiredConfigParam(config, 
-					NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
-			String catalogPwd = getRequiredConfigParam(config, 
-					NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
-			ret = new CatalogClient(catURL, catalogUser, catalogPwd);
+			ret = new CatalogClient(catURL, getCatalogAdminAuth(config));
 		} else {
 			ret = new CatalogClient(catURL);
 		}
