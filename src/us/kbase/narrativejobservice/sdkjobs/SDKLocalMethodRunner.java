@@ -226,8 +226,13 @@ public class SDKLocalMethodRunner {
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
                 adminCatClient.setAllSSLCertificatesTrusted(true);
-                List<VolumeMountConfig> vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
-                        modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
+                List<VolumeMountConfig> vmc = null;
+                try {
+                    vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
+                            modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
+                } catch (Exception ex) {
+                    log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
+                }
                 if (vmc != null && vmc.size() > 0) {
                     if (vmc.size() > 1)
                         throw new IllegalStateException("More than one rule for Docker volume mounts was found");
