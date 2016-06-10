@@ -635,7 +635,6 @@ public class SDKMethodRunner {
 				"impossible occurred and a job was started without parameters");
 	}
 	
-	//TODO SHOCK db converter - test
 	private static FinishJobParams getJobOutput(
 			final String ujsJobId,
 			final AuthToken token,
