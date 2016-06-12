@@ -24,7 +24,7 @@ public class AweUtils {
     @SuppressWarnings("unchecked")
     public static String runTask(String aweServerUrl, String pipeline, 
             String jobName, String args, String scriptName, AuthToken auth,
-            String aweClientGroups) throws Exception {
+            String aweClientGroups, AuthToken adminAuth) throws Exception {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         Map<String, Object> job = new LinkedHashMap<String, Object>();   // AwfTemplate
@@ -44,6 +44,8 @@ public class AweUtils {
         Map<String, Object> priv = new LinkedHashMap<String, Object>();
         String token = auth.toString();
         priv.put("KB_AUTH_TOKEN", token);
+        if (adminAuth != null)
+            priv.put("KB_ADMIN_AUTH_TOKEN", adminAuth.toString());
         env.put("private", priv);
         cmd.put("environ", env);
         cmd.put("description", "");

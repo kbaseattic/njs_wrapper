@@ -63,6 +63,9 @@ import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
@@ -1098,7 +1101,45 @@ public class AweClientDockerJobScriptTest {
             throw ex;
         }
     }
-    
+
+    @Test
+    public void testCusomtData() throws Exception {
+        // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
+        // <work-dir>/<userid> folder exists in host file system. This
+        System.out.println("Test [testCustomData]");
+        String dataFileName = "custom_test.txt";
+        File customDir = new File(workDir, token.getClientId());
+        File customFile = new File(customDir, dataFileName);
+        try {
+            customDir.mkdir();
+            PrintWriter pw = new PrintWriter(customFile);
+            pw.println("Custom data file");
+            pw.close();
+            try {
+                AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/custom\"");
+                String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+                Assert.assertEquals(errMsg, "completed", st.getJobState());
+                Assert.assertNotNull(errMsg, st.getStepOutputs());
+                String step1output = st.getStepOutputs().get("step1");
+                Assert.assertNotNull(errMsg, step1output);
+                List<List<String>> data = UObject.getMapper().readValue(step1output, List.class);
+                Assert.assertTrue(errMsg, new TreeSet<String>(data.get(0)).contains(dataFileName));
+            } catch (ServerException ex) {
+                System.err.println(ex.getData());
+                throw ex;
+            }
+        } finally {
+            try {
+                if (customFile.exists())
+                    customFile.delete();
+            } catch (Exception ignore) {}
+            try {
+                if (customDir.exists())
+                    customDir.delete();
+            } catch (Exception ignore) {}
+        }
+    }
+
     @Test
     public void testAsyncClient() throws Exception {
         System.out.println("Test [testAsyncClient]");
@@ -1439,6 +1480,7 @@ public class AweClientDockerJobScriptTest {
                 "#!/bin/bash",
                 "cd " + dir.getAbsolutePath(),
                 "export PATH=" + binDir.getAbsolutePath() + ":$PATH",
+                "export AWE_CLIENTGROUP=test_client_group",
                 aweClientExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
                 "echo $pid > pid.txt"
                 ), scriptFile);
@@ -1715,6 +1757,17 @@ public class AweClientDockerJobScriptTest {
         @JsonServerMethod(rpc = "Catalog.get_client_groups")
         public List<AppClientGroup> getClientGroups(GetClientGroupParams params) throws IOException, JsonClientException {
             return Arrays.asList(new AppClientGroup().withClientGroups(Arrays.asList("*")));
+        }
+
+        @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
+        public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
+            if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
+                    filter.getClientGroup().equals("test_client_group")) {
+                VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
+                        new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/custom")));
+                return Arrays.asList(ret);
+            }
+            return null;
         }
     }
 }

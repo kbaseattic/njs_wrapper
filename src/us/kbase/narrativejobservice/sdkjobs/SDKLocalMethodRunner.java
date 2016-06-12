@@ -27,11 +27,18 @@ import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
+
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.executionengine.CallbackServer;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder;
 import us.kbase.common.executionengine.JobRunnerConstants;
@@ -213,6 +220,37 @@ public class SDKLocalMethodRunner {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
+            // Let's check if there are some volume mount rules set up for this module
+            List<Bind> additionalBinds = null;
+            String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
+            if (adminTokenStr == null || adminTokenStr.isEmpty())
+                adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
+            if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
+                final AuthToken adminToken = new AuthToken(adminTokenStr);
+                final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
+                adminCatClient.setIsInsecureHttpConnectionAllowed(true);
+                adminCatClient.setAllSSLCertificatesTrusted(true);
+                List<VolumeMountConfig> vmc = null;
+                try {
+                    vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
+                            modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
+                } catch (Exception ex) {
+                    log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
+                }
+                if (vmc != null && vmc.size() > 0) {
+                    if (vmc.size() > 1)
+                        throw new IllegalStateException("More than one rule for Docker volume mounts was found");
+                    additionalBinds = new ArrayList<Bind>();
+                    for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
+                        String hostDir = vm.getHostDir();
+                        hostDir = processHostPathForVolumeMount(hostDir, token.getClientId());
+                        String contDir = vm.getContainerDir();
+                        AccessMode am = vm.getReadOnly() != null && vm.getReadOnly() != 0L ?
+                                AccessMode.ro : AccessMode.rw;
+                        additionalBinds.add(new Bind(hostDir, new Volume(contDir), am));
+                    }
+                }
+            }
             // Starting up callback server
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
@@ -229,7 +267,7 @@ public class SDKLocalMethodRunner {
                                 jobDir.toPath(), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
-                        job.getSourceWsObjects());
+                        job.getSourceWsObjects(), additionalBinds);
                 callbackServer = new Server(callbackPort);
                 final ServletContextHandler srvContext =
                         new ServletContextHandler(
@@ -246,7 +284,7 @@ public class SDKLocalMethodRunner {
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId);
+                    refDataDir, null, callbackUrl, jobId, additionalBinds);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -330,6 +368,10 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+    }
+    
+    public static String processHostPathForVolumeMount(String path, String username) {
+        return path.replace("${username}", username);
     }
     
     private static boolean notNullOrEmpty(final String s) {
