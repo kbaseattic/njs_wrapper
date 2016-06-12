@@ -46,6 +46,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1102,8 +1103,9 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @Ignore
     @Test
-    public void testCusomtData() throws Exception {
+    public void testCustomData() throws Exception {
         // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
         // <work-dir>/<userid> folder exists in host file system. This
         System.out.println("Test [testCustomData]");
