@@ -12,7 +12,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +23,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
@@ -50,7 +52,6 @@ import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.common.utils.UTCDateFormat;
 import us.kbase.narrativejobservice.FinishJobParams;
 import us.kbase.narrativejobservice.JsonRpcError;
 import us.kbase.narrativejobservice.LogLine;
@@ -65,7 +66,10 @@ import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class SDKLocalMethodRunner {
-    
+
+    private final static DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
     public static final String RELEASE = JobRunnerConstants.RELEASE;
@@ -121,7 +125,7 @@ public class SDKLocalMethodRunner {
             if (context.getCallStack() == null)
                 context.setCallStack(new ArrayList<MethodCall>());
             context.getCallStack().add(new MethodCall().withJobId(jobId).withMethod(job.getMethod())
-                    .withTime(new UTCDateFormat().formatDate(new Date())));
+                    .withTime(DATE_FORMATTER.print(new DateTime())));
             Map<String, Object> rpc = new LinkedHashMap<String, Object>();
             rpc.put("version", "1.1");
             rpc.put("method", job.getMethod());
