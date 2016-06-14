@@ -3,7 +3,6 @@ package us.kbase.narrativejobservice;
 import com.fasterxml.jackson.core.type.TypeReference;
 import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,7 +10,6 @@ import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
-import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UnauthorizedException;
 
@@ -22,19 +20,6 @@ import us.kbase.common.service.UnauthorizedException;
  */
 public class NarrativeJobServiceClient {
     private JsonClientCaller caller;
-    private static URL DEFAULT_URL = null;
-    static {
-        try {
-            DEFAULT_URL = new URL("https://kbase.us/services/njs_wrapper/");
-        } catch (MalformedURLException mue) {
-            throw new RuntimeException("Compile error in client - bad url compiled");
-        }
-    }
-
-    /** Constructs a client with the default url and no user credentials.*/
-    public NarrativeJobServiceClient() {
-       caller = new JsonClientCaller(DEFAULT_URL);
-    }
 
 
     /** Constructs a client with a custom URL and no user credentials.
@@ -64,27 +49,6 @@ public class NarrativeJobServiceClient {
      */
     public NarrativeJobServiceClient(URL url, String user, String password) throws UnauthorizedException, IOException {
         caller = new JsonClientCaller(url, user, password);
-    }
-
-    /** Constructs a client with the default URL.
-     * @param token the user's authorization token.
-     * @throws UnauthorizedException if the token is not valid.
-     * @throws IOException if an IOException occurs when checking the token's
-     * validity.
-     */
-    public NarrativeJobServiceClient(AuthToken token) throws UnauthorizedException, IOException {
-        caller = new JsonClientCaller(DEFAULT_URL, token);
-    }
-
-    /** Constructs a client with the default URL.
-     * @param user the user name.
-     * @param password the password for the user name.
-     * @throws UnauthorizedException if the credentials are not valid.
-     * @throws IOException if an IOException occurs when checking the user's
-     * credentials.
-     */
-    public NarrativeJobServiceClient(String user, String password) throws UnauthorizedException, IOException {
-        caller = new JsonClientCaller(DEFAULT_URL, user, password);
     }
 
     /** Get the token this client uses to communicate with the server.
@@ -132,7 +96,7 @@ public class NarrativeJobServiceClient {
         caller.setInsecureHttpConnectionAllowed(allowed);
     }
 
-    /** Deprecated. Use setIsInsecureHttpConnectionAllowed().
+    /** Deprecated. Use setInsecureHttpConnectionAllowed().
      * @deprecated
      */
     public void setAuthAllowedForHttp(boolean isAuthAllowedForHttp) {
@@ -183,11 +147,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppState runApp(App app, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public AppState runApp(App app) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(app);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.run_app", args, retType, true, true, jsonRpcContext);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.run_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -200,11 +164,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public AppState checkAppState(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public AppState checkAppState(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.check_app_state", args, retType, true, true, jsonRpcContext);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.check_app_state", args, retType, true, true);
         return res.get(0);
     }
 
@@ -218,11 +182,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String suspendApp(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public String suspendApp(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.suspend_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.suspend_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -235,11 +199,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String resumeApp(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public String resumeApp(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.resume_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.resume_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -252,11 +216,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String deleteApp(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public String deleteApp(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.delete_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.delete_app", args, retType, true, true);
         return res.get(0);
     }
 
@@ -268,10 +232,10 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Map<String,String> listConfig(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public Map<String,String> listConfig() throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Map<String,String>>> retType = new TypeReference<List<Map<String,String>>>() {};
-        List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false, jsonRpcContext);
+        List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false);
         return res.get(0);
     }
 
@@ -284,10 +248,10 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String ver(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public String ver() throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.ver", args, retType, true, false, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.ver", args, retType, true, false);
         return res.get(0);
     }
 
@@ -300,10 +264,10 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Status status(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public Status status() throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Status>> retType = new TypeReference<List<Status>>() {};
-        List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false, jsonRpcContext);
+        List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false);
         return res.get(0);
     }
 
@@ -315,10 +279,10 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<AppState> listRunningApps(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public List<AppState> listRunningApps() throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<List<AppState>>> retType = new TypeReference<List<List<AppState>>>() {};
-        List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false, jsonRpcContext);
+        List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false);
         return res.get(0);
     }
 
@@ -333,11 +297,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String runJob(RunJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public String runJob(RunJobParams params) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_job", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_job", args, retType, true, true);
         return res.get(0);
     }
 
@@ -351,11 +315,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Tuple2<RunJobParams, Map<String,String>> getJobParams(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public Tuple2<RunJobParams, Map<String,String>> getJobParams(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<Tuple2<RunJobParams, Map<String,String>>> retType = new TypeReference<Tuple2<RunJobParams, Map<String,String>>>() {};
-        Tuple2<RunJobParams, Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.get_job_params", args, retType, true, true, jsonRpcContext);
+        Tuple2<RunJobParams, Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.get_job_params", args, retType, true, true);
         return res;
     }
 
@@ -369,12 +333,12 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Long addJobLogs(String jobId, List<LogLine> lines, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public Long addJobLogs(String jobId, List<LogLine> lines) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         args.add(lines);
         TypeReference<List<Long>> retType = new TypeReference<List<Long>>() {};
-        List<Long> res = caller.jsonrpcCall("NarrativeJobService.add_job_logs", args, retType, true, true, jsonRpcContext);
+        List<Long> res = caller.jsonrpcCall("NarrativeJobService.add_job_logs", args, retType, true, true);
         return res.get(0);
     }
 
@@ -387,11 +351,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public GetJobLogsResults getJobLogs(GetJobLogsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public GetJobLogsResults getJobLogs(GetJobLogsParams params) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<GetJobLogsResults>> retType = new TypeReference<List<GetJobLogsResults>>() {};
-        List<GetJobLogsResults> res = caller.jsonrpcCall("NarrativeJobService.get_job_logs", args, retType, true, true, jsonRpcContext);
+        List<GetJobLogsResults> res = caller.jsonrpcCall("NarrativeJobService.get_job_logs", args, retType, true, true);
         return res.get(0);
     }
 
@@ -405,12 +369,12 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void finishJob(String jobId, FinishJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public void finishJob(String jobId, FinishJobParams params) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         args.add(params);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("NarrativeJobService.finish_job", args, retType, false, true, jsonRpcContext);
+        caller.jsonrpcCall("NarrativeJobService.finish_job", args, retType, false, true);
     }
 
     /**
@@ -423,11 +387,11 @@ public class NarrativeJobServiceClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public JobState checkJob(String jobId, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+    public JobState checkJob(String jobId) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState>> retType = new TypeReference<List<JobState>>() {};
-        List<JobState> res = caller.jsonrpcCall("NarrativeJobService.check_job", args, retType, true, true, jsonRpcContext);
+        List<JobState> res = caller.jsonrpcCall("NarrativeJobService.check_job", args, retType, true, true);
         return res.get(0);
     }
 }

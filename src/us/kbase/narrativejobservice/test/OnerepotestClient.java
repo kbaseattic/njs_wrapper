@@ -177,7 +177,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("onerepotest._send_data_submit", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("onerepotest.send_data_async", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 
@@ -194,7 +194,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState<List<UObject>>>> retType = new TypeReference<List<JobState<List<UObject>>>>() {};
-        List<JobState<List<UObject>>> res = caller.jsonrpcCall("onerepotest._check_job", args, retType, true, true);
+        List<JobState<List<UObject>>> res = caller.jsonrpcCall("onerepotest.send_data_check", args, retType, true, true);
         return res.get(0);
     }
 
@@ -258,7 +258,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(text);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("onerepotest._print_lines_submit", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("onerepotest.print_lines_async", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 
@@ -275,7 +275,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState<List<Long>>>> retType = new TypeReference<List<JobState<List<Long>>>>() {};
-        List<JobState<List<Long>>> res = caller.jsonrpcCall("onerepotest._check_job", args, retType, true, true);
+        List<JobState<List<Long>>> res = caller.jsonrpcCall("onerepotest.print_lines_check", args, retType, true, true);
         return res.get(0);
     }
 
@@ -338,7 +338,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(error);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("onerepotest._generate_error_submit", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("onerepotest.generate_error_async", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 
@@ -354,7 +354,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState<Object>>> retType = new TypeReference<List<JobState<Object>>>() {};
-        List<JobState<Object>> res = caller.jsonrpcCall("onerepotest._check_job", args, retType, true, true);
+        List<JobState<Object>> res = caller.jsonrpcCall("onerepotest.generate_error_check", args, retType, true, true);
         return res.get(0);
     }
 
@@ -413,7 +413,7 @@ public class OnerepotestClient {
         }
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("onerepotest._get_deploy_config_submit", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("onerepotest.get_deploy_config_async", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 
@@ -429,7 +429,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState<List<Map<String,String>>>>> retType = new TypeReference<List<JobState<List<Map<String,String>>>>>() {};
-        List<JobState<List<Map<String,String>>>> res = caller.jsonrpcCall("onerepotest._check_job", args, retType, true, true);
+        List<JobState<List<Map<String,String>>>> res = caller.jsonrpcCall("onerepotest.get_deploy_config_check", args, retType, true, true);
         return res.get(0);
     }
 
@@ -490,7 +490,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(refDataPath);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("onerepotest._list_ref_data_submit", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("onerepotest.list_ref_data_async", args, retType, true, true, jsonRpcContext);
         return res.get(0);
     }
 
@@ -507,7 +507,7 @@ public class OnerepotestClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState<List<List<String>>>>> retType = new TypeReference<List<JobState<List<List<String>>>>>() {};
-        List<JobState<List<List<String>>>> res = caller.jsonrpcCall("onerepotest._check_job", args, retType, true, true);
+        List<JobState<List<List<String>>>> res = caller.jsonrpcCall("onerepotest.list_ref_data_check", args, retType, true, true);
         return res.get(0);
     }
 

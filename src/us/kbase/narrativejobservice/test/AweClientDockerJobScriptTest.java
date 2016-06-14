@@ -1,14 +1,9 @@
 package us.kbase.narrativejobservice.test;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -17,18 +12,13 @@ import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
@@ -41,15 +31,12 @@ import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -58,21 +45,16 @@ import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
-import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.UObject;
-import us.kbase.common.test.TestException;
-import us.kbase.common.test.controllers.mongo.MongoController;
-import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
@@ -86,15 +68,9 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.workspace.CreateWorkspaceParams;
-import us.kbase.workspace.GetObjects2Params;
-import us.kbase.workspace.ObjectData;
 import us.kbase.workspace.ObjectSaveData;
-import us.kbase.workspace.ObjectSpecification;
-import us.kbase.workspace.ProvenanceAction;
 import us.kbase.workspace.SaveObjectsParams;
-import us.kbase.workspace.SubAction;
 import us.kbase.workspace.WorkspaceClient;
-import us.kbase.workspace.WorkspaceIdentity;
 
 @SuppressWarnings("unchecked")
 public class AweClientDockerJobScriptTest {
@@ -104,7 +80,6 @@ public class AweClientDockerJobScriptTest {
     private static File mongoDir = null;
     //private static File shockDir = null;
     private static File aweServerDir = null;
-    private static int awePort = -1;
     private static File aweClientDir = null;
     private static File njsServiceDir = null;
     private static Server catalogWrapper = null;
@@ -113,25 +88,13 @@ public class AweClientDockerJobScriptTest {
     private static final String testContigsetObjName = "temp_contigset.1";
     private static File refDataDir = null;
     
+    private static int mongoInitWaitSeconds = 300;
     private static int aweServerInitWaitSeconds = 60;
     private static int aweClientInitWaitSeconds = 60;
     private static int njsJobWaitSeconds = 60;
-    private static MongoController mongo;
-    
-    private static String STAGED1_NAME = "staged1";
-    private static String STAGED2_NAME = "staged2";
-    private static Map<String, String> NAME2REF =
-            new HashMap<String, String>();
     
     private static List<LogExecStatsParams> execStats = Collections.synchronizedList(
             new ArrayList<LogExecStatsParams>());
-
-    private final static DateTimeFormatter DATE_PARSER =
-            new DateTimeFormatterBuilder()
-                .append(DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ss"))
-                .appendOptional(DateTimeFormat.forPattern(".SSS").getParser())
-                .append(DateTimeFormat.forPattern("Z"))
-                .toFormatter();
 
     @Test
     public void testOneJob() throws Exception {
@@ -185,569 +148,6 @@ public class AweClientDockerJobScriptTest {
             System.err.println(ex.getData());
             throw ex;
         }
-    }
-
-    public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
-        if (release.equals("dev")) {
-            return mi.getDev();
-        } else if (release.equals("beta")) {
-            return mi.getBeta();
-        } else {
-            return mi.getRelease();
-        }
-    }
-    
-    @Test
-    public void testNestedAsync() throws Exception {
-        System.out.println("Test [testNestedAsync]");
-        execStats.clear();
-        String moduleName = "njs_sdk_test_1";
-        String methodName = "run";
-        String objectName = "async-basic";
-        String release = "dev";
-        String ver = "0.0.2";
-        final String modmeth = moduleName + "." + methodName;
-        Map<String, Object> p = ImmutableMap.<String, Object>builder()
-            .put("save", ImmutableMap.<String,Object>builder()
-                .put("ws", testWsName)
-                .put("name", objectName)
-                .build()
-            )
-            .put("jobs", Arrays.asList(
-                ImmutableMap.<String, Object>builder()
-                    .put("method", modmeth)
-                    .put("params", Arrays.asList(
-                        ImmutableMap.<String, Object>builder()
-                            .put("wait", 10)
-                            .put("id", "inner1").build()))
-                    .put("ver", release)
-                    .put("cli_async", true)
-                    .build(),
-                ImmutableMap.<String, Object>builder()
-                    .put("method", modmeth)
-                    .put("params", Arrays.asList(
-                        ImmutableMap.<String, Object>builder()
-                            .put("wait", 5)
-                            .put("id", "inner2")
-                            .put("jobs", Arrays.asList(
-                                ImmutableMap.<String, Object>builder()
-                                    .put("method", modmeth)
-                                    .put("params", Arrays.asList(
-                                        ImmutableMap.<String, Object>builder()
-                                            .put("wait", 3)
-                                            .put("id", "inner2_1").build()))
-                                    .put("ver", release)
-                                    .put("cli_async", true)
-                                    .build()
-                            )).build()
-                     ))
-                     .put("ver", release)
-                     .put("cli_async", true)
-                     .build()
-                )
-            )
-            .put("id", "outer")
-            .put("run_jobs_async", true)
-            .build();
-        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
-            expsas.add(new SubActionSpec()
-            .withMod(moduleName)
-            .withVer("0.0.2")
-            .withRel("dev")
-        );
-        JobState res = runJobAndCheckProvenance(moduleName, methodName,
-                release, ver, new UObject(p), objectName, expsas,
-                Arrays.asList(STAGED1_NAME));
-        System.out.println("Results:\n" + res.getResult()
-                .asClassInstance(List.class));
-        checkResults(res, p, moduleName);
-        checkLoggingComplete(res);
-    }
-
-    private void checkLoggingComplete(JobState res) throws Exception {
-        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams()
-                .withJobId(res.getJobId())
-                .withSkipLines(0L)).getLines();
-        Assert.assertTrue(!lines.isEmpty());
-        Assert.assertEquals("Job is done", lines.get(lines.size() - 1)
-                .getLine());
-        // Let's check that AWE script is done
-        String aweServerUrl = "http://localhost:" + awePort;
-        String aweJobId = (String)res.getAdditionalProperties()
-                .get("awe_job_id");
-        String aweState = null;
-        for (int i = 0; i < 5; i++) {
-            Map<String, Object> aweJob = AweUtils.getAweJobDescr(
-                    aweServerUrl, aweJobId, token.toString());
-            Map<String, Object> aweData =
-                    (Map<String, Object>)aweJob.get("data");
-            if (aweData != null)
-                aweState = (String)aweData.get("state");
-            if (aweState != null && aweState.equals("completed"))
-                break;
-            Thread.sleep(1000);
-        }
-        Assert.assertNotNull(aweState);
-        Assert.assertEquals("completed", aweState);
-    }
-    
-    private void checkResults(JobState res, Map<String, Object> params,
-            String name) {
-        Map<String, Object> got = (Map<String, Object>) res.getResult()
-                .asClassInstance(List.class).get(0);
-        checkResults(got, params, name);
-    }
-
-    private void checkResults(Map<String, Object> got,
-            Map<String, Object> params, String name) {
-        assertThat("incorrect name", (String) got.get("name"), is(name));
-        if (params.containsKey("wait")) {
-            assertThat("incorrect wait time", (Integer) got.get("wait"),
-                    is(params.get("wait")));
-        }
-        assertThat("incorrect id", (String) got.get("id"),
-                is(params.get("id")));
-        System.out.println(params.get("id"));
-        assertNotNull("missing hash", (String) got.get("hash"));
-        List<Map<String, Object>> parjobs =
-                (List<Map<String, Object>>) params.get("jobs");
-        if (params.containsKey("jobs")) {
-            List<List<Map<String,Object>>> gotjobs =
-                    (List<List<Map<String, Object>>>) got.get("jobs");
-            assertNotNull("missing jobs", gotjobs);
-            assertThat("not same number of jobs", gotjobs.size(),
-                    is(parjobs.size()));
-            Iterator<List<Map<String, Object>>> gotiter = gotjobs.iterator();
-            Iterator<Map<String, Object>> pariter = parjobs.iterator();
-            while (gotiter.hasNext()) {
-                Map<String, Object> p = pariter.next();
-                String modmeth = (String) p.get("method");
-                String module = modmeth.split("\\.")[0];
-                //results are always wrapped in a list
-                checkResults(gotiter.next().get(0),
-                        //as are parameters
-                        ((List<Map<String, Object>>) p.get("params")).get(0),
-                        (String) module);
-            }
-        }
-    }
-
-    @Test
-    public void testBasicProvenance() throws Exception {
-        System.out.println("Test [testBasicProvenance]");
-        execStats.clear();
-        String moduleName = "njs_sdk_test_2";
-        String methodName = "run";
-        String objectName = "prov-basic";
-        String release = "dev";
-        String ver = "0.0.7";
-        UObject methparams = UObject.fromJsonString(
-            "{\"save\": {\"ws\":\"" + testWsName + "\"," +
-                        "\"name\":\"" + objectName + "\"" +
-                        "}," + 
-             "\"id\": \"myid\"" + 
-             "}");
-        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
-        expsas.add(new SubActionSpec()
-            .withMod(moduleName)
-            .withVer(ver)
-            .withRel(release)
-        );
-        JobState res = runJobAndCheckProvenance(moduleName, methodName,
-                release, ver, methparams, objectName, expsas,
-                Arrays.asList(STAGED1_NAME));
-        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
-        checkLoggingComplete(res);
-        
-        release = "beta";
-        ver = "0.0.6";
-        expsas.set(0, new SubActionSpec()
-            .withMod(moduleName)
-            .withVer(ver)
-            .withRel(release)
-        );
-        res = runJobAndCheckProvenance(moduleName, methodName, release, ver,
-                methparams, objectName, expsas, Arrays.asList(STAGED1_NAME));
-        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
-        checkLoggingComplete(res);
-    }
-    
-    @Test
-    public void testMultiCallProvenance() throws Exception {
-        System.out.println("Test [testMultiCallProvenance]");
-        execStats.clear();
-        String moduleName = "njs_sdk_test_1";
-        String moduleName2 = "njs_sdk_test_2";
-        String methodName = "run";
-        String objectName = "prov_multi";
-        String release = "dev";
-        String ver = "0.0.2";
-        UObject methparams = UObject.fromJsonString(String.format(
-            "{\"save\": {\"ws\":\"%s\"," +
-                        "\"name\":\"%s\"" +
-                        "}," + 
-             "\"jobs\": [{\"method\": \"%s\"," +
-                         "\"params\": [{\"id\": \"id1\", \"wait\": 3}]," +
-                         "\"ver\": \"%s\"" +
-                         "}," +
-                        "{\"method\": \"%s\"," +
-                         "\"params\": [{\"id\": \"id2\", \"wait\": 3}]," +
-                         "\"ver\": \"%s\"" +
-                         "}," +
-                        "{\"method\": \"%s\"," +
-                         "\"params\": [{\"id\": \"id3\", \"wait\": 3}]," +
-                         "\"ver\": \"%s\"" +
-                         "}" +
-                        "]," +
-             "\"id\": \"myid\"" + 
-             "}", testWsName, objectName,
-             moduleName2 + "." + methodName,
-             // dev is on this commit
-             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
-             moduleName + "." + methodName,
-             // this is the latest commit, but a prior commit is registered
-             //for dev
-             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
-             moduleName2 + "." + methodName,
-             "dev"));
-        List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
-        expsas.add(new SubActionSpec()
-            .withMod(moduleName)
-            .withVer("0.0.2")
-            .withRel("dev")
-        );
-        expsas.add(new SubActionSpec()
-            .withMod(moduleName2)
-            .withVer("0.0.7")
-            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
-        );
-        JobState res = runJobAndCheckProvenance(moduleName, methodName,
-                release, ver, methparams, objectName, expsas,
-                Arrays.asList(STAGED2_NAME, STAGED1_NAME));
-        checkResults(res, methparams.asClassInstance(Map.class), moduleName);
-        checkLoggingComplete(res);
-    }
-
-    @Test
-    public void testBadWSIDs() throws Exception {
-        List<String> ws = new ArrayList<String>(Arrays.asList(
-                testWsName + "/" + "objectdoesntexist",
-                testWsName + "/" + STAGED1_NAME,
-                "fakeWSName/foo"));
-        List<String> input = new LinkedList<String>(ws);
-        ws.remove(1);
-        failJobWSRefs(input, String.format("The workspace objects %s either" +
-                " don't exist or were inaccessible to the user %s.",
-                ws, token.getUserName()));
-    }
-    
-    @Test
-    public void testWorkspaceError() throws Exception {
-        // test a workspace error.
-        List<String> input = new ArrayList<String>(Arrays.asList(
-                testWsName + "/" + STAGED1_NAME,
-                testWsName + "/" + "objectdoesntexist/badver"));
-        failJobWSRefs(input, String.format("Error on ObjectSpecification #2:" +
-                " Unable to parse version portion of object reference " +
-                testWsName + "/objectdoesntexist/badver to an integer"));
-    }
-    
-    @Test
-    public void testBadRelease() throws Exception {
-        // note that dev and beta releases can only have one version each,
-        // version tracking only happens for prod
-        
-        failJob("njs_sdk_test_1foo.run", "beta",
-                "Error looking up module njs_sdk_test_1foo with version " +
-                "beta: Module cannot be found based on module_name or " +
-                "git_url parameters.");
-        failJob("njs_sdk_test_1.run", "beta",
-                "Error looking up module njs_sdk_test_1 with version " +
-                "beta: No module version found that matches your criteria!");
-        failJob("njs_sdk_test_1.run", "release",
-                "Error looking up module njs_sdk_test_1 with version " +
-                "release: No module version found that matches your criteria!");
-        failJob("njs_sdk_test_1.run", null,
-                "Error looking up module njs_sdk_test_1 with version " +
-                "release: No module version found that matches your criteria!");
-
-        //this is the newest git commit and was registered in dev but 
-        //then the previous git commit was registered in dev
-        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
-        failJob("njs_sdk_test_1.run", git,
-                "Error looking up module njs_sdk_test_1 with version " +
-                git + ": No module version found that matches your criteria!");
-        failJob("njs_sdk_test_1.run", "foo",
-                "Error looking up module njs_sdk_test_1 with version foo: " +
-                "No module version found that matches your criteria!");
-    }
-    
-    @Test
-    public void testfailJobMultiCallBadRelease() throws Exception {
-        
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
-                "Error looking up module njs_sdk_test_1foo with version " +
-                "release: Module cannot be found based on module_name or " +
-                "git_url parameters.");
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"beta\"",
-                "Error looking up module njs_sdk_test_1 with version " +
-                "beta: No module version found that matches your criteria!");
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"release\"",
-                "Error looking up module njs_sdk_test_1 with version " +
-                "release: No module version found that matches your criteria!");
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "null",
-                "Error looking up module njs_sdk_test_1 with version " +
-                "release: No module version found that matches your criteria!");
-        //this is the newest git commit and was registered in dev but 
-        //then the previous git commit was registered in dev
-        String git = "b0d487271c22f793b381da29e266faa9bb0b2d1b";
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev",
-                "\"b0d487271c22f793b381da29e266faa9bb0b2d1b\"",
-                "Error looking up module njs_sdk_test_1 with version " +
-                git + ": No module version found that matches your criteria!");
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.run", "dev", "\"foo\"",
-                "Error looking up module njs_sdk_test_1 with version foo: " +
-                "No module version found that matches your criteria!");
-    }
-    
-    @Test
-    public void testfailJobBadMethod() throws Exception {
-        failJob("njs_sdk_test_1run", "foo",
-                "Illegal method name: njs_sdk_test_1run");
-        failJob("njs_sdk_test_1.r.un", "foo",
-                "Illegal method name: njs_sdk_test_1.r.un");
-    }
-    
-    @Test
-    public void testfailJobMultiCallBadMethod() throws Exception {
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
-                "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
-                "server class us.kbase.narrativejobservice.subjobs." +
-                "NJSCallbackServer");
-        failJobMultiCall(
-                "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
-                "Illegal method name: njs_sdk_test_1.r.un");
-        
-    }
-
-    private void failJobMultiCall(String outerModMeth, String innerModMeth,
-            String outerRel, String innerRel, String msg) throws Exception {
-        UObject methparams = UObject.fromJsonString(String.format(
-            "{\"jobs\": [{\"method\": \"%s\"," +
-                         "\"params\": [{\"id\": \"id1\"}]," +
-                         "\"ver\": %s" +
-                         "}" +
-                        "]," +
-             "\"id\": \"myid\"" + 
-             "}",
-             innerModMeth, innerRel));
-        JobState ret = runJob(outerModMeth, outerRel, methparams,
-                null);
-        assertThat("correct error message", ret.getError().getMessage(),
-                is(msg));
-    }
-
-    private void failJobWSRefs(List<String> refs, String exp) throws Exception{
-        UObject mt = new UObject(new HashMap<String, String>());
-        try {
-            runJob("foo", "bar", "baz", mt, refs);
-            fail("Ran bad job");
-        } catch (ServerException se) {
-            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
-        }
-    }
-    
-    private void failJob(String moduleMeth, String release, String exp)
-            throws Exception{
-        UObject mt = new UObject(new HashMap<String, String>());
-        try {
-            runJob(moduleMeth, release, mt, null);
-            fail("Ran bad job");
-        } catch (ServerException se) {
-            assertThat("correct exception", se.getLocalizedMessage(), is(exp));
-        }
-    }
-
-    public static class SubActionSpec {
-        public String module;
-        public String release;
-        public String ver;
-        public String commit;
-        
-        public SubActionSpec (){}
-        public SubActionSpec withMod(String mod) {
-            this.module = mod;
-            return this;
-        }
-        
-        public SubActionSpec withRel(String rel) {
-            this.release = rel;
-            return this;
-        }
-        
-        public SubActionSpec withVer(String ver) {
-            this.ver = ver;
-            return this;
-        }
-        
-        public SubActionSpec withCommit(String commit) {
-            this.commit = commit;
-            return this;
-        }
-        public String getVerRel() {
-            if (release == null) {
-                return ver;
-            }
-            return ver + "-" + release;
-        }
-    }
-    private JobState runJobAndCheckProvenance(
-            String moduleName,
-            String methodName,
-            String release,
-            String ver,
-            UObject methparams,
-            String objectName,
-            List<SubActionSpec> subs,
-            List<String> wsobjs)
-            throws IOException, JsonClientException, InterruptedException,
-            ServerException, Exception, InvalidFileFormatException {
-        List<String> wsobjrefs = new LinkedList<String>();
-        for (String o: wsobjs) {
-            wsobjrefs.add(testWsName + "/" + o);
-        }
-        JobState res = runJob(moduleName, methodName, release, methparams,
-                wsobjrefs);
-        if (res.getError() != null) {
-            System.out.println("Job had unexpected error:");
-            System.out.println(res.getError());
-            throw new TestException(res.getError().getMessage());
-        }
-        checkProvenance(moduleName, methodName, release, ver, methparams,
-                objectName, subs, wsobjs);
-        return res;
-    }
-
-    private void checkProvenance(
-            String moduleName,
-            String methodName,
-            String release,
-            String ver,
-            UObject methparams,
-            String objectName,
-            List<SubActionSpec> subs,
-            List<String> wsobjs)
-            throws Exception, IOException, InvalidFileFormatException,
-            JsonClientException {
-        if (release != null) {
-            ver = ver + "-" + release;
-        }
-
-        WorkspaceClient ws = getWsClient(token, loadConfig());
-        ObjectData od = ws.getObjects2(new GetObjects2Params().withObjects(Arrays.asList(
-                new ObjectSpecification().withWorkspace(testWsName)
-                .withName(objectName)))).getData().get(0);
-        System.out.println(od);
-        List<ProvenanceAction> prov = od.getProvenance();
-        assertThat("number of provenance actions",
-                prov.size(), is(1));
-        ProvenanceAction pa = prov.get(0);
-        long got = DATE_PARSER.parseDateTime(pa.getTime()).getMillis();
-        long now = new Date().getTime();
-        assertTrue("got prov time < now ", got < now);
-        assertTrue("got prov time > now - 5m", got > now - (5 * 60 * 1000));
-        assertThat("correct service", pa.getService(), is(moduleName));
-        assertThat("correct service version", pa.getServiceVer(),
-                is(ver));
-        assertThat("correct method", pa.getMethod(), is(methodName));
-        assertThat("number of params", pa.getMethodParams().size(), is(1));
-        assertThat("correct params",
-                pa.getMethodParams().get(0).asClassInstance(Map.class),
-                is(methparams.asClassInstance(Map.class)));
-        Set<String> wsobjrefs = new HashSet<String>();
-        for (String o: wsobjs) {
-            wsobjrefs.add(testWsName + "/" + o);
-        }
-        assertThat("correct incoming ws objs",
-                new HashSet<String>(pa.getInputWsObjects()),
-                is(wsobjrefs));
-        Iterator<String> reswo = pa.getResolvedWsObjects().iterator();
-        for (String wso: pa.getInputWsObjects()) {
-            String ref = NAME2REF.get(wso.replace(testWsName + "/", ""));
-            assertThat("ref remapped correctly", reswo.next(), is(ref));
-        }
-        checkSubActions(pa.getSubactions(), subs);
-    }
-    
-    private void checkSubActions(List<SubAction> gotsas,
-            List<SubActionSpec> expsas) throws Exception {
-        CatalogClient cat = getCatalogClient(token, loadConfig());
-        assertThat("correct # of subactions",
-                gotsas.size(), is(expsas.size()));
-        for (SubActionSpec sa: expsas) {
-            if (sa.commit == null) {
-                sa.commit = getMVI(cat.getModuleInfo(
-                        new SelectOneModuleParams().withModuleName(sa.module)),
-                        sa.release).getGitCommitHash();
-            }
-        }
-        Iterator<SubAction> giter = gotsas.iterator();
-        Iterator<SubActionSpec> eiter = expsas.iterator();
-        while (giter.hasNext()) {
-            SubAction got = giter.next();
-            SubActionSpec sa = eiter.next();
-            assertThat("correct code url", got.getCodeUrl(),
-                    is("https://github.com/kbasetest/" + sa.module));
-            assertThat("correct commit", got.getCommit(), is(sa.commit));
-            assertThat("correct name", got.getName(), is(sa.module + ".run"));
-            assertThat("correct version", got.getVer(), is(sa.getVerRel()));
-        }
-    }
-
-    private JobState runJob(String moduleName, String methodName, String release,
-            UObject methparams, List<String> wsobjs)
-                    throws IOException, JsonClientException,
-                    InterruptedException, ServerException {
-        return runJob(moduleName + "." + methodName, release, methparams,
-                wsobjs);
-    }
-    
-    private JobState runJob(String moduleMethod, String release,
-            UObject methparams, List<String> wsobjs)
-                    throws IOException, JsonClientException,
-                    InterruptedException, ServerException {
-        RunJobParams params = new RunJobParams()
-            .withMethod(moduleMethod)
-            .withServiceVer(release)
-            .withSourceWsObjects(wsobjs)
-            .withParams(Arrays.asList(methparams));
-        String jobId = client.runJob(params);
-        JobState ret = null;
-        for (int i = 0; i < 40; i++) {
-            try {
-                ret = client.checkJob(jobId);
-                System.out.println("Job finished: " + ret.getFinished());
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    break;
-                }
-                Thread.sleep(5000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
-            }
-        }
-        if (ret.getResult() == null) {
-            System.out.println("Job failed");
-            System.out.println(ret);
-        }
-        return ret;
     }
 
     @Test
@@ -861,7 +261,7 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             int logLinesRecieved = 0;
             int numberOfOneLiners = 0;
-            for (int i = 0; i < 100; i++) {
+            for (int i = 0; i < 30; i++) {
                 try {
                     if (stepJobId == null) {
                         st = client.checkAppState(appJobId);
@@ -888,7 +288,7 @@ public class AweClientDockerJobScriptTest {
                             numberOfOneLiners++;
                         logLinesRecieved += lines.size();
                     }
-                    Thread.sleep(1000);
+                    Thread.sleep(4000);
                 } catch (ServerException ex) {
                     System.out.println(ex.getData());
                     throw ex;
@@ -1011,43 +411,6 @@ public class AweClientDockerJobScriptTest {
         Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
     }
     
-    @Test
-    public void testWrongMethod() throws Exception {
-        System.out.println("Test [testWrongMethod]");
-        try {
-            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "filter_contigs");
-            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertEquals(errMsg, "suspend", st.getJobState());
-            Assert.assertNotNull(errMsg, st.getStepErrors().get("step1"));
-            Assert.assertTrue(errMsg, st.getStepErrors().get("step1")
-                    .contains("Error: Method not found"));
-        } catch (ServerException ex) {
-            System.err.println(ex.getData());
-            throw ex;
-        }
-    }
-
-    @Test
-    public void testLocalSdkCallback() throws Exception {
-        System.out.println("Test [testLocalSdkCallback]");
-        try {
-            String inputText = "123\n456";
-            AppState st = runAsyncMethodAsAppAndWait("onerepotest", "local_sdk_callback", 
-                    UObject.getMapper().writeValueAsString(inputText));
-            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
-            Assert.assertEquals(errMsg, "completed", st.getJobState());
-            Assert.assertNotNull(errMsg, st.getStepOutputs());
-            String step1output = st.getStepOutputs().get("step1");
-            Assert.assertNotNull(errMsg, step1output);
-            List<String> data = UObject.getMapper().readValue(step1output, List.class);
-            Assert.assertEquals(errMsg, inputText, data.get(0));
-            Assert.assertEquals(errMsg, "OK", data.get(1));
-        } catch (ServerException ex) {
-            System.err.println(ex.getData());
-            throw ex;
-        }
-    }
-
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, loadConfig());
@@ -1059,7 +422,7 @@ public class AweClientDockerJobScriptTest {
             Map<String, String> config) throws Exception {
         String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
         WorkspaceClient ret = new WorkspaceClient(new URL(wsUrl), auth);
-        ret.setIsInsecureHttpConnectionAllowed(true);
+        ret.setAuthAllowedForHttp(true);
         return ret;
     }
 
@@ -1083,39 +446,36 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
+    private static Properties props(File configFile)
+            throws FileNotFoundException, IOException {
+        Properties props = new Properties();
+        InputStream is = new FileInputStream(configFile);
+        props.load(is);
+        is.close();
+        return props;
+    }
+    
     @BeforeClass
     public static void beforeClass() throws Exception {
-        Properties props = TesterUtils.props();
-        token = new AuthToken(token(props));
-        workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
-                "awe-integration");
+        Properties props = props(new File("test.cfg"));
+        AuthToken token = new AuthToken(token(props));
+        AweClientDockerJobScriptTest.token = token;
+        workDir = prepareWorkDir("awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
         writeFileLines(readReaderLines(new InputStreamReader(
                 AweClientDockerJobScriptTest.class.getResourceAsStream(
                         "check_deps.sh.properties"))), scriptFile);
-        ProcessHelper ph = ProcessHelper.cmd(
-                "bash", scriptFile.getCanonicalPath()).exec(workDir);
-        if (ph.getExitCode() > 0) {
-            throw new TestException("Set up script failed with exit code " +
-                    ph.getExitCode());
-        }
+        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(workDir);
         mongoDir = new File(workDir, "mongo");
         aweServerDir = new File(workDir, "awe_server");
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        String mongoExepath = TesterUtils.getMongoExePath(props);
-        System.out.print("Starting MongoDB executable at " + mongoExepath +
-                "... ");
-        mongo = new MongoController(mongoExepath, mongoDir.toPath());
-        System.out.println("Done. Port " + mongo.getServerPort());
+        int mongoPort = startupMongo(null, mongoDir);
         File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
-                aweServerDir, mongo.getServerPort());
+        int awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"), aweServerDir, mongoPort);
         catalogWrapper = startupCatalogWrapper();
-        njsService = startupNJSService(njsServiceDir, binDir, awePort, 
-                catalogWrapper.getConnectors()[0].getLocalPort(),
-                mongo.getServerPort());
+        njsService = startupNJSService(njsServiceDir, binDir, awePort, catalogWrapper.getConnectors()[0].getLocalPort());
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -1126,7 +486,7 @@ public class AweClientDockerJobScriptTest {
         WorkspaceClient wscl = getWsClient(token, loadConfig());
         Exception error = null;
         for (int i = 0; i < 5; i++) {
-            testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
+            testWsName = "test_feature_values_" + machineName + "_" + suf;
             try {
                 wscl.createWorkspace(new CreateWorkspaceParams().withWorkspace(testWsName));
                 error = null;
@@ -1136,10 +496,8 @@ public class AweClientDockerJobScriptTest {
                 error = ex;
             }
         }
-        if (error != null) {
+        if (error != null)
             throw error;
-        }
-        stageWSObjects();
         File dir = new File("test_data");
         GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
         Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
@@ -1159,31 +517,7 @@ public class AweClientDockerJobScriptTest {
         if (!refDataDir.exists())
             refDataDir.mkdirs();
     }
-
-    private static void stageWSObjects() throws Exception {
-        WorkspaceClient wsc = getWsClient(token, loadConfig());
-        Map<String, String> mt = new HashMap<String, String>();
-        List<Tuple11<Long, String, String, String, Long, String, Long, String,
-            String, Long, Map<String, String>>> ret =
-                wsc.saveObjects(new SaveObjectsParams()
-                    .withWorkspace(testWsName)
-                    .withObjects(Arrays.asList(
-                        new ObjectSaveData()
-                            .withData(new UObject(mt))
-                            .withName(STAGED1_NAME)
-                            .withType("Empty.AType"),
-                        new ObjectSaveData()
-                            .withData(new UObject(mt))
-                            .withName(STAGED2_NAME)
-                            .withType("Empty.AType")
-                    )
-                ));
-        NAME2REF.put(STAGED1_NAME, ret.get(0).getE7() + "/" +
-                ret.get(0).getE1() + "/" + ret.get(0).getE5());
-        NAME2REF.put(STAGED2_NAME, ret.get(1).getE7() + "/" +
-                ret.get(1).getE1() + "/" + ret.get(1).getE5());
-    }
-
+    
     private static String findAweBinary(File dir, String program) throws Exception {
         if (new File(dir, program).exists())
             return new File(dir, program).getAbsolutePath();
@@ -1198,20 +532,63 @@ public class AweClientDockerJobScriptTest {
                 System.out.println(njsServiceDir.getName() + " was stopped");
             } catch (Exception ignore) {}
         }
-        if (mongo != null) {
-            mongo.destroy(false);
-        }
         killPid(aweClientDir);
         killPid(aweServerDir);
         //killPid(shockDir);
+        killPid(mongoDir);
         try {
             if (testWsName != null) {
-                getWsClient(token, loadConfig()).deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
+                //getWsClient().deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
                 //System.out.println("Test workspace " + testWsName + " was deleted");
             }
         } catch (Exception ex) {
             System.err.println(ex.getMessage());
         }
+    }
+
+    private static int startupMongo(String mongodExePath, File dir) throws Exception {
+        if (mongodExePath == null)
+            mongodExePath = "mongod";
+        if (!dir.exists())
+            dir.mkdirs();
+        File dataDir = new File(dir, "data");
+        dataDir.mkdir();
+        File logFile = new File(dir, "mongodb.log");
+        int port = findFreePort();
+        File configFile = new File(dir, "mongod.conf");
+        writeFileLines(Arrays.asList(
+                "dbpath=" + dataDir.getAbsolutePath(),
+                "logpath=" + logFile.getAbsolutePath(),
+                "logappend=true",
+                "port=" + port,
+                "bind_ip=127.0.0.1"
+                ), configFile);
+        File scriptFile = new File(dir, "start_mongo.sh");
+        writeFileLines(Arrays.asList(
+                "#!/bin/bash",
+                "cd " + dir.getAbsolutePath(),
+                mongodExePath + " --config " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
+                "echo $pid > pid.txt"
+                ), scriptFile);
+        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(dir);
+        boolean ready = false;
+        for (int n = 0; n < mongoInitWaitSeconds; n++) {
+            Thread.sleep(1000);
+            if (logFile.exists()) {
+                if (grep(readFileLines(logFile), "waiting for connections on port " + port).size() > 0) {
+                    ready = true;
+                    break;
+                }
+            }
+        }
+        if (!ready) {
+            if (logFile.exists())
+                for (String l : readFileLines(logFile))
+                    System.err.println("MongoDB log: " + l);
+            throw new IllegalStateException("MongoDB couldn't startup in " + mongoInitWaitSeconds + " seconds");
+        }
+        System.out.println(dir.getName() + " was started up");
+        return port;
     }
 
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
@@ -1233,7 +610,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=" + get(TesterUtils.props(), "user"),
+                "users=" + get(props(new File("test.cfg")), "user"),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -1374,7 +751,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private static Server startupNJSService(File dir, File binDir, int awePort, 
-            int catalogPort, int mongoPort) throws Exception {
+            int catalogPort) throws Exception {
         if (!dir.exists())
             dir.mkdirs();
         if (!binDir.exists())
@@ -1387,13 +764,13 @@ public class AweClientDockerJobScriptTest {
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
         Map<String, String> origConfig = loadConfig();
-        Properties testProps = TesterUtils.props();
+        Properties testProps = props(new File("test.cfg"));
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
                 NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
                 NarrativeJobServiceServer.CFG_PROP_SHOCK_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL),
-                //NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + "=" + new File(dir, "queue").getAbsolutePath(),
+                NarrativeJobServiceServer.CFG_PROP_QUEUE_DB_DIR + "=" + new File(dir, "queue").getAbsolutePath(),
                 NarrativeJobServiceServer.CFG_PROP_AWE_SRV_URL + "=http://localhost:" + awePort + "/",
                 NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL),
                 NarrativeJobServiceServer.CFG_PROP_RUNNING_TASKS_PER_USER + "=5",
@@ -1411,9 +788,7 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
                 NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
-                NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
-                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine"
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password")
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
@@ -1563,11 +938,44 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
+    private static List<String> grep(List<String> lines, String substring) {
+        List<String> ret = new ArrayList<String>();
+        for (String l : lines)
+            if (l.contains(substring))
+                ret.add(l);
+        return ret;
+    }
+    
     private static int findFreePort() {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
         } catch (IOException e) {}
         throw new IllegalStateException("Can not find available port in system");
+    }
+    
+    public static File prepareWorkDir(String testName) throws IOException {
+        File tempDir = new File("temp_files").getCanonicalFile();
+        if (!tempDir.exists())
+            tempDir.mkdirs();
+        for (File dir : tempDir.listFiles()) {
+            if (dir.isDirectory() && dir.getName().startsWith("test_" + testName + "_"))
+                try {
+                    deleteRecursively(dir);
+                } catch (Exception e) {
+                    System.out.println("Can not delete directory [" + dir.getName() + "]: " + e.getMessage());
+                }
+        }
+        File workDir = new File(tempDir, "test_" + testName + "_" + System.currentTimeMillis());
+        if (!workDir.exists())
+            workDir.mkdir();
+        return workDir;
+    }
+    
+    private static void deleteRecursively(File fileOrDir) {
+        if (fileOrDir.isDirectory() && !Files.isSymbolicLink(fileOrDir.toPath()))
+            for (File f : fileOrDir.listFiles()) 
+                deleteRecursively(f);
+        fileOrDir.delete();
     }
     
     public static void main(String[] args) throws Exception {
@@ -1595,11 +1003,6 @@ public class AweClientDockerJobScriptTest {
         @JsonServerMethod(rpc = "Catalog.get_module_info")
         public ModuleInfo getModuleInfo(SelectOneModuleParams selection) throws IOException, JsonClientException {
             return fwd().getModuleInfo(selection);
-        }
-        
-        @JsonServerMethod(rpc = "Catalog.get_module_version")
-        public ModuleVersion getModuleVersion(SelectModuleVersion selection) throws IOException, JsonClientException {
-            return fwd().getModuleVersion(selection);
         }
         
         @JsonServerMethod(rpc = "Catalog.get_version_info")

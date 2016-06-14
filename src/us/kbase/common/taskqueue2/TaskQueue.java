@@ -1,7 +1,12 @@
 package us.kbase.common.taskqueue2;
 
+import java.io.File;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -9,13 +14,13 @@ import java.util.Map;
 import java.util.TreeMap;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
-import us.kbase.narrativejobservice.db.QueuedTask;
+import us.kbase.common.utils.DbConn;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class TaskQueue {
-	private ExecEngineMongoDb db;
+	private DbConn conn;
 	private Map<Class<?>, TaskRunner<?>> runners = new HashMap<Class<?>, TaskRunner<?>>();
 	private Map<String, Task> taskMap = new HashMap<String, Task>();
 	private LinkedList<Task> taskQueue = new LinkedList<Task>();
@@ -27,12 +32,23 @@ public class TaskQueue {
 	private final Map<String, Integer> userToRunningTaskCount = new HashMap<String, Integer>();
 	    
     private static final int MAX_ERROR_MESSAGE_LEN = 190;
+    public static final String DERBY_DB_NAME = "GenomeCmpDb";
+    public static final String QUEUE_TABLE_NAME = "task_queue";
 	
-	public TaskQueue(TaskQueueConfig config, RestartChecker rCheck, ExecEngineMongoDb db,
-			TaskRunner<?>... runners) throws Exception {
+	public TaskQueue(TaskQueueConfig config, RestartChecker rCheck,
+			TaskRunner<?>... runners) throws ClassNotFoundException, SQLException {
 		this.config = config;
 		this.rCheck = rCheck;
-		this.db = db;
+		conn = getDbConnection(config.getQueueDbDir());
+		if (!conn.checkTable(QUEUE_TABLE_NAME)) {
+			conn.exec("create table " + QUEUE_TABLE_NAME + " (" +
+					"jobid varchar(100) primary key," +
+					"type varchar(100)," +
+					"params clob(100 m)," +
+					"auth varchar(1000)," +
+					"outref varchar(1000)" +
+					")");
+		}
 		allThreads = new Thread[config.getThreadCount()];
 		for (int i = 0; i < allThreads.length; i++) {
 			allThreads[i] = startNewThread(i);
@@ -58,10 +74,6 @@ public class TaskQueue {
         return config;
     }
 	
-	public ExecEngineMongoDb getDb() {
-        return db;
-    }
-	
 	public synchronized Map<String, Long> getRunningTasksPerUser() {
 		Map<String, Long> ret = new TreeMap<String, Long>();
 		for (String user : userToRunningTaskCount.keySet()) {
@@ -77,15 +89,35 @@ public class TaskQueue {
 		runners.put(runner.getInputDataType(), runner);
 	}
 
-	private void checkForUnfinishedTasks() throws Exception {
-		List<QueuedTask> tasks = db.getQueuedTasks();
-		for (QueuedTask dbTask : tasks) {
-            // jobid,type,params,auth,outref
-            Class<?> type = Class.forName(dbTask.getType());
-            Object params = new ObjectMapper().readValue(dbTask.getParams(), type);
-            Task task = new Task(dbTask.getJobid(), params, dbTask.getAuth(), dbTask.getOutref());
+	public static DbConn getDbConnection(File dbParentDir) throws ClassNotFoundException, SQLException {
+		Class.forName("org.apache.derby.jdbc.EmbeddedDriver");
+		File dbDir = new File(dbParentDir, DERBY_DB_NAME);
+		String url = "jdbc:derby:" + dbDir.getParent() + "/" + dbDir.getName();
+		if (!dbDir.exists())
+			url += ";create=true";
+		return new DbConn(DriverManager.getConnection(url));
+	}
+	
+	private void checkForUnfinishedTasks() throws SQLException {
+		List<Task> tasks = conn.collect("select jobid,type,params,auth,outref from " + 
+				QUEUE_TABLE_NAME, new DbConn.SqlLoader<Task>() {
+			@Override
+			public Task collectRow(ResultSet rs) throws SQLException {
+				try {
+					Class<?> type = Class.forName(rs.getString("type"));
+					String paramsJson = rs.getString("params");
+					Object params = new ObjectMapper().readValue(paramsJson, type);
+					return new Task(rs.getString("jobid"), params, rs.getString("auth"),
+							rs.getString("outref"));
+				} catch (ClassNotFoundException e) {
+					throw new IllegalStateException(e);
+				} catch (IOException e) {
+					throw new IllegalStateException(e);
+				}
+			}
+		});
+		for (Task task : tasks)
 			addTask(task);
-		}
 		if (tasks.size() > 0 && !rCheck.isInRestartMode()) {
 			synchronized (idleMonitor) {
 				idleMonitor.notifyAll();
@@ -124,18 +156,15 @@ public class TaskQueue {
 		taskMap.put(task.getJobId(), task);
 	}
 	
-	private void storeTaskInDb(Task task) throws Exception {
-	    QueuedTask dbTask = new QueuedTask();
-        dbTask.setJobid(task.getJobId());
-        dbTask.setType(task.getParams().getClass().getName());
-        dbTask.setParams(new ObjectMapper().writeValueAsString(task.getParams()));
-        dbTask.setAuth(task.getAuthToken());
-        dbTask.setOutref(task.getOutRef());
-		db.insertQueuedTask(dbTask);
+	private void storeTaskInDb(Task task) throws JsonProcessingException, SQLException {
+		String type = task.getParams().getClass().getName();
+		String params = new ObjectMapper().writeValueAsString(task.getParams());
+		conn.exec("insert into " + QUEUE_TABLE_NAME + " (jobid,type,params,auth,outref) values (?,?,?,?,?)", 
+				task.getJobId(), type, params, task.getAuthToken(), task.getOutRef());
 	}
 	
-	public void deleteTaskFromDb(String jobId) throws Exception {
-		db.deleteQueuedTask(jobId);
+	public void deleteTaskFromDb(String jobId) throws SQLException {
+		conn.exec("delete from " + QUEUE_TABLE_NAME + " where jobid=?", jobId);
 	}
 	
 	private synchronized void removeTask(Task task) {
