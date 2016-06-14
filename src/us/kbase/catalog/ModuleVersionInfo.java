@@ -35,9 +35,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
     "version",
     "git_commit_hash",
     "git_commit_message",
-    "dynamic_service",
     "narrative_method_ids",
-    "local_function_ids",
     "docker_img_name",
     "data_folder",
     "data_version",
@@ -55,12 +53,8 @@ public class ModuleVersionInfo {
     private java.lang.String gitCommitHash;
     @JsonProperty("git_commit_message")
     private java.lang.String gitCommitMessage;
-    @JsonProperty("dynamic_service")
-    private Long dynamicService;
     @JsonProperty("narrative_method_ids")
     private List<String> narrativeMethodIds;
-    @JsonProperty("local_function_ids")
-    private List<String> localFunctionIds;
     @JsonProperty("docker_img_name")
     private java.lang.String dockerImgName;
     @JsonProperty("data_folder")
@@ -151,21 +145,6 @@ public class ModuleVersionInfo {
         return this;
     }
 
-    @JsonProperty("dynamic_service")
-    public Long getDynamicService() {
-        return dynamicService;
-    }
-
-    @JsonProperty("dynamic_service")
-    public void setDynamicService(Long dynamicService) {
-        this.dynamicService = dynamicService;
-    }
-
-    public ModuleVersionInfo withDynamicService(Long dynamicService) {
-        this.dynamicService = dynamicService;
-        return this;
-    }
-
     @JsonProperty("narrative_method_ids")
     public List<String> getNarrativeMethodIds() {
         return narrativeMethodIds;
@@ -178,21 +157,6 @@ public class ModuleVersionInfo {
 
     public ModuleVersionInfo withNarrativeMethodIds(List<String> narrativeMethodIds) {
         this.narrativeMethodIds = narrativeMethodIds;
-        return this;
-    }
-
-    @JsonProperty("local_function_ids")
-    public List<String> getLocalFunctionIds() {
-        return localFunctionIds;
-    }
-
-    @JsonProperty("local_function_ids")
-    public void setLocalFunctionIds(List<String> localFunctionIds) {
-        this.localFunctionIds = localFunctionIds;
-    }
-
-    public ModuleVersionInfo withLocalFunctionIds(List<String> localFunctionIds) {
-        this.localFunctionIds = localFunctionIds;
         return this;
     }
 
@@ -278,7 +242,7 @@ public class ModuleVersionInfo {
 
     @Override
     public java.lang.String toString() {
-        return ((((((((((((((((((((((((((("ModuleVersionInfo"+" [timestamp=")+ timestamp)+", registrationId=")+ registrationId)+", version=")+ version)+", gitCommitHash=")+ gitCommitHash)+", gitCommitMessage=")+ gitCommitMessage)+", dynamicService=")+ dynamicService)+", narrativeMethodIds=")+ narrativeMethodIds)+", localFunctionIds=")+ localFunctionIds)+", dockerImgName=")+ dockerImgName)+", dataFolder=")+ dataFolder)+", dataVersion=")+ dataVersion)+", compilationReport=")+ compilationReport)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((((("ModuleVersionInfo"+" [timestamp=")+ timestamp)+", registrationId=")+ registrationId)+", version=")+ version)+", gitCommitHash=")+ gitCommitHash)+", gitCommitMessage=")+ gitCommitMessage)+", narrativeMethodIds=")+ narrativeMethodIds)+", dockerImgName=")+ dockerImgName)+", dataFolder=")+ dataFolder)+", dataVersion=")+ dataVersion)+", compilationReport=")+ compilationReport)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

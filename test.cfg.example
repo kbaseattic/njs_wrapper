@@ -1,5 +1,0 @@
-# A KBase user ID and password.
-user=*****
-password=*****
-# the path to the MongoDB executable. Omit to use mongod found on the path.
-test-mongod-exe=/kb/runtime/bin/mongod

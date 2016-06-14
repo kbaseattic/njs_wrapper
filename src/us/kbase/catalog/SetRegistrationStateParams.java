@@ -13,9 +13,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * <p>Original spec-file type: SetRegistrationStateParams</p>
- * <pre>
- * End Dynamic Services Support Methods
- * </pre>
+ * 
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
