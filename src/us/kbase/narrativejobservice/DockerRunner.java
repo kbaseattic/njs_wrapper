@@ -2,21 +2,30 @@ package us.kbase.narrativejobservice;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import us.kbase.auth.AuthToken;
+import us.kbase.common.executionengine.LineLogger;
 import us.kbase.common.utils.ProcessHelper;
 
 import ch.qos.logback.classic.Level;
 
 import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.AccessMode;
@@ -28,15 +37,25 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
-    private final String dockerURI;
+    private final URI dockerURI;
     
-    public DockerRunner(String dockerURI) {
+    public DockerRunner(final URI dockerURI) {
         this.dockerURI = dockerURI;
     }
     
-    public File run(String imageName, String moduleName, File inputData, String token, 
-            final LineLogger log, File outputFile, boolean removeImage,
-            File refDataDir) throws Exception {
+    public File run(
+            String imageName,
+            final String moduleName,
+            final File inputData,
+            final AuthToken token, 
+            final LineLogger log,
+            final File outputFile,
+            final boolean removeImage,
+            final File refDataDir,
+            final File optionalScratchDir,
+            final URL callbackUrl,
+            final String jobId)
+            throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
@@ -47,13 +66,13 @@ public class DockerRunner {
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
-            fw.write(token);
+            fw.write(token.toString());
             fw.close();
             if (outputFile.exists())
                 outputFile.delete();
             long suffix = System.currentTimeMillis();
             while (true) {
-                cntName = moduleName.toLowerCase() + "_" + suffix;
+                cntName = moduleName.toLowerCase() + "_" + jobId.replace('-', '_') + "_" + suffix;
                 if (findContainerByNameOrIdPrefix(cl, cntName) == null)
                     break;
                 suffix++;
@@ -62,9 +81,14 @@ public class DockerRunner {
                     new Volume("/kb/module/work"))));
             if (refDataDir != null)
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
-            CreateContainerResponse resp = cl.createContainerCmd(imageName)
+            if (optionalScratchDir != null)
+                binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
+            CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
-                            binds.toArray(new Bind[binds.size()])).exec();
+                            binds.toArray(new Bind[binds.size()]));
+            if (callbackUrl != null)
+                cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
+            CreateContainerResponse resp = cntCmd.exec();
             String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
@@ -107,6 +131,11 @@ public class DockerRunner {
                 }
                 throw new IllegalStateException("Container was still running");
             }
+            InputStream is = cl.logContainerCmd(cntId).withStdOut().withStdErr().exec();
+            OutputStream os = new FileOutputStream(new File(workDir, "docker.log"));
+            IOUtils.copy(is, os);
+            os.close();
+            is.close();
             if (outputFile.exists()) {
                 return outputFile;
             } else {
@@ -153,7 +182,7 @@ public class DockerRunner {
     }
     
     public String checkImagePulled(DockerClient cl, String imageName)
-            throws Exception {
+            throws IOException {
         if (findImageId(cl, imageName) == null) {
             System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
             ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
@@ -191,23 +220,19 @@ public class DockerRunner {
         return null;
     }
     
-    public DockerClient createDockerClient() throws Exception {
+    public DockerClient createDockerClient() {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
         if (log instanceof ch.qos.logback.classic.Logger) {
             ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger)log;
             log2.setLevel(Level.ERROR);
         }
-        if (dockerURI != null && !dockerURI.isEmpty()) {
+        if (dockerURI != null) {
             DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
-                    .withUri(dockerURI).build();
+                    .withUri(dockerURI.toASCIIString()).build();
             return DockerClientBuilder.getInstance(config).build();
         } else {
             return DockerClientBuilder.getInstance().build();
         }
-    }
-    
-    public interface LineLogger {
-        public void logNextLine(String line, boolean isError) throws Exception;
     }
 }
