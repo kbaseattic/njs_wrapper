@@ -905,8 +905,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             Map<String, Object> aweData = null;
             String aweState = null;
             String aweServerUrl = getAweServerURL(config);
+            final Map<String, Object> aweJob;
             try {
-                Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, aweToken);
+                aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, aweToken);
                 aweData = (Map<String, Object>)aweJob.get("data");
                 if (aweData != null)
                     aweState = (String)aweData.get("state");
@@ -915,9 +916,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 		"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
             }
             if (aweState == null) {
-                final String aweDataStr = new ObjectMapper().writeValueAsString(aweData);
+                final String aweJobStr = new ObjectMapper().writeValueAsString(aweJob);
                 throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
-                        "for ujs-id=" + jobId + " - state is null. AWE returned:\n " + aweDataStr);
+                        "for ujs-id=" + jobId + " - state is null. AWE returned:\n " + aweJobStr);
             }
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
                     (!aweState.equals("in-progress"))) {
