@@ -9,11 +9,11 @@ import us.kbase.auth.AuthToken;
 import us.kbase.common.service.Tuple11;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.common.taskqueue2.TaskRunner;
+import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ListObjectsParams;
 import us.kbase.workspace.ObjectData;
-import us.kbase.workspace.ObjectIdentity;
 import us.kbase.workspace.SaveObjectsParams;
-import us.kbase.workspace.SubObjectIdentity;
+import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.WorkspaceClient;
 
 public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
@@ -45,8 +45,9 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 			
 			@Override
 			public List<ObjectData> getObjects(String authToken,
-					List<ObjectIdentity> objectIds) throws Exception {
-				return client.getObjects(objectIds);
+					List<ObjectSpecification> objectIds) throws Exception {
+				return client.getObjects2(new GetObjects2Params()
+					.withObjects(objectIds)).getData();
 			}
 			
 			@Override
@@ -56,8 +57,9 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 			}
 			
 			@Override
-		    public List<ObjectData> getObjectSubset(String authToken, List<SubObjectIdentity> objectIds) throws Exception {
-				return client.getObjectSubset(objectIds);
+		    public List<ObjectData> getObjectSubset(String authToken, List<ObjectSpecification> objectIds) throws Exception {
+				return client.getObjects2(new GetObjects2Params()
+				.withObjects(objectIds)).getData();
 		    }
 			
 			@Override
@@ -79,8 +81,9 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 			
 			@Override
 			public List<ObjectData> getObjects(String authToken,
-					List<ObjectIdentity> objectIds) throws Exception {
-				return client(authToken).getObjects(objectIds);
+					List<ObjectSpecification> objectIds) throws Exception {
+				return client(authToken).getObjects2(new GetObjects2Params()
+				.withObjects(objectIds)).getData();
 			}
 			
 			@Override
@@ -90,9 +93,10 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 			}
 			
 			@Override
-		    public List<ObjectData> getObjectSubset(String authToken, List<SubObjectIdentity> objectIds) throws Exception {
-				return client(authToken).getObjectSubset(objectIds);
-		    }
+			public List<ObjectData> getObjectSubset(String authToken, List<ObjectSpecification> objectIds) throws Exception {
+				return client(authToken).getObjects2(new GetObjects2Params()
+					.withObjects(objectIds)).getData();
+			}
 			
 			@Override
 			public String getUrl() {
@@ -103,7 +107,7 @@ public abstract class DefaultTaskBuilder<T> implements TaskRunner<T> {
 				if (client != null)
 					return client;
 				WorkspaceClient client = new WorkspaceClient(new URL(wsUrl), new AuthToken(authToken));
-				client.setAuthAllowedForHttp(true);
+				client.setIsInsecureHttpConnectionAllowed(true);
 				return client;
 			}
 		};

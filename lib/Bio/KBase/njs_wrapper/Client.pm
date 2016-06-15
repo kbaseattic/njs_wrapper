@@ -1,40 +1,107 @@
-package NarrativeJobServiceImpl;
+package Bio::KBase::njs_wrapper::Client;
+
+use JSON::RPC::Client;
+use POSIX;
 use strict;
+use Data::Dumper;
+use URI;
 use Bio::KBase::Exceptions;
-# Use Semantic Versioning (2.0.0-rc.1)
-# http://semver.org 
+my $get_time = sub { time, 0 };
+eval {
+    require Time::HiRes;
+    $get_time = sub { Time::HiRes::gettimeofday() };
+};
+
+use Bio::KBase::AuthToken;
+
+# Client version should match Impl version
+# This is a Semantic Version number,
+# http://semver.org
 our $VERSION = "0.1.0";
 
 =head1 NAME
 
-NarrativeJobService
+Bio::KBase::njs_wrapper::Client
 
 =head1 DESCRIPTION
 
 
 
-=cut
 
-#BEGIN_HEADER
-#END_HEADER
+
+=cut
 
 sub new
 {
-    my($class, @args) = @_;
-    my $self = {
-    };
-    bless $self, $class;
-    #BEGIN_CONSTRUCTOR
-    #END_CONSTRUCTOR
-
-    if ($self->can('_init_instance'))
+    my($class, $url, @args) = @_;
+    
+    if (!defined($url))
     {
-	$self->_init_instance();
+	$url = 'https://kbase.us/services/njs_wrapper/';
     }
+
+    my $self = {
+	client => Bio::KBase::njs_wrapper::Client::RpcClient->new,
+	url => $url,
+	headers => [],
+    };
+
+    chomp($self->{hostname} = `hostname`);
+    $self->{hostname} ||= 'unknown-host';
+
+    #
+    # Set up for propagating KBRPC_TAG and KBRPC_METADATA environment variables through
+    # to invoked services. If these values are not set, we create a new tag
+    # and a metadata field with basic information about the invoking script.
+    #
+    if ($ENV{KBRPC_TAG})
+    {
+	$self->{kbrpc_tag} = $ENV{KBRPC_TAG};
+    }
+    else
+    {
+	my ($t, $us) = &$get_time();
+	$us = sprintf("%06d", $us);
+	my $ts = strftime("%Y-%m-%dT%H:%M:%S.${us}Z", gmtime $t);
+	$self->{kbrpc_tag} = "C:$0:$self->{hostname}:$$:$ts";
+    }
+    push(@{$self->{headers}}, 'Kbrpc-Tag', $self->{kbrpc_tag});
+
+    if ($ENV{KBRPC_METADATA})
+    {
+	$self->{kbrpc_metadata} = $ENV{KBRPC_METADATA};
+	push(@{$self->{headers}}, 'Kbrpc-Metadata', $self->{kbrpc_metadata});
+    }
+
+    if ($ENV{KBRPC_ERROR_DEST})
+    {
+	$self->{kbrpc_error_dest} = $ENV{KBRPC_ERROR_DEST};
+	push(@{$self->{headers}}, 'Kbrpc-Errordest', $self->{kbrpc_error_dest});
+    }
+
+    #
+    # This module requires authentication.
+    #
+    # We create an auth token, passing through the arguments that we were (hopefully) given.
+
+    {
+	my $token = Bio::KBase::AuthToken->new(@args);
+	
+	if (!$token->error_message)
+	{
+	    $self->{token} = $token->token;
+	    $self->{client}->{token} = $token->token;
+	}
+    }
+
+    my $ua = $self->{client}->ua;	 
+    my $timeout = $ENV{CDMI_TIMEOUT} || (30 * 60);	 
+    $ua->timeout($timeout);
+    bless $self, $class;
+    #    $self->_validate_version();
     return $self;
 }
 
-=head1 METHODS
 
 
 
@@ -170,8 +237,6 @@ step_stats is a reference to a hash where the following keys are defined:
 
 =end text
 
-
-
 =item Description
 
 
@@ -180,34 +245,51 @@ step_stats is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub run_app
+ sub run_app
 {
-    my $self = shift;
-    my($app) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (ref($app) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"app\" (value was \"$app\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to run_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_app');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function run_app (received $n, expecting 1)");
+    }
+    {
+	my($app) = @args;
+
+	my @_bad_arguments;
+        (ref($app) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"app\" (value was \"$app\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to run_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'run_app');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN run_app
-    #END run_app
-    my @_bad_returns;
-    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to run_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_app');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.run_app",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'run_app',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method run_app",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'run_app',
+				       );
     }
-    return($return);
 }
-
-
+ 
 
 
 =head2 check_app_state
@@ -342,8 +424,6 @@ workspace_object is a reference to a hash where the following keys are defined:
 
 =end text
 
-
-
 =item Description
 
 
@@ -352,34 +432,51 @@ workspace_object is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub check_app_state
+ sub check_app_state
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'check_app_state');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function check_app_state (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'check_app_state');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN check_app_state
-    #END check_app_state
-    my @_bad_returns;
-    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to check_app_state:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'check_app_state');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.check_app_state",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'check_app_state',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method check_app_state",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'check_app_state',
+				       );
     }
-    return($return);
 }
-
-
+ 
 
 
 =head2 suspend_app
@@ -410,8 +507,6 @@ job_id is a string
 
 =end text
 
-
-
 =item Description
 
 status - 'success' or 'failure' of action
@@ -420,34 +515,51 @@ status - 'success' or 'failure' of action
 
 =cut
 
-sub suspend_app
+ sub suspend_app
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to suspend_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'suspend_app');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function suspend_app (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to suspend_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'suspend_app');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($status);
-    #BEGIN suspend_app
-    #END suspend_app
-    my @_bad_returns;
-    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to suspend_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'suspend_app');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.suspend_app",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'suspend_app',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method suspend_app",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'suspend_app',
+				       );
     }
-    return($status);
 }
-
-
+ 
 
 
 =head2 resume_app
@@ -478,8 +590,6 @@ job_id is a string
 
 =end text
 
-
-
 =item Description
 
 
@@ -488,34 +598,51 @@ job_id is a string
 
 =cut
 
-sub resume_app
+ sub resume_app
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to resume_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'resume_app');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function resume_app (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to resume_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'resume_app');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($status);
-    #BEGIN resume_app
-    #END resume_app
-    my @_bad_returns;
-    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to resume_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'resume_app');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.resume_app",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'resume_app',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method resume_app",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'resume_app',
+				       );
     }
-    return($status);
 }
-
-
+ 
 
 
 =head2 delete_app
@@ -546,8 +673,6 @@ job_id is a string
 
 =end text
 
-
-
 =item Description
 
 
@@ -556,34 +681,51 @@ job_id is a string
 
 =cut
 
-sub delete_app
+ sub delete_app
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to delete_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'delete_app');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function delete_app (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to delete_app:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'delete_app');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($status);
-    #BEGIN delete_app
-    #END delete_app
-    my @_bad_returns;
-    (!ref($status)) or push(@_bad_returns, "Invalid type for return variable \"status\" (value was \"$status\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to delete_app:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'delete_app');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.delete_app",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'delete_app',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method delete_app",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'delete_app',
+				       );
     }
-    return($status);
 }
-
-
+ 
 
 
 =head2 list_config
@@ -610,8 +752,6 @@ $return is a reference to a hash where the key is a string and the value is a st
 
 =end text
 
-
-
 =item Description
 
 
@@ -620,25 +760,40 @@ $return is a reference to a hash where the key is a string and the value is a st
 
 =cut
 
-sub list_config
+ sub list_config
 {
-    my $self = shift;
+    my($self, @args) = @_;
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN list_config
-    #END list_config
-    my @_bad_returns;
-    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to list_config:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'list_config');
+# Authentication: optional
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function list_config (received $n, expecting 0)");
     }
-    return($return);
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.list_config",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'list_config',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method list_config",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'list_config',
+				       );
+    }
 }
-
-
+ 
 
 
 =head2 ver
@@ -665,8 +820,6 @@ $return is a string
 
 =end text
 
-
-
 =item Description
 
 Returns the current running version of the NarrativeJobService.
@@ -675,25 +828,40 @@ Returns the current running version of the NarrativeJobService.
 
 =cut
 
-sub ver
+ sub ver
 {
-    my $self = shift;
+    my($self, @args) = @_;
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN ver
-    #END ver
-    my @_bad_returns;
-    (!ref($return)) or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to ver:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'ver');
+# Authentication: none
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function ver (received $n, expecting 0)");
     }
-    return($return);
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.ver",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'ver',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method ver",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'ver',
+				       );
+    }
 }
-
-
+ 
 
 
 =head2 status
@@ -738,8 +906,6 @@ boolean is an int
 
 =end text
 
-
-
 =item Description
 
 Simply check the status of this service to see queue details
@@ -748,25 +914,40 @@ Simply check the status of this service to see queue details
 
 =cut
 
-sub status
+ sub status
 {
-    my $self = shift;
+    my($self, @args) = @_;
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN status
-    #END status
-    my @_bad_returns;
-    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to status:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'status');
+# Authentication: none
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function status (received $n, expecting 0)");
     }
-    return($return);
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.status",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'status',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method status",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'status',
+				       );
+    }
 }
-
-
+ 
 
 
 =head2 list_running_apps
@@ -899,8 +1080,6 @@ workspace_object is a reference to a hash where the following keys are defined:
 
 =end text
 
-
-
 =item Description
 
 
@@ -909,25 +1088,40 @@ workspace_object is a reference to a hash where the following keys are defined:
 
 =cut
 
-sub list_running_apps
+ sub list_running_apps
 {
-    my $self = shift;
+    my($self, @args) = @_;
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN list_running_apps
-    #END list_running_apps
-    my @_bad_returns;
-    (ref($return) eq 'ARRAY') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to list_running_apps:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'list_running_apps');
+# Authentication: optional
+
+    if ((my $n = @args) != 0)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function list_running_apps (received $n, expecting 0)");
     }
-    return($return);
+
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.list_running_apps",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'list_running_apps',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method list_running_apps",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'list_running_apps',
+				       );
+    }
 }
-
-
+ 
 
 
 =head2 run_job
@@ -949,6 +1143,7 @@ RunJobParams is a reference to a hash where the following keys are defined:
 	service_ver has a value which is a string
 	rpc_context has a value which is a NarrativeJobService.RpcContext
 	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 RpcContext is a reference to a hash where the following keys are defined:
 	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
 	run_id has a value which is a string
@@ -958,6 +1153,7 @@ MethodCall is a reference to a hash where the following keys are defined:
 	job_id has a value which is a NarrativeJobService.job_id
 timestamp is a string
 job_id is a string
+wsref is a string
 
 </pre>
 
@@ -973,6 +1169,7 @@ RunJobParams is a reference to a hash where the following keys are defined:
 	service_ver has a value which is a string
 	rpc_context has a value which is a NarrativeJobService.RpcContext
 	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 RpcContext is a reference to a hash where the following keys are defined:
 	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
 	run_id has a value which is a string
@@ -982,11 +1179,10 @@ MethodCall is a reference to a hash where the following keys are defined:
 	job_id has a value which is a NarrativeJobService.job_id
 timestamp is a string
 job_id is a string
+wsref is a string
 
 
 =end text
-
-
 
 =item Description
 
@@ -997,34 +1193,51 @@ Such job runs Docker image for this service in script mode.
 
 =cut
 
-sub run_job
+ sub run_job
 {
-    my $self = shift;
-    my($params) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to run_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_job');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function run_job (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to run_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'run_job');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($job_id);
-    #BEGIN run_job
-    #END run_job
-    my @_bad_returns;
-    (!ref($job_id)) or push(@_bad_returns, "Invalid type for return variable \"job_id\" (value was \"$job_id\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to run_job:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'run_job');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.run_job",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'run_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method run_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'run_job',
+				       );
     }
-    return($job_id);
 }
-
-
+ 
 
 
 =head2 get_job_params
@@ -1048,6 +1261,7 @@ RunJobParams is a reference to a hash where the following keys are defined:
 	service_ver has a value which is a string
 	rpc_context has a value which is a NarrativeJobService.RpcContext
 	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 RpcContext is a reference to a hash where the following keys are defined:
 	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
 	run_id has a value which is a string
@@ -1056,6 +1270,7 @@ MethodCall is a reference to a hash where the following keys are defined:
 	method has a value which is a string
 	job_id has a value which is a NarrativeJobService.job_id
 timestamp is a string
+wsref is a string
 
 </pre>
 
@@ -1073,6 +1288,7 @@ RunJobParams is a reference to a hash where the following keys are defined:
 	service_ver has a value which is a string
 	rpc_context has a value which is a NarrativeJobService.RpcContext
 	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 RpcContext is a reference to a hash where the following keys are defined:
 	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
 	run_id has a value which is a string
@@ -1081,11 +1297,10 @@ MethodCall is a reference to a hash where the following keys are defined:
 	method has a value which is a string
 	job_id has a value which is a NarrativeJobService.job_id
 timestamp is a string
+wsref is a string
 
 
 =end text
-
-
 
 =item Description
 
@@ -1095,35 +1310,51 @@ Get job params necessary for job execution
 
 =cut
 
-sub get_job_params
+ sub get_job_params
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'get_job_params');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_job_params (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_job_params');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($params, $config);
-    #BEGIN get_job_params
-    #END get_job_params
-    my @_bad_returns;
-    (ref($params) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"params\" (value was \"$params\")");
-    (ref($config) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"config\" (value was \"$config\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to get_job_params:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'get_job_params');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.get_job_params",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'get_job_params',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_job_params",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_job_params',
+				       );
     }
-    return($params, $config);
 }
-
-
+ 
 
 
 =head2 add_job_logs
@@ -1164,8 +1395,6 @@ boolean is an int
 
 =end text
 
-
-
 =item Description
 
 
@@ -1174,35 +1403,52 @@ boolean is an int
 
 =cut
 
-sub add_job_logs
+ sub add_job_logs
 {
-    my $self = shift;
-    my($job_id, $lines) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    (ref($lines) eq 'ARRAY') or push(@_bad_arguments, "Invalid type for argument \"lines\" (value was \"$lines\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'add_job_logs');
+# Authentication: required
+
+    if ((my $n = @args) != 2)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function add_job_logs (received $n, expecting 2)");
+    }
+    {
+	my($job_id, $lines) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        (ref($lines) eq 'ARRAY') or push(@_bad_arguments, "Invalid type for argument 2 \"lines\" (value was \"$lines\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'add_job_logs');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($line_number);
-    #BEGIN add_job_logs
-    #END add_job_logs
-    my @_bad_returns;
-    (!ref($line_number)) or push(@_bad_returns, "Invalid type for return variable \"line_number\" (value was \"$line_number\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to add_job_logs:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'add_job_logs');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.add_job_logs",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'add_job_logs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method add_job_logs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'add_job_logs',
+				       );
     }
-    return($line_number);
 }
-
-
+ 
 
 
 =head2 get_job_logs
@@ -1253,8 +1499,6 @@ boolean is an int
 
 =end text
 
-
-
 =item Description
 
 
@@ -1263,34 +1507,51 @@ boolean is an int
 
 =cut
 
-sub get_job_logs
+ sub get_job_logs
 {
-    my $self = shift;
-    my($params) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'get_job_logs');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function get_job_logs (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'get_job_logs');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($return);
-    #BEGIN get_job_logs
-    #END get_job_logs
-    my @_bad_returns;
-    (ref($return) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"return\" (value was \"$return\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to get_job_logs:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'get_job_logs');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.get_job_logs",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'get_job_logs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_job_logs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'get_job_logs',
+				       );
     }
-    return($return);
 }
-
-
+ 
 
 
 =head2 finish_job
@@ -1337,8 +1598,6 @@ JsonRpcError is a reference to a hash where the following keys are defined:
 
 =end text
 
-
-
 =item Description
 
 Register results of already started job
@@ -1347,27 +1606,52 @@ Register results of already started job
 
 =cut
 
-sub finish_job
+ sub finish_job
 {
-    my $self = shift;
-    my($job_id, $params) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument \"params\" (value was \"$params\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to finish_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'finish_job');
+# Authentication: required
+
+    if ((my $n = @args) != 2)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function finish_job (received $n, expecting 2)");
+    }
+    {
+	my($job_id, $params) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 2 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to finish_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'finish_job');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    #BEGIN finish_job
-    #END finish_job
-    return();
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.finish_job",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'finish_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return;
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method finish_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'finish_job',
+				       );
+    }
 }
-
-
+ 
 
 
 =head2 check_job
@@ -1434,8 +1718,6 @@ JsonRpcError is a reference to a hash where the following keys are defined:
 
 =end text
 
-
-
 =item Description
 
 Check if a job is finished and get results/error
@@ -1444,68 +1726,104 @@ Check if a job is finished and get results/error
 
 =cut
 
-sub check_job
+ sub check_job
 {
-    my $self = shift;
-    my($job_id) = @_;
+    my($self, @args) = @_;
 
-    my @_bad_arguments;
-    (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument \"job_id\" (value was \"$job_id\")");
-    if (@_bad_arguments) {
-	my $msg = "Invalid arguments passed to check_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'check_job');
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function check_job (received $n, expecting 1)");
+    }
+    {
+	my($job_id) = @args;
+
+	my @_bad_arguments;
+        (!ref($job_id)) or push(@_bad_arguments, "Invalid type for argument 1 \"job_id\" (value was \"$job_id\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to check_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'check_job');
+	}
     }
 
-    my $ctx = $NarrativeJobServiceServer::CallContext;
-    my($job_state);
-    #BEGIN check_job
-    #END check_job
-    my @_bad_returns;
-    (ref($job_state) eq 'HASH') or push(@_bad_returns, "Invalid type for return variable \"job_state\" (value was \"$job_state\")");
-    if (@_bad_returns) {
-	my $msg = "Invalid returns passed to check_job:\n" . join("", map { "\t$_\n" } @_bad_returns);
-	Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
-							       method_name => 'check_job');
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+	method => "NarrativeJobService.check_job",
+	params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'check_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method check_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'check_job',
+				       );
     }
-    return($job_state);
 }
-
-
-
-
-=head2 version 
-
-  $return = $obj->version()
-
-=over 4
-
-=item Parameter and return types
-
-=begin html
-
-<pre>
-$return is a string
-</pre>
-
-=end html
-
-=begin text
-
-$return is a string
-
-=end text
-
-=item Description
-
-Return the module version. This is a Semantic Versioning number.
-
-=back
-
-=cut
+ 
+  
 
 sub version {
-    return $VERSION;
+    my ($self) = @_;
+    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
+        method => "NarrativeJobService.version",
+        params => [],
+    });
+    if ($result) {
+        if ($result->is_error) {
+            Bio::KBase::Exceptions::JSONRPC->throw(
+                error => $result->error_message,
+                code => $result->content->{code},
+                method_name => 'check_job',
+            );
+        } else {
+            return wantarray ? @{$result->result} : $result->result->[0];
+        }
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(
+            error => "Error invoking method check_job",
+            status_line => $self->{client}->status_line,
+            method_name => 'check_job',
+        );
+    }
+}
+
+sub _validate_version {
+    my ($self) = @_;
+    my $svr_version = $self->version();
+    my $client_version = $VERSION;
+    my ($cMajor, $cMinor) = split(/\./, $client_version);
+    my ($sMajor, $sMinor) = split(/\./, $svr_version);
+    if ($sMajor != $cMajor) {
+        Bio::KBase::Exceptions::ClientServerIncompatible->throw(
+            error => "Major version numbers differ.",
+            server_version => $svr_version,
+            client_version => $client_version
+        );
+    }
+    if ($sMinor < $cMinor) {
+        Bio::KBase::Exceptions::ClientServerIncompatible->throw(
+            error => "Client minor version greater than Server minor version.",
+            server_version => $svr_version,
+            client_version => $client_version
+        );
+    }
+    if ($sMinor > $cMinor) {
+        warn "New client version available for Bio::KBase::njs_wrapper::Client\n";
+    }
+    if ($sMajor == 0) {
+        warn "Bio::KBase::njs_wrapper::Client version is $svr_version. API subject to change.\n";
+    }
 }
 
 =head1 TYPES
@@ -2004,6 +2322,40 @@ git_commit has a value which is a string
 
 
 
+=head2 wsref
+
+=over 4
+
+
+
+=item Description
+
+A workspace object reference of the form X/Y/Z, where
+X is the workspace name or id,
+Y is the object name or id,
+Z is the version, which is optional.
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a string
+</pre>
+
+=end html
+
+=begin text
+
+a string
+
+=end text
+
+=back
+
+
+
 =head2 MethodCall
 
 =over 4
@@ -2105,6 +2457,9 @@ rpc_context - context of current method call including nested call history
     (optional field, could be omitted in case there is no call history);
 remote_url - optional field determining remote service call instead of
     local command line execution.
+source_ws_objects - optional field denoting the workspace objects that
+    will serve as a source of data when running the SDK method. These
+    references will be added to the autogenerated provenance.
 
 
 =item Definition
@@ -2118,6 +2473,7 @@ params has a value which is a reference to a list where each element is an Unspe
 service_ver has a value which is a string
 rpc_context has a value which is a NarrativeJobService.RpcContext
 remote_url has a value which is a string
+source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 
 </pre>
 
@@ -2131,6 +2487,7 @@ params has a value which is a reference to a list where each element is an Unspe
 service_ver has a value which is a string
 rpc_context has a value which is a NarrativeJobService.RpcContext
 remote_url has a value which is a string
+source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
 
 
 =end text
@@ -2399,5 +2756,89 @@ finish_time has a value which is an int
 
 
 =cut
+
+package Bio::KBase::njs_wrapper::Client::RpcClient;
+use base 'JSON::RPC::Client';
+use POSIX;
+use strict;
+
+#
+# Override JSON::RPC::Client::call because it doesn't handle error returns properly.
+#
+
+sub call {
+    my ($self, $uri, $headers, $obj) = @_;
+    my $result;
+
+
+    {
+	if ($uri =~ /\?/) {
+	    $result = $self->_get($uri);
+	}
+	else {
+	    Carp::croak "not hashref." unless (ref $obj eq 'HASH');
+	    $result = $self->_post($uri, $headers, $obj);
+	}
+
+    }
+
+    my $service = $obj->{method} =~ /^system\./ if ( $obj );
+
+    $self->status_line($result->status_line);
+
+    if ($result->is_success) {
+
+        return unless($result->content); # notification?
+
+        if ($service) {
+            return JSON::RPC::ServiceObject->new($result, $self->json);
+        }
+
+        return JSON::RPC::ReturnObject->new($result, $self->json);
+    }
+    elsif ($result->content_type eq 'application/json')
+    {
+        return JSON::RPC::ReturnObject->new($result, $self->json);
+    }
+    else {
+        return;
+    }
+}
+
+
+sub _post {
+    my ($self, $uri, $headers, $obj) = @_;
+    my $json = $self->json;
+
+    $obj->{version} ||= $self->{version} || '1.1';
+
+    if ($obj->{version} eq '1.0') {
+        delete $obj->{version};
+        if (exists $obj->{id}) {
+            $self->id($obj->{id}) if ($obj->{id}); # if undef, it is notification.
+        }
+        else {
+            $obj->{id} = $self->id || ($self->id('JSON::RPC::Client'));
+        }
+    }
+    else {
+        # $obj->{id} = $self->id if (defined $self->id);
+	# Assign a random number to the id if one hasn't been set
+	$obj->{id} = (defined $self->id) ? $self->id : substr(rand(),2);
+    }
+
+    my $content = $json->encode($obj);
+
+    $self->ua->post(
+        $uri,
+        Content_Type   => $self->{content_type},
+        Content        => $content,
+        Accept         => 'application/json',
+	@$headers,
+	($self->{token} ? (Authorization => $self->{token}) : ()),
+    );
+}
+
+
 
 1;
