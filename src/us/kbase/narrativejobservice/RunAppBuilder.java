@@ -5,7 +5,7 @@ import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.loadAppState;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.runJob;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.checkJob;
 import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getJobLogs;
-import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.getCatalogClient;
+import static us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner.requestClientGroups;
 
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -22,9 +22,6 @@ import java.util.concurrent.TimeUnit;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.AppClientGroup;
-import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetClientGroupParams;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple7;
@@ -292,28 +289,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
             srvMethod = srvName + "." + srvMethod;
         RunJobParams params = new RunJobParams().withMethod(srvMethod)
                 .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
-        String aweClientGroups = null;
-        if (step.getMethodSpecId() != null) {
-            try {
-                CatalogClient catCl = getCatalogClient(config, false);
-                List<AppClientGroup> ret = catCl.getClientGroups(
-                        new GetClientGroupParams().withAppIds(Arrays.asList(step.getMethodSpecId())));
-                if (ret != null && ret.size() == 1) {
-                    AppClientGroup acg = ret.get(0);
-                    List<String> groupList = acg.getClientGroups();
-                    StringBuilder sb = new StringBuilder();
-                    for (String group : groupList) {
-                        if (sb.length() > 0)
-                            sb.append(",");
-                        sb.append(group);
-                    }
-                    aweClientGroups = sb.toString();
-                }
-            } catch (Exception ex) {
-                System.err.println("Error requesting awe client groups from Catalog for [" + 
-                        step.getMethodSpecId() + "]: " + ex.getMessage());
-            }
-        }
+        String aweClientGroups = requestClientGroups(config, srvMethod);
         String jobId = runJob(params, token, "", config, aweClientGroups);
         AppState appState = initAppState(jobId, config);
         appState.setOriginalApp(app);
