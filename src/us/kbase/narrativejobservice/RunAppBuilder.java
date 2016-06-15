@@ -34,6 +34,7 @@ import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
@@ -848,9 +849,11 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
                 		"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
             }
-            if (aweState == null)
+            if (aweState == null) {
+                final String aweDataStr = new ObjectMapper().writeValueAsString(aweData);
                 throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
-                        "for ujs-id=" + jobId + " (state is null)");
+                        "for ujs-id=" + jobId + " - state is null. AWE returned:\n " + aweDataStr);
+            }
             if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
                     (!aweState.equals("in-progress"))) {
                 // Let's double-check, what if UJS job was marked as complete while we checked AWE?
