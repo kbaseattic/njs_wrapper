@@ -706,7 +706,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = SDKMethodRunner.runJob(params, authPart.toString(), null, config(), null);
+        String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
+        returnVal = SDKMethodRunner.runJob(params, authPart.toString(), null, config(), aweClientGroups);
         //END run_job
         return returnVal;
     }

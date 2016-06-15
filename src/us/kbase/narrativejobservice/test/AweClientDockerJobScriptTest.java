@@ -54,9 +54,9 @@ import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetClientGroupParams;
+import us.kbase.catalog.ClientGroupConfig;
+import us.kbase.catalog.ClientGroupFilter;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersion;
@@ -1756,9 +1756,11 @@ public class AweClientDockerJobScriptTest {
             execStats.add(params);
         }
 
-        @JsonServerMethod(rpc = "Catalog.get_client_groups")
-        public List<AppClientGroup> getClientGroups(GetClientGroupParams params) throws IOException, JsonClientException {
-            return Arrays.asList(new AppClientGroup().withClientGroups(Arrays.asList("*")));
+        @JsonServerMethod(rpc = "Catalog.list_client_group_configs")
+        public List<ClientGroupConfig> listClientGroupConfigs(ClientGroupFilter filter) throws IOException, JsonClientException {
+            return Arrays.asList(new ClientGroupConfig().withModuleName(filter.getModuleName())
+                    .withFunctionName(filter.getFunctionName())
+                    .withClientGroups(Arrays.asList("*")));
         }
 
         @JsonServerMethod(rpc = "Catalog.list_volume_mounts")

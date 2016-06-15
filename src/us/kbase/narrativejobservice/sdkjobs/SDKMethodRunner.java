@@ -19,6 +19,8 @@ import us.kbase.auth.AuthException;
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.ClientGroupConfig;
+import us.kbase.catalog.ClientGroupFilter;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
@@ -75,6 +77,29 @@ public class SDKMethodRunner {
 				dbApp.getAppStateData(), AppState.class);
 	}
 
+	public static String requestClientGroups(Map<String, String> config, String srvMethod)
+	        throws UnauthorizedException, IOException, AuthException, JsonClientException {
+        String aweClientGroups = null;
+        String[] modMeth = srvMethod.split(Pattern.quote("."));
+        if (modMeth.length == 2) {
+            CatalogClient catCl = getCatalogClient(config, false);
+            List<ClientGroupConfig> ret = catCl.listClientGroupConfigs(
+                    new ClientGroupFilter().withModuleName(modMeth[0]).withFunctionName(modMeth[1]));
+            if (ret != null && ret.size() == 1) {
+                ClientGroupConfig cgc = ret.get(0);
+                List<String> groupList = cgc.getClientGroups();
+                StringBuilder sb = new StringBuilder();
+                for (String group : groupList) {
+                    if (sb.length() > 0)
+                        sb.append(",");
+                    sb.append(group);
+                }
+                aweClientGroups = sb.toString();
+            }
+        }
+        return aweClientGroups;
+	}
+	
 	public static String runJob(RunJobParams params, String token, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
 		AuthToken authPart = new AuthToken(token);
