@@ -5,14 +5,14 @@ public class AweResponseException extends Exception {
 
     private int responseCode;
     private String httpReasonPhrase;
-    private Object errorObject;
+    private String responseError;
     
     public AweResponseException(String message, int responseCode, 
-            String httpReasonPhrase, Object errorObject) {
+            String httpReasonPhrase, String responseError) {
         super(message);
         this.responseCode = responseCode;
         this.httpReasonPhrase = httpReasonPhrase;
-        this.errorObject = errorObject;
+        this.responseError = responseError;
     }
     
     public int getResponseCode() {
@@ -23,7 +23,7 @@ public class AweResponseException extends Exception {
         return httpReasonPhrase;
     }
     
-    public Object getErrorObject() {
-        return errorObject;
+    public String getResponseError() {
+        return responseError;
     }
 }

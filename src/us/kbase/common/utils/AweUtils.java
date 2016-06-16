@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.http.HttpResponse;
@@ -88,17 +89,25 @@ public class AweUtils {
                 Map.class);
         int status = response.getStatusLine().getStatusCode();
         Integer jsonStatus = (Integer)respObj.get("status");
-        Object errorObj = respObj.get("error");
+        Object errObj = respObj.get("error");
         if (status != 200 || jsonStatus != null && jsonStatus != 200 ||
-                errorObj != null) {
+                errObj != null) {
             if (jsonStatus == null)
                 jsonStatus = status;
-            Object message = respObj.get("error");
-            if (message == null)
-                message = response.getStatusLine().getReasonPhrase();
-            throw new AweResponseException("AWE error code " + jsonStatus + ": " +
-                    message, jsonStatus, response.getStatusLine().getReasonPhrase(), 
-                    jsonStatus);
+            String error = null;
+            if (errObj != null) {
+                if (errObj instanceof List) {
+                    List<Object> errList = (List<Object>)errObj;
+                    if (errList.size() == 1 && errList.get(0) instanceof String)
+                        error = (String)errList.get(0);
+                }
+                if (error == null)
+                    error = String.valueOf(errObj);
+            }
+            String reason = response.getStatusLine().getReasonPhrase();
+            String fullMessage = "AWE error code " + jsonStatus + ": " +
+                    (error == null ? reason : error);
+            throw new AweResponseException(fullMessage, jsonStatus, reason, error);
         }
         return respObj;
     }
