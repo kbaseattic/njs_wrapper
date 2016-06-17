@@ -6,3 +6,6 @@
 /temp_dumps
 /temp_CallbackServer/
 /temp_test_callback/
+/migrate_shock_data_to_mongo.sh
+/deploy-test.cfg
+/migrate.log

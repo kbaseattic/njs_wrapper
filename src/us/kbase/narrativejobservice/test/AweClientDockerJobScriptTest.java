@@ -46,6 +46,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,9 +54,9 @@ import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetClientGroupParams;
+import us.kbase.catalog.ClientGroupConfig;
+import us.kbase.catalog.ClientGroupFilter;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersion;
@@ -63,12 +64,16 @@ import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -81,10 +86,10 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
@@ -187,6 +192,106 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    private Map<String, Object> buildInsanitaryObject() {
+        Map<String, Object> inner = new HashMap<String, Object>();
+        inner.put("$$.%%%bad...$$%%%key", "value");
+        inner.put("key1", 1);
+        inner.put("key2", null);
+        inner.put("key3", true);
+        Map<String, Object> outer = new HashMap<String, Object>();
+        outer.put("id", "foo");
+        outer.put("bad%.$key$.%", "value");
+        outer.put("key", Arrays.asList(inner));
+        outer.put("key2", 2);
+        outer.put("key4", null);
+        outer.put("key5", false);
+        return outer;
+    }
+    
+    @Test
+    public void testInsanitaryParams() throws Exception {
+        System.out.println("Test [testInsanitaryParams]");
+        Map<String, Object> outer = buildInsanitaryObject();
+
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(outer),
+                null);
+        Tuple2<RunJobParams, Map<String, String>> rjp =
+                client.getJobParams(js.getJobId());
+        Map<String, Object> got = rjp.getE1().getParams().get(0)
+            .asClassInstance(Map.class);
+        assertThat("incorrect params", got, is(outer));
+    }
+    
+    @Test
+    public void testInsanitaryReturns() throws Exception {
+        System.out.println("Test [testInsanitaryReturns]");
+        Map<String, Object> ret = buildInsanitaryObject();
+        String ref = saveObjectToWs(ret, "testInsanitaryReturns");
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id", "bar");
+        params.put("ret", ref);
+        
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(params),
+                null);
+        System.out.println(js.getResult());
+        List<Map<String, Object>> got =
+                js.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+        
+        JobState jres = client.checkJob(js.getJobId());
+        got = jres.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+    }
+
+    private Map<String, Object> buildLargeObject() {
+        
+        Map<String, Object> ret = new HashMap<String, Object>();
+        for (int i = 0; i < 255548; i++) {
+            ret.put("key" + i, "01234");
+        }
+        ret.put("id", "foo");
+        return ret;
+    }
+    
+    @Test
+    public void testLargeParams() throws Exception {
+        //note the SDKLocalMethodRunner limits returns to 15k
+        System.out.println("Test [testLargeParams]");
+        Map<String, Object> p = buildLargeObject();
+
+        //should work
+        runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+        p.put("foo", "wheeeee");
+        
+        try {
+            runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+            fail("started job with too large object");
+        } catch (ServerException se) {
+            assertThat("incorrect exception message", se.getLocalizedMessage(),
+                    is("Input parameters are above 5000000B maximum: 5000004"));
+        }
+    }
+    
+    private String saveObjectToWs(
+            Map<String, Object> ret, final String objname) throws IOException,
+            JsonClientException, Exception, InvalidFileFormatException {
+        Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>> obj =
+                getWsClient(token, loadConfig())
+                    .saveObjects(new SaveObjectsParams()
+                        .withWorkspace(testWsName)
+                        .withObjects(Arrays.asList(
+                                new ObjectSaveData()
+                                    .withData(new UObject(ret))
+                                    .withName(objname)
+                                    .withType("Empty.AType")
+                                )
+                    )).get(0);
+        return obj.getE7() + "/" + obj.getE1();
+    }
+    
     public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
@@ -814,8 +919,8 @@ public class AweClientDockerJobScriptTest {
                 stepJobId = st.getStepJobIds().get("step1");
                 if (stepJobId != null)
                     System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                if (st.getJobState().equals(SDKMethodRunner.APP_STATE_DONE) ||
+                        st.getJobState().equals(SDKMethodRunner.APP_STATE_ERROR)) {
                     break;
                 }
                 Thread.sleep(5000);
@@ -930,7 +1035,7 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, stepErrorText);
             Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
             Assert.assertTrue(st.toString(), stepErrorText.contains("Preparing to generate an error..."));
-            Assert.assertEquals(errMsg, RunAppBuilder.APP_STATE_ERROR, st.getJobState());
+            Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_ERROR, st.getJobState());
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -997,7 +1102,46 @@ public class AweClientDockerJobScriptTest {
             throw ex;
         }
     }
-    
+
+    @Ignore
+    @Test
+    public void testCustomData() throws Exception {
+        // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
+        // <work-dir>/<userid> folder exists in host file system. This
+        System.out.println("Test [testCustomData]");
+        String dataFileName = "custom_test.txt";
+        File customDir = new File(workDir, token.getClientId());
+        File customFile = new File(customDir, dataFileName);
+        try {
+            customDir.mkdir();
+            PrintWriter pw = new PrintWriter(customFile);
+            pw.println("Custom data file");
+            pw.close();
+            try {
+                AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/custom\"");
+                String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+                Assert.assertEquals(errMsg, "completed", st.getJobState());
+                Assert.assertNotNull(errMsg, st.getStepOutputs());
+                String step1output = st.getStepOutputs().get("step1");
+                Assert.assertNotNull(errMsg, step1output);
+                List<List<String>> data = UObject.getMapper().readValue(step1output, List.class);
+                Assert.assertTrue(errMsg, new TreeSet<String>(data.get(0)).contains(dataFileName));
+            } catch (ServerException ex) {
+                System.err.println(ex.getData());
+                throw ex;
+            }
+        } finally {
+            try {
+                if (customFile.exists())
+                    customFile.delete();
+            } catch (Exception ignore) {}
+            try {
+                if (customDir.exists())
+                    customDir.delete();
+            } catch (Exception ignore) {}
+        }
+    }
+
     @Test
     public void testAsyncClient() throws Exception {
         System.out.println("Test [testAsyncClient]");
@@ -1338,6 +1482,7 @@ public class AweClientDockerJobScriptTest {
                 "#!/bin/bash",
                 "cd " + dir.getAbsolutePath(),
                 "export PATH=" + binDir.getAbsolutePath() + ":$PATH",
+                "export AWE_CLIENTGROUP=test_client_group",
                 aweClientExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
                 "echo $pid > pid.txt"
                 ), scriptFile);
@@ -1409,7 +1554,6 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
@@ -1612,9 +1756,22 @@ public class AweClientDockerJobScriptTest {
             execStats.add(params);
         }
 
-        @JsonServerMethod(rpc = "Catalog.get_client_groups")
-        public List<AppClientGroup> getClientGroups(GetClientGroupParams params) throws IOException, JsonClientException {
-            return Arrays.asList(new AppClientGroup().withClientGroups(Arrays.asList("*")));
+        @JsonServerMethod(rpc = "Catalog.list_client_group_configs")
+        public List<ClientGroupConfig> listClientGroupConfigs(ClientGroupFilter filter) throws IOException, JsonClientException {
+            return Arrays.asList(new ClientGroupConfig().withModuleName(filter.getModuleName())
+                    .withFunctionName(filter.getFunctionName())
+                    .withClientGroups(Arrays.asList("*")));
+        }
+
+        @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
+        public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
+            if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
+                    filter.getClientGroup().equals("test_client_group")) {
+                VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
+                        new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/custom")));
+                return Arrays.asList(ret);
+            }
+            return null;
         }
     }
 }

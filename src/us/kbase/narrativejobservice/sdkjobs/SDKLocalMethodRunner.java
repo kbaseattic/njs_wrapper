@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.File;
 import java.io.FileReader;
@@ -12,7 +12,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,12 +23,22 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.executionengine.CallbackServer;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder;
 import us.kbase.common.executionengine.JobRunnerConstants;
@@ -43,14 +52,24 @@ import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.common.utils.UTCDateFormat;
+import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.JsonRpcError;
+import us.kbase.narrativejobservice.LogLine;
+import us.kbase.narrativejobservice.MethodCall;
+import us.kbase.narrativejobservice.NarrativeJobServiceClient;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RpcContext;
+import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 
-public class AweClientDockerJobScript {
-    
+public class SDKLocalMethodRunner {
+
+    private final static DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
     public static final String RELEASE = JobRunnerConstants.RELEASE;
@@ -106,7 +125,7 @@ public class AweClientDockerJobScript {
             if (context.getCallStack() == null)
                 context.setCallStack(new ArrayList<MethodCall>());
             context.getCallStack().add(new MethodCall().withJobId(jobId).withMethod(job.getMethod())
-                    .withTime(new UTCDateFormat().formatDate(new Date())));
+                    .withTime(DATE_FORMATTER.print(new DateTime())));
             Map<String, Object> rpc = new LinkedHashMap<String, Object>();
             rpc.put("version", "1.1");
             rpc.put("method", job.getMethod());
@@ -140,6 +159,10 @@ public class AweClientDockerJobScript {
             };
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
+            String clientGroup = System.getenv("AWE_CLIENTGROUP");
+            if (clientGroup == null)
+                clientGroup = "<unknown>";
+            log.logNextLine("Client group: " + clientGroup, false);
             String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = new CatalogClient(catalogURL, token);
             catClient.setIsInsecureHttpConnectionAllowed(true);
@@ -147,7 +170,7 @@ public class AweClientDockerJobScript {
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
-                    .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
+                    .getAdditionalProperties().get(SDKMethodRunner.REQ_REL);
             final ModuleVersion mv;
             try {
                 mv = catClient.getModuleVersion(new SelectModuleVersion()
@@ -197,6 +220,37 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
+            // Let's check if there are some volume mount rules set up for this module
+            List<Bind> additionalBinds = null;
+            String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
+            if (adminTokenStr == null || adminTokenStr.isEmpty())
+                adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
+            if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
+                final AuthToken adminToken = new AuthToken(adminTokenStr);
+                final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
+                adminCatClient.setIsInsecureHttpConnectionAllowed(true);
+                adminCatClient.setAllSSLCertificatesTrusted(true);
+                List<VolumeMountConfig> vmc = null;
+                try {
+                    vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
+                            modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
+                } catch (Exception ex) {
+                    log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
+                }
+                if (vmc != null && vmc.size() > 0) {
+                    if (vmc.size() > 1)
+                        throw new IllegalStateException("More than one rule for Docker volume mounts was found");
+                    additionalBinds = new ArrayList<Bind>();
+                    for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
+                        String hostDir = vm.getHostDir();
+                        hostDir = processHostPathForVolumeMount(hostDir, token.getClientId());
+                        String contDir = vm.getContainerDir();
+                        AccessMode am = vm.getReadOnly() != null && vm.getReadOnly() != 0L ?
+                                AccessMode.ro : AccessMode.rw;
+                        additionalBinds.add(new Bind(hostDir, new Volume(contDir), am));
+                    }
+                }
+            }
             // Starting up callback server
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
@@ -213,7 +267,7 @@ public class AweClientDockerJobScript {
                                 jobDir.toPath(), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
-                        job.getSourceWsObjects());
+                        job.getSourceWsObjects(), additionalBinds);
                 callbackServer = new Server(callbackPort);
                 final ServletContextHandler srvContext =
                         new ServletContextHandler(
@@ -230,7 +284,7 @@ public class AweClientDockerJobScript {
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId);
+                    refDataDir, null, callbackUrl, jobId, additionalBinds);
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -314,6 +368,10 @@ public class AweClientDockerJobScript {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+    }
+    
+    public static String processHostPathForVolumeMount(String path, String username) {
+        return path.replace("${username}", username);
     }
     
     private static boolean notNullOrEmpty(final String s) {

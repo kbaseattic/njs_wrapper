@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -54,7 +54,8 @@ public class DockerRunner {
             final File refDataDir,
             final File optionalScratchDir,
             final URL callbackUrl,
-            final String jobId)
+            final String jobId,
+            final List<Bind> additionalBinds)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
@@ -83,6 +84,8 @@ public class DockerRunner {
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
             if (optionalScratchDir != null)
                 binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
+            if (additionalBinds != null)
+                binds.addAll(additionalBinds);
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
