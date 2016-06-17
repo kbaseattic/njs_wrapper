@@ -63,12 +63,12 @@ deploy-service: deploy-scripts
 	mkdir $(SERVICE_DIR)/webapps
 	cp ./dist/$(WAR_FILE) $(SERVICE_DIR)/webapps/root.war
 	cp server_scripts/jetty.xml $(SERVICE_DIR)
-	server_scripts/build_server_control_scripts.py $(SERVICE_DIR) $(WAR_FILE)\
+	#server_scripts/build_server_control_scripts.py $(SERVICE_DIR) $(WAR_FILE)\
 		$(TARGET) $(JAVA_HOME) deploy.cfg $(ASADMIN) $(SERVICE_CAPS)\
 		$(SERVICE_PORT)
 
-	chmod +x $(SERVICE_DIR)/start_service
-	chmod +x $(SERVICE_DIR)/stop_service
+	#chmod +x $(SERVICE_DIR)/start_service
+	#chmod +x $(SERVICE_DIR)/stop_service
 
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)

@@ -40,7 +40,15 @@ public class DockerRunner {
     private final URI dockerURI;
     
     public DockerRunner(final URI dockerURI) {
-        this.dockerURI = dockerURI;
+        //this.dockerURI = dockerURI;
+        URI tmp;
+        try {
+           tmp=new URI("unix:///tmp/mydocker.sock");
+        } catch (Exception ex) {
+           ex.printStackTrace();
+           tmp=dockerURI;
+        }
+        this.dockerURI = tmp;
     }
     
     public File run(
@@ -91,9 +99,10 @@ public class DockerRunner {
                             binds.toArray(new Bind[binds.size()]));
             if (callbackUrl != null)
                 cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
-            CreateContainerResponse resp = cntCmd.exec();
-            String cntId = resp.getId();
-            Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
+            //CreateContainerResponse resp = cntCmd.exec();
+            //String cntId = resp.getId();
+            //Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
+            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v",Arrays.toString(binds.toArray())});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
             for (int i = 0; i < inputStreams.length; i++) {
@@ -122,37 +131,37 @@ public class DockerRunner {
             for (Thread t : workers)
                 t.join();
             p.waitFor();
-            cl.waitContainerCmd(cntId).exec();
+            //cl.waitContainerCmd(cntId).exec();
             //--------------------------------------------------
-            InspectContainerResponse resp2 = cl.inspectContainerCmd(cntId).exec();
-            if (resp2.getState().isRunning()) {
-                try {
-                    Container cnt = findContainerByNameOrIdPrefix(cl, cntName);
-                    cl.stopContainerCmd(cnt.getId()).exec();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-                throw new IllegalStateException("Container was still running");
-            }
-            InputStream is = cl.logContainerCmd(cntId).withStdOut().withStdErr().exec();
-            OutputStream os = new FileOutputStream(new File(workDir, "docker.log"));
-            IOUtils.copy(is, os);
-            os.close();
-            is.close();
+            //InspectContainerResponse resp2 = cl.inspectContainerCmd(cntId).exec();
+            //if (resp2.getState().isRunning()) {
+            //    try {
+            //        Container cnt = findContainerByNameOrIdPrefix(cl, cntName);
+            //        cl.stopContainerCmd(cnt.getId()).exec();
+            //    } catch (Exception ex) {
+            //        ex.printStackTrace();
+            //    }
+            //    throw new IllegalStateException("Container was still running");
+            //}
+            //InputStream is = cl.logContainerCmd(cntId).withStdOut().withStdErr().exec();
+            //OutputStream os = new FileOutputStream(new File(workDir, "docker.log"));
+            ////IOUtils.copy(is, os);
+            //os.close();
+            //is.close();
             if (outputFile.exists()) {
                 return outputFile;
             } else {
-                int exitCode = resp2.getState().getExitCode();
+                int exitCode = 0; //resp2.getState().getExitCode();
                 StringBuilder err = new StringBuilder();
-                BufferedReader br = new BufferedReader(new InputStreamReader(
-                        cl.logContainerCmd(cntId).withStdErr(true).exec()));
-                while (true) {
-                    String l = br.readLine();
-                    if (l == null)
-                        break;
-                    err.append(l).append("\n");
-                }
-                br.close();
+                //BufferedReader br = new BufferedReader(new InputStreamReader(
+                //        cl.logContainerCmd(cntId).withStdErr(true).exec()));
+                //while (true) {
+               //     String l = br.readLine();
+                //    if (l == null)
+                //        break;
+                //    err.append(l).append("\n");
+                //}
+                //br.close();
                 String msg = "Output file is not found, exit code is " + exitCode;
                 if (err.length() > 0)
                     msg += ", errors: " + err;
@@ -188,12 +197,12 @@ public class DockerRunner {
             throws IOException {
         if (findImageId(cl, imageName) == null) {
             System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
-            ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
+            ProcessHelper.cmd("mydocker", "pull", imageName).exec(new File("."));
             System.out.println("[DEBUG] DockerRunner: after pulling " + imageName);
         }
-        if (findImageId(cl, imageName) == null) {
-            throw new IllegalStateException("Image was not found: " + imageName);
-        }
+        //if (findImageId(cl, imageName) == null) {
+        //    throw new IllegalStateException("Image was not found: " + imageName);
+        //}
         return imageName;
     }
 
@@ -202,24 +211,24 @@ public class DockerRunner {
     }
     
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix, boolean all) {
-        for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
-            if (image.getId().startsWith(imageTagOrIdPrefix))
-                return image;
-            for (String tag : image.getRepoTags())
-                if (tag.equals(imageTagOrIdPrefix))
-                    return image;
-        }
+        //for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
+        //    if (image.getId().startsWith(imageTagOrIdPrefix))
+        //        return image;
+        //    for (String tag : image.getRepoTags())
+        //        if (tag.equals(imageTagOrIdPrefix))
+        //            return image;
+        //}
         return null;
     }
     
     private Container findContainerByNameOrIdPrefix(DockerClient cl, String nameOrIdPrefix) {
-        for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
-            if (cnt.getId().startsWith(nameOrIdPrefix))
-                return cnt;
-            for (String name : cnt.getNames())
-                if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
-                    return cnt;
-        }
+        //for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
+        //    if (cnt.getId().startsWith(nameOrIdPrefix))
+        //        return cnt;
+        //    for (String name : cnt.getNames())
+        //        if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
+        //            return cnt;
+        //}
         return null;
     }
     
@@ -230,7 +239,8 @@ public class DockerRunner {
             ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger)log;
             log2.setLevel(Level.ERROR);
         }
-        if (dockerURI != null) {
+        //if (dockerURI != null) {
+        if (true) {
             DockerClientConfig config = DockerClientConfig.createDefaultConfigBuilder()
                     .withUri(dockerURI.toASCIIString()).build();
             return DockerClientBuilder.getInstance(config).build();
