@@ -148,6 +148,7 @@ public class AweClientDockerJobScriptTest {
             String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams params = new RunJobParams().withMethod(
                     moduleName + "." + methodName).withServiceVer(serviceVer)
+                    .withAppId("myapp/foo")
                     .withParams(Arrays.asList(UObject.fromJsonString(
                             "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
             String jobId = client.runJob(params);
@@ -169,6 +170,7 @@ public class AweClientDockerJobScriptTest {
             String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
             Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
             Assert.assertNotNull(errMsg, ret.getResult());
+            assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
             List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
             Assert.assertEquals(errMsg, 1, data.size());
             Map<String, String> outParams = data.get(0).get("params");
@@ -186,6 +188,10 @@ public class AweClientDockerJobScriptTest {
             double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
             Assert.assertTrue("" + execLog, queueTime > 0);
             Assert.assertTrue("" + execLog, execTime > 0);
+            
+            //check input params
+            params = client.getJobParams(jobId).getE1();
+            assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

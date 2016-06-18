@@ -101,7 +101,6 @@ public class SDKMethodRunner {
         return aweClientGroups;
 	}
 	
-	//TODO NOW test that app_id is stored
 	//TODO NOW test passing meta & wsid to the UJS
 	public static String runJob(RunJobParams params, String token, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
@@ -255,6 +254,7 @@ public class SDKMethodRunner {
 		}
 	}
 
+	//TODO shouldn't this method check that the job is readable by the user?
 	public static RunJobParams getJobInputParams(String ujsJobId, String token, 
 			Map<String, String> config, Map<String,String> resultConfig) throws Exception {
 		updateAweTaskExecTime(ujsJobId, config, false);
@@ -291,7 +291,8 @@ public class SDKMethodRunner {
 		resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
 		return input;
 	}
-
+	
+	//TODO shouldn't this method check that the job is owned by the user?
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 			String token, ErrorLogger log, Map<String, String> config) throws Exception {
 		@SuppressWarnings("unchecked")
