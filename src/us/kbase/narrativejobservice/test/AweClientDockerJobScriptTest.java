@@ -73,7 +73,9 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple12;
 import us.kbase.common.service.Tuple2;
+import us.kbase.common.service.Tuple3;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -90,6 +92,8 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
 import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
+import us.kbase.userandjobstate.Results;
+import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
@@ -115,6 +119,7 @@ public class AweClientDockerJobScriptTest {
     private static Server catalogWrapper = null;
     private static Server njsService = null;
     private static String testWsName = null;
+    private static long testWsID = 0;
     private static final String testContigsetObjName = "temp_contigset.1";
     private static File refDataDir = null;
     
@@ -141,6 +146,8 @@ public class AweClientDockerJobScriptTest {
     @Test
     public void testOneJob() throws Exception {
         System.out.println("Test [testOneJob]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
         try {
             execStats.clear();
             String moduleName = "onerepotest";
@@ -148,7 +155,7 @@ public class AweClientDockerJobScriptTest {
             String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams params = new RunJobParams().withMethod(
                     moduleName + "." + methodName).withServiceVer(serviceVer)
-                    .withAppId("myapp/foo")
+                    .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                     .withParams(Arrays.asList(UObject.fromJsonString(
                             "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
             String jobId = client.runJob(params);
@@ -192,6 +199,18 @@ public class AweClientDockerJobScriptTest {
             //check input params
             params = client.getJobParams(jobId).getE1();
             assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
+            
+            //check UJS job
+            Tuple12<String, String, String, String,
+                Tuple3<String, String, String>, Tuple3<Long, Long, String>,
+                Long, Long, Tuple2<String, String>, Map<String, String>,
+                String, Results> u = getUJSClient(token, loadConfig())
+                    .getJobInfo2(jobId);
+            assertThat("incorrect metadata", u.getE10(), is(meta));
+            assertThat("incorrect auth strat", u.getE9().getE1(),
+                    is("kbaseworkspace"));
+            assertThat("incorrect ws id", u.getE9().getE2(),
+                    is("" + testWsID));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -1205,6 +1224,17 @@ public class AweClientDockerJobScriptTest {
         return ver;
     }
 
+    private static UserAndJobStateClient getUJSClient(
+            final AuthToken token,
+            final Map<String, String> config) throws Exception {
+        final String ujsUrl = config.get(
+                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+        final UserAndJobStateClient ujs = new UserAndJobStateClient(
+                new URL(ujsUrl), token);
+        ujs.setIsInsecureHttpConnectionAllowed(true);
+        return ujs;
+    }
+    
     private static WorkspaceClient getWsClient(AuthToken auth, 
             Map<String, String> config) throws Exception {
         String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -1278,7 +1308,8 @@ public class AweClientDockerJobScriptTest {
         for (int i = 0; i < 5; i++) {
             testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
             try {
-                wscl.createWorkspace(new CreateWorkspaceParams().withWorkspace(testWsName));
+                testWsID = wscl.createWorkspace(new CreateWorkspaceParams()
+                        .withWorkspace(testWsName)).getE1();
                 error = null;
                 break;
             } catch (Exception ex) {

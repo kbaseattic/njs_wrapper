@@ -101,7 +101,6 @@ public class SDKMethodRunner {
         return aweClientGroups;
 	}
 	
-	//TODO NOW test passing meta & wsid to the UJS
 	public static String runJob(RunJobParams params, String token, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
 		AuthToken authPart = new AuthToken(token);
