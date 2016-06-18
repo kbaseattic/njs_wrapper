@@ -1,0 +1,63 @@
+#!/bin/sh
+#
+# This is a wrapper script to enable Shifter to be used as a substitate for docker
+# for KBase jobs
+
+# Save the commands for debugging
+echo $@ >> ~/mydocker.debug
+
+if [ "$1" = "pull" ] ;then
+  if [ $(shifterimg images|grep -c $2) -eq 0 ] ; then
+    shifterimg pull docker:$2|tail -10
+  fi
+elif [ "$1" = "run" ] ;then
+  # KBase expects /kb/module to be writeable for now.  So let's make a copy for
+  # remounting rw
+  IMAGE=docker:$2
+  MODULE=$(echo "$2"|sed 's|.*/||'|sed 's/:/_/')
+  RW=$SCRATCH/writeable/$MODULE
+  shifter --image=$IMAGE rsync -avz /kb/module/ $RW
+
+  # Get the working directory
+  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//')
+  WD=$(echo $VOLM|sed 's/:.*//')/tmp
+  echo "Workdir:$WD"
+  echo "RW:$RW"
+  # Run the job with basically no modifications
+  shifter --image=$IMAGE \
+    --volume $RW:/kb/module \
+    --volume $VOLM $0 inside
+
+  if [ $? -ne 0 ] ; then
+    echo "Job failed"
+    exit $?
+  fi
+  # If this is an HPC job.  Let's submit the batch script
+  # wait, then run post
+  if [ -e $WD/slurm.submit ] ; then
+    export POST=1
+    cd $WD
+    export RUNDIR=$WD
+    JOBID=$(sbatch slurm.submit|sed 's/.* //')
+    if [ $? -ne 0 ] ;then
+      echo "Submit Failed"
+      exit 1
+    fi
+    echo "Slurm Job ID: $JOBID"
+    squeue --job $JOBID
+    echo "Waiting for job to complete"
+    STATUS=$(squeue --job $JOBID -o '%t' -h)
+    while [ ! -z "$STATUS" ] || [ "$STATUS" = 'PD' ] || [ "$STATUS" = "R" ] ; do
+      sleep 30
+      STATUS=$(squeue --job $JOBID -o '%t' -h)
+    done
+    shifter --image=$IMAGE \
+      --volume $RW:/kb/module \
+      --volume $VOLM $0 inside
+  fi
+elif [ "$1" = "inside" ] ;then
+  # This is needed because Shifter doesn't handle some docker metadata just yet (cwd)
+  echo "Inside Shifter wraper"
+  cd /kb/module
+  ./scripts/entrypoint.sh async
+fi
