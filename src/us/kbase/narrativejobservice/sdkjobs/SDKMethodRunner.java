@@ -49,6 +49,7 @@ import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.narrativejobservice.db.SanitizeMongoObject;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
+import us.kbase.userandjobstate.CreateJobParams;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
 import us.kbase.workspace.ObjectSpecification;
@@ -113,8 +114,6 @@ public class SDKMethodRunner {
 			UObject.transformObjectToObject(params, Map.class);
 		checkObjectLength(jobInput, MAX_PARAM_B, "Input", null);
 
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		final String ujsJobId = ujsClient.createJob();
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
 		if (kbaseEndpoint == null) {
 			String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -124,6 +123,14 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
+		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		final CreateJobParams cjp = new CreateJobParams()
+				.withMeta(params.getMeta());
+		if (params.getWsid() != null) {
+			cjp.withAuthstrat("kbaseworkspace")
+				.withAuthparam("" + params.getWsid());
+		}
+		final String ujsJobId = ujsClient.createJob2(cjp);
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -246,6 +253,7 @@ public class SDKMethodRunner {
 		}
 	}
 
+	//TODO shouldn't this method check that the job is readable by the user?
 	public static RunJobParams getJobInputParams(String ujsJobId, String token, 
 			Map<String, String> config, Map<String,String> resultConfig) throws Exception {
 		updateAweTaskExecTime(ujsJobId, config, false);
@@ -282,7 +290,8 @@ public class SDKMethodRunner {
 		resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
 		return input;
 	}
-
+	
+	//TODO shouldn't this method check that the job is owned by the user?
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 			String token, ErrorLogger log, Map<String, String> config) throws Exception {
 		@SuppressWarnings("unchecked")
