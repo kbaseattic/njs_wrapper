@@ -39,13 +39,10 @@ public class ProcessHelper {
 
     public static ProcessHelper exec(CommandHolder cmd, File workDir, File input, File output, File error, boolean waitFor) throws IOException {
         ProcessHelper ret;
-        try ( // apparently Eclipse doesn't understand try with resources yet
-            @SuppressWarnings("resource")
+        try (
             BufferedReader br = input == null ? null :
                 new BufferedReader(new FileReader(input));
-            @SuppressWarnings("resource")
             PrintWriter pw = output == null ? null : new PrintWriter(output);
-            @SuppressWarnings("resource")
             PrintWriter epw = error == null ? null : new PrintWriter(error)
         ) {
             ret = exec(cmd, workDir, br, pw, epw, waitFor);

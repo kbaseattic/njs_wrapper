@@ -115,8 +115,28 @@ public class SDKLocalMethodRunner {
                     true);
             ujsClient = getUjsClient(jobInput.getE2(), token);
             RunJobParams job = jobInput.getE1();
-            ujsClient.startJob(jobId, token.toString(), "running", "AWE job for " + job.getMethod(), 
-                    new InitProgress().withPtype("none"), null);
+            try {
+                ujsClient.startJob(jobId, token.toString(), "running",
+                        "Execution engine job for " + job.getMethod(), 
+                        new InitProgress().withPtype("none"), null);
+            } catch (ServerException se) {
+                System.out.println("Error starting UJS job:\n" + se.getData());
+                if (se.getLocalizedMessage().contains(
+                        "no unstarted job " + jobId)) {
+                    final String jobstage =
+                            ujsClient.getJobStatus(jobId).getE2();
+                    if ("started".equals(jobstage)) {
+                        System.out.println(
+                                "Job already in started state, continuing");
+                    } else {
+                        throw new IllegalStateException(String.format(
+                                "Job %s couldn't be started and is in state %s",
+                                jobId, jobstage));
+                    }
+                } else {
+                    throw se;
+                }
+            }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
