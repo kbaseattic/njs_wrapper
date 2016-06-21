@@ -257,8 +257,7 @@ public class SDKMethodRunner {
 	public static RunJobParams getJobInputParams(String ujsJobId, String token, 
 			Map<String, String> config, Map<String,String> resultConfig) throws Exception {
 		updateAweTaskExecTime(ujsJobId, config, false);
-		final RunJobParams input = getJobInput(ujsJobId, new AuthToken(token),
-				config);
+		final RunJobParams input = getJobInput(ujsJobId, config);
 		String[] propsToSend = {
 				NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
 				NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
@@ -306,8 +305,8 @@ public class SDKMethodRunner {
 		// let's make a call to catalog sending execution stats
 		try {
 			AuthToken auth = new AuthToken(token);
-			final LegacyAppInfo info = getLegacyAppInfo(ujsJobId, config);
-			final RunJobParams input = getJobInput(ujsJobId, auth, config);
+			final AppInfo info = getAppInfo(ujsJobId, config);
+			final RunJobParams input = getJobInput(ujsJobId, config);
 			String[] parts = input.getMethod().split(Pattern.quote("."));
 			String funcModuleName = parts.length > 1 ? parts[0] : null;
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
@@ -621,8 +620,8 @@ public class SDKMethodRunner {
 		return dbTask;
 	}
 
-	private static String getAweTaskAppId(String ujsJobId, Map<String, String> config) throws Exception {
-		return getAweTaskDescription(ujsJobId, config).getAppJobId();
+	private static String getAweTaskAppId(ExecTask task) throws Exception {
+		return task.getAppJobId();
 	}
 
 	private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
@@ -671,10 +670,14 @@ public class SDKMethodRunner {
 	
 	private static RunJobParams getJobInput(
 			final String ujsJobId,
-			final AuthToken token,
 			final Map<String, String> config)
 			throws Exception {
-		final ExecTask task = getAweTaskDescription(ujsJobId, config);
+	    return getJobInput(getAweTaskDescription(ujsJobId, config));
+	}
+	
+    private static RunJobParams getJobInput(
+            final ExecTask task)
+            throws Exception {
 		if (task.getJobInput() != null) {
 			SanitizeMongoObject.befoul(task.getJobInput());
 			return UObject.transformObjectToObject(task.getJobInput(),
@@ -695,49 +698,41 @@ public class SDKMethodRunner {
 					FinishJobParams.class);
 		}
 		return null;
-	}
+	}	
 
-	private static class LegacyAppInfo {
-		public final String uiModuleName;
-		public final String methodSpecId;
-		
-		private LegacyAppInfo(String uiModuleName, String methodSpecId) {
-			super();
-			this.uiModuleName = uiModuleName;
-			this.methodSpecId = methodSpecId;
-		}
-	}
-	
-
-	private static LegacyAppInfo getLegacyAppInfo(
+	private static AppInfo getAppInfo(
 			final String ujsJobId,
 			final Map<String, String> config)
 			throws Exception {
-		String appJobId = getAweTaskAppId(ujsJobId, config);
-		AppState appState = null;
-		if (appJobId != null)
-			appState = loadAppState(appJobId, config);
-		String stepId = null;
-		App app = null;
-		if (appState != null && appState.getStepJobIds() != null
-				&& appState.getOriginalApp() != null) {
-			app = appState.getOriginalApp();
-			for (String sId : appState.getStepJobIds().keySet()) {
-				if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
-					stepId = sId;
-					break;
-				}
-			}
-		}
-		String methodSpecId = null;
-		if (stepId != null && app != null && app.getSteps() != null) {
-			for (Step step : app.getSteps()) {
-				if (step.getStepId().equals(stepId)) {
-					methodSpecId = step.getMethodSpecId();
-					break;
-				}
-			}
-		}
+        ExecTask task = getAweTaskDescription(ujsJobId, config);
+        RunJobParams params = getJobInput(task);
+        String methodSpecId = params.getAppId();
+        if (methodSpecId == null) {
+            String appJobId = getAweTaskAppId(task);
+            AppState appState = null;
+            if (appJobId != null)
+                appState = loadAppState(appJobId, config);
+            String stepId = null;
+            App app = null;
+            if (appState != null && appState.getStepJobIds() != null
+                    && appState.getOriginalApp() != null) {
+                app = appState.getOriginalApp();
+                for (String sId : appState.getStepJobIds().keySet()) {
+                    if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
+                        stepId = sId;
+                        break;
+                    }
+                }
+            }
+            if (stepId != null && app != null && app.getSteps() != null) {
+                for (Step step : app.getSteps()) {
+                    if (step.getStepId().equals(stepId)) {
+                        methodSpecId = step.getMethodSpecId();
+                        break;
+                    }
+                }
+            }
+        }
 		String uiModuleName = null;
 		if (methodSpecId != null) {
 			String[] parts = methodSpecId.split("/");
@@ -746,6 +741,16 @@ public class SDKMethodRunner {
 				methodSpecId = parts[1];
 			}
 		}
-		return new LegacyAppInfo(uiModuleName, methodSpecId);
+		return new AppInfo(uiModuleName, methodSpecId);
+	}
+	
+	private static class AppInfo {
+	    public final String uiModuleName;
+	    public final String methodSpecId;
+
+	    private AppInfo(String uiModuleName, String methodSpecId) {
+	        this.uiModuleName = uiModuleName;
+	        this.methodSpecId = methodSpecId;
+	    }
 	}
 }

@@ -186,8 +186,8 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
             Assert.assertEquals(1, execStats.size());
             LogExecStatsParams execLog = execStats.get(0);
-            Assert.assertNull(execLog.getAppModuleName());
-            Assert.assertNull(execLog.getAppId());
+            Assert.assertEquals("myapp", execLog.getAppModuleName());
+            Assert.assertEquals("foo", execLog.getAppId());
             Assert.assertEquals(moduleName, execLog.getFuncModuleName());
             Assert.assertEquals(methodName, execLog.getFuncName());
             Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
@@ -1128,7 +1128,6 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Ignore
     @Test
     public void testCustomData() throws Exception {
         // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
@@ -1143,7 +1142,7 @@ public class AweClientDockerJobScriptTest {
             pw.println("Custom data file");
             pw.close();
             try {
-                AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/custom\"");
+                AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/kb/module/custom\"");
                 String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
                 Assert.assertEquals(errMsg, "completed", st.getJobState());
                 Assert.assertNotNull(errMsg, st.getStepOutputs());
@@ -1805,7 +1804,7 @@ public class AweClientDockerJobScriptTest {
             if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
                     filter.getClientGroup().equals("test_client_group")) {
                 VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
-                        new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/custom")));
+                        new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/kb/module/custom")));
                 return Arrays.asList(ret);
             }
             return null;
