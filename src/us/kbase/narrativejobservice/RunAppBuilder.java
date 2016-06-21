@@ -176,7 +176,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 		}
 	}
 	
-	private void runApp(String token, App app, AppState appState, String jobId, String outRef) throws Exception {
+	private void runApp(String token, App app, AppState appState, String jobId, 
+	        String outRef) throws Exception {
 		if (debug)
 			System.out.println("App [" + jobId + "]: " + app);
 		appState.setOriginalApp(app);
@@ -189,8 +190,8 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			if (appState.getIsDeleted() != null && appState.getIsDeleted() == 1L)
 				throw new IllegalStateException("App was deleted");
 			if (step.getType() == null || !step.getType().equals("service"))
-				throw new IllegalStateException("Unsupported type for step [" + step.getStepId() + "]: " + 
-						step.getType());
+				throw new IllegalStateException("Unsupported type for step [" + 
+				        step.getStepId() + "]: " + step.getType());
 			String srvUrl = step.getService().getServiceUrl();
 			String srvName = step.getService().getServiceName();
 			String srvMethod = step.getService().getMethodName();
@@ -199,7 +200,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			if (step.getIsLongRunning() != null && step.getIsLongRunning() == 1L &&
 			        srvUrl.isEmpty()) {
 			    RunJobParams params = new RunJobParams().withMethod(srvMethod)
-			            .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
+			            .withParams(step.getInputValues())
+			            .withServiceVer(step.getService().getServiceVersion())
+			            .withAppId(step.getMethodSpecId());
 			    String stepJobId = runJob(params, token, jobId, config, null);
 			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
 	            updateAppState(appState, config);
@@ -288,7 +291,9 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         if (srvName != null && !srvName.isEmpty())
             srvMethod = srvName + "." + srvMethod;
         RunJobParams params = new RunJobParams().withMethod(srvMethod)
-                .withParams(step.getInputValues()).withServiceVer(step.getService().getServiceVersion());
+                .withParams(step.getInputValues())
+                .withServiceVer(step.getService().getServiceVersion())
+                .withAppId(step.getMethodSpecId());
         String aweClientGroups = requestClientGroups(config, srvMethod);
         String jobId = runJob(params, token, "", config, aweClientGroups);
         AppState appState = initAppState(jobId, config);
