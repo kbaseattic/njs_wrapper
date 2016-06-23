@@ -257,7 +257,8 @@ public class SDKLocalMethodRunner {
                 List<VolumeMountConfig> vmc = null;
                 try {
                     vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
-                            modMeth.getModule()).withClientGroup(clientGroup).withFunctionName(modMeth.getMethod()));
+                            modMeth.getModule()).withClientGroup(clientGroup)
+                            .withFunctionName(modMeth.getMethod()));
                 } catch (Exception ex) {
                     log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
                 }
@@ -266,12 +267,21 @@ public class SDKLocalMethodRunner {
                         throw new IllegalStateException("More than one rule for Docker volume mounts was found");
                     additionalBinds = new ArrayList<Bind>();
                     for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
-                        String hostDir = vm.getHostDir();
-                        hostDir = processHostPathForVolumeMount(hostDir, token.getClientId());
+                        boolean isReadOnly = vm.getReadOnly() != null && vm.getReadOnly() != 0L;
+                        File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(), 
+                                token.getClientId()));
+                        if (!hostDir.exists()) {
+                            if (isReadOnly) {
+                                throw new IllegalStateException("Volume mount directory doesn't exist: " + 
+                            hostDir);
+                            } else {
+                                hostDir.mkdirs();
+                            }
+                        }
                         String contDir = vm.getContainerDir();
-                        AccessMode am = vm.getReadOnly() != null && vm.getReadOnly() != 0L ?
+                        AccessMode am = isReadOnly ?
                                 AccessMode.ro : AccessMode.rw;
-                        additionalBinds.add(new Bind(hostDir, new Volume(contDir), am));
+                        additionalBinds.add(new Bind(hostDir.getCanonicalPath(), new Volume(contDir), am));
                     }
                 }
             }

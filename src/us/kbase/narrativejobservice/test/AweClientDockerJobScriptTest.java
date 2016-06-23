@@ -46,7 +46,6 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -1801,8 +1800,9 @@ public class AweClientDockerJobScriptTest {
 
         @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
         public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
+            String userId = token.getClientId();
             if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
-                    filter.getClientGroup().equals("test_client_group")) {
+                    filter.getClientGroup().equals("test_client_group") && new File(workDir, userId).exists()) {
                 VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
                         new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/kb/module/custom")));
                 return Arrays.asList(ret);
