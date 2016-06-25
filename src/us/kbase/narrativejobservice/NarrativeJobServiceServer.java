@@ -58,8 +58,8 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
-    private static final String gitUrl = "https://github.com/mrcreosote/njs_wrapper";
-    private static final String gitCommitHash = "30c441d1ba84dc512d9db625ff6438e41656daa8";
+    private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
+    private static final String gitCommitHash = "0b7c8951534371c2e345e758c3d61d3d6e45f47e";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -485,7 +485,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (forward) {
         	returnVal = getForwardClient(authPart).runApp(app);
         } else {
-            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart.toString(), app, config());
+            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart, app, config());
             if (returnVal == null) {
                 String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
                 returnVal = RunAppBuilder.initAppState(appJobId, config());
@@ -512,7 +512,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         	returnVal = SDKMethodRunner.loadAppState(jobId, config());
         	if (returnVal == null)
         		throw new IllegalStateException("Information is not available");
-        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart.toString(), returnVal, config());
+        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart, returnVal, config());
         }
         //END check_app_state
         return returnVal;
@@ -707,7 +707,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         String returnVal = null;
         //BEGIN run_job
         String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
-        returnVal = SDKMethodRunner.runJob(params, authPart.toString(), null, config(), aweClientGroups);
+        returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
         return returnVal;
     }
@@ -726,11 +726,27 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         Map<String,String> return2 = null;
         //BEGIN get_job_params
         return2 = new LinkedHashMap<String, String>();
-        return1 = SDKMethodRunner.getJobInputParams(jobId, authPart.toString(), config(), return2);
+        return1 = SDKMethodRunner.getJobInputParams(jobId, authPart, config(), return2);
         //END get_job_params
         Tuple2<RunJobParams, Map<String,String>> returnVal = new Tuple2<RunJobParams, Map<String,String>>();
         returnVal.setE1(return1);
         returnVal.setE2(return2);
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: update_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.UpdateJobParams UpdateJobParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.UpdateJobResults UpdateJobResults}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.update_job", async=true)
+    public UpdateJobResults updateJob(UpdateJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        UpdateJobResults returnVal = null;
+        //BEGIN update_job
+        returnVal = new UpdateJobResults().withMessages(SDKMethodRunner.updateJob(params, authPart, config()));
+        //END update_job
         return returnVal;
     }
 
@@ -746,7 +762,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
-        returnVal = (long)SDKMethodRunner.addJobLogs(jobId, lines, authPart.toString(), config());
+        returnVal = (long)SDKMethodRunner.addJobLogs(jobId, lines, authPart, config());
         //END add_job_logs
         return returnVal;
     }
@@ -763,7 +779,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
         returnVal = SDKMethodRunner.getJobLogs(params.getJobId(), params.getSkipLines(), 
-                authPart.toString(), getAdminUsers(), config());
+                authPart, getAdminUsers(), config());
         //END get_job_logs
         return returnVal;
     }
@@ -779,7 +795,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
-    	SDKMethodRunner.finishJob(jobId, params, authPart.toString(), logger, config());
+    	SDKMethodRunner.finishJob(jobId, params, authPart, logger, config());
         //END finish_job
     }
 
@@ -795,8 +811,24 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public JobState checkJob(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         JobState returnVal = null;
         //BEGIN check_job
-        returnVal = SDKMethodRunner.checkJob(jobId, authPart.toString(), config());
+        returnVal = SDKMethodRunner.checkJob(jobId, authPart, config());
         //END check_job
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: check_jobs</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CheckJobsParams CheckJobsParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.CheckJobsResults CheckJobsResults}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.check_jobs", async=true)
+    public CheckJobsResults checkJobs(CheckJobsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        CheckJobsResults returnVal = null;
+        //BEGIN check_jobs
+        returnVal = SDKMethodRunner.checkJobs(params, authPart, config());
+        //END check_jobs
         return returnVal;
     }
 

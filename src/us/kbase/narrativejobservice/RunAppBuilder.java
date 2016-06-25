@@ -203,13 +203,13 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			            .withParams(step.getInputValues())
 			            .withServiceVer(step.getService().getServiceVersion())
 			            .withAppId(step.getMethodSpecId());
-			    String stepJobId = runJob(params, token, jobId, config, null);
+			    String stepJobId = runJob(params, auth, jobId, config, null);
 			    appState.getStepJobIds().put(step.getStepId(), stepJobId);
 	            updateAppState(appState, config);
 			    JobState jobState = null;
 			    while (true) {
 			        Thread.sleep(5000);
-			        jobState = checkJob(stepJobId, token, config);
+			        jobState = checkJob(stepJobId, auth, config);
 			        if (jobState.getFinished() != null && jobState.getFinished() == 1L)
 			            break;
 			    }
@@ -277,7 +277,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 			System.out.println("End of app [" + jobId + "]");
 	}
 	
-	public static AppState tryToRunAsOneStepAweScript(String token, App app, 
+	public static AppState tryToRunAsOneStepAweScript(AuthToken auth, App app, 
 	        Map<String, String> config) throws Exception {
         if (app.getSteps().size() != 1)
             return null;
@@ -295,7 +295,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
                 .withServiceVer(step.getService().getServiceVersion())
                 .withAppId(step.getMethodSpecId());
         String aweClientGroups = requestClientGroups(config, srvMethod);
-        String jobId = runJob(params, token, "", config, aweClientGroups);
+        String jobId = runJob(params, auth, "", config, aweClientGroups);
         AppState appState = initAppState(jobId, config);
         appState.setOriginalApp(app);
         appState.setJobState(APP_STATE_QUEUED);
@@ -305,7 +305,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
         return appState;
 	}
 	
-	public static void checkIfAppStateNeedsUpdate(String token, AppState appState, 
+	public static void checkIfAppStateNeedsUpdate(AuthToken auth, AppState appState, 
             Map<String, String> config) throws Exception {
 	    if (appState.getJobState().equals(APP_STATE_DONE) ||
 	            appState.getJobState().equals(APP_STATE_ERROR))
@@ -317,7 +317,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	    if (!appState.getJobId().equals(stepJobId))
 	        return;
 	    try {
-	        JobState jobState = checkJob(stepJobId, token, config);
+	        JobState jobState = checkJob(stepJobId, auth, config);
 	        StepStats stst = new StepStats();
 	        stst.withCreationTime(jobState.getCreationTime());
 	        stst.withExecStartTime(jobState.getExecStartTime());
@@ -357,7 +357,7 @@ public class RunAppBuilder extends DefaultTaskBuilder<String> {
 	                String errorText = retError.getError();
 	                if (errorText == null)
 	                    errorText = "Message: " + retError.getMessage();
-	                List<LogLine> logLines = getJobLogs(stepJobId, null, token, null, config).getLines();
+	                List<LogLine> logLines = getJobLogs(stepJobId, null, auth, null, config).getLines();
 	                if (logLines.size() > 0) {
 	                    StringBuilder logPart = new StringBuilder("\nConsole output/error logs:\n");
 	                    for (int i = 0; i < Math.min(ERROR_HEAD_TAIL_LOG_LINES, logLines.size()); i++)
