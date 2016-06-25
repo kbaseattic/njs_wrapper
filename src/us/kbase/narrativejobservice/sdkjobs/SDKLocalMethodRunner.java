@@ -60,10 +60,8 @@ import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.RunJobParams;
+import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
-import us.kbase.userandjobstate.InitProgress;
-import us.kbase.userandjobstate.Results;
-import us.kbase.userandjobstate.UserAndJobStateClient;
 
 public class SDKLocalMethodRunner {
 
@@ -100,7 +98,6 @@ public class SDKLocalMethodRunner {
         final AuthToken token = new AuthToken(tokenStr);
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
                 jobSrvUrl, token);
-        UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         LineLogger log = null;
@@ -121,30 +118,10 @@ public class SDKLocalMethodRunner {
             final URI dockerURI = getURI(jobInput.getE2(),
                     NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                     true);
-            ujsClient = getUjsClient(jobInput.getE2(), token);
             RunJobParams job = jobInput.getE1();
-            try {
-                ujsClient.startJob(jobId, token.toString(), "running",
-                        "Execution engine job for " + job.getMethod(), 
-                        new InitProgress().withPtype("none"), null);
-            } catch (ServerException se) {
-                if (se.getLocalizedMessage().contains(
-                        "no unstarted job " + jobId)) {
-                    final String jobstage =
-                            ujsClient.getJobStatus(jobId).getE2();
-                    if ("started".equals(jobstage)) {
-                        log.logNextLine(String.format(
-                                "UJS Job %s is already in started state, continuing",
-                                jobId), false);
-                    } else {
-                        throw new IllegalStateException(String.format(
-                                "Job %s couldn't be started and is in state " +
-                                "%s. Server stacktrace:\n%s",
-                                jobId, jobstage, se.getData()), se);
-                    }
-                } else {
-                    throw se;
-                }
+            for (String msg : jobSrvClient.updateJob(new UpdateJobParams().withJobId(jobId)
+                    .withIsStarted(1L)).getMessages()) {
+                log.logNextLine(msg, false);
             }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
@@ -179,7 +156,6 @@ public class SDKLocalMethodRunner {
             if (kbaseEndpoint != null)
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
-            ujsClient.updateJob(jobId, token.toString(), "running", null);
             
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
@@ -187,7 +163,6 @@ public class SDKLocalMethodRunner {
             if (clientGroup == null)
                 clientGroup = "<unknown>";
             log.logNextLine("Client group: " + clientGroup, false);
-            String dockerRegistry = getDockerRegistryURL(config);
             CatalogClient catClient = new CatalogClient(catalogURL, token);
             catClient.setIsInsecureHttpConnectionAllowed(true);
             catClient.setAllSSLCertificatesTrusted(true);
@@ -218,12 +193,7 @@ public class SDKLocalMethodRunner {
                     throw new IllegalStateException("Reference data directory doesn't exist: " + refDataDir);
             }
             if (imageName == null) {
-                // TODO: We need to get rid of this line soon
-                imageName = dockerRegistry + "/" +
-                            modMeth.getModule().toLowerCase() + ":" +
-                            imageVersion;
-                //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
-                log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
+                throw new IllegalStateException("Image is not stored in catalog");
             } else {
                 log.logNextLine("Image name received from catalog: " + imageName, false);
             }
@@ -359,8 +329,6 @@ public class SDKLocalMethodRunner {
             flushLog(jobSrvClient, jobId, logLines);
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
-            ujsClient.completeJob(jobId, token.toString(), "done", null,
-                    new Results());
             logFlusher.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -390,13 +358,6 @@ public class SDKLocalMethodRunner {
                 jobSrvClient.finishJob(jobId, result);
             } catch (Exception ex2) {
                 ex2.printStackTrace();
-            }
-            if (ujsClient != null) {
-                String status = "Error: " + ex.getMessage();
-                if (status.length() > 200)
-                    status = status.substring(0, 197) + "...";
-                ujsClient.completeJob(jobId, token.toString(), status,
-                        err, null);
             }
         } finally {
             if (callbackServer != null)
@@ -455,25 +416,6 @@ public class SDKLocalMethodRunner {
         return ret;
     }
 
-    private static UserAndJobStateClient getUjsClient(
-            final Map<String, String> config, 
-            final AuthToken token)
-            throws Exception {
-        final URL ujsURL = getURL(config,
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-        UserAndJobStateClient ret = new UserAndJobStateClient(ujsURL, token);
-        ret.setIsInsecureHttpConnectionAllowed(true);
-        return ret;
-    }
-
-    private static String getDockerRegistryURL(Map<String, String> config) {
-        String drUrl = config.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL);
-        if (drUrl == null)
-            throw new IllegalStateException("Parameter '" + NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL +
-                    "' is not defined in configuration");
-        return drUrl;
-    }
-    
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
             MalformedURLException, TokenFormatException {

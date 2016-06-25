@@ -5,6 +5,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -35,6 +36,8 @@ import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
+import us.kbase.narrativejobservice.CheckJobsParams;
+import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.FinishJobParams;
 import us.kbase.narrativejobservice.GetJobLogsResults;
 import us.kbase.narrativejobservice.JobState;
@@ -42,6 +45,7 @@ import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.Step;
+import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.ExecLog;
@@ -50,6 +54,8 @@ import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.narrativejobservice.db.SanitizeMongoObject;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.userandjobstate.CreateJobParams;
+import us.kbase.userandjobstate.InitProgress;
+import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.GetObjectInfoNewParams;
 import us.kbase.workspace.ObjectSpecification;
@@ -101,10 +107,8 @@ public class SDKMethodRunner {
         return aweClientGroups;
 	}
 	
-	public static String runJob(RunJobParams params, String token, 
+	public static String runJob(RunJobParams params, AuthToken authPart, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-		AuthToken authPart = new AuthToken(token);
-
 		//perform sanity checks before creating job
 		checkWSObjects(authPart, config, params.getSourceWsObjects());
 		//need to update the params before transforming to a Map
@@ -253,10 +257,10 @@ public class SDKMethodRunner {
 		}
 	}
 
-	//TODO shouldn't this method check that the job is readable by the user?
-	public static RunJobParams getJobInputParams(String ujsJobId, String token, 
+	public static RunJobParams getJobInputParams(String ujsJobId, AuthToken auth, 
 			Map<String, String> config, Map<String,String> resultConfig) throws Exception {
-		updateAweTaskExecTime(ujsJobId, config, false);
+        UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+        ujsClient.getJobStatus(ujsJobId);
 		final RunJobParams input = getJobInput(ujsJobId, config);
 		String[] propsToSend = {
 				NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
@@ -268,11 +272,12 @@ public class SDKMethodRunner {
 				NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
 				NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE
 		};
-		for (String key : propsToSend) {
-			String value = config.get(key);
-			if (value != null)
-				resultConfig.put(key, value);
-		}
+		if (resultConfig != null)
+		    for (String key : propsToSend) {
+		        String value = config.get(key);
+		        if (value != null)
+		            resultConfig.put(key, value);
+		    }
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
 		if (kbaseEndpoint == null) {
 			String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -282,17 +287,58 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
-		resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
+        if (resultConfig != null)
+            resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
-		resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
+        if (resultConfig != null)
+            resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
 		return input;
 	}
 	
-	//TODO shouldn't this method check that the job is owned by the user?
+	public static List<String> updateJob(UpdateJobParams params, AuthToken auth, 
+	        Map<String, String> config) throws Exception {
+	    String ujsJobId = params.getJobId();
+        UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+        ujsClient.getJobStatus(ujsJobId);
+        if (params.getIsStarted() == null || params.getIsStarted() != 1L)
+            throw new IllegalStateException("Method is currently supported only for " +
+            		"switching jobs into stated state");
+        List<String> ret = new ArrayList<String>();
+        final RunJobParams input = getJobInput(ujsJobId, config);
+        try {
+            ujsClient.startJob(ujsJobId, auth.toString(), "running",
+                    "Execution engine job for " + input.getMethod(), 
+                    new InitProgress().withPtype("none"), null);
+        } catch (ServerException se) {
+            if (se.getMessage().contains(
+                    "no unstarted job " + ujsJobId)) {
+                final String jobstage =
+                        ujsClient.getJobStatus(ujsJobId).getE2();
+                if ("started".equals(jobstage)) {
+                    ret.add(String.format(
+                            "UJS Job %s is already in started state, continuing",
+                            ujsJobId));
+                } else {
+                    throw new IllegalStateException(String.format(
+                            "Job %s couldn't be started and is in state " +
+                            "%s. Server stacktrace:\n%s",
+                            ujsJobId, jobstage, se.getData()), se);
+                }
+            } else {
+                throw se;
+            }
+        }
+	    updateAweTaskExecTime(ujsJobId, config, false);
+	    return ret;
+	}
+	
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
-			String token, ErrorLogger log, Map<String, String> config) throws Exception {
+	        AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
+        UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+        //TODO shouldn't this method check that the job is owned by the user?
+        ujsClient.getJobStatus(ujsJobId);
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobOutput =
 				UObject.transformObjectToObject(params, Map.class);
@@ -302,9 +348,21 @@ public class SDKMethodRunner {
 		SanitizeMongoObject.sanitize(jobOutput);
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 		updateAweTaskExecTime(ujsJobId, config, true);
+		// Updating UJS job state
+		if (params.getError() != null) {
+            String status = params.getError().getMessage();
+            if (status == null)
+                status = "Unknown error";
+            if (status.length() > 200)
+                status = status.substring(0, 197) + "...";
+            ujsClient.completeJob(ujsJobId, auth.toString(), status,
+                    params.getError().getError(), null);
+		} else {
+		    ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+		            new Results());
+		}
 		// let's make a call to catalog sending execution stats
 		try {
-			AuthToken auth = new AuthToken(token);
 			final AppInfo info = getAppInfo(ujsJobId, config);
 			final RunJobParams input = getJobInput(ujsJobId, config);
 			String[] parts = input.getMethod().split(Pattern.quote("."));
@@ -363,8 +421,7 @@ public class SDKMethodRunner {
 	}
 
 	public static int addJobLogs(String ujsJobId, List<LogLine> lines,
-			String token, Map<String, String> config) throws Exception {
-		AuthToken authPart = new AuthToken(token);
+	        AuthToken authPart, Map<String, String> config) throws Exception {
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		ujsClient.getJobStatus(ujsJobId);
 		ExecEngineMongoDb db = getDb(config);
@@ -412,8 +469,7 @@ public class SDKMethodRunner {
 	}
 
 	public static GetJobLogsResults getJobLogs(String ujsJobId, Long skipLines,
-			String token, Set<String> admins, Map<String, String> config) throws Exception {
-		AuthToken authPart = new AuthToken(token);
+	        AuthToken authPart, Set<String> admins, Map<String, String> config) throws Exception {
 		boolean isAdmin = admins != null && admins.contains(authPart.getClientId());
 		if (!isAdmin) {
 			// If it's not admin then let's check if there is permission in UJS
@@ -439,9 +495,8 @@ public class SDKMethodRunner {
 	}
 
 	@SuppressWarnings("unchecked")
-	public static JobState checkJob(String jobId, String token, 
+	public static JobState checkJob(String jobId, AuthToken authPart, 
 			Map<String, String> config) throws Exception {
-		AuthToken authPart = new AuthToken(token);
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		String aweJobId = getAweTaskAweJobId(jobId, config);
@@ -534,6 +589,19 @@ public class SDKMethodRunner {
 		return returnVal;
 	}
 
+	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
+	        Map<String, String> config) throws Exception {
+	    CheckJobsResults ret = new CheckJobsResults().withJobStates(new LinkedHashMap<String, JobState>());
+	    for (String jobId : params.getJobIds())
+	        ret.getJobStates().put(jobId, checkJob(jobId, auth, config));
+	    if (params.getWithJobParams() != null && params.getWithJobParams() == 1L) {
+	        ret.withJobParams(new LinkedHashMap<String, RunJobParams>());
+	        for (String jobId : params.getJobIds())
+	            ret.getJobParams().put(jobId, getJobInputParams(jobId, auth, config, null));
+	    }
+	    return ret;
+	}
+	
 	private static UserAndJobStateClient getUjsClient(AuthToken auth, 
 			Map<String, String> config) throws Exception {
 		String jobSrvUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
@@ -630,7 +698,10 @@ public class SDKMethodRunner {
 
 	private static void updateAweTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
-		db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+		ExecTask dbTask = db.getExecTask(ujsJobId);
+		Long prevTime = finishTime ? dbTask.getFinishTime() : dbTask.getExecStartTime();
+		if (prevTime == null)
+		    db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
 	}
 
 	private static Long[] getAweTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {

@@ -82,6 +82,7 @@ import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
+import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.LogLine;
@@ -161,7 +162,8 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             for (int i = 0; i < 20; i++) {
                 try {
-                    ret = client.checkJob(jobId);
+                    ret = client.checkJobs(new CheckJobsParams().withJobIds(
+                            Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
                     System.out.println("Job finished: " + ret.getFinished());
                     if (ret.getFinished() != null && ret.getFinished() == 1L) {
                         break;

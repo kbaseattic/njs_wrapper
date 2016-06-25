@@ -235,6 +235,22 @@ module NarrativeJobService {
     funcdef get_job_params(job_id job_id) returns (RunJobParams params, 
         mapping<string, string> config) authentication required;
 
+    /*
+        is_started - optional flag marking job as started (and triggering exec_start_time
+            statistics to be stored).
+    */
+    typedef structure {
+        job_id job_id;
+        boolean is_started;
+    } UpdateJobParams;
+
+    typedef structure {
+        list<string> messages;
+    } UpdateJobResults;
+
+    funcdef update_job(UpdateJobParams params) returns (UpdateJobResults) 
+        authentication required;
+
     typedef structure {
         string line;
         boolean is_error;
@@ -324,4 +340,17 @@ module NarrativeJobService {
         Check if a job is finished and get results/error
     */
     funcdef check_job(job_id job_id) returns (JobState job_state) authentication required;
+    
+    typedef structure {
+        list<job_id> job_ids;
+        boolean with_job_params;
+    } CheckJobsParams;
+
+    typedef structure {
+        mapping<job_id, JobState> job_states;
+        mapping<job_id, RunJobParams> job_params;
+    } CheckJobsResults;
+    
+    funcdef check_jobs(CheckJobsParams params) returns (CheckJobsResults)
+        authentication required;
 };
