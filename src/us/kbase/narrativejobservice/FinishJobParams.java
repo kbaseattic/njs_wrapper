@@ -15,7 +15,7 @@ import us.kbase.common.service.UObject;
 /**
  * <p>Original spec-file type: FinishJobParams</p>
  * <pre>
- * Either 'result' or 'error' field should be defined;
+ * Either 'result', 'error' or 'is_cancelled' field should be defined;
  * result - keeps exact copy of what original server method puts
  *     in result block of JSON RPC response;
  * error - keeps exact copy of what original server method puts
@@ -27,7 +27,8 @@ import us.kbase.common.service.UObject;
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "result",
-    "error"
+    "error",
+    "is_cancelled"
 })
 public class FinishJobParams {
 
@@ -42,6 +43,8 @@ public class FinishJobParams {
      */
     @JsonProperty("error")
     private JsonRpcError error;
+    @JsonProperty("is_cancelled")
+    private Long isCancelled;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("result")
@@ -88,6 +91,21 @@ public class FinishJobParams {
         return this;
     }
 
+    @JsonProperty("is_cancelled")
+    public Long getIsCancelled() {
+        return isCancelled;
+    }
+
+    @JsonProperty("is_cancelled")
+    public void setIsCancelled(Long isCancelled) {
+        this.isCancelled = isCancelled;
+    }
+
+    public FinishJobParams withIsCancelled(Long isCancelled) {
+        this.isCancelled = isCancelled;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -100,7 +118,7 @@ public class FinishJobParams {
 
     @Override
     public String toString() {
-        return ((((((("FinishJobParams"+" [result=")+ result)+", error=")+ error)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("FinishJobParams"+" [result=")+ result)+", error=")+ error)+", isCancelled=")+ isCancelled)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
