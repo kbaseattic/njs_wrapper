@@ -44,6 +44,7 @@ import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -82,6 +83,7 @@ import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
+import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
@@ -561,6 +563,7 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testBadWSIDs() throws Exception {
+        System.out.println("Test [testBadWSIDs]");
         List<String> ws = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + "objectdoesntexist",
                 testWsName + "/" + STAGED1_NAME,
@@ -574,6 +577,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testWorkspaceError() throws Exception {
+        System.out.println("Test [testWorkspaceError]");
         // test a workspace error.
         List<String> input = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + STAGED1_NAME,
@@ -585,6 +589,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testBadRelease() throws Exception {
+        System.out.println("Test [testBadRelease]");
         // note that dev and beta releases can only have one version each,
         // version tracking only happens for prod
         
@@ -615,6 +620,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobMultiCallBadRelease() throws Exception {
+        System.out.println("Test [testfailJobMultiCallBadRelease]");
         
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
@@ -649,6 +655,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobBadMethod() throws Exception {
+        System.out.println("Test [testfailJobBadMethod]");
         failJob("njs_sdk_test_1run", "foo",
                 "Illegal method name: njs_sdk_test_1run");
         failJob("njs_sdk_test_1.r.un", "foo",
@@ -657,6 +664,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobMultiCallBadMethod() throws Exception {
+        System.out.println("Test [testfailJobMultiCallBadMethod]");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
                 "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
@@ -1052,6 +1060,85 @@ public class AweClientDockerJobScriptTest {
     }
 
     @Test
+    public void testJobCancellation() throws Exception {
+        System.out.println("Test [testJobCancellation]");
+        try {
+            execStats.clear();
+            String moduleName = "onerepotest";
+            String methodName = "print_lines";
+            String serviceVer = lookupServiceVersion(moduleName);
+            RunJobParams job = new RunJobParams().withMethod(moduleName + "." + methodName)
+                            .withServiceVer(serviceVer)
+                            .withParams(Arrays.asList(new UObject("1\n2\n3\n4\n5\n6\n7\n8\n9")))
+                            .withAppId(moduleName + "/" + methodName);
+            String jobId = client.runJob(job);
+            JobState ret = null;
+            int logLinesRecieved = 0;
+            for (int i = 0; i < 100; i++) {
+                try {
+                    ret = client.checkJob(jobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L)
+                        break;
+                    // Executed method (onerepotest.print_lines) prints every line from input text
+                    // with 5 second interval. Lines are printed with square brackets around each.
+                    List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                            .withSkipLines((long)logLinesRecieved)).getLines();
+                    for (LogLine line : lines) {
+                        if (line.getLine().startsWith("[")) {
+                            // We found first line printed by method working in docker container.
+                            // So it's time to cancel the job.
+                            client.cancelJob(new CancelJobParams().withJobId(jobId));
+                        }
+                    }
+                    logLinesRecieved += lines.size();
+                    Thread.sleep(1000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            Assert.assertNotNull(ret);
+            String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+            Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+            Assert.assertEquals(errMsg, 1L, (long)ret.getCancelled());
+            Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
+            Assert.assertEquals(0, execStats.size());
+            boolean cancelledLogLine = false;
+            // Let's check in logs how many lines (out of 9) from input text we see. It depends on
+            // how long it takes to stop docker container really. But we shouldn't see all 9 since
+            // they are printed with 5 second interval.
+            logLinesRecieved = 0;
+            int logLinesFromInput = 0;
+            for (int i = 0; i < 30; i++) {
+                List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                        .withSkipLines((long)logLinesRecieved)).getLines();
+                for (LogLine line : lines) {
+                    String lineText = line.getLine();
+                    if (lineText.startsWith("[") && lineText.endsWith("]"))
+                        logLinesFromInput++;
+                    System.out.println("LOG: " + lineText);
+                    if (line.getLine().contains("Job was cancelled")) {
+                        // We see this line in logs only after docker container is stopped
+                        cancelledLogLine = true;
+                    }
+                }            
+                if (cancelledLogLine)
+                    break;
+                logLinesRecieved += lines.size();
+                Thread.sleep(1000);
+            }
+            Assert.assertTrue(errMsg, cancelledLogLine);
+            // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
+            // lines from input. Definitely less than 7.
+            Assert.assertTrue(logLinesFromInput < 7);
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
+    @Test
     public void testError() throws Exception {
         System.out.println("Test [testError]");
         try {
@@ -1339,6 +1426,7 @@ public class AweClientDockerJobScriptTest {
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
+        System.out.println();
     }
 
     private static void stageWSObjects() throws Exception {
@@ -1395,6 +1483,11 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @After
+    public void after() {
+        System.out.println();
+    }
+    
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
         if (aweServerExePath == null) {
             aweServerExePath = "awe-server";

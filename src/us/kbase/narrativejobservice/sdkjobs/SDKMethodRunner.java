@@ -36,6 +36,7 @@ import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
+import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.FinishJobParams;
@@ -66,6 +67,7 @@ public class SDKMethodRunner {
 	public static final String APP_STATE_STARTED = "in-progress";
 	public static final String APP_STATE_DONE = "completed";
 	public static final String APP_STATE_ERROR = "suspend";
+    public static final String APP_STATE_CANCELLED = "cancelled";
 	public static final String RELEASE = JobRunnerConstants.RELEASE;
 	public static final Set<String> RELEASE_TAGS =
 			JobRunnerConstants.RELEASE_TAGS;
@@ -262,38 +264,39 @@ public class SDKMethodRunner {
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
         ujsClient.getJobStatus(ujsJobId);
 		final RunJobParams input = getJobInput(ujsJobId, config);
-		String[] propsToSend = {
-				NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
-				NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
-				NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
-				NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, 
-				NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
-				NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
-				NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
-				NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE
-		};
-		if (resultConfig != null)
+		if (resultConfig != null) {
+		    String[] propsToSend = {
+		            NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
+		            NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
+		            NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
+		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, 
+		            NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
+		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+		            NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
+		            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE
+		    };
 		    for (String key : propsToSend) {
 		        String value = config.get(key);
 		        if (value != null)
 		            resultConfig.put(key, value);
 		    }
-		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
-		if (kbaseEndpoint == null) {
-			String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
-			if (!wsUrl.endsWith("/ws"))
-				throw new IllegalStateException("Parameter " + 
-						NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
-						" is not defined in configuration");
-			kbaseEndpoint = wsUrl.replace("/ws", "");
+		    String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
+		    if (kbaseEndpoint == null) {
+		        String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
+		        if (!wsUrl.endsWith("/ws"))
+		            throw new IllegalStateException("Parameter " + 
+		                    NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
+		                    " is not defined in configuration");
+		        kbaseEndpoint = wsUrl.replace("/ws", "");
+		    }
+		    resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
+		    String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+		    if (selfExternalUrl == null)
+		        selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
+		    resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
+		    resultConfig.put(JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION, 
+		            NarrativeJobServiceServer.VERSION);
 		}
-        if (resultConfig != null)
-            resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
-		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-		if (selfExternalUrl == null)
-			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
-        if (resultConfig != null)
-            resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
 		return input;
 	}
 	
@@ -301,34 +304,32 @@ public class SDKMethodRunner {
 	        Map<String, String> config) throws Exception {
 	    String ujsJobId = params.getJobId();
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        ujsClient.getJobStatus(ujsJobId);
+        String jobOwner = ujsClient.getJobOwner(ujsJobId);
+        if (auth == null || !jobOwner.equals(auth.getClientId()))
+            throw new IllegalStateException("Only owner of the job can update it");
+        Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
+                ujsClient.getJobStatus(ujsJobId);
         if (params.getIsStarted() == null || params.getIsStarted() != 1L)
             throw new IllegalStateException("Method is currently supported only for " +
             		"switching jobs into stated state");
         List<String> ret = new ArrayList<String>();
         final RunJobParams input = getJobInput(ujsJobId, config);
+        final String jobstage = jobStatus.getE2();
+        if ("started".equals(jobstage)) {
+            ret.add(String.format(
+                    "UJS Job %s is already in started state, continuing",
+                    ujsJobId));
+            return ret;
+        }
         try {
             ujsClient.startJob(ujsJobId, auth.toString(), "running",
                     "Execution engine job for " + input.getMethod(), 
                     new InitProgress().withPtype("none"), null);
         } catch (ServerException se) {
-            if (se.getMessage().contains(
-                    "no unstarted job " + ujsJobId)) {
-                final String jobstage =
-                        ujsClient.getJobStatus(ujsJobId).getE2();
-                if ("started".equals(jobstage)) {
-                    ret.add(String.format(
-                            "UJS Job %s is already in started state, continuing",
-                            ujsJobId));
-                } else {
-                    throw new IllegalStateException(String.format(
-                            "Job %s couldn't be started and is in state " +
+            throw new IllegalStateException(String.format(
+                    "Job %s couldn't be started and is in state " +
                             "%s. Server stacktrace:\n%s",
                             ujsJobId, jobstage, se.getData()), se);
-                }
-            } else {
-                throw se;
-            }
         }
 	    updateAweTaskExecTime(ujsJobId, config, false);
 	    return ret;
@@ -337,8 +338,19 @@ public class SDKMethodRunner {
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 	        AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        //TODO shouldn't this method check that the job is owned by the user?
-        ujsClient.getJobStatus(ujsJobId);
+        String jobOwner = ujsClient.getJobOwner(ujsJobId);
+        if (auth == null || !jobOwner.equals(auth.getClientId()))
+            throw new IllegalStateException("Only owner of the job can finish it");
+        Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
+                ujsClient.getJobStatus(ujsJobId);
+        if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
+            // Job was already done
+            List<LogLine> lines = new ArrayList<LogLine>();
+            lines.add(new LogLine().withLine("Attempt of finishing already completed job")
+                    .withIsError(1L));
+            addJobLogs(ujsJobId, lines, auth, config);
+            return;
+        }
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobOutput =
 				UObject.transformObjectToObject(params, Map.class);
@@ -349,6 +361,7 @@ public class SDKMethodRunner {
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 		updateAweTaskExecTime(ujsJobId, config, true);
 		// Updating UJS job state
+		boolean isCancelled = params.getIsCancelled() != null && params.getIsCancelled() == 1L;
 		if (params.getError() != null) {
             String status = params.getError().getMessage();
             if (status == null)
@@ -358,9 +371,12 @@ public class SDKMethodRunner {
             ujsClient.completeJob(ujsJobId, auth.toString(), status,
                     params.getError().getError(), null);
 		} else {
-		    ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+		    String status = isCancelled ? "cancelled" : "done";
+		    ujsClient.completeJob(ujsJobId, auth.toString(), status, null,
 		            new Results());
 		}
+		if (isCancelled)
+		    return;
 		// let's make a call to catalog sending execution stats
 		try {
 			final AppInfo info = getAppInfo(ujsJobId, config);
@@ -392,10 +408,11 @@ public class SDKMethodRunner {
 					errorMessage = "Unknown error";
 			}
 			if (errorMessage != null) {
-				String message = "Error sending execution stats to catalog (" + auth.getClientId() + ", " + 
-						info.uiModuleName + ", " + info.methodSpecId + ", " + funcModuleName + ", " + funcName + ", " + 
-						gitCommitHash + ", " + creationTime + ", " + execStartTime + ", " + finishTime + ", " + 
-						isError + "): " + errorMessage;
+				String message = "Error sending execution stats to catalog (" + 
+				        auth.getClientId() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
+				        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
+				        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
+				        "): " + errorMessage;
 				System.err.println(message);
 				if (log != null)
 					log.logErr(message);
@@ -568,11 +585,16 @@ public class SDKMethodRunner {
 			}
 		}
 		if (complete) {
+		    boolean isCancelled = params.getIsCancelled() == null ? false :
+                (params.getIsCancelled() == 1L);
 			returnVal.setFinished(1L);
+			returnVal.setCancelled(isCancelled ? 1L : 0L);
 			returnVal.setResult(params.getResult());
 			returnVal.setError(params.getError());
 			if (params.getError() != null) {
 				returnVal.setJobState(APP_STATE_ERROR);
+			} else if (isCancelled) {
+			    returnVal.setJobState(APP_STATE_CANCELLED);
 			} else {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
@@ -600,6 +622,11 @@ public class SDKMethodRunner {
 	            ret.getJobParams().put(jobId, getJobInputParams(jobId, auth, config, null));
 	    }
 	    return ret;
+	}
+	
+	public static void cancelJob(CancelJobParams params, AuthToken auth,
+	        Map<String, String> config) throws Exception {
+	    finishJob(params.getJobId(), new FinishJobParams().withIsCancelled(1L), auth, null, config);
 	}
 	
 	private static UserAndJobStateClient getUjsClient(AuthToken auth, 

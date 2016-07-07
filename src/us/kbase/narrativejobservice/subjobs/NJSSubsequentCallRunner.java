@@ -13,10 +13,12 @@ import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.executionengine.SubsequentCallRunner;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JsonClientException;
+import us.kbase.narrativejobservice.sdkjobs.CancellationChecker;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
     protected final List<Bind> additionalBinds;
+    protected final CancellationChecker cancellationChecker;
     
     public NJSSubsequentCallRunner(
             final AuthToken token,
@@ -24,10 +26,12 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
             final UUID jobId,
             final ModuleMethod modmeth,
             final String serviceVer,
-            final List<Bind> additionalBinds)
+            final List<Bind> additionalBinds,
+            final CancellationChecker cancellationChecker)
             throws IOException, JsonClientException, TokenFormatException {
         super(token, config, jobId, modmeth, serviceVer);
         this.additionalBinds = additionalBinds;
+        this.cancellationChecker = cancellationChecker;
     }
 
     @Override
@@ -50,7 +54,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, null,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString(), additionalBinds);
+                jobId.toString(), additionalBinds, cancellationChecker);
         return outputFile;
     }
     

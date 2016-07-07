@@ -59,7 +59,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
     private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
-    private static final String gitCommitHash = "0b7c8951534371c2e345e758c3d61d3d6e45f47e";
+    private static final String gitCommitHash = "ad8ba8358ad08a3437402c23cc96bf8343440738";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -101,7 +101,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
     
-    public static final String VERSION = "0.2.3";
+    public static final String VERSION = "0.2.4";
     
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
@@ -830,6 +830,19 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         returnVal = SDKMethodRunner.checkJobs(params, authPart, config());
         //END check_jobs
         return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: cancel_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.cancel_job", async=true)
+    public void cancelJob(CancelJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        //BEGIN cancel_job
+        SDKMethodRunner.cancelJob(params, authPart, config());
+        //END cancel_job
     }
 
     public static void main(String[] args) throws Exception {

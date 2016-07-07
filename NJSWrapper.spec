@@ -290,7 +290,7 @@ module NarrativeJobService {
     } JsonRpcError;
 
     /*
-        Either 'result' or 'error' field should be defined;
+        Either 'result', 'error' or 'is_cancelled' field should be defined;
         result - keeps exact copy of what original server method puts
             in result block of JSON RPC response;
         error - keeps exact copy of what original server method puts
@@ -299,6 +299,7 @@ module NarrativeJobService {
     typedef structure {
         UnspecifiedObject result;
         JsonRpcError error;
+        boolean is_cancelled;
     } FinishJobParams;
 
     /*
@@ -308,7 +309,7 @@ module NarrativeJobService {
 
     /*
         job_id - id of job running method
-        finished - indicates whether job is done (including error cases) or not,
+        finished - indicates whether job is done (including error/cancel cases) or not,
             if the value is true then either of 'returned_data' or 'detailed_error'
             should be defined;
         ujs_url - url of UserAndJobState service used by job service
@@ -334,6 +335,7 @@ module NarrativeJobService {
         int creation_time;
         int exec_start_time;
         int finish_time;
+        boolean cancelled;
     } JobState;
 
     /*
@@ -353,4 +355,11 @@ module NarrativeJobService {
     
     funcdef check_jobs(CheckJobsParams params) returns (CheckJobsResults)
         authentication required;
+
+    typedef structure {
+        job_id job_id;
+    } CancelJobParams;
+
+    funcdef cancel_job(CancelJobParams params) returns () authentication required;
+
 };

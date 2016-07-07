@@ -473,4 +473,19 @@ public class NarrativeJobServiceClient {
         List<CheckJobsResults> res = caller.jsonrpcCall("NarrativeJobService.check_jobs", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
+
+    /**
+     * <p>Original spec-file function name: cancel_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public void cancelJob(CancelJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<Object> retType = new TypeReference<Object>() {};
+        caller.jsonrpcCall("NarrativeJobService.cancel_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
+    }
 }

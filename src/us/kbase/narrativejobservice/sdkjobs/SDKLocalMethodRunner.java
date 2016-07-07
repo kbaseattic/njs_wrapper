@@ -53,6 +53,7 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
 import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.JsonRpcError;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.MethodCall;
@@ -77,6 +78,8 @@ public class SDKLocalMethodRunner {
     
     public static final String JOB_CONFIG_FILE =
             JobRunnerConstants.JOB_CONFIG_FILE;
+    public static final String CFG_PROP_EE_SERVER_VERSION =
+            JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -100,17 +103,26 @@ public class SDKLocalMethodRunner {
                 jobSrvUrl, token);
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
-        LineLogger log = null;
+        final LineLogger log = new LineLogger() {
+            @Override
+            public void logNextLine(String line, boolean isError) {
+                addLogLine(jobSrvClient, jobId, logLines,
+                        new LogLine().withLine(line)
+                            .withIsError(isError ? 1L : 0L));
+            }
+        };
         Server callbackServer = null;
         try {
-            log = new LineLogger() {
-                @Override
-                public void logNextLine(String line, boolean isError) {
-                    addLogLine(jobSrvClient, jobId, logLines,
-                            new LogLine().withLine(line)
-                                .withIsError(isError ? 1L : 0L));
+            JobState jobState = jobSrvClient.checkJob(jobId);
+            if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+                if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                    log.logNextLine("Job was cancelled", false);
+                } else {
+                    log.logNextLine("Job was already done before", true);
                 }
-            };
+                flushLog(jobSrvClient, jobId, logLines);
+                return;
+            }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
             final URL catalogURL = getURL(jobInput.getE2(),
@@ -163,6 +175,18 @@ public class SDKLocalMethodRunner {
             if (clientGroup == null)
                 clientGroup = "<unknown>";
             log.logNextLine("Client group: " + clientGroup, false);
+            String codeEeVer = NarrativeJobServiceServer.VERSION;
+            String runtimeEeVersion = config.get(CFG_PROP_EE_SERVER_VERSION);
+            if (runtimeEeVersion == null)
+                runtimeEeVersion = "<unknown>";
+            if (codeEeVer.equals(runtimeEeVersion)) {
+                log.logNextLine("Server version of Execution Engine: " +
+                        runtimeEeVersion + " (matches to version of runner script)", false);
+            } else {
+                log.logNextLine("WARNING: Server version of Execution Engine (" +
+                        runtimeEeVersion + ") doesn't match to version of runner script " +
+                        "(" + codeEeVer + ")", true);
+            }
             CatalogClient catClient = new CatalogClient(catalogURL, token);
             catClient.setIsInsecureHttpConnectionAllowed(true);
             catClient.setAllSSLCertificatesTrusted(true);
@@ -255,6 +279,31 @@ public class SDKLocalMethodRunner {
                     }
                 }
             }
+            // Cancellation checker
+            CancellationChecker cancellationChecker = new CancellationChecker() {
+                Boolean cancelled = null;
+                @Override
+                public boolean isJobCancelled() {
+                    if (cancelled != null)
+                        return cancelled;
+                    try {
+                        JobState jobState = jobSrvClient.checkJob(jobId);
+                        if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+                            cancelled = true;
+                            if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                                // Print cancellation message after DockerRunner is done
+                            } else {
+                                log.logNextLine("Job was registered as finished by another worker", true);
+                            }
+                            flushLog(jobSrvClient, jobId, logLines);
+                            return true;
+                        }
+                    } catch (Exception ex) {
+                        log.logNextLine("Error checking job state: " + ex.getMessage(), true);
+                    }
+                    return false;
+                }
+            };
             // Starting up callback server
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
@@ -271,7 +320,7 @@ public class SDKLocalMethodRunner {
                                 jobDir.toPath(), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
-                        job.getSourceWsObjects(), additionalBinds);
+                        job.getSourceWsObjects(), additionalBinds, cancellationChecker);
                 callbackServer = new Server(callbackPort);
                 final ServletContextHandler srvContext =
                         new ServletContextHandler(
@@ -289,7 +338,13 @@ public class SDKLocalMethodRunner {
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId, additionalBinds);
+                    refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
+            if (cancellationChecker.isJobCancelled()) {
+                log.logNextLine("Job was cancelled", false);
+                flushLog(jobSrvClient, jobId, logLines);
+                logFlusher.interrupt();
+                return;
+            }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -345,8 +400,7 @@ public class SDKLocalMethodRunner {
                         ((ServerException)ex).getData();
             }
             try {
-                if (log != null)
-                    log.logNextLine(err, true);
+                log.logNextLine(err, true);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
             } catch (Exception ignore) {}
