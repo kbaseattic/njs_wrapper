@@ -1069,33 +1069,28 @@ public class AweClientDockerJobScriptTest {
             String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams job = new RunJobParams().withMethod(moduleName + "." + methodName)
                             .withServiceVer(serviceVer)
-                            .withParams(Arrays.asList(UObject.fromJsonString(
-                                    "\"First line\\nSecond super long line\\nshort\\n4th line\\n5th\\n6th\\n7th\"")))
+                            .withParams(Arrays.asList(new UObject("1\n2\n3\n4\n5\n6\n7\n8\n9")))
                             .withAppId(moduleName + "/" + methodName);
             String jobId = client.runJob(job);
             JobState ret = null;
             int logLinesRecieved = 0;
-            int numberOfOneLiners = 0;
             for (int i = 0; i < 100; i++) {
                 try {
                     ret = client.checkJob(jobId);
                     System.out.println("Job finished: " + ret.getFinished());
-                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    if (ret.getFinished() != null && ret.getFinished() == 1L)
                         break;
-                    }
+                    // Executed method (onerepotest.print_lines) prints every line from input text
+                    // with 5 second interval. Lines are printed with square brackets around each.
                     List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
                             .withSkipLines((long)logLinesRecieved)).getLines();
-                    int blockCount = 0;
                     for (LogLine line : lines) {
-                        System.out.println("LOG: " + line.getLine());
                         if (line.getLine().startsWith("[")) {
-                            if (numberOfOneLiners == 0 && blockCount == 0)
-                                client.cancelJob(new CancelJobParams().withJobId(jobId));
-                            blockCount++;
+                            // We found first line printed by method working in docker container.
+                            // So it's time to cancel the job.
+                            client.cancelJob(new CancelJobParams().withJobId(jobId));
                         }
                     }
-                    if (blockCount == 1)
-                        numberOfOneLiners++;
                     logLinesRecieved += lines.size();
                     Thread.sleep(1000);
                 } catch (ServerException ex) {
@@ -1110,13 +1105,23 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
             Assert.assertEquals(0, execStats.size());
             boolean cancelledLogLine = false;
+            // Let's check in logs how many lines (out of 9) from input text we see. It depends on
+            // how long it takes to stop docker container really. But we shouldn't see all 9 since
+            // they are printed with 5 second interval.
+            logLinesRecieved = 0;
+            int logLinesFromInput = 0;
             for (int i = 0; i < 30; i++) {
                 List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
                         .withSkipLines((long)logLinesRecieved)).getLines();
                 for (LogLine line : lines) {
-                    System.out.println("LOG: " + line.getLine());
-                    if (line.getLine().contains("Job was cancelled"))
+                    String lineText = line.getLine();
+                    if (lineText.startsWith("[") && lineText.endsWith("]"))
+                        logLinesFromInput++;
+                    System.out.println("LOG: " + lineText);
+                    if (line.getLine().contains("Job was cancelled")) {
+                        // We see this line in logs only after docker container is stopped
                         cancelledLogLine = true;
+                    }
                 }            
                 if (cancelledLogLine)
                     break;
@@ -1124,6 +1129,9 @@ public class AweClientDockerJobScriptTest {
                 Thread.sleep(1000);
             }
             Assert.assertTrue(errMsg, cancelledLogLine);
+            // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
+            // lines from input. Definitely less than 7.
+            Assert.assertTrue(logLinesFromInput < 7);
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

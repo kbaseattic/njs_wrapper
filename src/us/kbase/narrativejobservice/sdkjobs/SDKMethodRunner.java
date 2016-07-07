@@ -304,6 +304,9 @@ public class SDKMethodRunner {
 	        Map<String, String> config) throws Exception {
 	    String ujsJobId = params.getJobId();
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+        String jobOwner = ujsClient.getJobOwner(ujsJobId);
+        if (auth == null || !jobOwner.equals(auth.getClientId()))
+            throw new IllegalStateException("Only owner of the job can update it");
         Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
                 ujsClient.getJobStatus(ujsJobId);
         if (params.getIsStarted() == null || params.getIsStarted() != 1L)
@@ -335,7 +338,9 @@ public class SDKMethodRunner {
 	public static void finishJob(String ujsJobId, FinishJobParams params, 
 	        AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        //TODO shouldn't this method check that the job is owned by the user?
+        String jobOwner = ujsClient.getJobOwner(ujsJobId);
+        if (auth == null || !jobOwner.equals(auth.getClientId()))
+            throw new IllegalStateException("Only owner of the job can finish it");
         Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
                 ujsClient.getJobStatus(ujsJobId);
         if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
@@ -356,6 +361,7 @@ public class SDKMethodRunner {
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 		updateAweTaskExecTime(ujsJobId, config, true);
 		// Updating UJS job state
+		boolean isCancelled = params.getIsCancelled() != null && params.getIsCancelled() == 1L;
 		if (params.getError() != null) {
             String status = params.getError().getMessage();
             if (status == null)
@@ -365,10 +371,11 @@ public class SDKMethodRunner {
             ujsClient.completeJob(ujsJobId, auth.toString(), status,
                     params.getError().getError(), null);
 		} else {
-		    ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+		    String status = isCancelled ? "cancelled" : "done";
+		    ujsClient.completeJob(ujsJobId, auth.toString(), status, null,
 		            new Results());
 		}
-		if (params.getIsCancelled() != null && params.getIsCancelled() == 1L)
+		if (isCancelled)
 		    return;
 		// let's make a call to catalog sending execution stats
 		try {
@@ -401,10 +408,11 @@ public class SDKMethodRunner {
 					errorMessage = "Unknown error";
 			}
 			if (errorMessage != null) {
-				String message = "Error sending execution stats to catalog (" + auth.getClientId() + ", " + 
-						info.uiModuleName + ", " + info.methodSpecId + ", " + funcModuleName + ", " + funcName + ", " + 
-						gitCommitHash + ", " + creationTime + ", " + execStartTime + ", " + finishTime + ", " + 
-						isError + "): " + errorMessage;
+				String message = "Error sending execution stats to catalog (" + 
+				        auth.getClientId() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
+				        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
+				        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
+				        "): " + errorMessage;
 				System.err.println(message);
 				if (log != null)
 					log.logErr(message);
