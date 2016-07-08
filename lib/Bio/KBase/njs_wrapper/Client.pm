@@ -268,9 +268,10 @@ step_stats is a reference to a hash where the following keys are defined:
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.run_app",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.run_app",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -455,9 +456,10 @@ workspace_object is a reference to a hash where the following keys are defined:
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.check_app_state",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.check_app_state",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -538,9 +540,10 @@ status - 'success' or 'failure' of action
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.suspend_app",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.suspend_app",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -621,9 +624,10 @@ job_id is a string
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.resume_app",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.resume_app",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -704,9 +708,10 @@ job_id is a string
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.delete_app",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.delete_app",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -772,9 +777,10 @@ $return is a reference to a hash where the key is a string and the value is a st
 							       "Invalid argument count for function list_config (received $n, expecting 0)");
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.list_config",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.list_config",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -840,9 +846,10 @@ Returns the current running version of the NarrativeJobService.
 							       "Invalid argument count for function ver (received $n, expecting 0)");
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.ver",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.ver",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -926,9 +933,10 @@ Simply check the status of this service to see queue details
 							       "Invalid argument count for function status (received $n, expecting 0)");
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.status",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.status",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1100,9 +1108,10 @@ workspace_object is a reference to a hash where the following keys are defined:
 							       "Invalid argument count for function list_running_apps (received $n, expecting 0)");
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.list_running_apps",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.list_running_apps",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1222,9 +1231,10 @@ Such job runs Docker image for this service in script mode.
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.run_job",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.run_job",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1345,9 +1355,10 @@ Get job params necessary for job execution
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.get_job_params",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.get_job_params",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1363,6 +1374,102 @@ Get job params necessary for job execution
         Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method get_job_params",
 					    status_line => $self->{client}->status_line,
 					    method_name => 'get_job_params',
+				       );
+    }
+}
+ 
+
+
+=head2 update_job
+
+  $return = $obj->update_job($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.UpdateJobParams
+$return is a NarrativeJobService.UpdateJobResults
+UpdateJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	is_started has a value which is a NarrativeJobService.boolean
+job_id is a string
+boolean is an int
+UpdateJobResults is a reference to a hash where the following keys are defined:
+	messages has a value which is a reference to a list where each element is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.UpdateJobParams
+$return is a NarrativeJobService.UpdateJobResults
+UpdateJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	is_started has a value which is a NarrativeJobService.boolean
+job_id is a string
+boolean is an int
+UpdateJobResults is a reference to a hash where the following keys are defined:
+	messages has a value which is a reference to a list where each element is a string
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+ sub update_job
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function update_job (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to update_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'update_job');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.update_job",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'update_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method update_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'update_job',
 				       );
     }
 }
@@ -1439,9 +1546,10 @@ boolean is an int
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.add_job_logs",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.add_job_logs",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1542,9 +1650,10 @@ boolean is an int
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.get_job_logs",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.get_job_logs",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1583,11 +1692,13 @@ job_id is a string
 FinishJobParams is a reference to a hash where the following keys are defined:
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
+	is_cancelled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
 	message has a value which is a string
 	error has a value which is a string
+boolean is an int
 
 </pre>
 
@@ -1601,11 +1712,13 @@ job_id is a string
 FinishJobParams is a reference to a hash where the following keys are defined:
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
+	is_cancelled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
 	message has a value which is a string
 	error has a value which is a string
+boolean is an int
 
 
 =end text
@@ -1642,9 +1755,10 @@ Register results of already started job
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.finish_job",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.finish_job",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1692,6 +1806,7 @@ JobState is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	cancelled has a value which is a NarrativeJobService.boolean
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1720,6 +1835,7 @@ JobState is a reference to a hash where the following keys are defined:
 	creation_time has a value which is an int
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
+	cancelled has a value which is a NarrativeJobService.boolean
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1761,9 +1877,10 @@ Check if a job is finished and get results/error
 	}
     }
 
-    my $result = $self->{client}->call($self->{url}, $self->{headers}, {
-	method => "NarrativeJobService.check_job",
-	params => \@args,
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.check_job",
+	    params => \@args,
     });
     if ($result) {
 	if ($result->is_error) {
@@ -1783,7 +1900,265 @@ Check if a job is finished and get results/error
     }
 }
  
-  
+
+
+=head2 check_jobs
+
+  $return = $obj->check_jobs($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.CheckJobsParams
+$return is a NarrativeJobService.CheckJobsResults
+CheckJobsParams is a reference to a hash where the following keys are defined:
+	job_ids has a value which is a reference to a list where each element is a NarrativeJobService.job_id
+	with_job_params has a value which is a NarrativeJobService.boolean
+job_id is a string
+boolean is an int
+CheckJobsResults is a reference to a hash where the following keys are defined:
+	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
+	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+JobState is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	finished has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+	status has a value which is an UnspecifiedObject, which can hold any non-null object
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+	job_state has a value which is a string
+	position has a value which is an int
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
+	cancelled has a value which is a NarrativeJobService.boolean
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
+	app_id has a value which is a string
+	meta has a value which is a reference to a hash where the key is a string and the value is a string
+	wsid has a value which is an int
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+wsref is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.CheckJobsParams
+$return is a NarrativeJobService.CheckJobsResults
+CheckJobsParams is a reference to a hash where the following keys are defined:
+	job_ids has a value which is a reference to a list where each element is a NarrativeJobService.job_id
+	with_job_params has a value which is a NarrativeJobService.boolean
+job_id is a string
+boolean is an int
+CheckJobsResults is a reference to a hash where the following keys are defined:
+	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
+	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+JobState is a reference to a hash where the following keys are defined:
+	job_id has a value which is a string
+	finished has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+	status has a value which is an UnspecifiedObject, which can hold any non-null object
+	result has a value which is an UnspecifiedObject, which can hold any non-null object
+	error has a value which is a NarrativeJobService.JsonRpcError
+	job_state has a value which is a string
+	position has a value which is an int
+	creation_time has a value which is an int
+	exec_start_time has a value which is an int
+	finish_time has a value which is an int
+	cancelled has a value which is a NarrativeJobService.boolean
+JsonRpcError is a reference to a hash where the following keys are defined:
+	name has a value which is a string
+	code has a value which is an int
+	message has a value which is a string
+	error has a value which is a string
+RunJobParams is a reference to a hash where the following keys are defined:
+	method has a value which is a string
+	params has a value which is a reference to a list where each element is an UnspecifiedObject, which can hold any non-null object
+	service_ver has a value which is a string
+	rpc_context has a value which is a NarrativeJobService.RpcContext
+	remote_url has a value which is a string
+	source_ws_objects has a value which is a reference to a list where each element is a NarrativeJobService.wsref
+	app_id has a value which is a string
+	meta has a value which is a reference to a hash where the key is a string and the value is a string
+	wsid has a value which is an int
+RpcContext is a reference to a hash where the following keys are defined:
+	call_stack has a value which is a reference to a list where each element is a NarrativeJobService.MethodCall
+	run_id has a value which is a string
+MethodCall is a reference to a hash where the following keys are defined:
+	time has a value which is a NarrativeJobService.timestamp
+	method has a value which is a string
+	job_id has a value which is a NarrativeJobService.job_id
+timestamp is a string
+wsref is a string
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+ sub check_jobs
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function check_jobs (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to check_jobs:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'check_jobs');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.check_jobs",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'check_jobs',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method check_jobs",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'check_jobs',
+				       );
+    }
+}
+ 
+
+
+=head2 cancel_job
+
+  $obj->cancel_job($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.CancelJobParams
+CancelJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+job_id is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.CancelJobParams
+CancelJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+job_id is a string
+
+
+=end text
+
+=item Description
+
+
+
+=back
+
+=cut
+
+ sub cancel_job
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function cancel_job (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to cancel_job:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'cancel_job');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.cancel_job",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'cancel_job',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return;
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method cancel_job",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'cancel_job',
+				       );
+    }
+}
+ 
+   
 
 sub version {
     my ($self) = @_;
@@ -1796,16 +2171,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'check_job',
+                method_name => 'cancel_job',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method check_job",
+            error => "Error invoking method cancel_job",
             status_line => $self->{client}->status_line,
-            method_name => 'check_job',
+            method_name => 'cancel_job',
         );
     }
 }
@@ -2469,8 +2844,8 @@ service_ver - specific version of deployed service, last version is
     used if this parameter is not defined
 rpc_context - context of current method call including nested call
     history
-remote_url - run remote service call instead of
-    local command line execution.
+remote_url - run remote service call instead of local command line
+    execution.
 source_ws_objects - denotes the workspace objects that will serve as a
     source of data when running the SDK method. These references will
     be added to the autogenerated provenance.
@@ -2516,6 +2891,74 @@ source_ws_objects has a value which is a reference to a list where each element 
 app_id has a value which is a string
 meta has a value which is a reference to a hash where the key is a string and the value is a string
 wsid has a value which is an int
+
+
+=end text
+
+=back
+
+
+
+=head2 UpdateJobParams
+
+=over 4
+
+
+
+=item Description
+
+is_started - optional flag marking job as started (and triggering exec_start_time
+    statistics to be stored).
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+is_started has a value which is a NarrativeJobService.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+is_started has a value which is a NarrativeJobService.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 UpdateJobResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+messages has a value which is a reference to a list where each element is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+messages has a value which is a reference to a list where each element is a string
 
 
 =end text
@@ -2682,7 +3125,7 @@ error has a value which is a string
 
 =item Description
 
-Either 'result' or 'error' field should be defined;
+Either 'result', 'error' or 'is_cancelled' field should be defined;
 result - keeps exact copy of what original server method puts
     in result block of JSON RPC response;
 error - keeps exact copy of what original server method puts
@@ -2697,6 +3140,7 @@ error - keeps exact copy of what original server method puts
 a reference to a hash where the following keys are defined:
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
+is_cancelled has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -2707,6 +3151,7 @@ error has a value which is a NarrativeJobService.JsonRpcError
 a reference to a hash where the following keys are defined:
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
+is_cancelled has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -2724,7 +3169,7 @@ error has a value which is a NarrativeJobService.JsonRpcError
 =item Description
 
 job_id - id of job running method
-finished - indicates whether job is done (including error cases) or not,
+finished - indicates whether job is done (including error/cancel cases) or not,
     if the value is true then either of 'returned_data' or 'detailed_error'
     should be defined;
 ujs_url - url of UserAndJobState service used by job service
@@ -2756,6 +3201,7 @@ position has a value which is an int
 creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
+cancelled has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -2775,6 +3221,101 @@ position has a value which is an int
 creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
+cancelled has a value which is a NarrativeJobService.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 CheckJobsParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_ids has a value which is a reference to a list where each element is a NarrativeJobService.job_id
+with_job_params has a value which is a NarrativeJobService.boolean
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_ids has a value which is a reference to a list where each element is a NarrativeJobService.job_id
+with_job_params has a value which is a NarrativeJobService.boolean
+
+
+=end text
+
+=back
+
+
+
+=head2 CheckJobsResults
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
+job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
+job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+
+
+=end text
+
+=back
+
+
+
+=head2 CancelJobParams
+
+=over 4
+
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
 
 
 =end text
