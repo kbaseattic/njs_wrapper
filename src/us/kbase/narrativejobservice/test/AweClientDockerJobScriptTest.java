@@ -1061,6 +1061,8 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testJobCancellation() throws Exception {
+        // TODO: add tests with several users having and not having read access to UJS job
+        // TODO: add tests with several users for updateJob and finishJob as well
         System.out.println("Test [testJobCancellation]");
         try {
             execStats.clear();
