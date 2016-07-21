@@ -67,8 +67,8 @@ public class NJSCallbackServer extends CallbackServer {
                 new LineLogger() {
                     @Override
                     public void logNextLine(String line, boolean isError) {
-                        cbLog("Docker logger std" + (isError ? "err" : "out") +
-                                ": " + line);
+                        System.out.println("Docker logger std" +
+                                (isError ? "err" : "out") + ": " + line);
                     }
                 })
                 .withDockerURI(new URI("unix:///var/run/docker.sock"))
