@@ -73,7 +73,7 @@ import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
-import us.kbase.common.service.Tuple12;
+import us.kbase.common.service.Tuple13;
 import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.Tuple3;
 import us.kbase.common.service.UObject;
@@ -204,15 +204,15 @@ public class AweClientDockerJobScriptTest {
             assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
             
             //check UJS job
-            Tuple12<String, String, String, String,
+            Tuple13<String, Tuple2<String, String>, String, String, String,
                 Tuple3<String, String, String>, Tuple3<Long, Long, String>,
                 Long, Long, Tuple2<String, String>, Map<String, String>,
                 String, Results> u = getUJSClient(token, loadConfig())
                     .getJobInfo2(jobId);
-            assertThat("incorrect metadata", u.getE10(), is(meta));
-            assertThat("incorrect auth strat", u.getE9().getE1(),
+            assertThat("incorrect metadata", u.getE11(), is(meta));
+            assertThat("incorrect auth strat", u.getE10().getE1(),
                     is("kbaseworkspace"));
-            assertThat("incorrect ws id", u.getE9().getE2(),
+            assertThat("incorrect ws id", u.getE10().getE2(),
                     is("" + testWsID));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
