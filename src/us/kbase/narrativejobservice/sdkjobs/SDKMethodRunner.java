@@ -350,16 +350,6 @@ public class SDKMethodRunner {
                     .withIsError(1L));
             addJobLogs(ujsJobId, lines, auth, config);
             return;
-        } else if (jobStatus.getE2().equals("created")) {
-            // job hasn't started yet. Need to put it in started state to
-            // complete it
-            try {
-                ujsClient.startJob(ujsJobId, auth.toString(),
-                        "starting job so that it can be finished", "as state",
-                        new InitProgress().withPtype("none"), null);
-            } catch (ServerException se) {
-                // ignore and continue if the job was just started
-            }
         }
         @SuppressWarnings("unchecked")
         final Map<String, Object> jobOutput =
@@ -371,21 +361,35 @@ public class SDKMethodRunner {
         getDb(config).addExecTaskResult(ujsJobId, jobOutput);
         updateAweTaskExecTime(ujsJobId, config, true);
         // Updating UJS job state
-        if (params.getError() != null) {
-            String status = params.getError().getMessage();
-            if (status == null)
-                status = "Unknown error";
-            if (status.length() > 200)
-                status = status.substring(0, 197) + "...";
-            ujsClient.completeJob(ujsJobId, auth.toString(), status,
-                    params.getError().getError(), null);
-        } else if (params.getIsCancelled() != null &&
+        if  (params.getIsCancelled() != null &&
                 params.getIsCancelled() == 1L) {
-            ujsClient.cancelJob(ujsJobId, "cancelled by user");
+            ujsClient.cancelJob(ujsJobId, "canceled by user");
             return;
         } else {
-            ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
-                    new Results());
+            if (jobStatus.getE2().equals("created")) {
+                // job hasn't started yet. Need to put it in started state to
+                // complete it
+                try {
+                    ujsClient.startJob(ujsJobId, auth.toString(),
+                            "starting job so that it can be finished",
+                            "as state", new InitProgress().withPtype("none"),
+                            null);
+                } catch (ServerException se) {
+                    // ignore and continue if the job was just started
+                }
+            }
+            if (params.getError() != null) {
+                String status = params.getError().getMessage();
+                if (status == null)
+                    status = "Unknown error";
+                if (status.length() > 200)
+                    status = status.substring(0, 197) + "...";
+                ujsClient.completeJob(ujsJobId, auth.toString(), status,
+                        params.getError().getError(), null);
+            } else {
+                ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+                        new Results());
+            }
         }
         // let's make a call to catalog sending execution stats
         try {
