@@ -331,12 +331,12 @@ public class SDKMethodRunner {
                             "%s. Server stacktrace:\n%s",
                             ujsJobId, jobstage, se.getData()), se);
         }
-	    updateAweTaskExecTime(ujsJobId, config, false);
-	    return ret;
-	}
-	
-	public static void finishJob(String ujsJobId, FinishJobParams params, 
-	        AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
+        updateAweTaskExecTime(ujsJobId, config, false);
+        return ret;
+    }
+
+    public static void finishJob(String ujsJobId, FinishJobParams params, 
+            AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
         String jobOwner = ujsClient.getJobOwner(ujsJobId);
         if (auth == null || !jobOwner.equals(auth.getClientId()))
@@ -351,78 +351,92 @@ public class SDKMethodRunner {
             addJobLogs(ujsJobId, lines, auth, config);
             return;
         }
-		@SuppressWarnings("unchecked")
-		final Map<String, Object> jobOutput =
-				UObject.transformObjectToObject(params, Map.class);
-		//should never trigger since the local method runner limits uploads to
-		//15k
-		checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
-		SanitizeMongoObject.sanitize(jobOutput);
-		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-		updateAweTaskExecTime(ujsJobId, config, true);
-		// Updating UJS job state
-		boolean isCancelled = params.getIsCancelled() != null && params.getIsCancelled() == 1L;
-		if (params.getError() != null) {
-            String status = params.getError().getMessage();
-            if (status == null)
-                status = "Unknown error";
-            if (status.length() > 200)
-                status = status.substring(0, 197) + "...";
-            ujsClient.completeJob(ujsJobId, auth.toString(), status,
-                    params.getError().getError(), null);
-		} else {
-		    String status = isCancelled ? "cancelled" : "done";
-		    ujsClient.completeJob(ujsJobId, auth.toString(), status, null,
-		            new Results());
-		}
-		if (isCancelled)
-		    return;
-		// let's make a call to catalog sending execution stats
-		try {
-			final AppInfo info = getAppInfo(ujsJobId, config);
-			final RunJobParams input = getJobInput(ujsJobId, config);
-			String[] parts = input.getMethod().split(Pattern.quote("."));
-			String funcModuleName = parts.length > 1 ? parts[0] : null;
-			String funcName = parts.length > 1 ? parts[1] : parts[0];
-			String gitCommitHash = input.getServiceVer();
-			Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
-			long creationTime = execTimes[0];
-			long execStartTime = execTimes[1];
-			long finishTime = execTimes[2];
-			boolean isError = params.getError() != null;
-			String errorMessage = null;
-			try {
-				sendExecStatsToCatalog(auth.getClientId(), info.uiModuleName,
-						info.methodSpecId, funcModuleName, funcName,
-						gitCommitHash, creationTime, execStartTime, finishTime,
-						isError, config);
-			} catch (ServerException ex) {
-				errorMessage = ex.getData();
-				if (errorMessage == null)
-					errorMessage = ex.getMessage();
-				if (errorMessage == null)
-					errorMessage = "Unknown server error";
-			} catch (Exception ex) {
-				errorMessage = ex.getMessage();
-				if (errorMessage == null)
-					errorMessage = "Unknown error";
-			}
-			if (errorMessage != null) {
-				String message = "Error sending execution stats to catalog (" + 
-				        auth.getClientId() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
-				        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
-				        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
-				        "): " + errorMessage;
-				System.err.println(message);
-				if (log != null)
-					log.logErr(message);
-			}
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			if (log != null)
-				log.logErr(ex);
-		}
-	}
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> jobOutput =
+                UObject.transformObjectToObject(params, Map.class);
+        //should never trigger since the local method runner limits uploads to
+        //15k
+        checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
+        SanitizeMongoObject.sanitize(jobOutput);
+        getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+        updateAweTaskExecTime(ujsJobId, config, true);
+        // Updating UJS job state
+        if  (params.getIsCancelled() != null &&
+                params.getIsCancelled() == 1L) {
+            ujsClient.cancelJob(ujsJobId, "canceled by user");
+            return;
+        } else {
+            if (jobStatus.getE2().equals("created")) {
+                // job hasn't started yet. Need to put it in started state to
+                // complete it
+                try {
+                    ujsClient.startJob(ujsJobId, auth.toString(),
+                            "starting job so that it can be finished",
+                            "as state", new InitProgress().withPtype("none"),
+                            null);
+                } catch (ServerException se) {
+                    // ignore and continue if the job was just started
+                }
+            }
+            if (params.getError() != null) {
+                String status = params.getError().getMessage();
+                if (status == null)
+                    status = "Unknown error";
+                if (status.length() > 200)
+                    status = status.substring(0, 197) + "...";
+                ujsClient.completeJob(ujsJobId, auth.toString(), status,
+                        params.getError().getError(), null);
+            } else {
+                ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+                        new Results());
+            }
+        }
+        // let's make a call to catalog sending execution stats
+        try {
+            final AppInfo info = getAppInfo(ujsJobId, config);
+            final RunJobParams input = getJobInput(ujsJobId, config);
+            String[] parts = input.getMethod().split(Pattern.quote("."));
+            String funcModuleName = parts.length > 1 ? parts[0] : null;
+            String funcName = parts.length > 1 ? parts[1] : parts[0];
+            String gitCommitHash = input.getServiceVer();
+            Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
+            long creationTime = execTimes[0];
+            long execStartTime = execTimes[1];
+            long finishTime = execTimes[2];
+            boolean isError = params.getError() != null;
+            String errorMessage = null;
+            try {
+                sendExecStatsToCatalog(auth.getClientId(), info.uiModuleName,
+                        info.methodSpecId, funcModuleName, funcName,
+                        gitCommitHash, creationTime, execStartTime, finishTime,
+                        isError, config);
+            } catch (ServerException ex) {
+                errorMessage = ex.getData();
+                if (errorMessage == null)
+                    errorMessage = ex.getMessage();
+                if (errorMessage == null)
+                    errorMessage = "Unknown server error";
+            } catch (Exception ex) {
+                errorMessage = ex.getMessage();
+                if (errorMessage == null)
+                    errorMessage = "Unknown error";
+            }
+            if (errorMessage != null) {
+                String message = "Error sending execution stats to catalog (" + 
+                        auth.getClientId() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
+                        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
+                        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
+                        "): " + errorMessage;
+                System.err.println(message);
+                if (log != null)
+                    log.logErr(message);
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            if (log != null)
+                log.logErr(ex);
+        }
+    }
 
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
 			String methodSpecId, String funcModuleName, String funcName, String gitCommitHash, 
