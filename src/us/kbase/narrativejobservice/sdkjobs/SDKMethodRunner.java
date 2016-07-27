@@ -335,18 +335,21 @@ public class SDKMethodRunner {
         return ret;
     }
 
-    public static void finishJob(String ujsJobId, FinishJobParams params, 
-            AuthToken auth, ErrorLogger log, Map<String, String> config) throws Exception {
-        UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        String jobOwner = ujsClient.getJobOwner(ujsJobId);
-        if (auth == null || !jobOwner.equals(auth.getClientId()))
-            throw new IllegalStateException("Only owner of the job can finish it");
-        Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-                ujsClient.getJobStatus(ujsJobId);
+    public static void finishJob(
+            final String ujsJobId,
+            final FinishJobParams params, 
+            final AuthToken auth,
+            final ErrorLogger log,
+            final Map<String, String> config)
+            throws Exception {
+        final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+        final Tuple7<String, String, String, Long, String, Long,
+            Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
         if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
             // Job was already done
-            List<LogLine> lines = new ArrayList<LogLine>();
-            lines.add(new LogLine().withLine("Attempt of finishing already completed job")
+            final List<LogLine> lines = new ArrayList<LogLine>();
+            lines.add(new LogLine().withLine(
+                    "Attempt to finish already completed job")
                     .withIsError(1L));
             addJobLogs(ujsJobId, lines, auth, config);
             return;
@@ -358,38 +361,45 @@ public class SDKMethodRunner {
         //15k
         checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
         SanitizeMongoObject.sanitize(jobOutput);
-        getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-        updateAweTaskExecTime(ujsJobId, config, true);
         // Updating UJS job state
         if  (params.getIsCancelled() != null &&
                 params.getIsCancelled() == 1L) {
+            // will throw an error here if user doesn't have rights to cancel
             ujsClient.cancelJob(ujsJobId, "canceled by user");
+            getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+            updateAweTaskExecTime(ujsJobId, config, true);
             return;
+        }
+        final String jobOwner = ujsClient.getJobOwner(ujsJobId);
+        if (auth == null || !jobOwner.equals(auth.getClientId())) {
+                throw new IllegalStateException(
+                        "Only the owner of a job can complete it");
+        }
+        getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+        updateAweTaskExecTime(ujsJobId, config, true);
+        if (jobStatus.getE2().equals("created")) {
+            // job hasn't started yet. Need to put it in started state to
+            // complete it
+            try {
+                ujsClient.startJob(ujsJobId, auth.toString(),
+                        "starting job so that it can be finished",
+                        "as state", new InitProgress().withPtype("none"),
+                        null);
+            } catch (ServerException se) {
+                // ignore and continue if the job was just started
+            }
+        }
+        if (params.getError() != null) {
+            String status = params.getError().getMessage();
+            if (status == null)
+                status = "Unknown error";
+            if (status.length() > 200)
+                status = status.substring(0, 197) + "...";
+            ujsClient.completeJob(ujsJobId, auth.toString(), status,
+                    params.getError().getError(), null);
         } else {
-            if (jobStatus.getE2().equals("created")) {
-                // job hasn't started yet. Need to put it in started state to
-                // complete it
-                try {
-                    ujsClient.startJob(ujsJobId, auth.toString(),
-                            "starting job so that it can be finished",
-                            "as state", new InitProgress().withPtype("none"),
-                            null);
-                } catch (ServerException se) {
-                    // ignore and continue if the job was just started
-                }
-            }
-            if (params.getError() != null) {
-                String status = params.getError().getMessage();
-                if (status == null)
-                    status = "Unknown error";
-                if (status.length() > 200)
-                    status = status.substring(0, 197) + "...";
-                ujsClient.completeJob(ujsJobId, auth.toString(), status,
-                        params.getError().getError(), null);
-            } else {
-                ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
-                        new Results());
-            }
+            ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+                    new Results());
         }
         // let's make a call to catalog sending execution stats
         try {
