@@ -251,6 +251,8 @@ public class DockerRunner {
         for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
             if (cnt.getId().startsWith(nameOrIdPrefix))
                 return cnt;
+            if (cnt.getNames() == null)
+                continue;
             for (String name : cnt.getNames())
                 if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
                     return cnt;
