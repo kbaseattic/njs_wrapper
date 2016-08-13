@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -54,14 +54,16 @@ public class DockerRunner {
             final File refDataDir,
             final File optionalScratchDir,
             final URL callbackUrl,
-            final String jobId)
+            final String jobId,
+            final List<Bind> additionalBinds,
+            final CancellationChecker cancellationChecker)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
-        DockerClient cl = createDockerClient();
+        final DockerClient cl = createDockerClient();
         imageName = checkImagePulled(cl, imageName);
         String cntName = null;
         try {
@@ -83,13 +85,15 @@ public class DockerRunner {
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
             if (optionalScratchDir != null)
                 binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
+            if (additionalBinds != null)
+                binds.addAll(additionalBinds);
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
             if (callbackUrl != null)
                 cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
             CreateContainerResponse resp = cntCmd.exec();
-            String cntId = resp.getId();
+            final String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
@@ -116,10 +120,42 @@ public class DockerRunner {
                 ret.start();
                 workers.add(ret);
             }
+            Thread cancellationCheckingThread = null;
+            if (cancellationChecker != null) {
+                cancellationCheckingThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (!Thread.interrupted()) {
+                            try {
+                                Thread.sleep(1000);
+                                if (cancellationChecker.isJobCancelled()) {
+                                    // Stop the container
+                                    try {
+                                        cl.stopContainerCmd(cntId).exec();
+                                        log.logNextLine("Docker container for module [" + moduleName + "]" +
+                                        		" was successfully stopped during job cancellation", false);
+                                    } catch (Exception ex) {
+                                        ex.printStackTrace();
+                                        log.logNextLine("Error stopping docker container for module [" + 
+                                                moduleName + "] during job cancellation: " + ex.getMessage(), 
+                                                true);
+                                    }
+                                    break;
+                                }
+                            } catch (InterruptedException ex) {
+                                break;
+                            }
+                        }
+                    }
+                });
+                cancellationCheckingThread.start();
+            }
             for (Thread t : workers)
                 t.join();
             p.waitFor();
             cl.waitContainerCmd(cntId).exec();
+            if (cancellationCheckingThread != null)
+                cancellationCheckingThread.interrupt();
             //--------------------------------------------------
             InspectContainerResponse resp2 = cl.inspectContainerCmd(cntId).exec();
             if (resp2.getState().isRunning()) {
@@ -139,6 +175,8 @@ public class DockerRunner {
             if (outputFile.exists()) {
                 return outputFile;
             } else {
+                if (cancellationChecker != null && cancellationChecker.isJobCancelled())
+                    return null;
                 int exitCode = resp2.getState().getExitCode();
                 StringBuilder err = new StringBuilder();
                 BufferedReader br = new BufferedReader(new InputStreamReader(
@@ -213,6 +251,8 @@ public class DockerRunner {
         for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
             if (cnt.getId().startsWith(nameOrIdPrefix))
                 return cnt;
+            if (cnt.getNames() == null)
+                continue;
             for (String name : cnt.getNames())
                 if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
                     return cnt;

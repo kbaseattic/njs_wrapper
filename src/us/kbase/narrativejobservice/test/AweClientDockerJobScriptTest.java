@@ -44,6 +44,7 @@ import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -53,9 +54,9 @@ import com.google.common.collect.ImmutableMap;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.AppClientGroup;
 import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetClientGroupParams;
+import us.kbase.catalog.ClientGroupConfig;
+import us.kbase.catalog.ClientGroupFilter;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersion;
@@ -63,12 +64,18 @@ import us.kbase.catalog.ModuleVersionInfo;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple13;
+import us.kbase.common.service.Tuple2;
+import us.kbase.common.service.Tuple3;
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.TestException;
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -76,15 +83,19 @@ import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.App;
 import us.kbase.narrativejobservice.AppState;
+import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.ServiceMethod;
 import us.kbase.narrativejobservice.Step;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
+import us.kbase.userandjobstate.Results;
+import us.kbase.userandjobstate.UserAndJobStateClient;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.GetObjects2Params;
 import us.kbase.workspace.ObjectData;
@@ -110,6 +121,7 @@ public class AweClientDockerJobScriptTest {
     private static Server catalogWrapper = null;
     private static Server njsService = null;
     private static String testWsName = null;
+    private static long testWsID = 0;
     private static final String testContigsetObjName = "temp_contigset.1";
     private static File refDataDir = null;
     
@@ -136,6 +148,8 @@ public class AweClientDockerJobScriptTest {
     @Test
     public void testOneJob() throws Exception {
         System.out.println("Test [testOneJob]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
         try {
             execStats.clear();
             String moduleName = "onerepotest";
@@ -143,13 +157,15 @@ public class AweClientDockerJobScriptTest {
             String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams params = new RunJobParams().withMethod(
                     moduleName + "." + methodName).withServiceVer(serviceVer)
+                    .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                     .withParams(Arrays.asList(UObject.fromJsonString(
                             "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
             String jobId = client.runJob(params);
             JobState ret = null;
             for (int i = 0; i < 20; i++) {
                 try {
-                    ret = client.checkJob(jobId);
+                    ret = client.checkJobs(new CheckJobsParams().withJobIds(
+                            Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
                     System.out.println("Job finished: " + ret.getFinished());
                     if (ret.getFinished() != null && ret.getFinished() == 1L) {
                         break;
@@ -164,6 +180,7 @@ public class AweClientDockerJobScriptTest {
             String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
             Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
             Assert.assertNotNull(errMsg, ret.getResult());
+            assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
             List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
             Assert.assertEquals(errMsg, 1, data.size());
             Map<String, String> outParams = data.get(0).get("params");
@@ -172,8 +189,8 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, "myws.mygenome2", outParams.get("genomeB"));
             Assert.assertEquals(1, execStats.size());
             LogExecStatsParams execLog = execStats.get(0);
-            Assert.assertNull(execLog.getAppModuleName());
-            Assert.assertNull(execLog.getAppId());
+            Assert.assertEquals("myapp", execLog.getAppModuleName());
+            Assert.assertEquals("foo", execLog.getAppId());
             Assert.assertEquals(moduleName, execLog.getFuncModuleName());
             Assert.assertEquals(methodName, execLog.getFuncName());
             Assert.assertEquals(serviceVer, execLog.getGitCommitHash());
@@ -181,12 +198,128 @@ public class AweClientDockerJobScriptTest {
             double execTime = execLog.getFinishTime() - execLog.getExecStartTime();
             Assert.assertTrue("" + execLog, queueTime > 0);
             Assert.assertTrue("" + execLog, execTime > 0);
+            
+            //check input params
+            params = client.getJobParams(jobId).getE1();
+            assertThat("incorrect appid", params.getAppId(), is("myapp/foo"));
+            
+            //check UJS job
+            Tuple13<String, Tuple2<String, String>, String, String, String,
+                Tuple3<String, String, String>, Tuple3<Long, Long, String>,
+                Long, Long, Tuple2<String, String>, Map<String, String>,
+                String, Results> u = getUJSClient(token, loadConfig())
+                    .getJobInfo2(jobId);
+            assertThat("incorrect metadata", u.getE11(), is(meta));
+            assertThat("incorrect auth strat", u.getE10().getE1(),
+                    is("kbaseworkspace"));
+            assertThat("incorrect ws id", u.getE10().getE2(),
+                    is("" + testWsID));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
         }
     }
 
+    private Map<String, Object> buildInsanitaryObject() {
+        Map<String, Object> inner = new HashMap<String, Object>();
+        inner.put("$$.%%%bad...$$%%%key", "value");
+        inner.put("key1", 1);
+        inner.put("key2", null);
+        inner.put("key3", true);
+        Map<String, Object> outer = new HashMap<String, Object>();
+        outer.put("id", "foo");
+        outer.put("bad%.$key$.%", "value");
+        outer.put("key", Arrays.asList(inner));
+        outer.put("key2", 2);
+        outer.put("key4", null);
+        outer.put("key5", false);
+        return outer;
+    }
+    
+    @Test
+    public void testInsanitaryParams() throws Exception {
+        System.out.println("Test [testInsanitaryParams]");
+        Map<String, Object> outer = buildInsanitaryObject();
+
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(outer),
+                null);
+        Tuple2<RunJobParams, Map<String, String>> rjp =
+                client.getJobParams(js.getJobId());
+        Map<String, Object> got = rjp.getE1().getParams().get(0)
+            .asClassInstance(Map.class);
+        assertThat("incorrect params", got, is(outer));
+    }
+    
+    @Test
+    public void testInsanitaryReturns() throws Exception {
+        System.out.println("Test [testInsanitaryReturns]");
+        Map<String, Object> ret = buildInsanitaryObject();
+        String ref = saveObjectToWs(ret, "testInsanitaryReturns");
+        Map<String, Object> params = new HashMap<String, Object>();
+        params.put("id", "bar");
+        params.put("ret", ref);
+        
+        JobState js = runJob("njs_sdk_test_3.run", "dev", new UObject(params),
+                null);
+        System.out.println(js.getResult());
+        List<Map<String, Object>> got =
+                js.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+        
+        JobState jres = client.checkJob(js.getJobId());
+        got = jres.getResult().asClassInstance(List.class);
+        assertThat("incorrect result",
+                (Map<String, Object>) got.get(0).get("ret"), is(ret));
+    }
+
+    private Map<String, Object> buildLargeObject() {
+        
+        Map<String, Object> ret = new HashMap<String, Object>();
+        for (int i = 0; i < 255548; i++) {
+            ret.put("key" + i, "01234");
+        }
+        ret.put("id", "foo");
+        return ret;
+    }
+    
+    @Test
+    public void testLargeParams() throws Exception {
+        //note the SDKLocalMethodRunner limits returns to 15k
+        System.out.println("Test [testLargeParams]");
+        Map<String, Object> p = buildLargeObject();
+
+        //should work
+        runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+        p.put("foo", "wheeeee");
+        
+        try {
+            runJob("njs_sdk_test_3.run", "dev", new UObject(p), null);
+            fail("started job with too large object");
+        } catch (ServerException se) {
+            assertThat("incorrect exception message", se.getLocalizedMessage(),
+                    is("Input parameters are above 5000000B maximum: 5000004"));
+        }
+    }
+    
+    private String saveObjectToWs(
+            Map<String, Object> ret, final String objname) throws IOException,
+            JsonClientException, Exception, InvalidFileFormatException {
+        Tuple11<Long, String, String, String, Long, String, Long, String,
+            String, Long, Map<String, String>> obj =
+                getWsClient(token, loadConfig())
+                    .saveObjects(new SaveObjectsParams()
+                        .withWorkspace(testWsName)
+                        .withObjects(Arrays.asList(
+                                new ObjectSaveData()
+                                    .withData(new UObject(ret))
+                                    .withName(objname)
+                                    .withType("Empty.AType")
+                                )
+                    )).get(0);
+        return obj.getE7() + "/" + obj.getE1();
+    }
+    
     public static ModuleVersionInfo getMVI(ModuleInfo mi, String release) {
         if (release.equals("dev")) {
             return mi.getDev();
@@ -430,6 +563,7 @@ public class AweClientDockerJobScriptTest {
 
     @Test
     public void testBadWSIDs() throws Exception {
+        System.out.println("Test [testBadWSIDs]");
         List<String> ws = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + "objectdoesntexist",
                 testWsName + "/" + STAGED1_NAME,
@@ -443,6 +577,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testWorkspaceError() throws Exception {
+        System.out.println("Test [testWorkspaceError]");
         // test a workspace error.
         List<String> input = new ArrayList<String>(Arrays.asList(
                 testWsName + "/" + STAGED1_NAME,
@@ -454,6 +589,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testBadRelease() throws Exception {
+        System.out.println("Test [testBadRelease]");
         // note that dev and beta releases can only have one version each,
         // version tracking only happens for prod
         
@@ -484,6 +620,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobMultiCallBadRelease() throws Exception {
+        System.out.println("Test [testfailJobMultiCallBadRelease]");
         
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1foo.run", "dev", "null",
@@ -518,6 +655,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobBadMethod() throws Exception {
+        System.out.println("Test [testfailJobBadMethod]");
         failJob("njs_sdk_test_1run", "foo",
                 "Illegal method name: njs_sdk_test_1run");
         failJob("njs_sdk_test_1.r.un", "foo",
@@ -526,6 +664,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testfailJobMultiCallBadMethod() throws Exception {
+        System.out.println("Test [testfailJobMultiCallBadMethod]");
         failJobMultiCall(
                 "njs_sdk_test_2.run", "njs_sdk_test_1run", "dev", "null",
                 "Can not find method [CallbackServer.njs_sdk_test_1run] in " +
@@ -706,7 +845,7 @@ public class AweClientDockerJobScriptTest {
             assertThat("correct code url", got.getCodeUrl(),
                     is("https://github.com/kbasetest/" + sa.module));
             assertThat("correct commit", got.getCommit(), is(sa.commit));
-            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct name", got.getName(), is(sa.module));
             assertThat("correct version", got.getVer(), is(sa.getVerRel()));
         }
     }
@@ -814,8 +953,8 @@ public class AweClientDockerJobScriptTest {
                 stepJobId = st.getStepJobIds().get("step1");
                 if (stepJobId != null)
                     System.out.println("Step finished: " + client.checkJob(stepJobId).getFinished());
-                if (st.getJobState().equals(RunAppBuilder.APP_STATE_DONE) ||
-                        st.getJobState().equals(RunAppBuilder.APP_STATE_ERROR)) {
+                if (st.getJobState().equals(SDKMethodRunner.APP_STATE_DONE) ||
+                        st.getJobState().equals(SDKMethodRunner.APP_STATE_ERROR)) {
                     break;
                 }
                 Thread.sleep(5000);
@@ -921,6 +1060,87 @@ public class AweClientDockerJobScriptTest {
     }
 
     @Test
+    public void testJobCancellation() throws Exception {
+        // TODO: add tests with several users having and not having read access to UJS job
+        // TODO: add tests with several users for updateJob and finishJob as well
+        System.out.println("Test [testJobCancellation]");
+        try {
+            execStats.clear();
+            String moduleName = "onerepotest";
+            String methodName = "print_lines";
+            String serviceVer = lookupServiceVersion(moduleName);
+            RunJobParams job = new RunJobParams().withMethod(moduleName + "." + methodName)
+                            .withServiceVer(serviceVer)
+                            .withParams(Arrays.asList(new UObject("1\n2\n3\n4\n5\n6\n7\n8\n9")))
+                            .withAppId(moduleName + "/" + methodName);
+            String jobId = client.runJob(job);
+            JobState ret = null;
+            int logLinesRecieved = 0;
+            for (int i = 0; i < 100; i++) {
+                try {
+                    ret = client.checkJob(jobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L)
+                        break;
+                    // Executed method (onerepotest.print_lines) prints every line from input text
+                    // with 5 second interval. Lines are printed with square brackets around each.
+                    List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                            .withSkipLines((long)logLinesRecieved)).getLines();
+                    for (LogLine line : lines) {
+                        if (line.getLine().startsWith("[")) {
+                            // We found first line printed by method working in docker container.
+                            // So it's time to cancel the job.
+                            client.cancelJob(new CancelJobParams().withJobId(jobId));
+                        }
+                    }
+                    logLinesRecieved += lines.size();
+                    Thread.sleep(1000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            Assert.assertNotNull(ret);
+            String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
+            Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
+            Assert.assertEquals(errMsg, 1L, (long)ret.getCancelled());
+            Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
+            Assert.assertEquals(0, execStats.size());
+            boolean cancelledLogLine = false;
+            // Let's check in logs how many lines (out of 9) from input text we see. It depends on
+            // how long it takes to stop docker container really. But we shouldn't see all 9 since
+            // they are printed with 5 second interval.
+            logLinesRecieved = 0;
+            int logLinesFromInput = 0;
+            for (int i = 0; i < 30; i++) {
+                List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                        .withSkipLines((long)logLinesRecieved)).getLines();
+                for (LogLine line : lines) {
+                    String lineText = line.getLine();
+                    if (lineText.startsWith("[") && lineText.endsWith("]"))
+                        logLinesFromInput++;
+                    System.out.println("LOG: " + lineText);
+                    if (line.getLine().contains("Job was cancelled")) {
+                        // We see this line in logs only after docker container is stopped
+                        cancelledLogLine = true;
+                    }
+                }            
+                if (cancelledLogLine)
+                    break;
+                logLinesRecieved += lines.size();
+                Thread.sleep(1000);
+            }
+            Assert.assertTrue(errMsg, cancelledLogLine);
+            // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
+            // lines from input. Definitely less than 7.
+            Assert.assertTrue(logLinesFromInput < 7);
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
+    @Test
     public void testError() throws Exception {
         System.out.println("Test [testError]");
         try {
@@ -930,7 +1150,7 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, stepErrorText);
             Assert.assertTrue(st.toString(), stepErrorText.contains("ValueError: Super!"));
             Assert.assertTrue(st.toString(), stepErrorText.contains("Preparing to generate an error..."));
-            Assert.assertEquals(errMsg, RunAppBuilder.APP_STATE_ERROR, st.getJobState());
+            Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_ERROR, st.getJobState());
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -997,7 +1217,45 @@ public class AweClientDockerJobScriptTest {
             throw ex;
         }
     }
-    
+
+    @Test
+    public void testCustomData() throws Exception {
+        // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
+        // <work-dir>/<userid> folder exists in host file system. This
+        System.out.println("Test [testCustomData]");
+        String dataFileName = "custom_test.txt";
+        File customDir = new File(workDir, token.getClientId());
+        File customFile = new File(customDir, dataFileName);
+        try {
+            customDir.mkdir();
+            PrintWriter pw = new PrintWriter(customFile);
+            pw.println("Custom data file");
+            pw.close();
+            try {
+                AppState st = runAsyncMethodAsAppAndWait("onerepotest", "list_ref_data", "\"/kb/module/custom\"");
+                String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(st);
+                Assert.assertEquals(errMsg, "completed", st.getJobState());
+                Assert.assertNotNull(errMsg, st.getStepOutputs());
+                String step1output = st.getStepOutputs().get("step1");
+                Assert.assertNotNull(errMsg, step1output);
+                List<List<String>> data = UObject.getMapper().readValue(step1output, List.class);
+                Assert.assertTrue(errMsg, new TreeSet<String>(data.get(0)).contains(dataFileName));
+            } catch (ServerException ex) {
+                System.err.println(ex.getData());
+                throw ex;
+            }
+        } finally {
+            try {
+                if (customFile.exists())
+                    customFile.delete();
+            } catch (Exception ignore) {}
+            try {
+                if (customDir.exists())
+                    customDir.delete();
+            } catch (Exception ignore) {}
+        }
+    }
+
     @Test
     public void testAsyncClient() throws Exception {
         System.out.println("Test [testAsyncClient]");
@@ -1055,6 +1313,17 @@ public class AweClientDockerJobScriptTest {
         return ver;
     }
 
+    private static UserAndJobStateClient getUJSClient(
+            final AuthToken token,
+            final Map<String, String> config) throws Exception {
+        final String ujsUrl = config.get(
+                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+        final UserAndJobStateClient ujs = new UserAndJobStateClient(
+                new URL(ujsUrl), token);
+        ujs.setIsInsecureHttpConnectionAllowed(true);
+        return ujs;
+    }
+    
     private static WorkspaceClient getWsClient(AuthToken auth, 
             Map<String, String> config) throws Exception {
         String wsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL);
@@ -1128,7 +1397,8 @@ public class AweClientDockerJobScriptTest {
         for (int i = 0; i < 5; i++) {
             testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
             try {
-                wscl.createWorkspace(new CreateWorkspaceParams().withWorkspace(testWsName));
+                testWsID = wscl.createWorkspace(new CreateWorkspaceParams()
+                        .withWorkspace(testWsName)).getE1();
                 error = null;
                 break;
             } catch (Exception ex) {
@@ -1158,6 +1428,7 @@ public class AweClientDockerJobScriptTest {
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
+        System.out.println();
     }
 
     private static void stageWSObjects() throws Exception {
@@ -1214,6 +1485,11 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @After
+    public void after() {
+        System.out.println();
+    }
+    
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
         if (aweServerExePath == null) {
             aweServerExePath = "awe-server";
@@ -1338,6 +1614,7 @@ public class AweClientDockerJobScriptTest {
                 "#!/bin/bash",
                 "cd " + dir.getAbsolutePath(),
                 "export PATH=" + binDir.getAbsolutePath() + ":$PATH",
+                "export AWE_CLIENTGROUP=test_client_group",
                 aweClientExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
                 "echo $pid > pid.txt"
                 ), scriptFile);
@@ -1409,7 +1686,6 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_NARRATIVE_PROXY_SHARING_USER + "=rsutormin",
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
                 NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
                 NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
@@ -1612,9 +1888,23 @@ public class AweClientDockerJobScriptTest {
             execStats.add(params);
         }
 
-        @JsonServerMethod(rpc = "Catalog.get_client_groups")
-        public List<AppClientGroup> getClientGroups(GetClientGroupParams params) throws IOException, JsonClientException {
-            return Arrays.asList(new AppClientGroup().withClientGroups(Arrays.asList("*")));
+        @JsonServerMethod(rpc = "Catalog.list_client_group_configs")
+        public List<ClientGroupConfig> listClientGroupConfigs(ClientGroupFilter filter) throws IOException, JsonClientException {
+            return Arrays.asList(new ClientGroupConfig().withModuleName(filter.getModuleName())
+                    .withFunctionName(filter.getFunctionName())
+                    .withClientGroups(Arrays.asList("*")));
+        }
+
+        @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
+        public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
+            String userId = token.getClientId();
+            if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
+                    filter.getClientGroup().equals("test_client_group") && new File(workDir, userId).exists()) {
+                VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
+                        new VolumeMount().withHostDir(workDir.getAbsolutePath() + "/${username}").withContainerDir("/kb/module/custom")));
+                return Arrays.asList(ret);
+            }
+            return null;
         }
     }
 }

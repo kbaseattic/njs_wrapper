@@ -15,12 +15,12 @@ import com.mongodb.WriteConcernException;
 
 import us.kbase.common.service.UObject;
 import us.kbase.common.test.controllers.mongo.MongoController;
-import us.kbase.narrativejobservice.RunAppBuilder;
 import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.ExecLog;
 import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 
 public class ExecEngineMongoDbTest {
     private static MongoController mongo;
@@ -71,7 +71,7 @@ public class ExecEngineMongoDbTest {
         String appJobId1 = "app_1";
         ExecApp app1 = new ExecApp();
         app1.setAppJobId(appJobId1);
-        app1.setAppJobState(RunAppBuilder.APP_STATE_QUEUED);
+        app1.setAppJobState(SDKMethodRunner.APP_STATE_QUEUED);
         app1.setAppStateData("d1");
         app1.setCreationTime(1L);
         app1.setModificationTime(1L);
@@ -85,15 +85,15 @@ public class ExecEngineMongoDbTest {
         String appJobId2 = "app_2";
         ExecApp app2 = new ExecApp();
         app2.setAppJobId(appJobId2);
-        app2.setAppJobState(RunAppBuilder.APP_STATE_STARTED);
+        app2.setAppJobState(SDKMethodRunner.APP_STATE_STARTED);
         app2.setAppStateData("d2");
         app2.setCreationTime(2L);
         app2.setModificationTime(2L);
         db.insertExecApp(app2);
         Assert.assertEquals(app1.getAppStateData(), db.getExecApp(appJobId1).getAppStateData());
-        Assert.assertEquals(1, db.getExecAppsWithState(RunAppBuilder.APP_STATE_QUEUED).size());
-        Assert.assertEquals(0, db.getExecAppsWithState(RunAppBuilder.APP_STATE_ERROR).size());
-        db.updateExecAppData(appJobId2, RunAppBuilder.APP_STATE_DONE, "d3");
+        Assert.assertEquals(1, db.getExecAppsWithState(SDKMethodRunner.APP_STATE_QUEUED).size());
+        Assert.assertEquals(0, db.getExecAppsWithState(SDKMethodRunner.APP_STATE_ERROR).size());
+        db.updateExecAppData(appJobId2, SDKMethodRunner.APP_STATE_DONE, "d3");
         ExecApp app3 = db.getExecApp(appJobId2);
         Assert.assertEquals("d3", app3.getAppStateData());
         Assert.assertEquals(2L, (long)app3.getCreationTime());

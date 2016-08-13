@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.File;
 import java.io.FileReader;
@@ -12,7 +12,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,12 +23,22 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
+
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
+import us.kbase.catalog.VolumeMount;
+import us.kbase.catalog.VolumeMountConfig;
+import us.kbase.catalog.VolumeMountFilter;
 import us.kbase.common.executionengine.CallbackServer;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder;
 import us.kbase.common.executionengine.JobRunnerConstants;
@@ -43,14 +52,23 @@ import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.common.utils.UTCDateFormat;
+import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.JobState;
+import us.kbase.narrativejobservice.JsonRpcError;
+import us.kbase.narrativejobservice.LogLine;
+import us.kbase.narrativejobservice.MethodCall;
+import us.kbase.narrativejobservice.NarrativeJobServiceClient;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RpcContext;
+import us.kbase.narrativejobservice.RunJobParams;
+import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
-import us.kbase.userandjobstate.InitProgress;
-import us.kbase.userandjobstate.Results;
-import us.kbase.userandjobstate.UserAndJobStateClient;
 
-public class AweClientDockerJobScript {
-    
+public class SDKLocalMethodRunner {
+
+    private final static DateTimeFormatter DATE_FORMATTER =
+            DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
     public static final String RELEASE = JobRunnerConstants.RELEASE;
@@ -60,6 +78,8 @@ public class AweClientDockerJobScript {
     
     public static final String JOB_CONFIG_FILE =
             JobRunnerConstants.JOB_CONFIG_FILE;
+    public static final String CFG_PROP_EE_SERVER_VERSION =
+            JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -81,12 +101,28 @@ public class AweClientDockerJobScript {
         final AuthToken token = new AuthToken(tokenStr);
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
                 jobSrvUrl, token);
-        UserAndJobStateClient ujsClient = null;
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
-        LineLogger log = null;
+        final LineLogger log = new LineLogger() {
+            @Override
+            public void logNextLine(String line, boolean isError) {
+                addLogLine(jobSrvClient, jobId, logLines,
+                        new LogLine().withLine(line)
+                            .withIsError(isError ? 1L : 0L));
+            }
+        };
         Server callbackServer = null;
         try {
+            JobState jobState = jobSrvClient.checkJob(jobId);
+            if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+                if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                    log.logNextLine("Job was cancelled", false);
+                } else {
+                    log.logNextLine("Job was already done before", true);
+                }
+                flushLog(jobSrvClient, jobId, logLines);
+                return;
+            }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
             final URL catalogURL = getURL(jobInput.getE2(),
@@ -94,10 +130,11 @@ public class AweClientDockerJobScript {
             final URI dockerURI = getURI(jobInput.getE2(),
                     NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                     true);
-            ujsClient = getUjsClient(jobInput.getE2(), token);
             RunJobParams job = jobInput.getE1();
-            ujsClient.startJob(jobId, token.toString(), "running", "AWE job for " + job.getMethod(), 
-                    new InitProgress().withPtype("none"), null);
+            for (String msg : jobSrvClient.updateJob(new UpdateJobParams().withJobId(jobId)
+                    .withIsStarted(1L)).getMessages()) {
+                log.logNextLine(msg, false);
+            }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
@@ -106,7 +143,7 @@ public class AweClientDockerJobScript {
             if (context.getCallStack() == null)
                 context.setCallStack(new ArrayList<MethodCall>());
             context.getCallStack().add(new MethodCall().withJobId(jobId).withMethod(job.getMethod())
-                    .withTime(new UTCDateFormat().formatDate(new Date())));
+                    .withTime(DATE_FORMATTER.print(new DateTime())));
             Map<String, Object> rpc = new LinkedHashMap<String, Object>();
             rpc.put("version", "1.1");
             rpc.put("method", job.getMethod());
@@ -131,23 +168,32 @@ public class AweClientDockerJobScript {
             if (kbaseEndpoint != null)
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
-            ujsClient.updateJob(jobId, token.toString(), "running", null);
-            log = new LineLogger() {
-                @Override
-                public void logNextLine(String line, boolean isError) {
-                    addLogLine(jobSrvClient, jobId, logLines, new LogLine().withLine(line).withIsError(isError ? 1L : 0L));
-                }
-            };
+            
             log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
                     new File(".").getCanonicalPath(), false);
-            String dockerRegistry = getDockerRegistryURL(config);
+            String clientGroup = System.getenv("AWE_CLIENTGROUP");
+            if (clientGroup == null)
+                clientGroup = "<unknown>";
+            log.logNextLine("Client group: " + clientGroup, false);
+            String codeEeVer = NarrativeJobServiceServer.VERSION;
+            String runtimeEeVersion = config.get(CFG_PROP_EE_SERVER_VERSION);
+            if (runtimeEeVersion == null)
+                runtimeEeVersion = "<unknown>";
+            if (codeEeVer.equals(runtimeEeVersion)) {
+                log.logNextLine("Server version of Execution Engine: " +
+                        runtimeEeVersion + " (matches to version of runner script)", false);
+            } else {
+                log.logNextLine("WARNING: Server version of Execution Engine (" +
+                        runtimeEeVersion + ") doesn't match to version of runner script " +
+                        "(" + codeEeVer + ")", true);
+            }
             CatalogClient catClient = new CatalogClient(catalogURL, token);
             catClient.setIsInsecureHttpConnectionAllowed(true);
             catClient.setAllSSLCertificatesTrusted(true);
             // the NJSW always passes the githash in service ver
             final String imageVersion = job.getServiceVer();
             final String requestedRelease = (String) job
-                    .getAdditionalProperties().get(RunAppBuilder.REQ_REL);
+                    .getAdditionalProperties().get(SDKMethodRunner.REQ_REL);
             final ModuleVersion mv;
             try {
                 mv = catClient.getModuleVersion(new SelectModuleVersion()
@@ -171,12 +217,7 @@ public class AweClientDockerJobScript {
                     throw new IllegalStateException("Reference data directory doesn't exist: " + refDataDir);
             }
             if (imageName == null) {
-                // TODO: We need to get rid of this line soon
-                imageName = dockerRegistry + "/" +
-                            modMeth.getModule().toLowerCase() + ":" +
-                            imageVersion;
-                //imageName = "kbase/" + moduleName.toLowerCase() + "." + imageVersion;
-                log.logNextLine("Image is not stored in catalog, trying to guess: " + imageName, false);
+                throw new IllegalStateException("Image is not stored in catalog");
             } else {
                 log.logNextLine("Image name received from catalog: " + imageName, false);
             }
@@ -197,13 +238,79 @@ public class AweClientDockerJobScript {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
+            // Let's check if there are some volume mount rules set up for this module
+            List<Bind> additionalBinds = null;
+            String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
+            if (adminTokenStr == null || adminTokenStr.isEmpty())
+                adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
+            if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
+                final AuthToken adminToken = new AuthToken(adminTokenStr);
+                final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
+                adminCatClient.setIsInsecureHttpConnectionAllowed(true);
+                adminCatClient.setAllSSLCertificatesTrusted(true);
+                List<VolumeMountConfig> vmc = null;
+                try {
+                    vmc = adminCatClient.listVolumeMounts(new VolumeMountFilter().withModuleName(
+                            modMeth.getModule()).withClientGroup(clientGroup)
+                            .withFunctionName(modMeth.getMethod()));
+                } catch (Exception ex) {
+                    log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
+                }
+                if (vmc != null && vmc.size() > 0) {
+                    if (vmc.size() > 1)
+                        throw new IllegalStateException("More than one rule for Docker volume mounts was found");
+                    additionalBinds = new ArrayList<Bind>();
+                    for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
+                        boolean isReadOnly = vm.getReadOnly() != null && vm.getReadOnly() != 0L;
+                        File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(), 
+                                token.getClientId()));
+                        if (!hostDir.exists()) {
+                            if (isReadOnly) {
+                                throw new IllegalStateException("Volume mount directory doesn't exist: " + 
+                            hostDir);
+                            } else {
+                                hostDir.mkdirs();
+                            }
+                        }
+                        String contDir = vm.getContainerDir();
+                        AccessMode am = isReadOnly ?
+                                AccessMode.ro : AccessMode.rw;
+                        additionalBinds.add(new Bind(hostDir.getCanonicalPath(), new Volume(contDir), am));
+                    }
+                }
+            }
+            // Cancellation checker
+            CancellationChecker cancellationChecker = new CancellationChecker() {
+                Boolean cancelled = null;
+                @Override
+                public boolean isJobCancelled() {
+                    if (cancelled != null)
+                        return cancelled;
+                    try {
+                        JobState jobState = jobSrvClient.checkJob(jobId);
+                        if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+                            cancelled = true;
+                            if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                                // Print cancellation message after DockerRunner is done
+                            } else {
+                                log.logNextLine("Job was registered as finished by another worker", true);
+                            }
+                            flushLog(jobSrvClient, jobId, logLines);
+                            return true;
+                        }
+                    } catch (Exception ex) {
+                        log.logNextLine("Error checking job state: " + ex.getMessage(), true);
+                    }
+                    return false;
+                }
+            };
             // Starting up callback server
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
                     getCallbackUrl(callbackPort);
             if (callbackUrl != null) {
-                System.out.println("Job runner recieved callback URL: " +
-                        callbackUrl);
+                log.logNextLine("Job runner recieved callback URL: " +
+                        callbackUrl, false);
                 final ModuleRunVersion runver = new ModuleRunVersion(
                         new URL(mv.getGitUrl()), modMeth,
                         mv.getGitCommitHash(), mv.getVersion(),
@@ -213,7 +320,7 @@ public class AweClientDockerJobScript {
                                 jobDir.toPath(), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
-                        job.getSourceWsObjects());
+                        job.getSourceWsObjects(), additionalBinds, cancellationChecker);
                 callbackServer = new Server(callbackPort);
                 final ServletContextHandler srvContext =
                         new ServletContextHandler(
@@ -223,14 +330,21 @@ public class AweClientDockerJobScript {
                 srvContext.addServlet(new ServletHolder(callback),"/*");
                 callbackServer.start();
             } else {
-                System.out.println("WARNING: No callback URL was recieved " +
-                        "by the job runner. Local callbacks are disabled.");
+                log.logNextLine("WARNING: No callback URL was recieved " +
+                        "by the job runner. Local callbacks are disabled.",
+                        true);
             }
             // Calling Docker run
             new DockerRunner(dockerURI).run(
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId);
+                    refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
+            if (cancellationChecker.isJobCancelled()) {
+                log.logNextLine("Job was cancelled", false);
+                flushLog(jobSrvClient, jobId, logLines);
+                logFlusher.interrupt();
+                return;
+            }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
                 Reader r = new FileReader(outputFile);
                 char[] chars = new char[1000];
@@ -270,8 +384,6 @@ public class AweClientDockerJobScript {
             flushLog(jobSrvClient, jobId, logLines);
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
-            ujsClient.completeJob(jobId, token.toString(), "done", null,
-                    new Results());
             logFlusher.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -282,10 +394,13 @@ public class AweClientDockerJobScript {
             PrintWriter pw = new PrintWriter(sw);
             ex.printStackTrace(pw);
             pw.close();
-            String stacktrace = sw.toString();
+            String err = "Fatal error: " + sw.toString();
+            if (ex instanceof ServerException) {
+                err += "\nServer exception:\n" +
+                        ((ServerException)ex).getData();
+            }
             try {
-                if (log != null)
-                    log.logNextLine("Fatal error: " + stacktrace, true);
+                log.logNextLine(err, true);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
             } catch (Exception ignore) {}
@@ -293,17 +408,10 @@ public class AweClientDockerJobScript {
                 FinishJobParams result = new FinishJobParams().withError(
                         new JsonRpcError().withCode(-1L).withName("JSONRPCError")
                         .withMessage("Job service side error: " + ex.getMessage())
-                        .withError(stacktrace));
+                        .withError(err));
                 jobSrvClient.finishJob(jobId, result);
             } catch (Exception ex2) {
                 ex2.printStackTrace();
-            }
-            if (ujsClient != null) {
-                String status = "Error: " + ex.getMessage();
-                if (status.length() > 200)
-                    status = status.substring(0, 197) + "...";
-                ujsClient.completeJob(jobId, token.toString(), status,
-                        stacktrace, null);
             }
         } finally {
             if (callbackServer != null)
@@ -314,6 +422,10 @@ public class AweClientDockerJobScript {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+    }
+    
+    public static String processHostPathForVolumeMount(String path, String username) {
+        return path.replace("${username}", username);
     }
     
     private static boolean notNullOrEmpty(final String s) {
@@ -358,25 +470,6 @@ public class AweClientDockerJobScript {
         return ret;
     }
 
-    private static UserAndJobStateClient getUjsClient(
-            final Map<String, String> config, 
-            final AuthToken token)
-            throws Exception {
-        final URL ujsURL = getURL(config,
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-        UserAndJobStateClient ret = new UserAndJobStateClient(ujsURL, token);
-        ret.setIsInsecureHttpConnectionAllowed(true);
-        return ret;
-    }
-
-    private static String getDockerRegistryURL(Map<String, String> config) {
-        String drUrl = config.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL);
-        if (drUrl == null)
-            throw new IllegalStateException("Parameter '" + NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL +
-                    "' is not defined in configuration");
-        return drUrl;
-    }
-    
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
             MalformedURLException, TokenFormatException {

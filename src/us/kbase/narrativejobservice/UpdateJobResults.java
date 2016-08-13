@@ -1,5 +1,5 @@
 
-package us.kbase.catalog;
+package us.kbase.narrativejobservice;
 
 import java.util.HashMap;
 import java.util.List;
@@ -13,33 +13,33 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 
 /**
- * <p>Original spec-file type: DeleteRolesParams</p>
+ * <p>Original spec-file type: UpdateJobResults</p>
  * 
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
-    "role_names"
+    "messages"
 })
-public class DeleteRolesParams {
+public class UpdateJobResults {
 
-    @JsonProperty("role_names")
-    private List<String> roleNames;
+    @JsonProperty("messages")
+    private List<String> messages;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
-    @JsonProperty("role_names")
-    public List<String> getRoleNames() {
-        return roleNames;
+    @JsonProperty("messages")
+    public List<String> getMessages() {
+        return messages;
     }
 
-    @JsonProperty("role_names")
-    public void setRoleNames(List<String> roleNames) {
-        this.roleNames = roleNames;
+    @JsonProperty("messages")
+    public void setMessages(List<String> messages) {
+        this.messages = messages;
     }
 
-    public DeleteRolesParams withRoleNames(List<String> roleNames) {
-        this.roleNames = roleNames;
+    public UpdateJobResults withMessages(List<String> messages) {
+        this.messages = messages;
         return this;
     }
 
@@ -55,7 +55,7 @@ public class DeleteRolesParams {
 
     @Override
     public java.lang.String toString() {
-        return ((((("DeleteRolesParams"+" [roleNames=")+ roleNames)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((("UpdateJobResults"+" [messages=")+ messages)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }

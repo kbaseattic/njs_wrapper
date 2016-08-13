@@ -4,8 +4,6 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 import us.kbase.auth.AuthToken;
-import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
 import us.kbase.common.service.JsonServerSyslog;
@@ -27,11 +25,14 @@ import java.util.regex.Pattern;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.ini4j.Ini;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import us.kbase.auth.TokenFormatException;
+import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.UObject;
@@ -42,6 +43,8 @@ import us.kbase.common.taskqueue2.TaskQueue;
 import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.MigrationToMongo;
+import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
 import us.kbase.userandjobstate.UserAndJobStateClient;
@@ -55,8 +58,8 @@ import us.kbase.userandjobstate.UserAndJobStateClient;
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
-    private static final String gitUrl = "https://github.com/kbase/njs_wrapper";
-    private static final String gitCommitHash = "9c7f556b42ce052b184f64a29d9f70354b12f948";
+    private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
+    private static final String gitCommitHash = "a7198ead5bb063d1345ec0612d7bc0874eadc409";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -91,7 +94,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
-    public static final String CFG_PROP_NARRATIVE_PROXY_SHARING_USER = "narrative.proxy.sharing.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
     public static final String CFG_PROP_MONGO_HOSTS = "mongodb-host";
@@ -99,7 +101,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
     
-    public static final String VERSION = "0.2.3";
+    public static final String VERSION = "0.2.4";
     
     public static final String AWE_APPS_TABLE_NAME = "awe_apps";
     public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
@@ -327,11 +329,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     rpcCallData.getMethod());
             List<UObject> paramsList = rpcCallData.getParams();
             List<Object> result = null;
-            String errorMessage = null;
             ObjectMapper mapper = new ObjectMapper().registerModule(new JacksonTupleModule());
             us.kbase.narrativejobservice.RpcContext context =
                     UObject.transformObjectToObject(rpcCallData.getContext(),
                             us.kbase.narrativejobservice.RpcContext.class);
+            Exception exc = null;
             try {
                 if (modmeth.isSubmit()) {
                     RunJobParams runJobParams = new RunJobParams();
@@ -369,37 +371,36 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                         result = new ArrayList<Object>();
                         result.add(jobState);
                     } else {
-                        errorMessage =
-                                "Check method expects exactly one argument";
+                        throw new IllegalArgumentException(
+                                "Check method expects exactly one argument");
                     }
                 } else {
-                    errorMessage = "Method [" + rpcCallData.getMethod() +
-                            "is not a valid method name for asynchronous job execution";
+                    throw new IllegalArgumentException(
+                            "Method [" + rpcCallData.getMethod() +
+                            "] is not a valid method name for asynchronous job execution");
                 }
-                if (errorMessage == null && result != null) {
-                    Map<String, Object> ret = new LinkedHashMap<String, Object>();
-                    ret.put("version", "1.1");
-                    ret.put("result", result);
-                    mapper.writeValue(new UnclosableOutputStream(output), ret);
-                    return;
-                } else if (errorMessage == null) {
-                    errorMessage = "Unknown server error";
-                }
+                Map<String, Object> ret = new LinkedHashMap<String, Object>();
+                ret.put("version", "1.1");
+                ret.put("result", result);
+                mapper.writeValue(new UnclosableOutputStream(output), ret);
+                return;
             } catch (Exception ex) {
-                errorMessage = ex.getMessage();
+                exc = ex;
             }
             try {
                 Map<String, Object> error = new LinkedHashMap<String, Object>();
                 error.put("name", "JSONRPCError");
                 error.put("code", -32601);
-                error.put("message", errorMessage);
-                error.put("error", errorMessage);
+                error.put("message", exc.getLocalizedMessage());
+                error.put("error", ExceptionUtils.getStackTrace(exc));
                 Map<String, Object> ret = new LinkedHashMap<String, Object>();
                 ret.put("version", "1.1");
                 ret.put("error", error);
                 mapper.writeValue(new UnclosableOutputStream(output), ret);
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             } catch (Exception ex) {
-                new Exception("Error sending error: " + errorMessage, ex).printStackTrace();
+                new Exception("Error sending error: " +
+                        exc.getLocalizedMessage(), ex).printStackTrace();
             }
         }
     }
@@ -484,7 +485,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (forward) {
         	returnVal = getForwardClient(authPart).runApp(app);
         } else {
-            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart.toString(), app, config());
+            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart, app, config());
             if (returnVal == null) {
                 String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
                 returnVal = RunAppBuilder.initAppState(appJobId, config());
@@ -508,10 +509,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).checkAppState(jobId);
         } else {
-        	returnVal = RunAppBuilder.loadAppState(jobId, config());
+        	returnVal = SDKMethodRunner.loadAppState(jobId, config());
         	if (returnVal == null)
         		throw new IllegalStateException("Information is not available");
-        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart.toString(), returnVal, config());
+        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart, returnVal, config());
         }
         //END check_app_state
         return returnVal;
@@ -572,7 +573,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         if (Util.isAweJobId(jobId)) {
         	returnVal = getForwardClient(authPart).deleteApp(jobId);
         } else {
-        	AppState appState = RunAppBuilder.loadAppState(jobId, config());
+        	AppState appState = SDKMethodRunner.loadAppState(jobId, config());
         	if (appState != null) {
         		appState.setIsDeleted(1L);
         		returnVal = "App " + jobId + " was marked for deletion";
@@ -663,6 +664,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         		.withTasksInQueue((long)queued)
         		.withConfig(safeConfig)
         		.withGitCommit(gitCommit);
+        
+        // make warnings shut up
+        @SuppressWarnings("unused")
+        String foo = gitUrl;
+        @SuppressWarnings("unused")
+        String bar = gitCommitHash;
+        @SuppressWarnings("unused")
+        String baz = version;
         //END status
         return returnVal;
     }
@@ -697,7 +706,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
-        returnVal = RunAppBuilder.runAweDockerScript(params, authPart.toString(), null, config(), null);
+        String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
+        returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
         return returnVal;
     }
@@ -716,11 +726,27 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         Map<String,String> return2 = null;
         //BEGIN get_job_params
         return2 = new LinkedHashMap<String, String>();
-        return1 = RunAppBuilder.getAweDockerScriptInput(jobId, authPart.toString(), config(), return2);
+        return1 = SDKMethodRunner.getJobInputParams(jobId, authPart, config(), return2);
         //END get_job_params
         Tuple2<RunJobParams, Map<String,String>> returnVal = new Tuple2<RunJobParams, Map<String,String>>();
         returnVal.setE1(return1);
         returnVal.setE2(return2);
+        return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: update_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.UpdateJobParams UpdateJobParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.UpdateJobResults UpdateJobResults}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.update_job", async=true)
+    public UpdateJobResults updateJob(UpdateJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        UpdateJobResults returnVal = null;
+        //BEGIN update_job
+        returnVal = new UpdateJobResults().withMessages(SDKMethodRunner.updateJob(params, authPart, config()));
+        //END update_job
         return returnVal;
     }
 
@@ -736,7 +762,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Long addJobLogs(String jobId, List<LogLine> lines, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Long returnVal = null;
         //BEGIN add_job_logs
-        returnVal = (long)RunAppBuilder.addAweDockerScriptLogs(jobId, lines, authPart.toString(), config());
+        returnVal = (long)SDKMethodRunner.addJobLogs(jobId, lines, authPart, config());
         //END add_job_logs
         return returnVal;
     }
@@ -752,8 +778,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public GetJobLogsResults getJobLogs(GetJobLogsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         GetJobLogsResults returnVal = null;
         //BEGIN get_job_logs
-        returnVal = RunAppBuilder.getAweDockerScriptLogs(params.getJobId(), params.getSkipLines(), 
-                authPart.toString(), getAdminUsers(), config());
+        returnVal = SDKMethodRunner.getJobLogs(params.getJobId(), params.getSkipLines(), 
+                authPart, getAdminUsers(), config());
         //END get_job_logs
         return returnVal;
     }
@@ -769,7 +795,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
-        RunAppBuilder.finishAweDockerScript(jobId, params, authPart.toString(), logger, config());
+    	SDKMethodRunner.finishJob(jobId, params, authPart, logger, config());
         //END finish_job
     }
 
@@ -785,26 +811,38 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public JobState checkJob(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         JobState returnVal = null;
         //BEGIN check_job
-        returnVal = RunAppBuilder.checkJob(jobId, authPart.toString(), config());
+        returnVal = SDKMethodRunner.checkJob(jobId, authPart, config());
         //END check_job
         return returnVal;
     }
-    
-    @JsonServerMethod(rpc = "NarrativeJobService.status")
-    public Map<String, Object> status() {
-        Map<String, Object> returnVal = null;
-        //BEGIN_STATUS
-        returnVal = new LinkedHashMap<String, Object>();
-        returnVal.put("state", "OK");
-        returnVal.put("message", "");
-        returnVal.put("version", VERSION);
-        returnVal.put("git_url", gitUrl);
-        @SuppressWarnings("unused")
-        String foo = gitCommitHash;
-        @SuppressWarnings("unused")
-        String ver = version;
-        //END_STATUS
+
+    /**
+     * <p>Original spec-file function name: check_jobs</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CheckJobsParams CheckJobsParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.CheckJobsResults CheckJobsResults}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.check_jobs", async=true)
+    public CheckJobsResults checkJobs(CheckJobsParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        CheckJobsResults returnVal = null;
+        //BEGIN check_jobs
+        returnVal = SDKMethodRunner.checkJobs(params, authPart, config());
+        //END check_jobs
         return returnVal;
+    }
+
+    /**
+     * <p>Original spec-file function name: cancel_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.cancel_job", async=true)
+    public void cancelJob(CancelJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        //BEGIN cancel_job
+        SDKMethodRunner.cancelJob(params, authPart, config());
+        //END cancel_job
     }
 
     public static void main(String[] args) throws Exception {

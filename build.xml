@@ -33,7 +33,7 @@
     <include name="jackson/jackson-annotations-2.2.3.jar"/>
     <include name="jackson/jackson-core-2.2.3.jar"/>
     <include name="jackson/jackson-databind-2.2.3.jar"/>
-    <include name="kbase/common/kbase-common-0.0.13.jar"/>
+    <include name="kbase/common/kbase-common-0.0.17.jar"/>
     <include name="kbase/workspace/WorkspaceClient-0.4.1.jar"/>
     <include name="derby/derby-10.10.1.1.jar"/>
     <include name="easymock/easymock-3.2.jar"/>
@@ -136,7 +136,7 @@ commit=${git.commit}</echo>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
 export JAVA_HOME=${java.home}
 export PATH=${java.home}/bin:$PATH
-java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.AweClientDockerJobScript $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
@@ -148,6 +148,14 @@ java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.AweC
   <target name="preparejunitreportdir" if="env.JENKINS_REPORT_DIR">
     <delete dir="${env.JENKINS_REPORT_DIR}"/>
     <mkdir dir="${env.JENKINS_REPORT_DIR}"/>
+  </target>
+
+  <target name="shockmigscript" depends="compile" description="create script to run shock->mongo migration">
+    <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
+    <echo file="./migrate_shock_data_to_mongo.sh">#!/bin/sh
+java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
+    </echo>
+    <chmod file="./migrate_shock_data_to_mongo.sh" perm="a+x"/>
   </target>
 
   <target name="test" depends="compile, preparejunitreportdir" description="run all tests">

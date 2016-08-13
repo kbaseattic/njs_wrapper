@@ -122,7 +122,7 @@ public class CallbackServerTest {
                 AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
                         temp, log).build();
         final JsonServerServlet callback = new NJSCallbackServer(
-                token, cbcfg, runver, params, wsobjs);
+                token, cbcfg, runver, params, wsobjs, null, null);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =
                 new ServletContextHandler(
@@ -672,7 +672,7 @@ public class CallbackServerTest {
             assertThat("correct code url", got.getCodeUrl(),
                     is("https://github.com/kbasetest/" + sa.module));
             assertThat("correct commit", got.getCommit(), is(sa.commit));
-            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct name", got.getName(), is(sa.module));
             assertThat("correct version", got.getVer(), is(sa.getVerRel()));
         }
     }

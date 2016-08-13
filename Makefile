@@ -3,7 +3,7 @@ KB_RUNTIME ?= /kb/runtime
 DEPLOY_RUNTIME ?= $(KB_RUNTIME)
 TARGET ?= /kb/deployment
 CURR_DIR = $(shell pwd)
-SERVICE_NAME = $(shell basename $(CURR_DIR))
+SERVICE_NAME = njs_wrapper
 SERVICE_CAPS = NarrativeJobService
 SERVICE_SPEC = NJSWrapper
 SERVICE_DIR = $(TARGET)/services/$(SERVICE_NAME)
@@ -72,6 +72,9 @@ deploy-service: deploy-scripts
 
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
+
+create-shock-to-mongo-script:
+	$(ANT) shockmigscript
 
 deploy-docs:
 	@echo "No documentation"

@@ -21,7 +21,7 @@ import us.kbase.common.utils.DbConn;
 import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
-import us.kbase.narrativejobservice.RunAppBuilder;
+import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 
 public class MigrationToMongo {
     public static final String DERBY_DB_NAME = "GenomeCmpDb";
@@ -152,8 +152,8 @@ public class MigrationToMongo {
                         ExecLogLine ret = new ExecLogLine();
                         ret.setLinePos(rs.getInt(1));
                         String text = rs.getString(2);
-                        if (text.length() > RunAppBuilder.MAX_LOG_LINE_LENGTH) {
-                            text = text.substring(0, RunAppBuilder.MAX_LOG_LINE_LENGTH - 3) + "...";
+                        if (text.length() > SDKMethodRunner.MAX_LOG_LINE_LENGTH) {
+                            text = text.substring(0, SDKMethodRunner.MAX_LOG_LINE_LENGTH - 3) + "...";
                             truncatedLines[0]++;
                         }
                         ret.setLine(text);

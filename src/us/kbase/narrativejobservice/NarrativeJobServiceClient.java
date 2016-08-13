@@ -22,6 +22,7 @@ import us.kbase.common.service.UnauthorizedException;
  */
 public class NarrativeJobServiceClient {
     private JsonClientCaller caller;
+    private String serviceVersion = null;
     private static URL DEFAULT_URL = null;
     static {
         try {
@@ -174,6 +175,14 @@ public class NarrativeJobServiceClient {
         caller.setFileForNextRpcResponse(f);
     }
 
+    public String getServiceVersion() {
+        return this.serviceVersion;
+    }
+
+    public void setServiceVersion(String newValue) {
+        this.serviceVersion = newValue;
+    }
+
     /**
      * <p>Original spec-file function name: run_app</p>
      * <pre>
@@ -187,7 +196,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(app);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.run_app", args, retType, true, true, jsonRpcContext);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.run_app", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -204,7 +213,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<AppState>> retType = new TypeReference<List<AppState>>() {};
-        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.check_app_state", args, retType, true, true, jsonRpcContext);
+        List<AppState> res = caller.jsonrpcCall("NarrativeJobService.check_app_state", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -222,7 +231,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.suspend_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.suspend_app", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -239,7 +248,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.resume_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.resume_app", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -256,7 +265,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.delete_app", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.delete_app", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -271,7 +280,7 @@ public class NarrativeJobServiceClient {
     public Map<String,String> listConfig(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Map<String,String>>> retType = new TypeReference<List<Map<String,String>>>() {};
-        List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false, jsonRpcContext);
+        List<Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.list_config", args, retType, true, false, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -287,7 +296,7 @@ public class NarrativeJobServiceClient {
     public String ver(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.ver", args, retType, true, false, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.ver", args, retType, true, false, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -303,7 +312,7 @@ public class NarrativeJobServiceClient {
     public Status status(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<Status>> retType = new TypeReference<List<Status>>() {};
-        List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false, jsonRpcContext);
+        List<Status> res = caller.jsonrpcCall("NarrativeJobService.status", args, retType, true, false, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -318,7 +327,7 @@ public class NarrativeJobServiceClient {
     public List<AppState> listRunningApps(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<List<AppState>>> retType = new TypeReference<List<List<AppState>>>() {};
-        List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false, jsonRpcContext);
+        List<List<AppState>> res = caller.jsonrpcCall("NarrativeJobService.list_running_apps", args, retType, true, false, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -337,7 +346,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_job", args, retType, true, true, jsonRpcContext);
+        List<String> res = caller.jsonrpcCall("NarrativeJobService.run_job", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -355,8 +364,25 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<Tuple2<RunJobParams, Map<String,String>>> retType = new TypeReference<Tuple2<RunJobParams, Map<String,String>>>() {};
-        Tuple2<RunJobParams, Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.get_job_params", args, retType, true, true, jsonRpcContext);
+        Tuple2<RunJobParams, Map<String,String>> res = caller.jsonrpcCall("NarrativeJobService.get_job_params", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res;
+    }
+
+    /**
+     * <p>Original spec-file function name: update_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.UpdateJobParams UpdateJobParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.UpdateJobResults UpdateJobResults}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public UpdateJobResults updateJob(UpdateJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<UpdateJobResults>> retType = new TypeReference<List<UpdateJobResults>>() {};
+        List<UpdateJobResults> res = caller.jsonrpcCall("NarrativeJobService.update_job", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
     }
 
     /**
@@ -374,7 +400,7 @@ public class NarrativeJobServiceClient {
         args.add(jobId);
         args.add(lines);
         TypeReference<List<Long>> retType = new TypeReference<List<Long>>() {};
-        List<Long> res = caller.jsonrpcCall("NarrativeJobService.add_job_logs", args, retType, true, true, jsonRpcContext);
+        List<Long> res = caller.jsonrpcCall("NarrativeJobService.add_job_logs", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -391,7 +417,7 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(params);
         TypeReference<List<GetJobLogsResults>> retType = new TypeReference<List<GetJobLogsResults>>() {};
-        List<GetJobLogsResults> res = caller.jsonrpcCall("NarrativeJobService.get_job_logs", args, retType, true, true, jsonRpcContext);
+        List<GetJobLogsResults> res = caller.jsonrpcCall("NarrativeJobService.get_job_logs", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -410,7 +436,7 @@ public class NarrativeJobServiceClient {
         args.add(jobId);
         args.add(params);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("NarrativeJobService.finish_job", args, retType, false, true, jsonRpcContext);
+        caller.jsonrpcCall("NarrativeJobService.finish_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -427,7 +453,39 @@ public class NarrativeJobServiceClient {
         List<Object> args = new ArrayList<Object>();
         args.add(jobId);
         TypeReference<List<JobState>> retType = new TypeReference<List<JobState>>() {};
-        List<JobState> res = caller.jsonrpcCall("NarrativeJobService.check_job", args, retType, true, true, jsonRpcContext);
+        List<JobState> res = caller.jsonrpcCall("NarrativeJobService.check_job", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: check_jobs</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CheckJobsParams CheckJobsParams}
+     * @return   instance of type {@link us.kbase.narrativejobservice.CheckJobsResults CheckJobsResults}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public CheckJobsResults checkJobs(CheckJobsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<CheckJobsResults>> retType = new TypeReference<List<CheckJobsResults>>() {};
+        List<CheckJobsResults> res = caller.jsonrpcCall("NarrativeJobService.check_jobs", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: cancel_job</p>
+     * <pre>
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public void cancelJob(CancelJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<Object> retType = new TypeReference<Object>() {};
+        caller.jsonrpcCall("NarrativeJobService.cancel_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 }

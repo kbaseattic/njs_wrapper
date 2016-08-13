@@ -1,4 +1,4 @@
-package us.kbase.narrativejobservice;
+package us.kbase.narrativejobservice.sdkjobs;
 
 public interface ErrorLogger {
     public void logErr(String message);
