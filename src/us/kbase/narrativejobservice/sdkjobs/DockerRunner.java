@@ -64,7 +64,7 @@ public class DockerRunner {
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
         final DockerClient cl = createDockerClient();
-        imageName = checkImagePulled(cl, imageName);
+        imageName = checkImagePulled(cl, imageName, log);
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
@@ -219,15 +219,16 @@ public class DockerRunner {
         }
     }
     
-    public String checkImagePulled(DockerClient cl, String imageName)
+    public String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
             throws IOException {
         if (findImageId(cl, imageName) == null) {
-            System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
+            log.logNextLine("Image " + imageName + " is not pulled yet, pulling...", false);
             ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
-            System.out.println("[DEBUG] DockerRunner: after pulling " + imageName);
-        }
-        if (findImageId(cl, imageName) == null) {
-            throw new IllegalStateException("Image was not found: " + imageName);
+            if (findImageId(cl, imageName) == null) {
+                throw new IllegalStateException("Image was not found: " + imageName);
+            } else {
+                log.logNextLine("Image " + imageName + " is pulled successfully", false);
+            }
         }
         return imageName;
     }
@@ -240,6 +241,8 @@ public class DockerRunner {
         for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
             if (image.getId().startsWith(imageTagOrIdPrefix))
                 return image;
+            if (image.getRepoTags() == null)
+                continue;
             for (String tag : image.getRepoTags())
                 if (tag.equals(imageTagOrIdPrefix))
                     return image;
