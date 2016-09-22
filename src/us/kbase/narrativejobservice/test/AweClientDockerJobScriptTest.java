@@ -272,7 +272,7 @@ public class AweClientDockerJobScriptTest {
     private Map<String, Object> buildLargeObject() {
         
         Map<String, Object> ret = new HashMap<String, Object>();
-        for (int i = 0; i < 255548; i++) {
+        for (int i = 0; i < 55765; i++) {
             ret.put("key" + i, "01234");
         }
         ret.put("id", "foo");
@@ -294,7 +294,7 @@ public class AweClientDockerJobScriptTest {
             fail("started job with too large object");
         } catch (ServerException se) {
             assertThat("incorrect exception message", se.getLocalizedMessage(),
-                    is("Input parameters are above 1048576B maximum: 5000004"));
+                    is("Input parameters are above 1048576B maximum: 1048579"));
         }
     }
     
