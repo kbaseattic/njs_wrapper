@@ -31,4 +31,6 @@ public class JobRunnerConstants {
     public static final String CFG_PROP_EE_SERVER_VERSION = 
             "ee.server.version";
 
+    public static final int MAX_IO_BYTE_SIZE = 1024 * 1024;
+
 }
