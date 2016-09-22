@@ -34,8 +34,6 @@ import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.CountingOutputStream;
-import us.kbase.narrativejobservice.App;
-import us.kbase.narrativejobservice.AppState;
 import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.CheckJobsResults;
@@ -45,9 +43,7 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RunJobParams;
-import us.kbase.narrativejobservice.Step;
 import us.kbase.narrativejobservice.UpdateJobParams;
-import us.kbase.narrativejobservice.db.ExecApp;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.db.ExecLog;
 import us.kbase.narrativejobservice.db.ExecLogLine;
@@ -73,18 +69,11 @@ public class SDKMethodRunner {
 			JobRunnerConstants.RELEASE_TAGS;
 	public static final int MAX_LOG_LINE_LENGTH = 1000;
 	public static final String REQ_REL = "requested_release";
-	private static final int MAX_PARAM_B = 5000000;
+	private static final int MAX_IO_BYTE_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
 	
 	private static AuthToken cachedCatalogAdminAuth = null;
 
 	private static ExecEngineMongoDb db = null;
-
-	public static AppState loadAppState(String appJobId, Map<String, String> config)
-			throws Exception {
-		ExecApp dbApp = getDb(config).getExecApp(appJobId);
-		return dbApp == null ? null : UObject.getMapper().readValue(
-				dbApp.getAppStateData(), AppState.class);
-	}
 
 	public static String requestClientGroups(Map<String, String> config, String srvMethod)
 	        throws UnauthorizedException, IOException, AuthException, JsonClientException {
@@ -118,7 +107,7 @@ public class SDKMethodRunner {
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobInput =
 			UObject.transformObjectToObject(params, Map.class);
-		checkObjectLength(jobInput, MAX_PARAM_B, "Input", null);
+		checkObjectLength(jobInput, MAX_IO_BYTE_SIZE, "Input", null);
 
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
 		if (kbaseEndpoint == null) {
@@ -359,7 +348,7 @@ public class SDKMethodRunner {
                 UObject.transformObjectToObject(params, Map.class);
         //should never trigger since the local method runner limits uploads to
         //15k
-        checkObjectLength(jobOutput, MAX_PARAM_B, "Output", ujsJobId);
+        checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
         SanitizeMongoObject.sanitize(jobOutput);
         // Updating UJS job state
         if  (params.getIsCancelled() != null &&
@@ -739,10 +728,6 @@ public class SDKMethodRunner {
 		return dbTask;
 	}
 
-	private static String getAweTaskAppId(ExecTask task) throws Exception {
-		return task.getAppJobId();
-	}
-
 	private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
 		return getAweTaskDescription(ujsJobId, config).getAweJobId();
 	}
@@ -829,32 +814,6 @@ public class SDKMethodRunner {
         ExecTask task = getAweTaskDescription(ujsJobId, config);
         RunJobParams params = getJobInput(task);
         String methodSpecId = params.getAppId();
-        if (methodSpecId == null) {
-            String appJobId = getAweTaskAppId(task);
-            AppState appState = null;
-            if (appJobId != null)
-                appState = loadAppState(appJobId, config);
-            String stepId = null;
-            App app = null;
-            if (appState != null && appState.getStepJobIds() != null
-                    && appState.getOriginalApp() != null) {
-                app = appState.getOriginalApp();
-                for (String sId : appState.getStepJobIds().keySet()) {
-                    if (ujsJobId.equals(appState.getStepJobIds().get(sId))) {
-                        stepId = sId;
-                        break;
-                    }
-                }
-            }
-            if (stepId != null && app != null && app.getSteps() != null) {
-                for (Step step : app.getSteps()) {
-                    if (step.getStepId().equals(stepId)) {
-                        methodSpecId = step.getMethodSpecId();
-                        break;
-                    }
-                }
-            }
-        }
 		String uiModuleName = null;
 		if (methodSpecId != null) {
 			String[] parts = methodSpecId.split("/");

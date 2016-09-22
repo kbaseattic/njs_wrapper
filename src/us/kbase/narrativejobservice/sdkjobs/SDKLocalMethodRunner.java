@@ -74,7 +74,7 @@ public class SDKLocalMethodRunner {
     public static final String RELEASE = JobRunnerConstants.RELEASE;
     public static final Set<String> RELEASE_TAGS =
             JobRunnerConstants.RELEASE_TAGS;
-    private static final long MAX_OUTPUT_SIZE = 15 * 1024;
+    private static final long MAX_OUTPUT_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
     
     public static final String JOB_CONFIG_FILE =
             JobRunnerConstants.JOB_CONFIG_FILE;

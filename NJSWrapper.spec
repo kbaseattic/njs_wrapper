@@ -16,107 +16,6 @@ module NarrativeJobService {
     /* A job id. */
     typedef string job_id;
 
-    /*
-        service_url could be empty in case of docker image of service loaded from registry,
-        service_version - optional parameter defining version of service docker image.
-    */
-    typedef structure {
-        string service_name;
-        string method_name;
-        string service_url;
-        string service_version;
-    } service_method;
-
-    typedef structure {
-        string service_name;
-        string method_name;
-        boolean has_files;
-    } script_method;
-
-   /*
-        label - label of parameter, can be empty string for positional parameters
-        value - value of parameter
-        step_source - step_id that parameter derives from
-        is_workspace_id - parameter is a workspace id (value is object name)
-        # the below are only used if is_workspace_id is true
-            is_input - parameter is an input (true) or output (false)
-            workspace_name - name of workspace
-            object_type - name of object type
-    */
-    typedef structure {
-        string workspace_name;
-        string object_type;
-        boolean is_input;
-    } workspace_object;
-
-    typedef structure {
-        string label;
-        string value;
-        string step_source;
-        boolean is_workspace_id;
-        workspace_object ws_object;
-    } step_parameter;
-
-    /*
-        type - 'service' or 'script'.
-        job_id_output_field - this field is used only in case this step is long running job and
-            output of service method is structure with field having name coded in
-            'job_id_output_field' rather than just output string with job id.
-        method_spec_id - high level id of UI method used for logging of execution time 
-            statistics.
-    */
-    typedef structure {
-        string step_id;
-        string type;
-        service_method service;
-        script_method script;
-        list<step_parameter> parameters;
-        list<UnspecifiedObject> input_values;
-        boolean is_long_running;
-        string job_id_output_field;
-        string method_spec_id;
-    } step;
-
-    typedef structure {
-        string name;
-        list<step> steps;
-    } app;
-
-    typedef structure {
-        int creation_time;
-        int exec_start_time;
-        int finish_time;
-        int pos_in_queue;
-    } step_stats;
-
-    /*
-        job_id - id of job running app
-        job_state - 'queued', 'in-progress', 'completed', or 'suspend'
-        running_step_id - id of step currently running
-        step_outputs - mapping step_id to stdout text produced by step, only for completed or errored steps
-        step_outputs - mapping step_id to stderr text produced by step, only for completed or errored steps
-        step_job_ids - mapping from step_id to job_id
-        step_stats - mapping from step_id to execution time statistics
-        position - position of this job in execution waiting queue
-        submit_time, start_time and complete_time - time moments of submission, execution start and
-            finish events formatted in ISO 8601 with UTC time-zone (like 2016-02-18T12:06:55Z).
-    */
-    typedef structure {
-        job_id job_id;
-        string job_state;
-        string running_step_id;
-        mapping<string, string> step_outputs;
-        mapping<string, string> step_errors;
-        mapping<string, string> step_job_ids;
-        mapping<string, step_stats> step_stats;
-        boolean is_deleted;
-        app original_app;
-        string submit_time;
-        string start_time;
-        string complete_time;
-        int position;
-    } app_state;
-
     typedef structure {
         boolean reboot_mode;
         boolean stopping_mode;
@@ -127,19 +26,6 @@ module NarrativeJobService {
         string git_commit;
     } Status;
 
-    funcdef run_app(app app) returns (app_state) authentication required;
-
-    funcdef check_app_state(job_id job_id) returns (app_state) authentication required;
-
-    /*
-        status - 'success' or 'failure' of action
-    */
-    funcdef suspend_app(job_id job_id) returns (string status) authentication required;
-
-    funcdef resume_app(job_id job_id) returns (string status) authentication required;
-
-    funcdef delete_app(job_id job_id) returns (string status) authentication required;
-
     funcdef list_config() returns (mapping<string, string>) authentication optional;
 
     /* Returns the current running version of the NarrativeJobService. */
@@ -147,8 +33,6 @@ module NarrativeJobService {
 
     /* Simply check the status of this service to see queue details */
     funcdef status() returns (Status);
-
-    funcdef list_running_apps() returns (list<app_state>) authentication optional;
 
 
     /*================================================================================*/
