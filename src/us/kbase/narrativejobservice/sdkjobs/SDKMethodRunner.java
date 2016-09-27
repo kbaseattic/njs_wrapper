@@ -262,7 +262,8 @@ public class SDKMethodRunner {
 		            NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
 		            NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
-		            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE
+		            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE,
+		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS
 		    };
 		    for (String key : propsToSend) {
 		        String value = config.get(key);

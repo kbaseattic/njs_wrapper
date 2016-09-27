@@ -1633,6 +1633,9 @@ public class AweClientDockerJobScriptTest {
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
             configLines.add(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI + "=" + dockerURI);
+        String callbackNetworks = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
+        if (callbackNetworks != null)
+            configLines.add(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS + "=" + callbackNetworks);
         writeFileLines(configLines, configFile);
         System.setProperty("KB_DEPLOYMENT_CONFIG", configFile.getAbsolutePath());
         Server jettyServer = new Server(port);
