@@ -80,6 +80,8 @@ public class SDKLocalMethodRunner {
             JobRunnerConstants.JOB_CONFIG_FILE;
     public static final String CFG_PROP_EE_SERVER_VERSION =
             JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
+    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS = 
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -305,9 +307,14 @@ public class SDKLocalMethodRunner {
                 }
             };
             // Starting up callback server
+            String[] callbackNetworks = null;
+            String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
+            if (callbackNetworksText != null) {
+                callbackNetworks = callbackNetworksText.trim().split("\\s*,\\s*");
+            }
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
-                    getCallbackUrl(callbackPort);
+                    getCallbackUrl(callbackPort, callbackNetworks);
             if (callbackUrl != null) {
                 log.logNextLine("Job runner recieved callback URL: " +
                         callbackUrl, false);
@@ -330,6 +337,11 @@ public class SDKLocalMethodRunner {
                 srvContext.addServlet(new ServletHolder(callback),"/*");
                 callbackServer.start();
             } else {
+                if (callbackNetworks != null && callbackNetworks.length > 0) {
+                    throw new IllegalStateException("No proper callback IP was found, " +
+                            "please check 'awe.client.callback.networks' parameter in " +
+                            "execution engine configuration");
+                }
                 log.logNextLine("WARNING: No callback URL was recieved " +
                         "by the job runner. Local callbacks are disabled.",
                         true);

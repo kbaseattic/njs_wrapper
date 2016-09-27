@@ -83,6 +83,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
+    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     
     public static final String VERSION = "0.2.5";
     
@@ -340,7 +342,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 CFG_PROP_SELF_EXTERNAL_URL, 
                 CFG_PROP_REF_DATA_BASE,
                 CFG_PROP_CATALOG_SRV_URL, 
-                CFG_PROP_AWE_CLIENT_DOCKER_URI
+                CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS
         };
         Map<String, String> config = config();
         for (String key : keys) {
@@ -426,6 +429,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
+        System.gc();
         String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
         returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
@@ -445,6 +449,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         RunJobParams return1 = null;
         Map<String,String> return2 = null;
         //BEGIN get_job_params
+        System.gc();
         return2 = new LinkedHashMap<String, String>();
         return1 = SDKMethodRunner.getJobInputParams(jobId, authPart, config(), return2);
         //END get_job_params
@@ -465,6 +470,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public UpdateJobResults updateJob(UpdateJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         UpdateJobResults returnVal = null;
         //BEGIN update_job
+        System.gc();
         returnVal = new UpdateJobResults().withMessages(SDKMethodRunner.updateJob(params, authPart, config()));
         //END update_job
         return returnVal;
@@ -515,6 +521,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
+        System.gc();
     	SDKMethodRunner.finishJob(jobId, params, authPart, logger, config());
         //END finish_job
     }
