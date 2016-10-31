@@ -100,10 +100,15 @@ public class MigrateShockDataToMongo {
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
 			final DBObject q = new BasicDBObject("ujs_job_id", jobId);
-			final DBObject rec = col.findOne(q);
-			if (rec.get("job_input") != null && rec.get("job_output") != null) {
-				log("Skipping " + jobId + ", already has job_input and job_output records");
-				continue;
+			try {
+				final DBObject rec = col.findOne(q);
+				if (rec.get("job_input") != null && rec.get("job_output") != null) {
+					log("Skipping " + jobId + ", already has job_input and job_output records");
+					continue;
+				}
+			} catch (MongoException e) {
+				log("Failed read from mongo for query " + q);
+				throw e;
 			}
 			
 			final String shockIn = (String) j.get("input_shock_id");
