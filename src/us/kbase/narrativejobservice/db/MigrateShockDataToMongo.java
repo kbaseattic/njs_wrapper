@@ -95,12 +95,14 @@ public class MigrateShockDataToMongo {
 			final String jobId = (String) j.get("ujs_job_id");
 			if (seenIDs.contains(jobId)) {
 				log("Skipping " + jobId + ", already processed");
+				count++;
 				continue;
 			}
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
 			if (j.get("job_input") != null && j.get("job_output") != null) {
 				log("    Skipping " + jobId + ", already has job_input and job_output records");
+				count++;
 				continue;
 			}
 			
@@ -113,11 +115,13 @@ public class MigrateShockDataToMongo {
 				if (!getShockData(bsc, shockIn, update, "input")) {
 					log("    Retrieving input data failed unexpectedly. Skipping record. " +
 							"Please repair the node and try again.");
+					count++;
 					continue;
 				}
 				if (!getShockData(bsc, shockOut, update, "output")) {
 					log("    Retrieving output data failed unexpectedly. Skipping record. " +
 							"Please repair the node and try again.");
+					count++;
 					continue;
 				}
 				if (!dryrun) {
