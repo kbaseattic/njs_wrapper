@@ -99,15 +99,29 @@ public class MigrateShockDataToMongo {
 			}
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
+			final DBObject q = new BasicDBObject("ujs_job_id", jobId);
+			final DBObject rec = col.findOne(q);
+			if (rec.get("job_input") != null && rec.get("job_output") != null) {
+				log("Skipping " + jobId + ", already has job_input and job_output records");
+				continue;
+			}
+			
 			final String shockIn = (String) j.get("input_shock_id");
 			final String shockOut = (String) j.get("output_shock_id");
 			final DBObject update = new BasicDBObject();
 			log("    input shock id: " + shockIn);
 			log("    output shock id: " + shockOut);
 			if (!DONT_PULL_SHOCK_NODES) {
-				getShockData(bsc, shockIn, update, "input");
-				getShockData(bsc, shockOut, update, "output");
-				DBObject q = new BasicDBObject("ujs_job_id", jobId);
+				if (!getShockData(bsc, shockIn, update, "input")) {
+					log("Retrieving input data failed unexpectedly. Skipping record. Please " +
+							"repair the node and try again.");
+					continue;
+				}
+				if (!getShockData(bsc, shockOut, update, "output")) {
+					log("Retrieving output data failed unexpectedly. Skipping record. Please " +
+							"repair the node and try again.");
+					continue;
+				}
 				if (!dryrun) {
 					try {
 						col.update(q, new BasicDBObject("$set", update));
@@ -121,7 +135,7 @@ public class MigrateShockDataToMongo {
 		}
 	}
 
-	private static void getShockData(
+	private static boolean getShockData(
 			final BasicShockClient bsc,
 			final String shockNodeId,
 			final DBObject update,
@@ -134,7 +148,9 @@ public class MigrateShockDataToMongo {
 		} catch (ShockNoFileException e) {
 			log("    Skipping " + type + " data, shock node is empty: " +
 					shockNodeId);
-			return;
+		} catch (ShockHttpException e) {
+			log(String.format("Unexpected error for node %s:\n%s", shockNodeId, e.getMessage()));
+			return false;
 		}
 		if (baos.size() > MAX_SIZE) {
 			log("    Skipping " + type + " data, too many bytes: "
@@ -146,6 +162,7 @@ public class MigrateShockDataToMongo {
 			SanitizeMongoObject.sanitize(data);
 			update.put("job_" + type, data);
 		}
+		return true;
 	}
 	
 	private static void log(String l) {
