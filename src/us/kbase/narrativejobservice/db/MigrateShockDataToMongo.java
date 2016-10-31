@@ -99,16 +99,9 @@ public class MigrateShockDataToMongo {
 			}
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
-			final DBObject q = new BasicDBObject("ujs_job_id", jobId);
-			try {
-				final DBObject rec = col.findOne(q);
-				if (rec.get("job_input") != null && rec.get("job_output") != null) {
-					log("Skipping " + jobId + ", already has job_input and job_output records");
-					continue;
-				}
-			} catch (MongoException e) {
-				log("Failed read from mongo for query " + q);
-				throw e;
+			if (j.get("job_input") != null && j.get("job_output") != null) {
+				log("Skipping " + jobId + ", already has job_input and job_output records");
+				continue;
 			}
 			
 			final String shockIn = (String) j.get("input_shock_id");
@@ -128,6 +121,7 @@ public class MigrateShockDataToMongo {
 					continue;
 				}
 				if (!dryrun) {
+					final DBObject q = new BasicDBObject("ujs_job_id", jobId);
 					try {
 						col.update(q, new BasicDBObject("$set", update));
 					} catch (WriteConcernException e) {
