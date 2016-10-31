@@ -100,7 +100,7 @@ public class MigrateShockDataToMongo {
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
 			if (j.get("job_input") != null && j.get("job_output") != null) {
-				log("Skipping " + jobId + ", already has job_input and job_output records");
+				log("    Skipping " + jobId + ", already has job_input and job_output records");
 				continue;
 			}
 			
@@ -111,13 +111,13 @@ public class MigrateShockDataToMongo {
 			log("    output shock id: " + shockOut);
 			if (!DONT_PULL_SHOCK_NODES) {
 				if (!getShockData(bsc, shockIn, update, "input")) {
-					log("Retrieving input data failed unexpectedly. Skipping record. Please " +
-							"repair the node and try again.");
+					log("    Retrieving input data failed unexpectedly. Skipping record. " +
+							"Please repair the node and try again.");
 					continue;
 				}
 				if (!getShockData(bsc, shockOut, update, "output")) {
-					log("Retrieving output data failed unexpectedly. Skipping record. Please " +
-							"repair the node and try again.");
+					log("    Retrieving output data failed unexpectedly. Skipping record. " +
+							"Please repair the node and try again.");
 					continue;
 				}
 				if (!dryrun) {
@@ -147,8 +147,10 @@ public class MigrateShockDataToMongo {
 		} catch (ShockNoFileException e) {
 			log("    Skipping " + type + " data, shock node is empty: " +
 					shockNodeId);
+			return true;
 		} catch (ShockHttpException e) {
-			log(String.format("Unexpected error for node %s:\n%s", shockNodeId, e.getMessage()));
+			log(String.format("    Unexpected error for node %s:\n%s",
+					shockNodeId, e.getMessage()));
 			return false;
 		}
 		if (baos.size() > MAX_SIZE) {
