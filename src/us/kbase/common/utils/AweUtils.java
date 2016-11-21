@@ -84,9 +84,17 @@ public class AweUtils {
     public static Map<String, Object> parseAweResponse(
             HttpResponse response) throws IOException, ClientProtocolException,
             JsonParseException, JsonMappingException, AweResponseException {
-        String postResponse = EntityUtils.toString(response.getEntity());
-        Map<String, Object> respObj = new ObjectMapper().readValue(postResponse, 
-                Map.class);
+        String postResponse = "" + EntityUtils.toString(response.getEntity());
+        Map<String, Object> respObj;
+        try {
+            respObj = new ObjectMapper().readValue(postResponse, Map.class);
+        } catch (Exception ex) {
+            String respHead = postResponse.length() <= 1000 ? postResponse :
+                    (postResponse.subSequence(0, 1000) + "...");
+            throw new IllegalStateException("Error parsing JSON response of AWE server " +
+            		"(" + ex.getMessage() + "). Here is the response head text: \n" +
+            		respHead, ex);
+        }
         int status = response.getStatusLine().getStatusCode();
         Integer jsonStatus = (Integer)respObj.get("status");
         Object errObj = respObj.get("error");
