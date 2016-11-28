@@ -117,8 +117,8 @@ public class SDKLocalMethodRunner {
         try {
             JobState jobState = jobSrvClient.checkJob(jobId);
             if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-                if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
-                    log.logNextLine("Job was cancelled", false);
+                if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
+                    log.logNextLine("Job was canceled", false);
                 } else {
                     log.logNextLine("Job was already done before", true);
                 }
@@ -283,16 +283,16 @@ public class SDKLocalMethodRunner {
             }
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
-                Boolean cancelled = null;
+                Boolean canceled = null;
                 @Override
-                public boolean isJobCancelled() {
-                    if (cancelled != null)
-                        return cancelled;
+                public boolean isJobCanceled() {
+                    if (canceled != null)
+                        return canceled;
                     try {
                         JobState jobState = jobSrvClient.checkJob(jobId);
                         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-                            cancelled = true;
-                            if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                            canceled = true;
+                            if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
                                 // Print cancellation message after DockerRunner is done
                             } else {
                                 log.logNextLine("Job was registered as finished by another worker", true);
@@ -351,8 +351,8 @@ public class SDKLocalMethodRunner {
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
                     refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
-            if (cancellationChecker.isJobCancelled()) {
-                log.logNextLine("Job was cancelled", false);
+            if (cancellationChecker.isJobCanceled()) {
+                log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
                 return;

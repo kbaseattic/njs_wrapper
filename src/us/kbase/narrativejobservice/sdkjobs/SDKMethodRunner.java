@@ -332,6 +332,9 @@ public class SDKMethodRunner {
             final ErrorLogger log,
             final Map<String, String> config)
             throws Exception {
+        if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
+            params.setIsCanceled(params.getIsCancelled());
+        }
         final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
         final Tuple7<String, String, String, Long, String, Long,
             Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
@@ -352,8 +355,8 @@ public class SDKMethodRunner {
         checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
         SanitizeMongoObject.sanitize(jobOutput);
         // Updating UJS job state
-        if  (params.getIsCancelled() != null &&
-                params.getIsCancelled() == 1L) {
+        if  (params.getIsCanceled() != null &&
+                params.getIsCanceled() == 1L) {
             // will throw an error here if user doesn't have rights to cancel
             ujsClient.cancelJob(ujsJobId, "canceled by user");
             getDb(config).addExecTaskResult(ujsJobId, jobOutput);
@@ -599,15 +602,17 @@ public class SDKMethodRunner {
 			}
 		}
 		if (complete) {
-		    boolean isCancelled = params.getIsCancelled() == null ? false :
-                (params.getIsCancelled() == 1L);
+		    boolean isCanceled = params.getIsCanceled() == null ? false :
+                (params.getIsCanceled() == 1L);
 			returnVal.setFinished(1L);
-			returnVal.setCancelled(isCancelled ? 1L : 0L);
+			returnVal.setCanceled(isCanceled ? 1L : 0L);
+			// Next line is here for backward compatibility:
+            returnVal.setCancelled(isCanceled ? 1L : 0L);
 			returnVal.setResult(params.getResult());
 			returnVal.setError(params.getError());
 			if (params.getError() != null) {
 				returnVal.setJobState(APP_STATE_ERROR);
-			} else if (isCancelled) {
+			} else if (isCanceled) {
 			    returnVal.setJobState(APP_STATE_CANCELLED);
 			} else {
 				returnVal.setJobState(APP_STATE_DONE);
@@ -640,7 +645,10 @@ public class SDKMethodRunner {
 	
 	public static void cancelJob(CancelJobParams params, AuthToken auth,
 	        Map<String, String> config) throws Exception {
-	    finishJob(params.getJobId(), new FinishJobParams().withIsCancelled(1L), auth, null, config);
+	    FinishJobParams finishParams = new FinishJobParams().withIsCanceled(1L);
+	    // Next line is here for backward compatibility:
+	    finishParams.setIsCancelled(1L);
+	    finishJob(params.getJobId(), finishParams, auth, null, config);
 	}
 	
 	private static UserAndJobStateClient getUjsClient(AuthToken auth, 
@@ -802,8 +810,12 @@ public class SDKMethodRunner {
 		final ExecTask task = getAweTaskDescription(ujsJobId, config);
 		if (task.getJobOutput() != null) {
 			SanitizeMongoObject.befoul(task.getJobOutput());
-			return UObject.transformObjectToObject(task.getJobOutput(),
+			FinishJobParams ret = UObject.transformObjectToObject(task.getJobOutput(),
 					FinishJobParams.class);
+			if (ret.getIsCanceled() == null && ret.getIsCancelled() != null) {
+			    ret.setIsCanceled(ret.getIsCancelled());
+			}
+			return ret;
 		}
 		return null;
 	}	

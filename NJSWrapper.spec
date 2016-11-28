@@ -174,16 +174,19 @@ module NarrativeJobService {
     } JsonRpcError;
 
     /*
-        Either 'result', 'error' or 'is_cancelled' field should be defined;
+        Either 'result', 'error' or 'is_canceled' field should be defined;
         result - keeps exact copy of what original server method puts
             in result block of JSON RPC response;
         error - keeps exact copy of what original server method puts
-            in error block of JSON RPC response.
+            in error block of JSON RPC response;
+        is_cancelled - Deprecated (field is kept for backward 
+            compatibility), please use 'is_canceled' instead.
     */
     typedef structure {
         UnspecifiedObject result;
         JsonRpcError error;
         boolean is_cancelled;
+        boolean is_canceled;
     } FinishJobParams;
 
     /*
@@ -205,7 +208,8 @@ module NarrativeJobService {
         job_state - 'queued', 'in-progress', 'completed', or 'suspend';
         position - position of the job in execution waiting queue;
         creation_time, exec_start_time and finish_time - time moments of submission, execution 
-            start and finish events in milliseconds since Unix Epoch.
+            start and finish events in milliseconds since Unix Epoch,
+        cancelled - Deprecated field, please use 'canceled' field instead.
     */
     typedef structure {
         string job_id;
@@ -220,6 +224,7 @@ module NarrativeJobService {
         int exec_start_time;
         int finish_time;
         boolean cancelled;
+        boolean canceled;
     } JobState;
 
     /*

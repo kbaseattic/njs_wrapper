@@ -890,6 +890,7 @@ FinishJobParams is a reference to a hash where the following keys are defined:
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
 	is_cancelled has a value which is a NarrativeJobService.boolean
+	is_canceled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
@@ -910,6 +911,7 @@ FinishJobParams is a reference to a hash where the following keys are defined:
 	result has a value which is an UnspecifiedObject, which can hold any non-null object
 	error has a value which is a NarrativeJobService.JsonRpcError
 	is_cancelled has a value which is a NarrativeJobService.boolean
+	is_canceled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
@@ -1004,6 +1006,7 @@ JobState is a reference to a hash where the following keys are defined:
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
 	cancelled has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1033,6 +1036,7 @@ JobState is a reference to a hash where the following keys are defined:
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
 	cancelled has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
 boolean is an int
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
@@ -1133,6 +1137,7 @@ JobState is a reference to a hash where the following keys are defined:
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
 	cancelled has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
@@ -1187,6 +1192,7 @@ JobState is a reference to a hash where the following keys are defined:
 	exec_start_time has a value which is an int
 	finish_time has a value which is an int
 	cancelled has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
 JsonRpcError is a reference to a hash where the following keys are defined:
 	name has a value which is a string
 	code has a value which is an int
@@ -1970,11 +1976,13 @@ error has a value which is a string
 
 =item Description
 
-Either 'result', 'error' or 'is_cancelled' field should be defined;
+Either 'result', 'error' or 'is_canceled' field should be defined;
 result - keeps exact copy of what original server method puts
     in result block of JSON RPC response;
 error - keeps exact copy of what original server method puts
-    in error block of JSON RPC response.
+    in error block of JSON RPC response;
+is_cancelled - Deprecated (field is kept for backward 
+    compatibility), please use 'is_canceled' instead.
 
 
 =item Definition
@@ -1986,6 +1994,7 @@ a reference to a hash where the following keys are defined:
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
 is_cancelled has a value which is a NarrativeJobService.boolean
+is_canceled has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -1997,6 +2006,7 @@ a reference to a hash where the following keys are defined:
 result has a value which is an UnspecifiedObject, which can hold any non-null object
 error has a value which is a NarrativeJobService.JsonRpcError
 is_cancelled has a value which is a NarrativeJobService.boolean
+is_canceled has a value which is a NarrativeJobService.boolean
 
 
 =end text
@@ -2026,7 +2036,8 @@ error - keeps exact copy of what original server method puts
 job_state - 'queued', 'in-progress', 'completed', or 'suspend';
 position - position of the job in execution waiting queue;
 creation_time, exec_start_time and finish_time - time moments of submission, execution 
-    start and finish events in milliseconds since Unix Epoch.
+    start and finish events in milliseconds since Unix Epoch,
+cancelled - Deprecated field, please use 'canceled' field instead.
 
 
 =item Definition
@@ -2047,6 +2058,7 @@ creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
 cancelled has a value which is a NarrativeJobService.boolean
+canceled has a value which is a NarrativeJobService.boolean
 
 </pre>
 
@@ -2067,6 +2079,7 @@ creation_time has a value which is an int
 exec_start_time has a value which is an int
 finish_time has a value which is an int
 cancelled has a value which is a NarrativeJobService.boolean
+canceled has a value which is a NarrativeJobService.boolean
 
 
 =end text

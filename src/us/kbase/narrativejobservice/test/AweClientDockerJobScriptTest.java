@@ -1026,10 +1026,10 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(ret);
             String errMsg = "Unexpected job state: " + UObject.getMapper().writeValueAsString(ret);
             Assert.assertEquals(errMsg, 1L, (long)ret.getFinished());
-            Assert.assertEquals(errMsg, 1L, (long)ret.getCancelled());
+            Assert.assertEquals(errMsg, 1L, (long)ret.getCanceled());
             Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
             Assert.assertEquals(0, execStats.size());
-            boolean cancelledLogLine = false;
+            boolean canceledLogLine = false;
             // Let's check in logs how many lines (out of 9) from input text we see. It depends on
             // how long it takes to stop docker container really. But we shouldn't see all 9 since
             // they are printed with 5 second interval.
@@ -1043,17 +1043,17 @@ public class AweClientDockerJobScriptTest {
                     if (lineText.startsWith("[") && lineText.endsWith("]"))
                         logLinesFromInput++;
                     System.out.println("LOG: " + lineText);
-                    if (line.getLine().contains("Job was cancelled")) {
+                    if (line.getLine().contains("Job was canceled")) {
                         // We see this line in logs only after docker container is stopped
-                        cancelledLogLine = true;
+                        canceledLogLine = true;
                     }
                 }            
-                if (cancelledLogLine)
+                if (canceledLogLine)
                     break;
                 logLinesRecieved += lines.size();
                 Thread.sleep(1000);
             }
-            Assert.assertTrue(errMsg, cancelledLogLine);
+            Assert.assertTrue(errMsg, canceledLogLine);
             // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
             // lines from input. Definitely less than 7.
             Assert.assertTrue(logLinesFromInput < 7);

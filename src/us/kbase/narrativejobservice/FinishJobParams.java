@@ -15,11 +15,13 @@ import us.kbase.common.service.UObject;
 /**
  * <p>Original spec-file type: FinishJobParams</p>
  * <pre>
- * Either 'result', 'error' or 'is_cancelled' field should be defined;
+ * Either 'result', 'error' or 'is_canceled' field should be defined;
  * result - keeps exact copy of what original server method puts
  *     in result block of JSON RPC response;
  * error - keeps exact copy of what original server method puts
- *     in error block of JSON RPC response.
+ *     in error block of JSON RPC response;
+ * is_cancelled - Deprecated (field is kept for backward 
+ *     compatibility), please use 'is_canceled' instead.
  * </pre>
  * 
  */
@@ -28,7 +30,8 @@ import us.kbase.common.service.UObject;
 @JsonPropertyOrder({
     "result",
     "error",
-    "is_cancelled"
+    "is_cancelled",
+    "is_canceled"
 })
 public class FinishJobParams {
 
@@ -45,6 +48,8 @@ public class FinishJobParams {
     private JsonRpcError error;
     @JsonProperty("is_cancelled")
     private Long isCancelled;
+    @JsonProperty("is_canceled")
+    private Long isCanceled;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("result")
@@ -106,6 +111,21 @@ public class FinishJobParams {
         return this;
     }
 
+    @JsonProperty("is_canceled")
+    public Long getIsCanceled() {
+        return isCanceled;
+    }
+
+    @JsonProperty("is_canceled")
+    public void setIsCanceled(Long isCanceled) {
+        this.isCanceled = isCanceled;
+    }
+
+    public FinishJobParams withIsCanceled(Long isCanceled) {
+        this.isCanceled = isCanceled;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -118,7 +138,7 @@ public class FinishJobParams {
 
     @Override
     public String toString() {
-        return ((((((((("FinishJobParams"+" [result=")+ result)+", error=")+ error)+", isCancelled=")+ isCancelled)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((("FinishJobParams"+" [result=")+ result)+", error=")+ error)+", isCancelled=")+ isCancelled)+", isCanceled=")+ isCanceled)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
