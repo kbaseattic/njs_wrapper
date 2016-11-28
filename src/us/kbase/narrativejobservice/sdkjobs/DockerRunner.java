@@ -128,7 +128,7 @@ public class DockerRunner {
                         while (!Thread.interrupted()) {
                             try {
                                 Thread.sleep(1000);
-                                if (cancellationChecker.isJobCancelled()) {
+                                if (cancellationChecker.isJobCanceled()) {
                                     // Stop the container
                                     try {
                                         cl.stopContainerCmd(cntId).exec();
@@ -175,7 +175,7 @@ public class DockerRunner {
             if (outputFile.exists()) {
                 return outputFile;
             } else {
-                if (cancellationChecker != null && cancellationChecker.isJobCancelled())
+                if (cancellationChecker != null && cancellationChecker.isJobCanceled())
                     return null;
                 int exitCode = resp2.getState().getExitCode();
                 StringBuilder err = new StringBuilder();

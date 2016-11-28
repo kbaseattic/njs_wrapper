@@ -28,7 +28,8 @@ import us.kbase.common.service.UObject;
  * job_state - 'queued', 'in-progress', 'completed', or 'suspend';
  * position - position of the job in execution waiting queue;
  * creation_time, exec_start_time and finish_time - time moments of submission, execution 
- *     start and finish events in milliseconds since Unix Epoch.
+ *     start and finish events in milliseconds since Unix Epoch,
+ * cancelled - Deprecated field, please use 'canceled' field instead.
  * </pre>
  * 
  */
@@ -46,7 +47,8 @@ import us.kbase.common.service.UObject;
     "creation_time",
     "exec_start_time",
     "finish_time",
-    "cancelled"
+    "cancelled",
+    "canceled"
 })
 public class JobState {
 
@@ -81,6 +83,8 @@ public class JobState {
     private Long finishTime;
     @JsonProperty("cancelled")
     private Long cancelled;
+    @JsonProperty("canceled")
+    private Long canceled;
     private Map<String, Object> additionalProperties = new HashMap<String, Object>();
 
     @JsonProperty("job_id")
@@ -277,6 +281,21 @@ public class JobState {
         return this;
     }
 
+    @JsonProperty("canceled")
+    public Long getCanceled() {
+        return canceled;
+    }
+
+    @JsonProperty("canceled")
+    public void setCanceled(Long canceled) {
+        this.canceled = canceled;
+    }
+
+    public JobState withCanceled(Long canceled) {
+        this.canceled = canceled;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -289,7 +308,7 @@ public class JobState {
 
     @Override
     public String toString() {
-        return ((((((((((((((((((((((((((("JobState"+" [jobId=")+ jobId)+", finished=")+ finished)+", ujsUrl=")+ ujsUrl)+", status=")+ status)+", result=")+ result)+", error=")+ error)+", jobState=")+ jobState)+", position=")+ position)+", creationTime=")+ creationTime)+", execStartTime=")+ execStartTime)+", finishTime=")+ finishTime)+", cancelled=")+ cancelled)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((((((((((((((((((((((("JobState"+" [jobId=")+ jobId)+", finished=")+ finished)+", ujsUrl=")+ ujsUrl)+", status=")+ status)+", result=")+ result)+", error=")+ error)+", jobState=")+ jobState)+", position=")+ position)+", creationTime=")+ creationTime)+", execStartTime=")+ execStartTime)+", finishTime=")+ finishTime)+", cancelled=")+ cancelled)+", canceled=")+ canceled)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
