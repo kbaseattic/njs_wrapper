@@ -74,12 +74,14 @@ public class SDKLocalMethodRunner {
     public static final String RELEASE = JobRunnerConstants.RELEASE;
     public static final Set<String> RELEASE_TAGS =
             JobRunnerConstants.RELEASE_TAGS;
-    private static final long MAX_OUTPUT_SIZE = 15 * 1024;
+    private static final long MAX_OUTPUT_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
     
     public static final String JOB_CONFIG_FILE =
             JobRunnerConstants.JOB_CONFIG_FILE;
     public static final String CFG_PROP_EE_SERVER_VERSION =
             JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
+    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS = 
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
@@ -115,8 +117,8 @@ public class SDKLocalMethodRunner {
         try {
             JobState jobState = jobSrvClient.checkJob(jobId);
             if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-                if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
-                    log.logNextLine("Job was cancelled", false);
+                if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
+                    log.logNextLine("Job was canceled", false);
                 } else {
                     log.logNextLine("Job was already done before", true);
                 }
@@ -169,7 +171,12 @@ public class SDKLocalMethodRunner {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             
-            log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
+            String clientDetails = hostnameAndIP[1];
+            String clientName = System.getenv("AWE_CLIENTNAME");
+            if (clientName != null && !clientName.isEmpty()) {
+                clientDetails += ", client-name=" + clientName;
+            }
+            log.logNextLine("Running on " + hostnameAndIP[0] + " (" + clientDetails + "), in " +
                     new File(".").getCanonicalPath(), false);
             String clientGroup = System.getenv("AWE_CLIENTGROUP");
             if (clientGroup == null)
@@ -281,16 +288,16 @@ public class SDKLocalMethodRunner {
             }
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
-                Boolean cancelled = null;
+                Boolean canceled = null;
                 @Override
-                public boolean isJobCancelled() {
-                    if (cancelled != null)
-                        return cancelled;
+                public boolean isJobCanceled() {
+                    if (canceled != null)
+                        return canceled;
                     try {
                         JobState jobState = jobSrvClient.checkJob(jobId);
                         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-                            cancelled = true;
-                            if (jobState.getCancelled() != null && jobState.getCancelled() == 1L) {
+                            canceled = true;
+                            if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
                                 // Print cancellation message after DockerRunner is done
                             } else {
                                 log.logNextLine("Job was registered as finished by another worker", true);
@@ -305,9 +312,14 @@ public class SDKLocalMethodRunner {
                 }
             };
             // Starting up callback server
+            String[] callbackNetworks = null;
+            String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
+            if (callbackNetworksText != null) {
+                callbackNetworks = callbackNetworksText.trim().split("\\s*,\\s*");
+            }
             final int callbackPort = NetUtils.findFreePort();
             final URL callbackUrl = CallbackServer.
-                    getCallbackUrl(callbackPort);
+                    getCallbackUrl(callbackPort, callbackNetworks);
             if (callbackUrl != null) {
                 log.logNextLine("Job runner recieved callback URL: " +
                         callbackUrl, false);
@@ -330,6 +342,11 @@ public class SDKLocalMethodRunner {
                 srvContext.addServlet(new ServletHolder(callback),"/*");
                 callbackServer.start();
             } else {
+                if (callbackNetworks != null && callbackNetworks.length > 0) {
+                    throw new IllegalStateException("No proper callback IP was found, " +
+                            "please check 'awe.client.callback.networks' parameter in " +
+                            "execution engine configuration");
+                }
                 log.logNextLine("WARNING: No callback URL was recieved " +
                         "by the job runner. Local callbacks are disabled.",
                         true);
@@ -339,8 +356,8 @@ public class SDKLocalMethodRunner {
                     imageName, modMeth.getModule(),
                     inputFile, token, log, outputFile, false, 
                     refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
-            if (cancellationChecker.isJobCancelled()) {
-                log.logNextLine("Job was cancelled", false);
+            if (cancellationChecker.isJobCanceled()) {
+                log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
                 return;

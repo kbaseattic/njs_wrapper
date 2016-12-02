@@ -95,20 +95,37 @@ public class MigrateShockDataToMongo {
 			final String jobId = (String) j.get("ujs_job_id");
 			if (seenIDs.contains(jobId)) {
 				log("Skipping " + jobId + ", already processed");
+				count++;
 				continue;
 			}
 			seenIDs.add(jobId);
 			log(String.format("#%s: jobid: %s", count, jobId));
+			if (j.get("job_input") != null && j.get("job_output") != null) {
+				log("    Skipping " + jobId + ", already has job_input and job_output records");
+				count++;
+				continue;
+			}
+			
 			final String shockIn = (String) j.get("input_shock_id");
 			final String shockOut = (String) j.get("output_shock_id");
 			final DBObject update = new BasicDBObject();
 			log("    input shock id: " + shockIn);
 			log("    output shock id: " + shockOut);
 			if (!DONT_PULL_SHOCK_NODES) {
-				getShockData(bsc, shockIn, update, "input");
-				getShockData(bsc, shockOut, update, "output");
-				DBObject q = new BasicDBObject("ujs_job_id", jobId);
+				if (!getShockData(bsc, shockIn, update, "input")) {
+					log("    Retrieving input data failed unexpectedly. Skipping record. " +
+							"Please repair the node and try again.");
+					count++;
+					continue;
+				}
+				if (!getShockData(bsc, shockOut, update, "output")) {
+					log("    Retrieving output data failed unexpectedly. Skipping record. " +
+							"Please repair the node and try again.");
+					count++;
+					continue;
+				}
 				if (!dryrun) {
+					final DBObject q = new BasicDBObject("ujs_job_id", jobId);
 					try {
 						col.update(q, new BasicDBObject("$set", update));
 					} catch (WriteConcernException e) {
@@ -121,7 +138,7 @@ public class MigrateShockDataToMongo {
 		}
 	}
 
-	private static void getShockData(
+	private static boolean getShockData(
 			final BasicShockClient bsc,
 			final String shockNodeId,
 			final DBObject update,
@@ -134,7 +151,11 @@ public class MigrateShockDataToMongo {
 		} catch (ShockNoFileException e) {
 			log("    Skipping " + type + " data, shock node is empty: " +
 					shockNodeId);
-			return;
+			return true;
+		} catch (ShockHttpException e) {
+			log(String.format("    Unexpected error for node %s:\n%s",
+					shockNodeId, e.getMessage()));
+			return false;
 		}
 		if (baos.size() > MAX_SIZE) {
 			log("    Skipping " + type + " data, too many bytes: "
@@ -146,6 +167,7 @@ public class MigrateShockDataToMongo {
 			SanitizeMongoObject.sanitize(data);
 			update.put("job_" + type, data);
 		}
+		return true;
 	}
 	
 	private static void log(String l) {
