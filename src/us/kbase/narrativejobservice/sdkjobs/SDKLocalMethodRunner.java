@@ -169,7 +169,12 @@ public class SDKLocalMethodRunner {
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
             pw.close();
             
-            log.logNextLine("Running on " + hostnameAndIP[0] + " (" + hostnameAndIP[1] + "), in " +
+            String clientDetails = hostnameAndIP[1];
+            String clientName = System.getenv("AWE_CLIENTNAME");
+            if (clientName != null && !clientName.isEmpty()) {
+                clientDetails += ", client-name=" + clientName;
+            }
+            log.logNextLine("Running on " + hostnameAndIP[0] + " (" + clientDetails + "), in " +
                     new File(".").getCanonicalPath(), false);
             String clientGroup = System.getenv("AWE_CLIENTGROUP");
             if (clientGroup == null)
