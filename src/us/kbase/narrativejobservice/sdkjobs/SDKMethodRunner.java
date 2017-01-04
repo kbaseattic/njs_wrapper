@@ -548,9 +548,18 @@ public class SDKMethodRunner {
 			// We should consult AWE for case the job was killed or gone with no reason.
 			String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
 			String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
+			String aweAdminConfigToken = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
 			if (aweAdminUser == null || aweAdminPwd == null)
 				throw new IllegalStateException("AWE admin creadentials are not defined in configuration");
-			String aweToken = AuthService.login(aweAdminUser, aweAdminPwd).getTokenString();
+			// Use the config token if provided, otherwise generate one
+			// userid/password may be deprecated in the future
+			if (aweAdminConfigToken == null) {
+				String aweToken = AuthService.login(aweAdminUser, aweAdminPwd).getTokenString();
+			} else {
+				// to do: validate token
+				// to do: store AuthToken instance instead of as a string
+				String aweToken = aweAdminConfigToken;
+			}
 			Map<String, Object> aweData = null;
 			String aweState = null;
 			String aweServerUrl = getAweServerURL(config);
