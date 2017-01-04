@@ -72,6 +72,7 @@ public class SDKMethodRunner {
 	private static final int MAX_IO_BYTE_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
 	
 	private static AuthToken cachedCatalogAdminAuth = null;
+	private static AuthToken cachedAweAdminAuth = null;
 
 	private static ExecEngineMongoDb db = null;
 
@@ -528,6 +529,29 @@ public class SDKMethodRunner {
 				.withLastLineNumber((long)lines.size() + (skipLines == null ? 0L : skipLines));
 	}
 
+	private static AuthToken getAweAdminAuth(Map<String, String> config) 
+	        throws IOException, AuthException {
+        if (cachedAweAdminAuth != null && cachedAweAdminAuth.isExpired())
+            cachedAweAdminAuth = null;
+        if (cachedAweAdminAuth == null) {
+            String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
+            String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
+            String aweAdminConfigToken = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
+            if (aweAdminConfigToken == null && (aweAdminUser == null || aweAdminPwd == null))
+                throw new IllegalStateException("AWE admin creadentials are not defined in configuration");
+            // Use the config token if provided, otherwise generate one
+            // userid/password may be deprecated in the future
+            if (aweAdminConfigToken == null) {
+                cachedAweAdminAuth = AuthService.login(aweAdminUser, aweAdminPwd).getToken();
+            } else {
+                AuthToken token = new AuthToken(aweAdminConfigToken);
+                if (AuthService.validateToken(token))
+                    cachedAweAdminAuth = token;
+            }
+        }
+        return cachedAweAdminAuth;
+    }
+	
 	@SuppressWarnings("unchecked")
 	public static JobState checkJob(String jobId, AuthToken authPart, 
 			Map<String, String> config) throws Exception {
@@ -546,25 +570,13 @@ public class SDKMethodRunner {
 		}
 		if (params == null) {
 			// We should consult AWE for case the job was killed or gone with no reason.
-			String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
-			String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
-			String aweAdminConfigToken = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
-			if (aweAdminUser == null || aweAdminPwd == null)
-				throw new IllegalStateException("AWE admin creadentials are not defined in configuration");
-			// Use the config token if provided, otherwise generate one
-			// userid/password may be deprecated in the future
-			if (aweAdminConfigToken == null) {
-				String aweToken = AuthService.login(aweAdminUser, aweAdminPwd).getTokenString();
-			} else {
-				// to do: validate token
-				// to do: store AuthToken instance instead of as a string
-				String aweToken = aweAdminConfigToken;
-			}
+		    AuthToken aweAdminToken = getAweAdminAuth(config);
 			Map<String, Object> aweData = null;
 			String aweState = null;
 			String aweServerUrl = getAweServerURL(config);
 			try {
-				Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId, aweToken);
+				Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId,
+				        aweAdminToken.toString());
 				aweData = (Map<String, Object>)aweJob.get("data");
 				if (aweData != null)
 					aweState = (String)aweData.get("state");
@@ -602,7 +614,8 @@ public class SDKMethodRunner {
 				} else {
 					returnVal.setJobState(APP_STATE_QUEUED);
 					try {
-						Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, aweJobId, aweToken);
+						Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, 
+						        aweJobId, aweAdminToken.toString());
 						Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
 						if (posData != null && posData.containsKey("position"))
 							returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
