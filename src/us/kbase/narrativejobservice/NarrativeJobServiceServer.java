@@ -14,7 +14,6 @@ import us.kbase.common.service.Tuple2;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -30,24 +29,13 @@ import org.ini4j.Ini;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import us.kbase.auth.TokenFormatException;
 import us.kbase.common.executionengine.JobRunnerConstants;
 import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.service.JacksonTupleModule;
-import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.UObject;
-import us.kbase.common.service.UnauthorizedException;
-import us.kbase.common.taskqueue2.JobStatuses;
-import us.kbase.common.taskqueue2.RestartChecker;
-import us.kbase.common.taskqueue2.TaskQueue;
-import us.kbase.common.taskqueue2.TaskQueueConfig;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
-import us.kbase.narrativejobservice.db.MigrationToMongo;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
-import us.kbase.userandjobstate.InitProgress;
-import us.kbase.userandjobstate.Results;
-import us.kbase.userandjobstate.UserAndJobStateClient;
 //END_HEADER
 
 /**
@@ -59,7 +47,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
     private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
-    private static final String gitCommitHash = "a7198ead5bb063d1345ec0612d7bc0874eadc409";
+    private static final String gitCommitHash = "26c82119b5ba0f33425c529b363dd4f4874356e5";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -70,16 +58,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             JobRunnerConstants.CFG_PROP_WORKSPACE_SRV_URL;
     public static final String CFG_PROP_JOBSTATUS_SRV_URL =
             JobRunnerConstants.CFG_PROP_JOBSTATUS_SRV_URL;
-    public static final String CFG_PROP_QUEUE_DB_DIR = "queue.db.dir";
-    public static final String CFG_PROP_THREAD_COUNT = "thread.count";
-    public static final String CFG_PROP_NJS_SRV_URL = "njs.srv.url";
-    public static final String CFG_PROP_REBOOT_MODE = "reboot.mode";
     public static final String CFG_PROP_RUNNING_TASKS_PER_USER = "running.tasks.per.user";
     public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
     public static final String CFG_PROP_SHOCK_URL =
             JobRunnerConstants.CFG_PROP_SHOCK_URL;
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
-    public static final String CFG_PROP_MAX_JOB_SIZE = "max.job.size";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_DOCKER_URI;
@@ -96,26 +79,25 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
+    public static final String CFG_PROP_AWE_READONLY_ADMIN_TOKEN = "awe.readonly.admin.token";
     public static final String CFG_PROP_MONGO_HOSTS = "mongodb-host";
     public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
+    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
+            JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     
-    public static final String VERSION = "0.2.4";
-    
-    public static final String AWE_APPS_TABLE_NAME = "awe_apps";
-    public static final String AWE_TASK_TABLE_NAME = "awe_tasks";
-    public static final String AWE_LOGS_TABLE_NAME = "awe_logs";
+    public static final String VERSION = "0.2.5";
     
     private static Throwable configError = null;
     private static String configPath = null;
     private static Map<String, String> config = null;
     
-    private static TaskQueue taskHolder = null;
-    private static TaskQueueConfig taskConfig = null;
     private static ExecEngineMongoDb db = null;
     
     private final ErrorLogger logger;
+    
+    private final static long maxRPCPackageSize = JobRunnerConstants.MAX_IO_BYTE_SIZE;
     
     public static Map<String, String> config() {
     	if (config != null)
@@ -171,100 +153,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     	return ret;
     }
 
-    public static File getQueueDbDir() {
-    	String ret = config().get(CFG_PROP_QUEUE_DB_DIR);
-    	File dir = ret == null ? null : new File(ret);
-    	return dir;
-    }
-
-    public static int getThreadCount() {
-    	String ret = config().get(CFG_PROP_THREAD_COUNT);
-    	if (ret == null)
-    		throw new IllegalStateException("Parameter " + CFG_PROP_THREAD_COUNT + " is not defined in configuration");
-    	return Integer.parseInt(ret);
-    }
-
-    public static String getNJSServiceURL() {
-    	String ret = config().get(CFG_PROP_NJS_SRV_URL);
-    	if (ret == null)
-    		throw new IllegalStateException("Parameter " + CFG_PROP_NJS_SRV_URL + " is not defined in configuration");
-    	return ret;
-    }
-
-    public static int getRunningTasksPerUser() {
-    	String ret = config().get(CFG_PROP_RUNNING_TASKS_PER_USER);
-    	if (ret == null)
-    		throw new IllegalStateException("Parameter " + CFG_PROP_RUNNING_TASKS_PER_USER + " is not defined in configuration");
-    	return Integer.parseInt(ret);
-    }
-
     public static Set<String> getAdminUsers() {
     	String ret = config().get(CFG_PROP_ADMIN_USER_NAME);
     	if (ret == null)
     		throw new IllegalStateException("Parameter " + CFG_PROP_ADMIN_USER_NAME + " is not defined in configuration");
     	return new LinkedHashSet<String>(Arrays.asList(ret.split(Pattern.quote(","))));
     }
-
-    public static boolean getRebootMode() {
-    	try {
-    		String ret = loadConfigFromDisk().get(CFG_PROP_REBOOT_MODE);
-    		if (ret == null)
-    			return false;
-    		ret = ret.toLowerCase();
-    		return ret.equals("true") || ret.equals("1");
-    	} catch (Exception ex) {
-    		return false;
-    	}
-    }
-    
-    public static synchronized TaskQueueConfig getTaskConfig() throws Exception {
-    	if (taskConfig == null) {
-    		int threadCount = getThreadCount();
-    		File queueDbDir = getQueueDbDir();
-    		final String wsUrl = getWorkspaceServiceURL();
-    		final String ujsUrl = getUJSServiceURL();
-    		final int runningTasksPerUser = getRunningTasksPerUser();
-    		Map<String, String> allConfigProps = new LinkedHashMap<String, String>(config());
-    		JobStatuses jobStatuses = new JobStatuses() {
-				@Override
-				public String createAndStartJob(String token, String status, String desc,
-						String initProgressPtype, String estComplete) throws Exception {
-    				return createJobClient(ujsUrl, token).createAndStartJob(token, status, desc, 
-    						new InitProgress().withPtype(initProgressPtype), estComplete);
-				}
-				@Override
-				public void updateJob(String job, String token, String status,
-						String estComplete) throws Exception {
-    				createJobClient(ujsUrl, token).updateJob(job, token, status, estComplete);
-				}
-				@Override
-				public void completeJob(String job, String token, String status,
-						String error, String wsUrl, String outRef) throws Exception {
-					List<String> refs = new ArrayList<String>();
-					if (outRef != null)
-						refs.add(outRef);
-    				createJobClient(ujsUrl, token).completeJob(job, token, status, error, 
-    						new Results().withWorkspaceurl(wsUrl).withWorkspaceids(refs));
-				}
-			};
-			taskConfig = new TaskQueueConfig(threadCount, queueDbDir, jobStatuses, wsUrl, 
-					runningTasksPerUser, allConfigProps);
-    	}
-    	return taskConfig;
-    }
-
-	public static UserAndJobStateClient createJobClient(String jobSrvUrl, String token) throws IOException, JsonClientException {
-		try {
-			UserAndJobStateClient ret = new UserAndJobStateClient(new URL(jobSrvUrl), new AuthToken(token));
-			ret.setIsInsecureHttpConnectionAllowed(true);
-			ret.setAllSSLCertificatesTrusted(true);
-			return ret;
-		} catch (TokenFormatException e) {
-			throw new JsonClientException(e.getMessage(), e);
-		} catch (UnauthorizedException e) {
-			throw new JsonClientException(e.getMessage(), e);
-		}
-	}
 
 	public static ExecEngineMongoDb getMongoDb(Map<String, String> config) throws Exception {
 	    if (db == null) {
@@ -279,45 +173,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 	    }
 	    return db;
 	}
-	
-    public static synchronized TaskQueue getTaskQueue() throws Exception {
-    	if (taskHolder == null) {
-    	    ExecEngineMongoDb db = getMongoDb(config());
-            System.out.println("Initial queue size: " + db.getQueuedTasks().size());
-    		TaskQueueConfig cfg = getTaskConfig();
-			taskHolder = new TaskQueue(cfg, new RestartChecker() {
-				@Override
-				public boolean isInRestartMode() {
-					return getRebootMode();
-				}
-			}, db, new RunAppBuilder());
-    	}
-    	return taskHolder;
-    }
-    
-    private static NarrativeJobServiceClient getForwardClient(AuthToken authPart) throws Exception {
-    	NarrativeJobServiceClient ret = new NarrativeJobServiceClient(new URL(getNJSServiceURL()), authPart);
-    	ret.setAllSSLCertificatesTrusted(true);
-    	ret.setIsInsecureHttpConnectionAllowed(true);
-    	return ret;
-    }
-    
-    public static String getKBaseEndpoint() throws Exception {
-        String ret = config().get(CFG_PROP_KBASE_ENDPOINT);
-        if (ret == null) {
-            String wsUrl = getWorkspaceServiceURL();
-            if (!wsUrl.endsWith("/ws"))
-                throw new IllegalStateException("Parameter " + 
-                        NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + 
-                        " is not defined in configuration");
-            ret = wsUrl.replace("/ws", "");
-        }
-        return ret;
-    }
-    
-    public static String getRefDataBase() throws Exception {
-        return config().get(CFG_PROP_REF_DATA_BASE);
-    }
     
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
             String requestHeaderXForwardedFor, ResponseStatusSetter response, OutputStream output,
@@ -444,13 +299,15 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             inner.write(b, off, len);
         }
     }
+    
+    protected Long getMaxRPCPackageSize() {
+        return maxRPCPackageSize; 
+    }
     //END_CLASS_HEADER
 
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
-       //TODO should check the config here and fail to start up if it's bad
-        MigrationToMongo.migrate(getTaskQueue().getConfig(), getTaskQueue().getDb(), null);
         logger = new ErrorLogger() {
             @Override
             public void logErr(Throwable err) {
@@ -465,125 +322,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
 
     /**
-     * <p>Original spec-file function name: run_app</p>
-     * <pre>
-     * </pre>
-     * @param   app   instance of type {@link us.kbase.narrativejobservice.App App} (original type "app")
-     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.run_app", async=true)
-    public AppState runApp(App app, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        AppState returnVal = null;
-        //BEGIN run_app
-        boolean forward = true;
-        for (Step step : app.getSteps()) {
-        	if (step.getParameters() == null || step.getInputValues() != null) {
-        		forward = false;
-        		break;
-        	}
-        }
-        if (forward) {
-        	returnVal = getForwardClient(authPart).runApp(app);
-        } else {
-            returnVal = RunAppBuilder.tryToRunAsOneStepAweScript(authPart, app, config());
-            if (returnVal == null) {
-                String appJobId = getTaskQueue().addTask(UObject.transformObjectToString(app), authPart.toString());
-                returnVal = RunAppBuilder.initAppState(appJobId, config());
-            }
-        }
-        //END run_app
-        return returnVal;
-    }
-
-    /**
-     * <p>Original spec-file function name: check_app_state</p>
-     * <pre>
-     * </pre>
-     * @param   jobId   instance of original type "job_id" (A job id.)
-     * @return   instance of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.check_app_state", async=true)
-    public AppState checkAppState(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        AppState returnVal = null;
-        //BEGIN check_app_state
-        if (Util.isAweJobId(jobId)) {
-        	returnVal = getForwardClient(authPart).checkAppState(jobId);
-        } else {
-        	returnVal = SDKMethodRunner.loadAppState(jobId, config());
-        	if (returnVal == null)
-        		throw new IllegalStateException("Information is not available");
-        	RunAppBuilder.checkIfAppStateNeedsUpdate(authPart, returnVal, config());
-        }
-        //END check_app_state
-        return returnVal;
-    }
-
-    /**
-     * <p>Original spec-file function name: suspend_app</p>
-     * <pre>
-     * status - 'success' or 'failure' of action
-     * </pre>
-     * @param   jobId   instance of original type "job_id" (A job id.)
-     * @return   parameter "status" of String
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.suspend_app", async=true)
-    public String suspendApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        String returnVal = null;
-        //BEGIN suspend_app
-        if (Util.isAweJobId(jobId)) {
-        	returnVal = getForwardClient(authPart).suspendApp(jobId);
-        } else {
-        	throw new IllegalStateException("This function is not supported for service calling APPs");
-        }
-        //END suspend_app
-        return returnVal;
-    }
-
-    /**
-     * <p>Original spec-file function name: resume_app</p>
-     * <pre>
-     * </pre>
-     * @param   jobId   instance of original type "job_id" (A job id.)
-     * @return   parameter "status" of String
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.resume_app", async=true)
-    public String resumeApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        String returnVal = null;
-        //BEGIN resume_app
-        if (Util.isAweJobId(jobId)) {
-        	returnVal = getForwardClient(authPart).resumeApp(jobId);
-        } else {
-        	throw new IllegalStateException("This function is not supported for service calling APPs");
-        }
-        //END resume_app
-        return returnVal;
-    }
-
-    /**
-     * <p>Original spec-file function name: delete_app</p>
-     * <pre>
-     * </pre>
-     * @param   jobId   instance of original type "job_id" (A job id.)
-     * @return   parameter "status" of String
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.delete_app", async=true)
-    public String deleteApp(String jobId, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        String returnVal = null;
-        //BEGIN delete_app
-        if (Util.isAweJobId(jobId)) {
-        	returnVal = getForwardClient(authPart).deleteApp(jobId);
-        } else {
-        	AppState appState = SDKMethodRunner.loadAppState(jobId, config());
-        	if (appState != null) {
-        		appState.setIsDeleted(1L);
-        		returnVal = "App " + jobId + " was marked for deletion";
-        	}
-        }
-        //END delete_app
-        return returnVal;
-    }
-
-    /**
      * <p>Original spec-file function name: list_config</p>
      * <pre>
      * </pre>
@@ -593,7 +331,29 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Map<String,String> listConfig(AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         Map<String,String> returnVal = null;
         //BEGIN list_config
-        returnVal = getForwardClient(authPart).listConfig();
+        Map<String, String> safeConfig = new LinkedHashMap<String, String>();
+        String[] keys = {
+                CFG_PROP_AWE_SRV_URL, 
+                CFG_PROP_DOCKER_REGISTRY_URL, 
+                CFG_PROP_JOBSTATUS_SRV_URL, 
+                CFG_PROP_SCRATCH,
+                CFG_PROP_SHOCK_URL,
+                CFG_PROP_WORKSPACE_SRV_URL, 
+                CFG_PROP_KBASE_ENDPOINT,
+                CFG_PROP_SELF_EXTERNAL_URL, 
+                CFG_PROP_REF_DATA_BASE,
+                CFG_PROP_CATALOG_SRV_URL, 
+                CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS
+        };
+        Map<String, String> config = config();
+        for (String key : keys) {
+            String value = config.get(key);
+            if (value == null)
+                value = "<not-defined>";
+            safeConfig.put(key, value);
+        }
+        returnVal = safeConfig;
         //END list_config
         return returnVal;
     }
@@ -610,10 +370,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         String returnVal = null;
         //BEGIN ver
         returnVal = VERSION;
-        if (getTaskQueue().getStoppingMode())
-        	returnVal += ", task-queue is in stopping mode";
-        if (getRebootMode())
-        	returnVal += ", service is in reboot mode";
         //END ver
         return returnVal;
     }
@@ -629,24 +385,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public Status status(RpcContext jsonRpcContext) throws Exception {
         Status returnVal = null;
         //BEGIN status
-        int queued = getTaskQueue().getQueuedTasks();
-        int running = getTaskQueue().getAllTasks() - queued;
-        Map<String, String> safeConfig = new LinkedHashMap<String, String>();
-        String[] keys = {CFG_PROP_AWE_SRV_URL, CFG_PROP_DOCKER_REGISTRY_URL, 
-                CFG_PROP_JOBSTATUS_SRV_URL, CFG_PROP_NJS_SRV_URL, 
-                CFG_PROP_QUEUE_DB_DIR, CFG_PROP_REBOOT_MODE, 
-                CFG_PROP_RUNNING_TASKS_PER_USER, CFG_PROP_SCRATCH,
-                CFG_PROP_SHOCK_URL, CFG_PROP_THREAD_COUNT,
-                CFG_PROP_WORKSPACE_SRV_URL, CFG_PROP_KBASE_ENDPOINT,
-                CFG_PROP_SELF_EXTERNAL_URL, CFG_PROP_REF_DATA_BASE,
-                CFG_PROP_CATALOG_SRV_URL, CFG_PROP_AWE_CLIENT_DOCKER_URI};
-        Map<String, String> config = config();
-        for (String key : keys) {
-            String value = config.get(key);
-            if (value == null)
-                value = "<not-defined>";
-            safeConfig.put(key, value);
-        }
+        int queued = -1;
+        int running = -1;
+        Map<String, String> safeConfig = listConfig(null, jsonRpcContext);
         String gitCommit = null;
         try {
             Properties gitProps = new Properties();
@@ -657,10 +398,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         } catch (Exception ex) {
             gitCommit = "Error: " + ex.getMessage();
         }
-        returnVal = new Status().withRebootMode(getRebootMode() ? 1L : 0L)
-        		.withStoppingMode(getTaskQueue().getStoppingMode() ? 1L : 0L)
+        returnVal = new Status().withRebootMode(-1L)
+        		.withStoppingMode(-1L)
         		.withRunningTasksTotal((long)running)
-        		.withRunningTasksPerUser(getTaskQueue().getRunningTasksPerUser())
+        		.withRunningTasksPerUser(null)
         		.withTasksInQueue((long)queued)
         		.withConfig(safeConfig)
         		.withGitCommit(gitCommit);
@@ -677,23 +418,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
 
     /**
-     * <p>Original spec-file function name: list_running_apps</p>
-     * <pre>
-     * </pre>
-     * @return   instance of list of type {@link us.kbase.narrativejobservice.AppState AppState} (original type "app_state")
-     */
-    @JsonServerMethod(rpc = "NarrativeJobService.list_running_apps", authOptional=true, async=true)
-    public List<AppState> listRunningApps(AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
-        List<AppState> returnVal = null;
-        //BEGIN list_running_apps
-        if (!getAdminUsers().contains(authPart.getClientId()))
-        	throw new IllegalStateException("Only admin of service can list internal apps");
-        returnVal = RunAppBuilder.listRunningApps(config());
-        //END list_running_apps
-        return returnVal;
-    }
-
-    /**
      * <p>Original spec-file function name: run_job</p>
      * <pre>
      * Start a new job (long running method of service registered in ServiceRegistery).
@@ -706,6 +430,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public String runJob(RunJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         String returnVal = null;
         //BEGIN run_job
+        System.gc();
         String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
         returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
@@ -725,6 +450,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         RunJobParams return1 = null;
         Map<String,String> return2 = null;
         //BEGIN get_job_params
+        System.gc();
         return2 = new LinkedHashMap<String, String>();
         return1 = SDKMethodRunner.getJobInputParams(jobId, authPart, config(), return2);
         //END get_job_params
@@ -745,6 +471,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public UpdateJobResults updateJob(UpdateJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         UpdateJobResults returnVal = null;
         //BEGIN update_job
+        System.gc();
         returnVal = new UpdateJobResults().withMessages(SDKMethodRunner.updateJob(params, authPart, config()));
         //END update_job
         return returnVal;
@@ -795,6 +522,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     @JsonServerMethod(rpc = "NarrativeJobService.finish_job", async=true)
     public void finishJob(String jobId, FinishJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
         //BEGIN finish_job
+        System.gc();
     	SDKMethodRunner.finishJob(jobId, params, authPart, logger, config());
         //END finish_job
     }
