@@ -654,6 +654,9 @@ public class SDKMethodRunner {
 
 	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
 	        Map<String, String> config) throws Exception {
+	    if (params.getJobIds() == null) {
+	        throw new IllegalStateException("Input parameters should include 'job_ids' property");
+	    }
 	    CheckJobsResults ret = new CheckJobsResults().withJobStates(new LinkedHashMap<String, JobState>());
 	    for (String jobId : params.getJobIds())
 	        ret.getJobStates().put(jobId, checkJob(jobId, auth, config));
