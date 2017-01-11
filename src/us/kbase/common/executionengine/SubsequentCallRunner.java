@@ -13,7 +13,6 @@ import java.util.UUID;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
