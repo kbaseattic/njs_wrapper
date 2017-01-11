@@ -46,8 +46,8 @@ import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
-    private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
-    private static final String gitCommitHash = "26c82119b5ba0f33425c529b363dd4f4874356e5";
+    private static final String gitUrl = "https://github.com/mrcreosote/njs_wrapper";
+    private static final String gitCommitHash = "1b07ff6ee42b1b4f2d805d69a1b4a53df947be92";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -87,7 +87,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     
-    public static final String VERSION = "0.2.5";
+    public static final String VERSION = "0.2.6";
     
     private static Throwable configError = null;
     private static String configPath = null;
@@ -571,6 +571,23 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //BEGIN cancel_job
         SDKMethodRunner.cancelJob(params, authPart, config());
         //END cancel_job
+    }
+
+    /**
+     * <p>Original spec-file function name: check_job_canceled</p>
+     * <pre>
+     * Check whether a job has been canceled. This method is lightweight compared to check_job.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     * @return   parameter "result" of type {@link us.kbase.narrativejobservice.CheckJobCanceledResult CheckJobCanceledResult}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.check_job_canceled", async=true)
+    public CheckJobCanceledResult checkJobCanceled(CancelJobParams params, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        CheckJobCanceledResult returnVal = null;
+        //BEGIN check_job_canceled
+        returnVal = SDKMethodRunner.checkJobCanceled(params, authPart, config());
+        //END check_job_canceled
+        return returnVal;
     }
 
     public static void main(String[] args) throws Exception {

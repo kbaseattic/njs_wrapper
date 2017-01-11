@@ -82,6 +82,7 @@ import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
@@ -997,6 +998,11 @@ public class AweClientDockerJobScriptTest {
                             .withParams(Arrays.asList(new UObject("1\n2\n3\n4\n5\n6\n7\n8\n9")))
                             .withAppId(moduleName + "/" + methodName);
             String jobId = client.runJob(job);
+            final CheckJobCanceledResult cres = client.checkJobCanceled(
+                    new CancelJobParams().withJobId(jobId));
+            assertThat("incorrect job id", cres.getJobId(), is(jobId));
+            assertThat("incorrect canceled state", cres.getCanceled(), is(0L));
+            assertThat("incorrect finished state", cres.getFinished(), is(0L));
             JobState ret = null;
             int logLinesRecieved = 0;
             for (int i = 0; i < 100; i++) {
@@ -1029,6 +1035,11 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, 1L, (long)ret.getCanceled());
             Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
             Assert.assertEquals(0, execStats.size());
+            final CheckJobCanceledResult cres2 = client.checkJobCanceled(
+                    new CancelJobParams().withJobId(jobId));
+            assertThat("incorrect job id", cres2.getJobId(), is(jobId));
+            assertThat("incorrect canceled state", cres2.getCanceled(), is(1L));
+            assertThat("incorrect finished state", cres2.getFinished(), is(1L));
             boolean canceledLogLine = false;
             // Let's check in logs how many lines (out of 9) from input text we see. It depends on
             // how long it takes to stop docker container really. But we shouldn't see all 9 since
@@ -1060,6 +1071,23 @@ public class AweClientDockerJobScriptTest {
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
+        }
+    }
+    
+    @Test
+    public void testCheckJobCanceledWithBadInput() throws Exception {
+        failCheckJobCanceled(null, "No parameters supplied to method");
+        failCheckJobCanceled(new CancelJobParams().withJobId(null), "No job id supplied");
+        failCheckJobCanceled(new CancelJobParams().withJobId("   \t "), "No job id supplied");
+    }
+
+    private void failCheckJobCanceled(final CancelJobParams p,
+            final String exception) throws IOException, JsonClientException {
+        try {
+            client.checkJobCanceled(p);
+            fail("ran check job canceled with bad input");
+        } catch (ServerException ex) {
+            assertThat("incorrect exception message", ex.getMessage(), is(exception));
         }
     }
 
