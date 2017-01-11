@@ -30,6 +30,7 @@ import org.joda.time.format.DateTimeFormatter;
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
+import com.google.common.html.HtmlEscapers;
 
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.TokenFormatException;
@@ -72,12 +73,10 @@ public class SDKLocalMethodRunner {
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
     public static final String RELEASE = JobRunnerConstants.RELEASE;
-    public static final Set<String> RELEASE_TAGS =
-            JobRunnerConstants.RELEASE_TAGS;
+    public static final Set<String> RELEASE_TAGS = JobRunnerConstants.RELEASE_TAGS;
     private static final long MAX_OUTPUT_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
     
-    public static final String JOB_CONFIG_FILE =
-            JobRunnerConstants.JOB_CONFIG_FILE;
+    public static final String JOB_CONFIG_FILE = JobRunnerConstants.JOB_CONFIG_FILE;
     public static final String CFG_PROP_EE_SERVER_VERSION =
             JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS = 
@@ -300,13 +299,18 @@ public class SDKLocalMethodRunner {
                             if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
                                 // Print cancellation message after DockerRunner is done
                             } else {
-                                log.logNextLine("Job was registered as finished by another worker", true);
+                                log.logNextLine("Job was registered as finished by another worker",
+                                        true);
                             }
                             flushLog(jobSrvClient, jobId, logLines);
                             return true;
                         }
                     } catch (Exception ex) {
-                        log.logNextLine("Error checking job state: " + ex.getMessage(), true);
+                        log.logNextLine("Non-critical error checking for job cancelation - " +
+                                String.format("Will check again in %s seconds. ",
+                                        DockerRunner.CANCELLATION_CHECK_PERIOD_SEC) + 
+                                "Error reported by execution engine was: " +
+                                HtmlEscapers.htmlEscaper().escape(ex.getMessage()), true);
                     }
                     return false;
                 }
