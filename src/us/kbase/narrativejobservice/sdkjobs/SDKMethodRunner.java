@@ -35,6 +35,7 @@ import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.CheckJobsParams;
 import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.FinishJobParams;
@@ -64,6 +65,7 @@ public class SDKMethodRunner {
 	public static final String APP_STATE_DONE = "completed";
 	public static final String APP_STATE_ERROR = "suspend";
     public static final String APP_STATE_CANCELLED = "cancelled";
+    public static final String APP_STATE_CANCELED = "canceled";
 	public static final String RELEASE = JobRunnerConstants.RELEASE;
 	public static final Set<String> RELEASE_TAGS =
 			JobRunnerConstants.RELEASE_TAGS;
@@ -550,6 +552,27 @@ public class SDKMethodRunner {
             }
         }
         return cachedAweAdminAuth;
+    }
+	
+    public static CheckJobCanceledResult checkJobCanceled(
+            final CancelJobParams params,
+            final AuthToken authPart,
+            final Map<String, String> config) throws Exception {
+        final String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+        if (params == null) {
+            throw new NullPointerException("No parameters supplied to method");
+        }
+        final String jobId = params.getJobId();
+        if (jobId == null || jobId.trim().isEmpty()) {
+            throw new IllegalArgumentException("No job id supplied");
+        }
+        final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+        final Tuple7<String, String, String, Long, String, Long, Long> jobStatus = 
+                ujsClient.getJobStatus(jobId);
+        return new CheckJobCanceledResult().withJobId(jobId).withUjsUrl(ujsUrl)
+                // null if job not started yet
+                .withFinished(jobStatus.getE6() == null ? 0 : jobStatus.getE6())
+                .withCanceled(APP_STATE_CANCELED.equals(jobStatus.getE2()) ? 1L : 0L);
     }
 	
 	@SuppressWarnings("unchecked")

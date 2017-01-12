@@ -401,4 +401,22 @@ public class NarrativeJobServiceClient {
         TypeReference<Object> retType = new TypeReference<Object>() {};
         caller.jsonrpcCall("NarrativeJobService.cancel_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
+
+    /**
+     * <p>Original spec-file function name: check_job_canceled</p>
+     * <pre>
+     * Check whether a job has been canceled. This method is lightweight compared to check_job.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.narrativejobservice.CancelJobParams CancelJobParams}
+     * @return   parameter "result" of type {@link us.kbase.narrativejobservice.CheckJobCanceledResult CheckJobCanceledResult}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public CheckJobCanceledResult checkJobCanceled(CancelJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<CheckJobCanceledResult>> retType = new TypeReference<List<CheckJobCanceledResult>>() {};
+        List<CheckJobCanceledResult> res = caller.jsonrpcCall("NarrativeJobService.check_job_canceled", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
 }

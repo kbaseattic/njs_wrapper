@@ -53,6 +53,8 @@ import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
+import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.FinishJobParams;
 import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.JsonRpcError;
@@ -293,7 +295,8 @@ public class SDKLocalMethodRunner {
                     if (canceled != null)
                         return canceled;
                     try {
-                        JobState jobState = jobSrvClient.checkJob(jobId);
+                        final CheckJobCanceledResult jobState = jobSrvClient.checkJobCanceled(
+                                new CancelJobParams().withJobId(jobId));
                         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
                             canceled = true;
                             if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {

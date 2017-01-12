@@ -29,6 +29,7 @@ import us.kbase.common.service.UObject;
  * position - position of the job in execution waiting queue;
  * creation_time, exec_start_time and finish_time - time moments of submission, execution 
  *     start and finish events in milliseconds since Unix Epoch,
+ * canceled - whether the job is canceled or not.
  * cancelled - Deprecated field, please use 'canceled' field instead.
  * </pre>
  * 
