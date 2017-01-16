@@ -601,8 +601,9 @@ public class SDKMethodRunner {
 				Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId,
 				        aweAdminToken.toString());
 				aweData = (Map<String, Object>)aweJob.get("data");
-				if (aweData != null)
+				if (aweData != null) {
 					aweState = (String)aweData.get("state");
+				}
 			} catch (Exception ex) {
 				throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
 						"for ujs-id=" + jobId + " (" + ex.getMessage() + ")", ex);
@@ -621,11 +622,14 @@ public class SDKMethodRunner {
 					returnVal.setStatus(new UObject(jobStatus));
 					params = getJobOutput(jobId, authPart, config);
 				} else {
-					if (aweState.equals("suspend"))
+					if (aweState.equals("suspend")) {
 						throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
 								" for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ? 
 										" whereas job script wasn't started at all" : ""));
-					throw new IllegalStateException("Unexpected AWE job state: " + aweState);
+					}
+					throw new IllegalStateException(String.format(
+					        "Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
+					        aweState, jobId, aweJobId));
 				}
 			}
 			if (!complete) {
