@@ -1124,6 +1124,7 @@ boolean is an int
 CheckJobsResults is a reference to a hash where the following keys are defined:
 	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+	check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 JobState is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	finished has a value which is a NarrativeJobService.boolean
@@ -1179,6 +1180,7 @@ boolean is an int
 CheckJobsResults is a reference to a hash where the following keys are defined:
 	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+	check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 JobState is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	finished has a value which is a NarrativeJobService.boolean
@@ -2235,6 +2237,7 @@ with_job_params has a value which is a NarrativeJobService.boolean
 a reference to a hash where the following keys are defined:
 job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 
 </pre>
 
@@ -2245,6 +2248,7 @@ job_params has a value which is a reference to a hash where the key is a Narrati
 a reference to a hash where the following keys are defined:
 job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 
 
 =end text

@@ -347,7 +347,11 @@ class NarrativeJobService(object):
            reference of the form X/Y/Z, where X is the workspace name or id,
            Y is the object name or id, Z is the version, which is optional.),
            parameter "app_id" of String, parameter "meta" of mapping from
-           String to String, parameter "wsid" of Long
+           String to String, parameter "wsid" of Long, parameter
+           "check_error" of mapping from type "job_id" (A job id.) to type
+           "JsonRpcError" (Error block of JSON RPC response) -> structure:
+           parameter "name" of String, parameter "code" of Long, parameter
+           "message" of String, parameter "error" of String
         """
         return self._client.call_method(
             'NarrativeJobService.check_jobs',

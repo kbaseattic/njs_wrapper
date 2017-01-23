@@ -241,6 +241,7 @@ module NarrativeJobService {
     typedef structure {
         mapping<job_id, JobState> job_states;
         mapping<job_id, RunJobParams> job_params;
+        mapping<job_id, JsonRpcError> check_error;
     } CheckJobsResults;
     
     funcdef check_jobs(CheckJobsParams params) returns (CheckJobsResults)
