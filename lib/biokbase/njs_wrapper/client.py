@@ -254,19 +254,19 @@ class NarrativeJobService(object):
            position of the job in execution waiting queue; creation_time,
            exec_start_time and finish_time - time moments of submission,
            execution start and finish events in milliseconds since Unix
-           Epoch, cancelled - Deprecated field, please use 'canceled' field
-           instead.) -> structure: parameter "job_id" of String, parameter
-           "finished" of type "boolean" (@range [0,1]), parameter "ujs_url"
-           of String, parameter "status" of unspecified object, parameter
-           "result" of unspecified object, parameter "error" of type
-           "JsonRpcError" (Error block of JSON RPC response) -> structure:
-           parameter "name" of String, parameter "code" of Long, parameter
-           "message" of String, parameter "error" of String, parameter
-           "job_state" of String, parameter "position" of Long, parameter
-           "creation_time" of Long, parameter "exec_start_time" of Long,
-           parameter "finish_time" of Long, parameter "cancelled" of type
-           "boolean" (@range [0,1]), parameter "canceled" of type "boolean"
-           (@range [0,1])
+           Epoch, canceled - whether the job is canceled or not. cancelled -
+           Deprecated field, please use 'canceled' field instead.) ->
+           structure: parameter "job_id" of String, parameter "finished" of
+           type "boolean" (@range [0,1]), parameter "ujs_url" of String,
+           parameter "status" of unspecified object, parameter "result" of
+           unspecified object, parameter "error" of type "JsonRpcError"
+           (Error block of JSON RPC response) -> structure: parameter "name"
+           of String, parameter "code" of Long, parameter "message" of
+           String, parameter "error" of String, parameter "job_state" of
+           String, parameter "position" of Long, parameter "creation_time" of
+           Long, parameter "exec_start_time" of Long, parameter "finish_time"
+           of Long, parameter "cancelled" of type "boolean" (@range [0,1]),
+           parameter "canceled" of type "boolean" (@range [0,1])
         """
         return self._client.call_method(
             'NarrativeJobService.check_job',
@@ -291,23 +291,24 @@ class NarrativeJobService(object):
            'in-progress', 'completed', or 'suspend'; position - position of
            the job in execution waiting queue; creation_time, exec_start_time
            and finish_time - time moments of submission, execution start and
-           finish events in milliseconds since Unix Epoch, cancelled -
-           Deprecated field, please use 'canceled' field instead.) ->
-           structure: parameter "job_id" of String, parameter "finished" of
-           type "boolean" (@range [0,1]), parameter "ujs_url" of String,
-           parameter "status" of unspecified object, parameter "result" of
-           unspecified object, parameter "error" of type "JsonRpcError"
-           (Error block of JSON RPC response) -> structure: parameter "name"
-           of String, parameter "code" of Long, parameter "message" of
-           String, parameter "error" of String, parameter "job_state" of
-           String, parameter "position" of Long, parameter "creation_time" of
-           Long, parameter "exec_start_time" of Long, parameter "finish_time"
-           of Long, parameter "cancelled" of type "boolean" (@range [0,1]),
-           parameter "canceled" of type "boolean" (@range [0,1]), parameter
-           "job_params" of mapping from type "job_id" (A job id.) to type
-           "RunJobParams" (method - service defined in standard JSON RPC way,
-           typically it's module name from spec-file followed by '.' and name
-           of funcdef from spec-file corresponding to running method (e.g.
+           finish events in milliseconds since Unix Epoch, canceled - whether
+           the job is canceled or not. cancelled - Deprecated field, please
+           use 'canceled' field instead.) -> structure: parameter "job_id" of
+           String, parameter "finished" of type "boolean" (@range [0,1]),
+           parameter "ujs_url" of String, parameter "status" of unspecified
+           object, parameter "result" of unspecified object, parameter
+           "error" of type "JsonRpcError" (Error block of JSON RPC response)
+           -> structure: parameter "name" of String, parameter "code" of
+           Long, parameter "message" of String, parameter "error" of String,
+           parameter "job_state" of String, parameter "position" of Long,
+           parameter "creation_time" of Long, parameter "exec_start_time" of
+           Long, parameter "finish_time" of Long, parameter "cancelled" of
+           type "boolean" (@range [0,1]), parameter "canceled" of type
+           "boolean" (@range [0,1]), parameter "job_params" of mapping from
+           type "job_id" (A job id.) to type "RunJobParams" (method - service
+           defined in standard JSON RPC way, typically it's module name from
+           spec-file followed by '.' and name of funcdef from spec-file
+           corresponding to running method (e.g.
            'KBaseTrees.construct_species_tree' from trees service); params -
            the parameters of the method that performed this call; Optional
            parameters: service_ver - specific version of deployed service,
@@ -359,4 +360,22 @@ class NarrativeJobService(object):
         """
         return self._client.call_method(
             'NarrativeJobService.cancel_job',
+            [params], self._service_ver, context)
+
+    def check_job_canceled(self, params, context=None):
+        """
+        Check whether a job has been canceled. This method is lightweight compared to check_job.
+        :param params: instance of type "CancelJobParams" -> structure:
+           parameter "job_id" of type "job_id" (A job id.)
+        :returns: instance of type "CheckJobCanceledResult" (job_id - id of
+           job running method finished - indicates whether job is done
+           (including error/cancel cases) or not canceled - whether the job
+           is canceled or not. ujs_url - url of UserAndJobState service used
+           by job service) -> structure: parameter "job_id" of type "job_id"
+           (A job id.), parameter "finished" of type "boolean" (@range
+           [0,1]), parameter "canceled" of type "boolean" (@range [0,1]),
+           parameter "ujs_url" of String
+        """
+        return self._client.call_method(
+            'NarrativeJobService.check_job_canceled',
             [params], self._service_ver, context)

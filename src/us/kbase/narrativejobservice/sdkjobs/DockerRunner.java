@@ -37,6 +37,9 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
+    
+    public static final int CANCELLATION_CHECK_PERIOD_SEC = 5;
+    
     private final URI dockerURI;
     
     public DockerRunner(final URI dockerURI) {
@@ -127,7 +130,7 @@ public class DockerRunner {
                     public void run() {
                         while (!Thread.interrupted()) {
                             try {
-                                Thread.sleep(1000);
+                                Thread.sleep(CANCELLATION_CHECK_PERIOD_SEC * 1000);
                                 if (cancellationChecker.isJobCanceled()) {
                                     // Stop the container
                                     try {
