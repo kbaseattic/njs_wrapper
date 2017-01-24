@@ -13,7 +13,11 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * <p>Original spec-file type: CheckJobsResults</p>
- * 
+ * <pre>
+ * job_states - states of jobs,
+ * job_params - parameters of jobs,
+ * check_error - this map includes info about errors happening during job checking.
+ * </pre>
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)

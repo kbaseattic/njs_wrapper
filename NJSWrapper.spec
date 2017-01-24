@@ -238,6 +238,11 @@ module NarrativeJobService {
         boolean with_job_params;
     } CheckJobsParams;
 
+    /*
+        job_states - states of jobs,
+        job_params - parameters of jobs,
+        check_error - this map includes info about errors happening during job checking.
+    */
     typedef structure {
         mapping<job_id, JobState> job_states;
         mapping<job_id, RunJobParams> job_params;

@@ -2229,6 +2229,13 @@ with_job_params has a value which is a NarrativeJobService.boolean
 
 
 
+=item Description
+
+job_states - states of jobs,
+job_params - parameters of jobs,
+check_error - this map includes info about errors happening during job checking.
+
+
 =item Definition
 
 =begin html

@@ -1318,7 +1318,7 @@ public class AweClientDockerJobScriptTest {
             List<String> data = obj.asClassInstance(List.class);
             Assert.assertEquals(errMsg, inputText, data.get(0));
             Assert.assertEquals(errMsg, "OK", data.get(1));
-            Assert.assertNotNull(hiddenJobId);
+            Assert.assertNotNull(hiddenJobError);
             Assert.assertEquals("AWE task wasn't found in DB for jobid=" + hiddenJobId, 
                     hiddenJobError.getMessage());
         } catch (ServerException ex) {

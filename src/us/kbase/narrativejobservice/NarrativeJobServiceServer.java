@@ -47,7 +47,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
     private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
-    private static final String gitCommitHash = "db561479c83fcfbae4107764a7c9bbe41a291d63";
+    private static final String gitCommitHash = "18145b1030a53a711fb0615ed0edcadb7cf17dcf";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
