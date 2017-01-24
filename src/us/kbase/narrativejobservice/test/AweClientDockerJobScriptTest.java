@@ -84,8 +84,10 @@ import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.CheckJobsParams;
+import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
+import us.kbase.narrativejobservice.JsonRpcError;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
@@ -1272,6 +1274,53 @@ public class AweClientDockerJobScriptTest {
             List<String> data = obj.asClassInstance(List.class);
             Assert.assertEquals(errMsg, inputText, data.get(0));
             Assert.assertEquals(errMsg, "OK", data.get(1));
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
+    @Test
+    public void testBulkCheckJobs() throws Exception {
+        System.out.println("Test [testBulkCheckJobs]");
+        try {
+            String moduleName = "onerepotest";
+            String methodName = "local_sdk_callback";
+            String inputText = "123\n456";
+            List<UObject> inputValues = Arrays.asList(new UObject(inputText));
+            RunJobParams params = new RunJobParams().withMethod(
+                    moduleName + "." + methodName).withServiceVer(lookupServiceVersion(moduleName))
+                    .withAppId(moduleName + "/" + methodName).withWsid(testWsID)
+                    .withParams(inputValues);
+            String jobId = client.runJob(params);
+            JobState ret = null;
+            String hiddenJobId = "HIDDEN_UNKNOWN_JOB";
+            JsonRpcError hiddenJobError = null;
+            for (int i = 0; i < 20; i++) {
+                try {
+                    CheckJobsResults results = client.checkJobs(new CheckJobsParams().withJobIds(
+                            Arrays.asList(jobId, hiddenJobId))
+                            .withWithJobParams(1L));
+                    ret = results.getJobStates().get(jobId);
+                    hiddenJobError = results.getCheckError().get(hiddenJobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(ret);
+            UObject obj = checkJobOutput(ret);
+            List<String> data = obj.asClassInstance(List.class);
+            Assert.assertEquals(errMsg, inputText, data.get(0));
+            Assert.assertEquals(errMsg, "OK", data.get(1));
+            Assert.assertNotNull(hiddenJobError);
+            Assert.assertEquals("AWE task wasn't found in DB for jobid=" + hiddenJobId, 
+                    hiddenJobError.getMessage());
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;

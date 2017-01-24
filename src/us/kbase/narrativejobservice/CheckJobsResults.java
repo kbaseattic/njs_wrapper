@@ -13,14 +13,19 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * <p>Original spec-file type: CheckJobsResults</p>
- * 
+ * <pre>
+ * job_states - states of jobs,
+ * job_params - parameters of jobs,
+ * check_error - this map includes info about errors happening during job checking.
+ * </pre>
  * 
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Generated("com.googlecode.jsonschema2pojo")
 @JsonPropertyOrder({
     "job_states",
-    "job_params"
+    "job_params",
+    "check_error"
 })
 public class CheckJobsResults {
 
@@ -28,6 +33,8 @@ public class CheckJobsResults {
     private Map<String, JobState> jobStates;
     @JsonProperty("job_params")
     private Map<String, RunJobParams> jobParams;
+    @JsonProperty("check_error")
+    private Map<String, JsonRpcError> checkError;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
 
     @JsonProperty("job_states")
@@ -60,6 +67,21 @@ public class CheckJobsResults {
         return this;
     }
 
+    @JsonProperty("check_error")
+    public Map<String, JsonRpcError> getCheckError() {
+        return checkError;
+    }
+
+    @JsonProperty("check_error")
+    public void setCheckError(Map<String, JsonRpcError> checkError) {
+        this.checkError = checkError;
+    }
+
+    public CheckJobsResults withCheckError(Map<String, JsonRpcError> checkError) {
+        this.checkError = checkError;
+        return this;
+    }
+
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {
         return this.additionalProperties;
@@ -72,7 +94,7 @@ public class CheckJobsResults {
 
     @Override
     public java.lang.String toString() {
-        return ((((((("CheckJobsResults"+" [jobStates=")+ jobStates)+", jobParams=")+ jobParams)+", additionalProperties=")+ additionalProperties)+"]");
+        return ((((((((("CheckJobsResults"+" [jobStates=")+ jobStates)+", jobParams=")+ jobParams)+", checkError=")+ checkError)+", additionalProperties=")+ additionalProperties)+"]");
     }
 
 }
