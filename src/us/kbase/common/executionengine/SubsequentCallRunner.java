@@ -132,7 +132,7 @@ public abstract class SubsequentCallRunner {
                 Integer errorCode = (Integer)error.get("code");
                 String errorMessage = (String)error.get("message");
                 String errorData = (String)error.get("error");
-                logError(errorName, errorCode, errorMessage, errorData);
+                logError(rpcCallData.getMethod(), errorName, errorCode, errorMessage, errorData);
             }
             return jsonRpcResponse;
         } else {
@@ -142,7 +142,7 @@ public abstract class SubsequentCallRunner {
                     new LinkedHashMap<String, Object>();
             String errorName = "JSONRPCError";
             int errorCode = -32601;
-            logError(errorName, errorCode, errorMessage, null);
+            logError(rpcCallData.getMethod(), errorName, errorCode, errorMessage, null);
             error.put("name", errorName);
             error.put("code", errorCode);
             error.put("message", errorMessage);
@@ -155,23 +155,20 @@ public abstract class SubsequentCallRunner {
         }
     }
     
-    private void logError(String name, Integer code, String message, String data) {
-        cbLogErr("Error is thrown by subjod");
+    private void logError(String method, String name, Integer code, String message, String data) {
+        String log = method + " job threw an error";
         if (name != null) {
-            cbLogErr("\tName: " + name);
+            log += ", name=\"" + name + "\"";
         }
         if (code != null) {
-            cbLogErr("\tCode: " + code);
+            log += ", code=" + code;
         }
         if (message != null) {
-            cbLogErr("\tMessage: " + message);
+            log += ", message=\"" + message + "\"";
         }
         if (data != null) {
-            cbLogErr("\tData: " + data);
+            log += ", data:\n" + data;
         }
-    }
-
-    protected void cbLogErr(String log) {
         config.getLogger().logNextLine(String.format("%.2f - CallbackServer: %s",
                 (System.currentTimeMillis() / 1000.0), log), true);
     }

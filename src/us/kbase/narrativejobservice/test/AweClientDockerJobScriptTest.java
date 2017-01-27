@@ -696,24 +696,17 @@ public class AweClientDockerJobScriptTest {
         JobState st = runAsyncMethodAndWait(moduleName, methodName, methparams);
         List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(st.getJobId())
                 .withSkipLines(0L)).getLines();
-        List<String> textForSearch = Arrays.asList(
-                "CallbackServer: Error is thrown by subjod",
-                "CallbackServer: \tName: Server error",
-                "CallbackServer: \tCode: -32000",
-                "CallbackServer: \tMessage: Custom error message!",
-                "CallbackServer: \tData: Traceback (most recent call last):");
-        Map<String, Boolean> found = new LinkedHashMap<String, Boolean>();
+        String textForSearch = 
+                "CallbackServer: onerepotest.generate_error job threw an error, name=\"Server error\", code=-32000, " +
+                "message=\"Custom error message!\", data:\nTraceback (most recent call last):";
+        boolean found = false;
         for (LogLine l : lines) {
-            if (l.getIsError() == 1) {
-                String errLine = l.getLine();
-                for (String expected : textForSearch) {
-                    if (errLine.contains(expected)) {
-                        found.put(expected, true);
-                    }
-                }
+            if (l.getIsError() == 1 && l.getLine().contains(textForSearch)) {
+                found = true;
+                break;
             }
         }
-        Assert.assertEquals(5, found.size());
+        Assert.assertTrue(found);
     }
 
     private void failJobMultiCall(String outerModMeth, String innerModMeth,
