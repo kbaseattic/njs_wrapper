@@ -24,6 +24,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -673,6 +674,46 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
                 "Illegal method name: njs_sdk_test_1.r.un");
         
+    }
+
+    @Test
+    public void testErrorInSubjob() throws Exception {
+        System.out.println("Test [testErrorInSubjob]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String methparams = String.format(
+            "{\"save\": {\"ws\":\"%s\"," +
+                        "\"name\":\"%s\"" +
+                        "}," + 
+             "\"jobs\": [{\"method\": \"onerepotest.generate_error\"," +
+                         "\"params\": [\"Custom error message!\"]," +
+                         "\"ver\": \"dev\"" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
+             "}", testWsName, "unused_object");
+        JobState st = runAsyncMethodAndWait(moduleName, methodName, methparams);
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(st.getJobId())
+                .withSkipLines(0L)).getLines();
+        List<String> textForSearch = Arrays.asList(
+                "CallbackServer: Error is thrown by subjod",
+                "CallbackServer: \tName: Server error",
+                "CallbackServer: \tCode: -32000",
+                "CallbackServer: \tMessage: Custom error message!",
+                "CallbackServer: \tData: Traceback (most recent call last):");
+        Map<String, Boolean> found = new LinkedHashMap<String, Boolean>();
+        for (LogLine l : lines) {
+            if (l.getIsError() == 1) {
+                String errLine = l.getLine();
+                for (String expected : textForSearch) {
+                    if (errLine.contains(expected)) {
+                        found.put(expected, true);
+                    }
+                }
+            }
+        }
+        Assert.assertEquals(5, found.size());
     }
 
     private void failJobMultiCall(String outerModMeth, String innerModMeth,

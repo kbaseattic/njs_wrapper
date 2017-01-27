@@ -123,15 +123,28 @@ public abstract class SubsequentCallRunner {
         final Path outputFile = runModule(jobId, inputFile, config,
                 imageName, moduleName, token);
         if (Files.exists(outputFile)) {
-            return UObject.getMapper().readValue(outputFile.toFile(),
-                    new TypeReference<Map<String, Object>>() {});
+            final Map<String, Object> jsonRpcResponse = UObject.getMapper().readValue(
+                    outputFile.toFile(), new TypeReference<Map<String, Object>>() {});
+            if (jsonRpcResponse.get("error") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> error = (Map<String, Object>)jsonRpcResponse.get("error");
+                String errorName = (String)error.get("name");
+                Integer errorCode = (Integer)error.get("code");
+                String errorMessage = (String)error.get("message");
+                String errorData = (String)error.get("error");
+                logError(errorName, errorCode, errorMessage, errorData);
+            }
+            return jsonRpcResponse;
         } else {
             final String errorMessage =
                     "Unknown server error (output data wasn't produced)";
             final Map<String, Object> error =
                     new LinkedHashMap<String, Object>();
-            error.put("name", "JSONRPCError");
-            error.put("code", -32601);
+            String errorName = "JSONRPCError";
+            int errorCode = -32601;
+            logError(errorName, errorCode, errorMessage, null);
+            error.put("name", errorName);
+            error.put("code", errorCode);
             error.put("message", errorMessage);
             error.put("error", errorMessage);
             final Map<String, Object> jsonRpcResponse =
@@ -140,6 +153,27 @@ public abstract class SubsequentCallRunner {
             jsonRpcResponse.put("error", error);
             return jsonRpcResponse;
         }
+    }
+    
+    private void logError(String name, Integer code, String message, String data) {
+        cbLogErr("Error is thrown by subjod");
+        if (name != null) {
+            cbLogErr("\tName: " + name);
+        }
+        if (code != null) {
+            cbLogErr("\tCode: " + code);
+        }
+        if (message != null) {
+            cbLogErr("\tMessage: " + message);
+        }
+        if (data != null) {
+            cbLogErr("\tData: " + data);
+        }
+    }
+
+    protected void cbLogErr(String log) {
+        config.getLogger().logNextLine(String.format("%.2f - CallbackServer: %s",
+                (System.currentTimeMillis() / 1000.0), log), true);
     }
 
     protected abstract Path runModule(
