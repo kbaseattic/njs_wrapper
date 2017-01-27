@@ -87,7 +87,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     
-    public static final String VERSION = "0.2.6";
+    public static final String VERSION = "0.2.7";
     
     private static Throwable configError = null;
     private static String configPath = null;

@@ -24,6 +24,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -673,6 +674,39 @@ public class AweClientDockerJobScriptTest {
                 "njs_sdk_test_2.run", "njs_sdk_test_1.r.un", "dev", "null",
                 "Illegal method name: njs_sdk_test_1.r.un");
         
+    }
+
+    @Test
+    public void testErrorInSubjob() throws Exception {
+        System.out.println("Test [testErrorInSubjob]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String methparams = String.format(
+            "{\"save\": {\"ws\":\"%s\"," +
+                        "\"name\":\"%s\"" +
+                        "}," + 
+             "\"jobs\": [{\"method\": \"onerepotest.generate_error\"," +
+                         "\"params\": [\"Custom error message!\"]," +
+                         "\"ver\": \"dev\"" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
+             "}", testWsName, "unused_object");
+        JobState st = runAsyncMethodAndWait(moduleName, methodName, methparams);
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(st.getJobId())
+                .withSkipLines(0L)).getLines();
+        String textForSearch = 
+                "CallbackServer: onerepotest.generate_error job threw an error, name=\"Server error\", code=-32000, " +
+                "message=\"Custom error message!\", data:\nTraceback (most recent call last):";
+        boolean found = false;
+        for (LogLine l : lines) {
+            if (l.getIsError() == 1 && l.getLine().contains(textForSearch)) {
+                found = true;
+                break;
+            }
+        }
+        Assert.assertTrue(found);
     }
 
     private void failJobMultiCall(String outerModMeth, String innerModMeth,
