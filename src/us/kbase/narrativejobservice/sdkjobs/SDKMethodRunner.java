@@ -1,6 +1,8 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -41,6 +43,7 @@ import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.FinishJobParams;
 import us.kbase.narrativejobservice.GetJobLogsResults;
 import us.kbase.narrativejobservice.JobState;
+import us.kbase.narrativejobservice.JsonRpcError;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RunJobParams;
@@ -681,13 +684,41 @@ public class SDKMethodRunner {
 
 	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
 	        Map<String, String> config) throws Exception {
-	    CheckJobsResults ret = new CheckJobsResults().withJobStates(new LinkedHashMap<String, JobState>());
-	    for (String jobId : params.getJobIds())
-	        ret.getJobStates().put(jobId, checkJob(jobId, auth, config));
-	    if (params.getWithJobParams() != null && params.getWithJobParams() == 1L) {
-	        ret.withJobParams(new LinkedHashMap<String, RunJobParams>());
-	        for (String jobId : params.getJobIds())
-	            ret.getJobParams().put(jobId, getJobInputParams(jobId, auth, config, null));
+	    if (params.getJobIds() == null) {
+	        throw new IllegalStateException("Input parameters should include 'job_ids' property");
+	    }
+	    boolean withJobParams = params.getWithJobParams() != null && 
+	            params.getWithJobParams() == 1L;
+	    Map<String, RunJobParams> jobParams = new LinkedHashMap<String, RunJobParams>();
+	    Map<String, JsonRpcError> checkError = new LinkedHashMap<String, JsonRpcError>();
+	    CheckJobsResults ret = new CheckJobsResults().withJobStates(
+	            new LinkedHashMap<String, JobState>()).withCheckError(checkError);
+	    for (String jobId : params.getJobIds()) {
+	        try {
+	            ret.getJobStates().put(jobId, checkJob(jobId, auth, config));
+	            if (withJobParams) {
+	                jobParams.put(jobId, getJobInputParams(jobId, auth, config, null));
+	            }
+	        } catch (Exception ex) {
+	            JsonRpcError error = null;
+	            if (ex instanceof ServerException) {
+	                ServerException se = (ServerException)ex;
+	                error = new JsonRpcError().withCode((long)se.getCode()).withName(se.getName())
+	                        .withMessage(se.getMessage()).withError(se.getData());
+	            } else {
+	                StringWriter sw = new StringWriter();
+	                PrintWriter pw = new PrintWriter(sw);
+	                ex.printStackTrace(pw);
+	                pw.close();
+	                error = new JsonRpcError().withCode(-32603L)
+	                        .withName(ex.getClass().getSimpleName()).withMessage(ex.getMessage())
+	                        .withError(sw.toString());
+	            }
+	            checkError.put(jobId, error);
+	        }
+	    }
+	    if (withJobParams) {
+	        ret.withJobParams(jobParams);
 	    }
 	    return ret;
 	}

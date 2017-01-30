@@ -46,8 +46,8 @@ import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
 public class NarrativeJobServiceServer extends JsonServerServlet {
     private static final long serialVersionUID = 1L;
     private static final String version = "0.0.1";
-    private static final String gitUrl = "https://github.com/mrcreosote/njs_wrapper";
-    private static final String gitCommitHash = "1b07ff6ee42b1b4f2d805d69a1b4a53df947be92";
+    private static final String gitUrl = "https://github.com/rsutormin/njs_wrapper";
+    private static final String gitCommitHash = "18145b1030a53a711fb0615ed0edcadb7cf17dcf";
 
     //BEGIN_CLASS_HEADER
     public static final String SYS_PROP_KB_DEPLOYMENT_CONFIG = "KB_DEPLOYMENT_CONFIG";
@@ -87,7 +87,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     
-    public static final String VERSION = "0.2.6";
+    public static final String VERSION = "0.2.7";
     
     private static Throwable configError = null;
     private static String configPath = null;
