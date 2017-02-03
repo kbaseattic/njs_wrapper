@@ -156,7 +156,8 @@ public abstract class SubsequentCallRunner {
     }
     
     private void logError(String method, String name, Integer code, String message, String data) {
-        String log = method + " job threw an error";
+        String log = "\"" + method + "\" job threw an error";
+        String[] dataLines = null;
         if (name != null) {
             log += ", name=\"" + name + "\"";
         }
@@ -167,12 +168,22 @@ public abstract class SubsequentCallRunner {
             log += ", message=\"" + message + "\"";
         }
         if (data != null) {
-            log += ", data:\n" + data;
+            log += ", data:";
+            dataLines = data.split("[\\r\\n]+");
         }
-        config.getLogger().logNextLine(String.format("%.2f - CallbackServer: %s",
-                (System.currentTimeMillis() / 1000.0), log), true);
+        logErrorLine(log);
+        if (dataLines != null) {
+            for (String line : dataLines) {
+                logErrorLine(line);
+            }
+        }
     }
 
+    private void logErrorLine(String line) {
+        config.getLogger().logNextLine(String.format("%.2f - CallbackServer[%s]: %s",
+                (System.currentTimeMillis() / 1000.0), jobId, line), true);
+    }
+    
     protected abstract Path runModule(
             final UUID jobId,
             final Path inputFile,

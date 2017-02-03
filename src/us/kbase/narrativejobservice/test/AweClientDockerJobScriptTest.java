@@ -697,8 +697,8 @@ public class AweClientDockerJobScriptTest {
         List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(st.getJobId())
                 .withSkipLines(0L)).getLines();
         String textForSearch = 
-                "CallbackServer: onerepotest.generate_error job threw an error, name=\"Server error\", code=-32000, " +
-                "message=\"Custom error message!\", data:\nTraceback (most recent call last):";
+                "\"onerepotest.generate_error\" job threw an error, name=\"Server error\", code=-32000, " +
+                "message=\"Custom error message!\", data:";
         boolean found = false;
         for (LogLine l : lines) {
             if (l.getIsError() == 1 && l.getLine().contains(textForSearch)) {
