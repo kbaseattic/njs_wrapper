@@ -13,6 +13,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -99,10 +100,20 @@ public class DockerRunner {
                             binds.toArray(new Bind[binds.size()]));
             if (callbackUrl != null)
                 cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
+            Map<String, String> env = System.getenv();
+            String [] environment = new String[env.size()+1];
+            int j = 0;
+            for (Map.Entry<String, String> entry : env.entrySet()) {
+                environment[j] = entry.getKey() + "=" + entry.getValue();
+                j++;
+            }
+            environment[j] = "SDK_CALLBACK_URL=" + callbackUrl;
+
             //CreateContainerResponse resp = cntCmd.exec();
             //String cntId = resp.getId();
             //Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
-            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v",Arrays.toString(binds.toArray())});
+            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v",Arrays.toString(binds.toArray())},
+                                                  environment);
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
             for (int i = 0; i < inputStreams.length; i++) {
