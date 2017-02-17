@@ -24,7 +24,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -53,8 +52,9 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
-import us.kbase.auth.AuthService;
+import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
+import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ClientGroupConfig;
 import us.kbase.catalog.ClientGroupFilter;
@@ -411,7 +411,7 @@ public class AweClientDockerJobScriptTest {
         String aweState = null;
         for (int i = 0; i < 5; i++) {
             Map<String, Object> aweJob = AweUtils.getAweJobDescr(
-                    aweServerUrl, aweJobId, token.toString());
+                    aweServerUrl, aweJobId, token);
             Map<String, Object> aweData =
                     (Map<String, Object>)aweJob.get("data");
             if (aweData != null)
@@ -1237,7 +1237,7 @@ public class AweClientDockerJobScriptTest {
         // <work-dir>/<userid> folder exists in host file system. This
         System.out.println("Test [testCustomData]");
         String dataFileName = "custom_test.txt";
-        File customDir = new File(workDir, token.getClientId());
+        File customDir = new File(workDir, token.getUserName());
         File customFile = new File(customDir, dataFileName);
         try {
             customDir.mkdir();
@@ -1396,8 +1396,15 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static String token(Properties props) throws Exception {
-        return AuthService.login(get(props, "user"), get(props, "password")).getTokenString();
+    private static AuthToken token(Properties props) throws Exception {
+        String authUrl = loadConfig().get("auth-service-url");
+        ConfigurableAuthService auth = new ConfigurableAuthService(
+                new AuthConfig().withKBaseAuthServerURL(new URL(authUrl)));
+        String token = props.getProperty("token");
+        if (token != null) {
+            return auth.validateToken(token);
+        }
+        return auth.login(get(props, "user"), get(props, "password")).getToken();
     }
 
     private static String get(Properties props, String propName) {
@@ -1410,7 +1417,7 @@ public class AweClientDockerJobScriptTest {
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
-        token = new AuthToken(token(props));
+        token = token(props);
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
         File scriptFile = new File(workDir, "check_deps.sh");
@@ -1439,7 +1446,7 @@ public class AweClientDockerJobScriptTest {
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
                 catalogWrapper.getConnectors()[0].getLocalPort(),
-                mongo.getServerPort());
+                mongo.getServerPort(), token);
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
         startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
@@ -1472,14 +1479,6 @@ public class AweClientDockerJobScriptTest {
         wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
                 new ObjectSaveData().withName(testContigsetObjName).withType("KBaseGenomes.ContigSet")
                 .withData(new UObject(contigsetData)))));
-        /*is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.genome.json.gz")));
-        Map<String, Object> genomeData = UObject.getMapper().readValue(is, Map.class);
-        is.close();
-        String genomeObjName = "temp_contigset.1";
-        genomeData.put("contigset_ref", testWsName + "/" + testContigsetObjName);
-        wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
-                new ObjectSaveData().withName(genomeObjName).withType("KBaseGenomes.Genome")
-                .withData(new UObject(genomeData)))));*/
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
@@ -1706,7 +1705,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private static Server startupNJSService(File dir, File binDir, int awePort, 
-            int catalogPort, int mongoPort) throws Exception {
+            int catalogPort, int mongoPort, AuthToken token) throws Exception {
         if (!dir.exists())
             dir.mkdirs();
         if (!binDir.exists())
@@ -1719,7 +1718,6 @@ public class AweClientDockerJobScriptTest {
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
         Map<String, String> origConfig = loadConfig();
-        Properties testProps = TesterUtils.props();
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -1733,13 +1731,12 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT),
                 NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
                 NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_TOKEN + "=" + token.getToken(),
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN + "=" + token.getToken(),
                 NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
-                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine"
+                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine",
+                NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL)
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
@@ -1950,7 +1947,7 @@ public class AweClientDockerJobScriptTest {
 
         @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
         public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
-            String userId = token.getClientId();
+            String userId = token.getUserName();
             if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
                     filter.getClientGroup().equals("test_client_group") && new File(workDir, userId).exists()) {
                 VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(

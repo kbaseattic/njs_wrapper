@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,9 +19,10 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.WriteConcernException;
 
+import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthException;
-import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
+import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ClientGroupConfig;
 import us.kbase.catalog.ClientGroupFilter;
@@ -150,14 +152,26 @@ public class SDKMethodRunner {
 
 	private static AuthToken getCatalogAdminAuth(Map<String, String> config) 
 	        throws IOException, AuthException {
-	    if (cachedCatalogAdminAuth != null && cachedCatalogAdminAuth.isExpired())
-	        cachedCatalogAdminAuth = null;
 	    if (cachedCatalogAdminAuth == null) {
-	        String adminUser = getRequiredConfigParam(config, 
-	                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
-	        String adminPwd = getRequiredConfigParam(config, 
-	                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
-	        cachedCatalogAdminAuth = AuthService.login(adminUser, adminPwd).getToken();
+	        String adminUser = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER);
+            if (adminUser != null && adminUser.trim().isEmpty()) {
+                adminUser = null;
+            }
+	        String adminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD);
+	        String adminToken = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_TOKEN);
+            if (adminToken != null && adminToken.trim().isEmpty()) {
+                adminToken = null;
+            }
+            if (adminToken == null && adminUser == null) {
+                throw new IllegalStateException("Catalog admin creadentials are not defined in " +
+                		"configuration");
+            }
+            if (adminToken == null) {
+                cachedCatalogAdminAuth = getAuth(config).login(adminUser, 
+                        adminPwd == null ? "" : adminPwd).getToken();
+            } else {
+                cachedCatalogAdminAuth = getAuth(config).validateToken(adminToken);
+            }
 	    }
 	    return cachedCatalogAdminAuth;
 	}
@@ -264,12 +278,16 @@ public class SDKMethodRunner {
 		            NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
 		            NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
 		            NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
+		            NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL,
+		            NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, 
 		            NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
 		            NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
 		            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE,
-		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS
+		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS,
+		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
+		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM
 		    };
 		    for (String key : propsToSend) {
 		        String value = config.get(key);
@@ -301,7 +319,7 @@ public class SDKMethodRunner {
 	    String ujsJobId = params.getJobId();
         UserAndJobStateClient ujsClient = getUjsClient(auth, config);
         String jobOwner = ujsClient.getJobOwner(ujsJobId);
-        if (auth == null || !jobOwner.equals(auth.getClientId()))
+        if (auth == null || !jobOwner.equals(auth.getUserName()))
             throw new IllegalStateException("Only owner of the job can update it");
         Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
                 ujsClient.getJobStatus(ujsJobId);
@@ -318,7 +336,7 @@ public class SDKMethodRunner {
             return ret;
         }
         try {
-            ujsClient.startJob(ujsJobId, auth.toString(), "running",
+            ujsClient.startJob(ujsJobId, auth.getToken(), "running",
                     "Execution engine job for " + input.getMethod(), 
                     new InitProgress().withPtype("none"), null);
         } catch (ServerException se) {
@@ -370,7 +388,7 @@ public class SDKMethodRunner {
             return;
         }
         final String jobOwner = ujsClient.getJobOwner(ujsJobId);
-        if (auth == null || !jobOwner.equals(auth.getClientId())) {
+        if (auth == null || !jobOwner.equals(auth.getUserName())) {
                 throw new IllegalStateException(
                         "Only the owner of a job can complete it");
         }
@@ -380,7 +398,7 @@ public class SDKMethodRunner {
             // job hasn't started yet. Need to put it in started state to
             // complete it
             try {
-                ujsClient.startJob(ujsJobId, auth.toString(),
+                ujsClient.startJob(ujsJobId, auth.getToken(),
                         "starting job so that it can be finished",
                         "as state", new InitProgress().withPtype("none"),
                         null);
@@ -394,10 +412,10 @@ public class SDKMethodRunner {
                 status = "Unknown error";
             if (status.length() > 200)
                 status = status.substring(0, 197) + "...";
-            ujsClient.completeJob(ujsJobId, auth.toString(), status,
+            ujsClient.completeJob(ujsJobId, auth.getToken(), status,
                     params.getError().getError(), null);
         } else {
-            ujsClient.completeJob(ujsJobId, auth.toString(), "done", null,
+            ujsClient.completeJob(ujsJobId, auth.getToken(), "done", null,
                     new Results());
         }
         // let's make a call to catalog sending execution stats
@@ -415,7 +433,7 @@ public class SDKMethodRunner {
             boolean isError = params.getError() != null;
             String errorMessage = null;
             try {
-                sendExecStatsToCatalog(auth.getClientId(), info.uiModuleName,
+                sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
                         info.methodSpecId, funcModuleName, funcName,
                         gitCommitHash, creationTime, execStartTime, finishTime,
                         isError, config);
@@ -432,7 +450,7 @@ public class SDKMethodRunner {
             }
             if (errorMessage != null) {
                 String message = "Error sending execution stats to catalog (" + 
-                        auth.getClientId() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
+                        auth.getUserName() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
                         ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
                         creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
                         "): " + errorMessage;
@@ -510,7 +528,7 @@ public class SDKMethodRunner {
 
 	public static GetJobLogsResults getJobLogs(String ujsJobId, Long skipLines,
 	        AuthToken authPart, Set<String> admins, Map<String, String> config) throws Exception {
-		boolean isAdmin = admins != null && admins.contains(authPart.getClientId());
+		boolean isAdmin = admins != null && admins.contains(authPart.getUserName());
 		if (!isAdmin) {
 			// If it's not admin then let's check if there is permission in UJS
 			UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
@@ -534,24 +552,43 @@ public class SDKMethodRunner {
 				.withLastLineNumber((long)lines.size() + (skipLines == null ? 0L : skipLines));
 	}
 
+	private static ConfigurableAuthService getAuth(Map<String, String> config) 
+	        throws IOException, AuthException {
+        String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        String authAllowInsecure = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+        try {
+            final AuthConfig c = new AuthConfig().withKBaseAuthServerURL(new URL(authUrl));
+            if ("true".equals(authAllowInsecure)) {
+                c.withAllowInsecureURLs(true);
+            }
+            return new ConfigurableAuthService(c);
+        } catch (URISyntaxException ex) {
+            throw new AuthException(ex.getMessage(), ex);
+        }
+	}
+	
 	private static AuthToken getAweAdminAuth(Map<String, String> config) 
 	        throws IOException, AuthException {
-        if (cachedAweAdminAuth != null && cachedAweAdminAuth.isExpired())
-            cachedAweAdminAuth = null;
         if (cachedAweAdminAuth == null) {
             String aweAdminUser = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER);
+            if (aweAdminUser != null && aweAdminUser.trim().isEmpty()) {
+                aweAdminUser = null;
+            }
             String aweAdminPwd = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD);
-            String aweAdminConfigToken = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
-            if (aweAdminConfigToken == null && (aweAdminUser == null || aweAdminPwd == null))
+            String aweAdminToken = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
+            if (aweAdminToken != null && aweAdminToken.trim().isEmpty()) {
+                aweAdminToken = null;
+            }
+            if (aweAdminToken == null && aweAdminUser == null) {
                 throw new IllegalStateException("AWE admin creadentials are not defined in configuration");
+            }
             // Use the config token if provided, otherwise generate one
             // userid/password may be deprecated in the future
-            if (aweAdminConfigToken == null) {
-                cachedAweAdminAuth = AuthService.login(aweAdminUser, aweAdminPwd).getToken();
+            if (aweAdminToken == null) {
+                cachedAweAdminAuth = getAuth(config).login(aweAdminUser, 
+                        aweAdminPwd == null ? "" : aweAdminPwd).getToken();
             } else {
-                AuthToken token = new AuthToken(aweAdminConfigToken);
-                if (AuthService.validateToken(token))
-                    cachedAweAdminAuth = token;
+                cachedAweAdminAuth = getAuth(config).validateToken(aweAdminToken);
             }
         }
         return cachedAweAdminAuth;
@@ -602,7 +639,7 @@ public class SDKMethodRunner {
 			String aweServerUrl = getAweServerURL(config);
 			try {
 				Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId,
-				        aweAdminToken.toString());
+				        aweAdminToken);
 				aweData = (Map<String, Object>)aweJob.get("data");
 				if (aweData != null) {
 					aweState = (String)aweData.get("state");
@@ -645,7 +682,7 @@ public class SDKMethodRunner {
 					returnVal.setJobState(APP_STATE_QUEUED);
 					try {
 						Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, 
-						        aweJobId, aweAdminToken.toString());
+						        aweJobId, aweAdminToken);
 						Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
 						if (posData != null && posData.containsKey("position"))
 							returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
