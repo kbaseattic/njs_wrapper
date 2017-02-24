@@ -31,9 +31,8 @@ public class CallbackServerConfigBuilder {
     private static final String HANDLE_URL = "handle_url";
     private static final String SRV_WIZ_URL = "srv_wiz_url";
     private static final String NJSW_URL = "njsw_url";
-    private static final String AUTH_URL = JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL;
-    private static final String AUTH_ALLOW_INSECURE = 
-            JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
+    private static final String AUTH_URL = "auth_service_url";
+    private static final String AUTH_ALLOW_INSECURE = "auth_service_url_allow_insecure";
     
     final private URL kbaseEndpointURL;
     final private URL workspaceURL;
@@ -75,7 +74,7 @@ public class CallbackServerConfigBuilder {
         this.srvWizURL = optionalURL(srvWizURL, kbaseEndpointURL, EP_SRV_WIZ);
         this.njswURL = optionalURL(njswURL, kbaseEndpointURL, EP_NJSW);
         this.authServiceURL = authServiceURL;
-        this.authAllowInsecure = authAllowInsecure == null ? "0" : authAllowInsecure;
+        this.authAllowInsecure = authAllowInsecure == null ? "false" : authAllowInsecure;
         this.catalogURL = optionalURL(catalogURL, kbaseEndpointURL, EP_CAT);
         this.callbackURL = callbackURL;
         this.workDir = workDir;
@@ -113,7 +112,7 @@ public class CallbackServerConfigBuilder {
         this.authServiceURL = getURL(config,
                 JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL);
         this.authAllowInsecure = optionallyGetParamfromConfig(config,
-                JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM, "0");
+                JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM, "false");
         this.catalogURL = optionallyGetURLfromConfig(config,
                 JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL,
                 resolveURL(kbaseEndpointURL, EP_CAT));

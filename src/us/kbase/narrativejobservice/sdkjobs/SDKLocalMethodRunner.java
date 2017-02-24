@@ -169,12 +169,18 @@ public class SDKLocalMethodRunner {
             File configFile = new File(workDir, JOB_CONFIG_FILE);
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
-            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
-            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
-            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
             String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
             if (kbaseEndpoint != null)
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
+            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
+            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
+            pw.println("handle_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL));
+            pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
+            pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
+            pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
+            pw.println("auth_service_url_allow_insecure = " + 
+                    config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));      
             pw.close();
             
             String clientDetails = hostnameAndIP[1];
