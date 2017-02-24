@@ -71,7 +71,7 @@ public class DockerRunner {
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
-            fw.write(token.toString());
+            fw.write(token.getToken());
             fw.close();
             if (outputFile.exists())
                 outputFile.delete();

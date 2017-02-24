@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice;
 import java.io.File;
 import java.util.List;
 import java.util.Map;
+
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
@@ -62,6 +63,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_ADMIN_USER_NAME = "admin.user";
     public static final String CFG_PROP_SHOCK_URL =
             JobRunnerConstants.CFG_PROP_SHOCK_URL;
+    public static final String CFG_PROP_HANDLE_SRV_URL = 
+            JobRunnerConstants.CFG_PROP_HANDLE_SRV_URL;
+    public static final String CFG_PROP_SRV_WIZ_URL = 
+            JobRunnerConstants.CFG_PROP_SRV_WIZ_URL;
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
@@ -72,9 +77,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             JobRunnerConstants.CFG_PROP_CATALOG_SRV_URL;
     public static final String CFG_PROP_CATALOG_ADMIN_USER = "catalog.admin.user";
     public static final String CFG_PROP_CATALOG_ADMIN_PWD = "catalog.admin.pwd";
+    public static final String CFG_PROP_CATALOG_ADMIN_TOKEN = "catalog.admin.token";
     public static final String CFG_PROP_KBASE_ENDPOINT =
             JobRunnerConstants.CFG_PROP_KBASE_ENDPOINT;
-    public static final String CFG_PROP_SELF_EXTERNAL_URL = "self.external.url";
+    public static final String CFG_PROP_SELF_EXTERNAL_URL = JobRunnerConstants.CFG_PROP_NJSW_URL;
     public static final String CFG_PROP_REF_DATA_BASE = "ref.data.base";
     public static final String CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS = "default.awe.client.groups";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
@@ -86,8 +92,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
+    public static final String CFG_PROP_AUTH_SERVICE_URL = 
+            JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL;
+    public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
+            JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
     
-    public static final String VERSION = "0.2.8";
+    public static final String VERSION = "0.2.9";
     
     private static Throwable configError = null;
     private static String configPath = null;
@@ -199,14 +209,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     runJobParams.setParams(paramsList);
                     runJobParams.setRpcContext(context);
                     result = new ArrayList<Object>(); 
-                    result.add(runJob(runJobParams, new AuthToken(token),
+                    result.add(runJob(runJobParams, validateToken(token),
                             rpcCallData.getContext()));
                 } else if (modmeth.isCheck()) {
                     if (paramsList.size() == 1) {
                         String jobId = paramsList.get(0).asClassInstance(
                                 String.class);
                         JobState jobState = checkJob(jobId,
-                                new AuthToken(token),
+                                validateToken(token),
                                 rpcCallData.getContext());
                         Long finished = jobState.getFinished();
                         if (finished != 0L) {
@@ -318,6 +328,37 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 NarrativeJobServiceServer.this.logErr(message);
             }
         };
+        String authUrl = config().get(CFG_PROP_AUTH_SERVICE_URL);
+        if (authUrl == null) {
+            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+                    CFG_PROP_AUTH_SERVICE_URL);
+        }
+        String aweAdminUser = config().get(CFG_PROP_AWE_READONLY_ADMIN_USER);
+        if (aweAdminUser != null && aweAdminUser.trim().isEmpty()) {
+            aweAdminUser = null;
+        }
+        String aweAdminToken = config().get(CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
+        if (aweAdminToken != null && aweAdminToken.trim().isEmpty()) {
+            aweAdminToken = null;
+        }
+        if (aweAdminUser == null && aweAdminToken == null) {
+            throw new IllegalStateException("Deployment configuration for AWE admin credentials " +
+            		"is not defined: " + CFG_PROP_AWE_READONLY_ADMIN_USER + " or " +
+                    CFG_PROP_AWE_READONLY_ADMIN_TOKEN);
+        }
+        String catAdminUser = config().get(CFG_PROP_CATALOG_ADMIN_USER);
+        if (catAdminUser != null && catAdminUser.trim().isEmpty()) {
+            catAdminUser = null;
+        }
+        String catAdminToken = config().get(CFG_PROP_CATALOG_ADMIN_TOKEN);
+        if (catAdminToken != null && catAdminToken.trim().isEmpty()) {
+            catAdminToken = null;
+        }
+        if (catAdminUser == null && catAdminToken == null) {
+            throw new IllegalStateException("Deployment configuration for AWE admin credentials " +
+                    "is not defined: " + CFG_PROP_CATALOG_ADMIN_USER + " or " +
+                    CFG_PROP_CATALOG_ADMIN_TOKEN);
+        }
         //END_CONSTRUCTOR
     }
 

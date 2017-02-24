@@ -32,8 +32,9 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.google.common.html.HtmlEscapers;
 
+import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
+import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
@@ -101,9 +102,10 @@ public class SDKLocalMethodRunner {
             tokenStr = System.getProperty("KB_AUTH_TOKEN");  // For tests
         if (tokenStr == null || tokenStr.isEmpty())
             throw new IllegalStateException("Token is not defined");
-        final AuthToken token = new AuthToken(tokenStr);
+        // We should skip token validation now because we don't have auth service URL yet.
+        final AuthToken tempToken = new AuthToken(tokenStr, "<unknown>");
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
-                jobSrvUrl, token);
+                jobSrvUrl, tempToken);
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
@@ -128,9 +130,12 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
-            final URL catalogURL = getURL(jobInput.getE2(),
+            ConfigurableAuthService auth = getAuth(config);
+            // We couldn't validate token earlier because we didn't have auth service URL.
+            AuthToken token = auth.validateToken(tokenStr);
+            final URL catalogURL = getURL(config,
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-            final URI dockerURI = getURI(jobInput.getE2(),
+            final URI dockerURI = getURI(config,
                     NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                     true);
             RunJobParams job = jobInput.getE1();
@@ -164,12 +169,18 @@ public class SDKLocalMethodRunner {
             File configFile = new File(workDir, JOB_CONFIG_FILE);
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
-            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
-            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
-            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
             String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
             if (kbaseEndpoint != null)
                 pw.println("kbase_endpoint = " + kbaseEndpoint);
+            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
+            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
+            pw.println("handle_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL));
+            pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
+            pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
+            pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
+            pw.println("auth_service_url_allow_insecure = " + 
+                    config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));      
             pw.close();
             
             String clientDetails = hostnameAndIP[1];
@@ -252,7 +263,7 @@ public class SDKLocalMethodRunner {
             if (adminTokenStr == null || adminTokenStr.isEmpty())
                 adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
             if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
-                final AuthToken adminToken = new AuthToken(adminTokenStr);
+                final AuthToken adminToken = auth.validateToken(adminTokenStr);
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
                 adminCatClient.setAllSSLCertificatesTrusted(true);
@@ -271,7 +282,7 @@ public class SDKLocalMethodRunner {
                     for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
                         boolean isReadOnly = vm.getReadOnly() != null && vm.getReadOnly() != 0L;
                         File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(), 
-                                token.getClientId()));
+                                token.getUserName()));
                         if (!hostDir.exists()) {
                             if (isReadOnly) {
                                 throw new IllegalStateException("Volume mount directory doesn't exist: " + 
@@ -493,14 +504,30 @@ public class SDKLocalMethodRunner {
             ret.mkdir();
         return ret;
     }
-
+    
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
-            MalformedURLException, TokenFormatException {
+            MalformedURLException {
         final NarrativeJobServiceClient jobSrvClient =
                 new NarrativeJobServiceClient(new URL(jobSrvUrl), token);
         jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
         return jobSrvClient;
+    }
+    
+    private static ConfigurableAuthService getAuth(final Map<String, String> config) 
+            throws Exception {
+        String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        if (authUrl == null) {
+            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        }
+        String authAllowInsecure = config.get(
+                NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+        final AuthConfig c = new AuthConfig().withKBaseAuthServerURL(new URL(authUrl));
+        if ("true".equals(authAllowInsecure)) {
+            c.withAllowInsecureURLs(true);
+        }
+        return new ConfigurableAuthService(c);
     }
 
     private static URL getURL(final Map<String, String> config,

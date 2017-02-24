@@ -39,14 +39,14 @@ public abstract class SubsequentCallRunner {
     private final UUID jobId;
     private final String imageName;
     private final ModuleRunVersion mrv;
-    private CallbackServerConfig config;
+    private final CallbackServerConfig config;
     
     public SubsequentCallRunner(
             final AuthToken token,
             final CallbackServerConfig config,
             final UUID jobId,
             final ModuleMethod modmeth, 
-            String serviceVer)
+            final String serviceVer)
             throws IOException, JsonClientException {
         this.token = token;
         this.config = config;
@@ -115,13 +115,16 @@ public abstract class SubsequentCallRunner {
         return mrv;
     }
     
-    public Map<String, Object> run(RpcCallData rpcCallData)
+    public Map<String, Object> run(RpcCallData rpcCallData, AuthToken callToken)
             throws IOException, InterruptedException {
+        if (callToken == null) {
+            callToken = token;
+        }
         final Path inputFile = getJobWorkDir(jobId, config, imageName)
                 .resolve("input.json");
         UObject.getMapper().writeValue(inputFile.toFile(), rpcCallData);
         final Path outputFile = runModule(jobId, inputFile, config,
-                imageName, moduleName, token);
+                imageName, moduleName, callToken);
         if (Files.exists(outputFile)) {
             final Map<String, Object> jsonRpcResponse = UObject.getMapper().readValue(
                     outputFile.toFile(), new TypeReference<Map<String, Object>>() {});

@@ -39,7 +39,7 @@ public class AweUtils {
         info.put("pipeline", pipeline);
         info.put("name", jobName);
         info.put("project", "SDK");
-        info.put("user", auth.getClientId());
+        info.put("user", auth.getUserName());
         info.put("clientgroups", aweClientGroups);
         job.put("info", info);
         Map<String, Object> task = new LinkedHashMap<String, Object>();  // AwfTask
@@ -49,10 +49,10 @@ public class AweUtils {
         Map<String, Object> env = new LinkedHashMap<String, Object>();   // AwfEnviron
         env.put("public", new LinkedHashMap<String, Object>());
         Map<String, Object> priv = new LinkedHashMap<String, Object>();
-        String token = auth.toString();
+        String token = auth.getToken();
         priv.put("KB_AUTH_TOKEN", token);
         if (adminAuth != null)
-            priv.put("KB_ADMIN_AUTH_TOKEN", adminAuth.toString());
+            priv.put("KB_ADMIN_AUTH_TOKEN", adminAuth.getToken());
         env.put("private", priv);
         cmd.put("environ", env);
         cmd.put("description", "");
@@ -121,19 +121,19 @@ public class AweUtils {
     }
 
     public static Map<String, Object> getAweJobDescr(String aweServerUrl, 
-            String aweJobId, String token) throws JsonParseException, 
+            String aweJobId, AuthToken token) throws JsonParseException, 
             JsonMappingException, ClientProtocolException, IOException, 
             AweResponseException {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId);
-        httpReq.addHeader("Authorization", "OAuth " + token);
+        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
         return parseAweResponse(httpClient.execute(httpReq));
     }
     
     public static String getAweJobState(String aweServerUrl, String aweJobId,
-            String token) throws JsonParseException, JsonMappingException, 
+            AuthToken token) throws JsonParseException, JsonMappingException, 
             ClientProtocolException, IOException, AweResponseException {
         Map<String, Object> aweJob = getAweJobDescr(aweServerUrl, aweJobId, token);
         @SuppressWarnings("unchecked")
@@ -151,14 +151,14 @@ public class AweUtils {
     }
     
     public static Map<String, Object> getAweJobPosition(String aweServerUrl, 
-            String aweJobId, String token) throws JsonParseException, 
+            String aweJobId, AuthToken token) throws JsonParseException, 
             JsonMappingException, ClientProtocolException, IOException, 
             AweResponseException {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId + "?position");
-        httpReq.addHeader("Authorization", "OAuth " + token);
+        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
         return parseAweResponse(httpClient.execute(httpReq));
     }
 }
