@@ -9,6 +9,7 @@ import java.io.StringWriter;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Properties;
 
@@ -95,6 +96,13 @@ public class TesterUtils {
         Ini ini = new Ini(new File("deploy.cfg"));
         Map<String, String> origConfig = ini.get(
                 NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
+        Properties props = props();
+        for (String key : new ArrayList<String>(origConfig.keySet())) {
+            if (props.containsKey(key)) {
+                String value = props.getProperty(key).trim();
+                origConfig.put(key, value);
+            }
+        }
         return origConfig;
     }
     

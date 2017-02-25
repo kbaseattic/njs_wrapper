@@ -12,7 +12,6 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
@@ -39,7 +38,6 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
-import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -52,9 +50,7 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
-import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ClientGroupConfig;
 import us.kbase.catalog.ClientGroupFilter;
@@ -1091,7 +1087,7 @@ public class AweClientDockerJobScriptTest {
             // they are printed with 5 second interval.
             logLinesRecieved = 0;
             int logLinesFromInput = 0;
-            for (int i = 0; i < 30; i++) {
+            for (int i = 0; i < 60; i++) {
                 List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
                         .withSkipLines((long)logLinesRecieved)).getLines();
                 for (LogLine line : lines) {
@@ -1103,11 +1099,24 @@ public class AweClientDockerJobScriptTest {
                         // We see this line in logs only after docker container is stopped
                         canceledLogLine = true;
                     }
-                }            
+                }
                 if (canceledLogLine)
                     break;
                 logLinesRecieved += lines.size();
                 Thread.sleep(1000);
+            }
+            if (!canceledLogLine) {
+                System.out.println("All logs:");
+                List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                        .withSkipLines((long)0)).getLines();
+                for (LogLine line : lines) {
+                    String lineText = line.getLine();
+                    System.out.println("ALL-LOGs: " + lineText);
+                    if (line.getLine().contains("Job was canceled")) {
+                        canceledLogLine = true;
+                    }
+                }
+                System.out.println("------------------------------------------------");
             }
             Assert.assertTrue(errMsg, canceledLogLine);
             // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
@@ -1411,16 +1420,6 @@ public class AweClientDockerJobScriptTest {
         token = TesterUtils.token(props);
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
-        File scriptFile = new File(workDir, "check_deps.sh");
-        writeFileLines(readReaderLines(new InputStreamReader(
-                AweClientDockerJobScriptTest.class.getResourceAsStream(
-                        "check_deps.sh.properties"))), scriptFile);
-        ProcessHelper ph = ProcessHelper.cmd(
-                "bash", scriptFile.getCanonicalPath()).exec(workDir);
-        if (ph.getExitCode() > 0) {
-            throw new TestException("Set up script failed with exit code " +
-                    ph.getExitCode());
-        }
         mongoDir = new File(workDir, "mongo");
         aweServerDir = new File(workDir, "awe_server");
         aweClientDir = new File(workDir, "awe_client");
@@ -1431,16 +1430,15 @@ public class AweClientDockerJobScriptTest {
                 "... ");
         mongo = new MongoController(mongoExepath, mongoDir.toPath());
         System.out.println("Done. Port " + mongo.getServerPort());
-        File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
-        awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
-                aweServerDir, mongo.getServerPort(), authUrl);
+        awePort = startupAweServer(findAweBinary("awe-server"),
+                aweServerDir, mongo.getServerPort(), authUrl, token);
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
                 catalogWrapper.getConnectors()[0].getLocalPort(),
                 mongo.getServerPort(), token);
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
-        startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
+        startupAweClient(findAweBinary("awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
         client.setIsInsecureHttpConnectionAllowed(true);
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
@@ -1501,9 +1499,14 @@ public class AweClientDockerJobScriptTest {
                 ret.get(1).getE1() + "/" + ret.get(1).getE5());
     }
 
-    private static String findAweBinary(File dir, String program) throws Exception {
-        if (new File(dir, program).exists())
-            return new File(dir, program).getAbsolutePath();
+    private static String findAweBinary(String program) throws Exception {
+        String dirText = TesterUtils.props().getProperty("test-awe-bin-dir");
+        if (dirText != null && !dirText.trim().isEmpty()) {
+            File ret = new File(new File(dirText), program);
+            if (ret.exists()) {
+                return ret.getAbsolutePath();
+            }
+        }
         return program;
     }
     
@@ -1538,7 +1541,7 @@ public class AweClientDockerJobScriptTest {
     }
     
     private static int startupAweServer(String aweServerExePath, File dir, int mongoPort,
-            String authUrl) throws Exception {
+            String authUrl, AuthToken token) throws Exception {
         //auth-service-url = https://ci.kbase.us/auth2services/auth/api/legacy/KBase/Sessions/Login
         //globus_token_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/goauth/token?grant_type=client_credentials
         //globus_profile_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/users
@@ -1567,7 +1570,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=" + TesterUtils.get(TesterUtils.props(), "user"),
+                "users=" + token.getUserName(),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
