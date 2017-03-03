@@ -97,7 +97,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
     
-    public static final String VERSION = "0.2.9";
+    public static final String VERSION = "0.2.10";
     
     private static Throwable configError = null;
     private static String configPath = null;

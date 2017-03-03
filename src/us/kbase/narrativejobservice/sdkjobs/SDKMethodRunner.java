@@ -277,17 +277,13 @@ public class SDKMethodRunner {
 		    String[] propsToSend = {
 		            NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL, 
 		            NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL, 
-		            NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
-		            NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL,
-		            NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH, 
 		            NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
 		            NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
 		            NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE,
 		            NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS,
-		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
-		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM
+		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL
 		    };
 		    for (String key : propsToSend) {
 		        String value = config.get(key);
@@ -304,14 +300,31 @@ public class SDKMethodRunner {
 		        kbaseEndpoint = wsUrl.replace("/ws", "");
 		    }
 		    resultConfig.put(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT, kbaseEndpoint);
-		    String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-		    if (selfExternalUrl == null)
-		        selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
-		    resultConfig.put(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL, selfExternalUrl);
+		    propagateConfigUrl(config, NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL,
+		            resultConfig, kbaseEndpoint, "njs_wrapper");
+		    propagateConfigUrl(config, NarrativeJobServiceServer.CFG_PROP_SHOCK_URL,
+		            resultConfig, kbaseEndpoint, "shock-api");
+		    propagateConfigUrl(config, NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL,
+		            resultConfig, kbaseEndpoint, "handle_service");
+		    propagateConfigUrl(config, NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL,
+		            resultConfig, kbaseEndpoint, "service_wizard");
 		    resultConfig.put(JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION, 
 		            NarrativeJobServiceServer.VERSION);
+		    String authNotSecure = config.get(
+		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+		    resultConfig.put(
+		            NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM, 
+		            String.valueOf("true".equals(authNotSecure)));
 		}
 		return input;
+	}
+	
+	private static void propagateConfigUrl(Map<String, String> config, String paramName,
+	        Map<String,String> resultConfig, String endpointUrl, String optionalSuffix) {
+        String paramUrl = config.get(paramName);
+        if (paramUrl == null)
+            paramUrl = endpointUrl + "/" + optionalSuffix;
+        resultConfig.put(paramName, paramUrl);
 	}
 	
 	public static List<String> updateJob(UpdateJobParams params, AuthToken auth, 
