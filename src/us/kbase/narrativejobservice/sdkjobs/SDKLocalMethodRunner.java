@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -36,7 +37,9 @@ import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.GetSecureConfigParamsInput;
 import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SecureConfigParameter;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.VolumeMount;
 import us.kbase.catalog.VolumeMountConfig;
@@ -167,22 +170,7 @@ public class SDKLocalMethodRunner {
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(workDir, "output.json");
             File configFile = new File(workDir, JOB_CONFIG_FILE);
-            PrintWriter pw = new PrintWriter(configFile);
-            pw.println("[global]");
             String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
-            if (kbaseEndpoint != null)
-                pw.println("kbase_endpoint = " + kbaseEndpoint);
-            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
-            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
-            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
-            pw.println("handle_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL));
-            pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
-            pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
-            pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
-            pw.println("auth_service_url_allow_insecure = " + 
-                    config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));      
-            pw.close();
-            
             String clientDetails = hostnameAndIP[1];
             String clientName = System.getenv("AWE_CLIENTNAME");
             if (clientName != null && !clientName.isEmpty()) {
@@ -257,8 +245,11 @@ public class SDKLocalMethodRunner {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            // Let's check if there are some volume mount rules set up for this module
+            // Let's check if there are some volume mount rules or secure configuration parameters
+            // set up for this module
             List<Bind> additionalBinds = null;
+            Map<String, String> envVars = null;
+            List<SecureConfigParameter> secureCfgParams = null;
             String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
             if (adminTokenStr == null || adminTokenStr.isEmpty())
                 adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
@@ -297,7 +288,36 @@ public class SDKLocalMethodRunner {
                         additionalBinds.add(new Bind(hostDir.getCanonicalPath(), new Volume(contDir), am));
                     }
                 }
+                secureCfgParams = adminCatClient.getSecureConfigParams(
+                        new GetSecureConfigParamsInput().withModuleName(modMeth.getModule())
+                        .withVersion(mv.getGitCommitHash()).withLoadAllVersions(0L));
+                envVars = new TreeMap<String, String>();
+                for (SecureConfigParameter param : secureCfgParams) {
+                    envVars.put("KBASE_SECURE_CONFIG_PARAM_" + param.getParamName(), 
+                            param.getParamValue());
+                }
             }
+            
+            PrintWriter pw = new PrintWriter(configFile);
+            pw.println("[global]");
+            if (kbaseEndpoint != null)
+                pw.println("kbase_endpoint = " + kbaseEndpoint);
+            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
+            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
+            pw.println("handle_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL));
+            pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
+            pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
+            pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
+            pw.println("auth_service_url_allow_insecure = " + 
+                    config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));
+            if (secureCfgParams != null) {
+                for (SecureConfigParameter param : secureCfgParams) {
+                    pw.println(param.getParamName() + " = " + param.getParamValue());
+                }
+            }
+            pw.close();
+            
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
                 Boolean canceled = null;
@@ -370,10 +390,9 @@ public class SDKLocalMethodRunner {
                         true);
             }
             // Calling Docker run
-            new DockerRunner(dockerURI).run(
-                    imageName, modMeth.getModule(),
-                    inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
+            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                    outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                    cancellationChecker, envVars);
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
