@@ -53,7 +53,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, null,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString(), additionalBinds, cancellationChecker);
+                jobId.toString(), additionalBinds, cancellationChecker, null);
         return outputFile;
     }
     

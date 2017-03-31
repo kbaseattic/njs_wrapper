@@ -54,10 +54,12 @@ import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ClientGroupConfig;
 import us.kbase.catalog.ClientGroupFilter;
+import us.kbase.catalog.GetSecureConfigParamsInput;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SecureConfigParameter;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
@@ -68,6 +70,7 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
+import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.Tuple13;
@@ -495,7 +498,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
         
         release = "beta";
-        ver = "0.0.8";
+        ver = "0.0.7";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
@@ -940,7 +943,7 @@ public class AweClientDockerJobScriptTest {
                 .withParams(inputValues);
         String jobId = client.runJob(params);
         JobState ret = null;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 60; i++) {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
@@ -1210,6 +1213,7 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, output);
             Assert.assertNotNull(errMsg, output.get("kbase-endpoint"));
             Assert.assertTrue(errMsg, output.get("kbase-endpoint").startsWith("http"));
+            Assert.assertEquals(errMsg, "Super password!", output.get("secret-password"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -1957,6 +1961,15 @@ public class AweClientDockerJobScriptTest {
                 return Arrays.asList(ret);
             }
             return null;
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_secure_config_params")
+        public List<SecureConfigParameter> getSecureConfigParams(GetSecureConfigParamsInput params, AuthToken authPart) throws IOException, JsonClientException {
+            List<SecureConfigParameter> ret = new ArrayList<>();
+            if (params.getModuleName().equals("onerepotest")) {
+                ret.add(new SecureConfigParameter().withModuleName("onerepotest").withParamName("secret_password").withParamValue("Super password!"));
+            }
+            return ret;
         }
     }
 }

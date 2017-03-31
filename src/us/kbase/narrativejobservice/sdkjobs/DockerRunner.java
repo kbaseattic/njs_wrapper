@@ -13,6 +13,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.slf4j.Logger;
@@ -59,7 +60,8 @@ public class DockerRunner {
             final URL callbackUrl,
             final String jobId,
             final List<Bind> additionalBinds,
-            final CancellationChecker cancellationChecker)
+            final CancellationChecker cancellationChecker,
+            final Map<String, String> envVars)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
@@ -93,8 +95,16 @@ public class DockerRunner {
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
-            if (callbackUrl != null)
-                cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
+            List<String> envVarList = new ArrayList<String>();
+            if (callbackUrl != null) {
+                envVarList.add("SDK_CALLBACK_URL=" + callbackUrl);
+            }
+            if (envVars != null) {
+                for (String envVarKey : envVars.keySet()) {
+                    envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
+                }
+            }
+            cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
             CreateContainerResponse resp = cntCmd.exec();
             final String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});

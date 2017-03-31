@@ -449,7 +449,7 @@ public class SDKMethodRunner {
                 sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
                         info.methodSpecId, funcModuleName, funcName,
                         gitCommitHash, creationTime, execStartTime, finishTime,
-                        isError, config);
+                        isError, ujsJobId, config);
             } catch (ServerException ex) {
                 errorMessage = ex.getData();
                 if (errorMessage == null)
@@ -481,14 +481,14 @@ public class SDKMethodRunner {
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
 			String methodSpecId, String funcModuleName, String funcName, String gitCommitHash, 
 			long creationTime, long execStartTime, long finishTime, boolean isError,
-			Map<String, String> config) throws Exception {
+			String jobId, Map<String, String> config) throws Exception {
 		CatalogClient catCl = getCatalogClient(config, true);
 		catCl.logExecStats(new LogExecStatsParams().withUserId(userId)
 				.withAppModuleName(uiModuleName).withAppId(methodSpecId)
 				.withFuncModuleName(funcModuleName).withFuncName(funcName)
 				.withGitCommitHash(gitCommitHash).withCreationTime(creationTime/ 1000.0)
 				.withExecStartTime(execStartTime / 1000.0).withFinishTime(finishTime / 1000.0)
-				.withIsError(isError ? 1L : 0L));
+				.withIsError(isError ? 1L : 0L).withJobId(jobId));
 	}
 
 	public static int addJobLogs(String ujsJobId, List<LogLine> lines,
