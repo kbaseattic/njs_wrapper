@@ -80,44 +80,6 @@ public class ExecEngineMongoDb {
 		}
 	}
 
-	public List<QueuedTask> getQueuedTasks() throws Exception {
-		return Lists.newArrayList(taskQueue.find("{}").as(QueuedTask.class));
-	}
-
-	public void insertQueuedTask(QueuedTask task) throws Exception {
-		taskQueue.insert(task);
-	}
-
-	public void deleteQueuedTask(String jobId) throws Exception {
-		taskQueue.remove(String.format("{%s:#}", PK_TASK_QUEUE), jobId);
-	}
-
-	public void insertExecApp(ExecApp execApp) throws Exception {
-		execApps.insert(execApp);
-	}
-
-	public ExecApp getExecApp(String appJobId) throws Exception {
-		List<ExecApp> ret = Lists.newArrayList(execApps.find(
-				String.format("{%s:#}", PK_EXEC_APPS), appJobId).as(ExecApp.class));
-		return ret.size() > 0 ? ret.get(0) : null;
-	}
-
-	public void updateExecAppData(String appJobId, String appJobState, 
-			String appStateData) throws Exception {
-		ExecApp execApp = getExecApp(appJobId);
-		if (execApp == null)
-			throw new IllegalStateException("App id=" + appJobId + " wasn't found in database");
-		execApp.setAppJobState(appJobState);
-		execApp.setAppStateData(appStateData);
-		execApp.setModificationTime(System.currentTimeMillis());
-		execApps.update(String.format("{%s:#}", PK_EXEC_APPS), appJobId).with("#", execApp);
-	}
-
-	public List<ExecApp> getExecAppsWithState(String appJobState) throws Exception {
-		return Lists.newArrayList(execApps.find(
-				String.format("{%s:#}", FLD_EXEC_APPS_APP_JOB_STATE), appJobState).as(ExecApp.class));
-	}
-
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
 		List<ExecLog> ret = Lists.newArrayList(execLogs.find(
 				String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId)

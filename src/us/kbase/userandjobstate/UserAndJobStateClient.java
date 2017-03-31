@@ -7,11 +7,15 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
+import us.kbase.common.service.RpcContext;
+import us.kbase.common.service.Tuple13;
 import us.kbase.common.service.Tuple14;
 import us.kbase.common.service.Tuple2;
+import us.kbase.common.service.Tuple3;
 import us.kbase.common.service.Tuple5;
 import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
@@ -20,6 +24,7 @@ import us.kbase.common.service.UnauthorizedException;
 /**
  * <p>Original spec-file module name: UserAndJobState</p>
  * <pre>
+ * User and Job State service (UJS)
  * Service for storing arbitrary key/object pairs on a per user per service basis
  * and storing job status so that a) long JSON RPC calls can report status and
  * UI elements can receive updates, and b) there's a centralized location for 
@@ -43,7 +48,6 @@ import us.kbase.common.service.UnauthorizedException;
  * pairs or jobs, require service authentication.
  * The service assumes other services are capable of simple math and does not
  * throw errors if a progress bar overflows.
- * Jobs are automatically deleted after 30 days.
  * Potential job process flows:
  * Asysnc:
  * UI calls service function which returns with job id
@@ -62,10 +66,27 @@ import us.kbase.common.service.UnauthorizedException;
  *         updates
  * service call finishes, completes job, returns results
  * UI thread joins
+ * Authorization:
+ * Currently two modes of authorization are supported:
+ * DEFAULT:
+ * DEFAULT authorization uses the UJS access control lists (ACLs) stored in the
+ * UJS database. All methods work normally for this authorization strategy. To
+ * use the default authorization strategy, simply do not specify an authorization
+ * strategy when creating a job.
+ * kbaseworkspace:
+ * kbaseworkspace authorization (kbwsa) associates each job with an integer
+ * Workspace Service (WSS) workspace ID (the authorization parameter). In order to
+ * create a job with kbwsa, a user must have write access to the workspace in
+ * question. That user can then read and update (but not necessarily list) the job
+ * for the remainder of the job lifetime, regardless of the workspace permission.
+ * Other users must have read permissions to the workspace in order to view the
+ * job.
+ * Share and unshare commands do not work with kbwsa.
  * </pre>
  */
 public class UserAndJobStateClient {
     private JsonClientCaller caller;
+    private String serviceVersion = null;
     private static URL DEFAULT_URL = null;
     static {
         try {
@@ -131,6 +152,13 @@ public class UserAndJobStateClient {
         caller = new JsonClientCaller(DEFAULT_URL, user, password);
     }
 
+    /** Get the token this client uses to communicate with the server.
+     * @return the authorization token.
+     */
+    public AuthToken getToken() {
+        return caller.getToken();
+    }
+
     /** Get the URL of the service with which this client communicates.
      * @return the service URL.
      */
@@ -169,7 +197,7 @@ public class UserAndJobStateClient {
         caller.setInsecureHttpConnectionAllowed(allowed);
     }
 
-    /** Deprecated. Use setInsecureHttpConnectionAllowed().
+    /** Deprecated. Use setIsInsecureHttpConnectionAllowed().
      * @deprecated
      */
     public void setAuthAllowedForHttp(boolean isAuthAllowedForHttp) {
@@ -191,16 +219,32 @@ public class UserAndJobStateClient {
     public boolean isAllSSLCertificatesTrusted() {
         return caller.isAllSSLCertificatesTrusted();
     }
-
-    /** Get the token this client uses to communicate with the server.
-     * @return the authorization token.
+    /** Sets streaming mode on. In this case, the data will be streamed to
+     * the server in chunks as it is read from disk rather than buffered in
+     * memory. Many servers are not compatible with this feature.
+     * @param streamRequest true to set streaming mode on, false otherwise.
      */
-    public AuthToken getToken() {
-        return caller.getToken();
+    public void setStreamingModeOn(boolean streamRequest) {
+        caller.setStreamingModeOn(streamRequest);
+    }
+
+    /** Returns true if streaming mode is on.
+     * @return true if streaming mode is on.
+     */
+    public boolean isStreamingModeOn() {
+        return caller.isStreamingModeOn();
     }
 
     public void _setFileForNextRpcResponse(File f) {
         caller.setFileForNextRpcResponse(f);
+    }
+
+    public String getServiceVersion() {
+        return this.serviceVersion;
+    }
+
+    public void setServiceVersion(String newValue) {
+        this.serviceVersion = newValue;
     }
 
     /**
@@ -212,10 +256,10 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String ver() throws IOException, JsonClientException {
+    public String ver(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("UserAndJobState.ver", args, retType, true, false);
+        List<String> res = caller.jsonrpcCall("UserAndJobState.ver", args, retType, true, false, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -230,13 +274,13 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void setState(String service, String key, UObject value) throws IOException, JsonClientException {
+    public void setState(String service, String key, UObject value, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(key);
         args.add(value);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.set_state", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.set_state", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -250,13 +294,13 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void setStateAuth(String token, String key, UObject value) throws IOException, JsonClientException {
+    public void setStateAuth(String token, String key, UObject value, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(token);
         args.add(key);
         args.add(value);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.set_state_auth", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.set_state_auth", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -271,13 +315,13 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public UObject getState(String service, String key, Long auth) throws IOException, JsonClientException {
+    public UObject getState(String service, String key, Long auth, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(key);
         args.add(auth);
         TypeReference<List<UObject>> retType = new TypeReference<List<UObject>>() {};
-        List<UObject> res = caller.jsonrpcCall("UserAndJobState.get_state", args, retType, true, true);
+        List<UObject> res = caller.jsonrpcCall("UserAndJobState.get_state", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -293,13 +337,13 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Long hasState(String service, String key, Long auth) throws IOException, JsonClientException {
+    public Long hasState(String service, String key, Long auth, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(key);
         args.add(auth);
         TypeReference<List<Long>> retType = new TypeReference<List<Long>>() {};
-        List<Long> res = caller.jsonrpcCall("UserAndJobState.has_state", args, retType, true, true);
+        List<Long> res = caller.jsonrpcCall("UserAndJobState.has_state", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -317,13 +361,13 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Tuple2<Long, UObject> getHasState(String service, String key, Long auth) throws IOException, JsonClientException {
+    public Tuple2<Long, UObject> getHasState(String service, String key, Long auth, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(key);
         args.add(auth);
         TypeReference<Tuple2<Long, UObject>> retType = new TypeReference<Tuple2<Long, UObject>>() {};
-        Tuple2<Long, UObject> res = caller.jsonrpcCall("UserAndJobState.get_has_state", args, retType, true, true);
+        Tuple2<Long, UObject> res = caller.jsonrpcCall("UserAndJobState.get_has_state", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res;
     }
 
@@ -337,12 +381,12 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void removeState(String service, String key) throws IOException, JsonClientException {
+    public void removeState(String service, String key, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(key);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.remove_state", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.remove_state", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -355,12 +399,12 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void removeStateAuth(String token, String key) throws IOException, JsonClientException {
+    public void removeStateAuth(String token, String key, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(token);
         args.add(key);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.remove_state_auth", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.remove_state_auth", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -374,12 +418,12 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<String> listState(String service, Long auth) throws IOException, JsonClientException {
+    public List<String> listState(String service, Long auth, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(service);
         args.add(auth);
         TypeReference<List<List<String>>> retType = new TypeReference<List<List<String>>>() {};
-        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_state", args, retType, true, true);
+        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_state", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -393,11 +437,29 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<String> listStateServices(Long auth) throws IOException, JsonClientException {
+    public List<String> listStateServices(Long auth, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(auth);
         TypeReference<List<List<String>>> retType = new TypeReference<List<List<String>>>() {};
-        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_state_services", args, retType, true, true);
+        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_state_services", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: create_job2</p>
+     * <pre>
+     * Create a new job status report.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.userandjobstate.CreateJobParams CreateJobParams}
+     * @return   parameter "job" of original type "job_id" (A job id.)
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public String createJob2(CreateJobParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
+        List<String> res = caller.jsonrpcCall("UserAndJobState.create_job2", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -405,15 +467,16 @@ public class UserAndJobStateClient {
      * <p>Original spec-file function name: create_job</p>
      * <pre>
      * Create a new job status report.
+     * @deprecated create_job2
      * </pre>
      * @return   parameter "job" of original type "job_id" (A job id.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String createJob() throws IOException, JsonClientException {
+    public String createJob(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("UserAndJobState.create_job", args, retType, true, true);
+        List<String> res = caller.jsonrpcCall("UserAndJobState.create_job", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -431,7 +494,7 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void startJob(String job, String token, String status, String desc, InitProgress progress, String estComplete) throws IOException, JsonClientException {
+    public void startJob(String job, String token, String status, String desc, InitProgress progress, String estComplete, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(token);
@@ -440,7 +503,7 @@ public class UserAndJobStateClient {
         args.add(progress);
         args.add(estComplete);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.start_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.start_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -457,7 +520,7 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String createAndStartJob(String token, String status, String desc, InitProgress progress, String estComplete) throws IOException, JsonClientException {
+    public String createAndStartJob(String token, String status, String desc, InitProgress progress, String estComplete, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(token);
         args.add(status);
@@ -465,7 +528,7 @@ public class UserAndJobStateClient {
         args.add(progress);
         args.add(estComplete);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("UserAndJobState.create_and_start_job", args, retType, true, true);
+        List<String> res = caller.jsonrpcCall("UserAndJobState.create_and_start_job", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -482,7 +545,7 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void updateJobProgress(String job, String token, String status, Long prog, String estComplete) throws IOException, JsonClientException {
+    public void updateJobProgress(String job, String token, String status, Long prog, String estComplete, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(token);
@@ -490,7 +553,7 @@ public class UserAndJobStateClient {
         args.add(prog);
         args.add(estComplete);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.update_job_progress", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.update_job_progress", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -505,14 +568,14 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void updateJob(String job, String token, String status, String estComplete) throws IOException, JsonClientException {
+    public void updateJob(String job, String token, String status, String estComplete, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(token);
         args.add(status);
         args.add(estComplete);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.update_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.update_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -525,11 +588,11 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Tuple5<String, String, Long, String, String> getJobDescription(String job) throws IOException, JsonClientException {
+    public Tuple5<String, String, Long, String, String> getJobDescription(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<Tuple5<String, String, Long, String, String>> retType = new TypeReference<Tuple5<String, String, Long, String, String>>() {};
-        Tuple5<String, String, Long, String, String> res = caller.jsonrpcCall("UserAndJobState.get_job_description", args, retType, true, true);
+        Tuple5<String, String, Long, String, String> res = caller.jsonrpcCall("UserAndJobState.get_job_description", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res;
     }
 
@@ -539,15 +602,15 @@ public class UserAndJobStateClient {
      * Get the status of a job.
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
-     * @return   multiple set: (1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), (2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', or 'error'.), (3) parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), (4) parameter "progress" of original type "total_progress" (The total progress of a job.), (5) parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), (6) parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), (7) parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.)
+     * @return   multiple set: (1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), (2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.), (3) parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), (4) parameter "progress" of original type "total_progress" (The total progress of a job.), (5) parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), (6) parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), (7) parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Tuple7<String, String, String, Long, String, Long, Long> getJobStatus(String job) throws IOException, JsonClientException {
+    public Tuple7<String, String, String, Long, String, Long, Long> getJobStatus(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<Tuple7<String, String, String, Long, String, Long, Long>> retType = new TypeReference<Tuple7<String, String, String, Long, String, Long, Long>>() {};
-        Tuple7<String, String, String, Long, String, Long, Long> res = caller.jsonrpcCall("UserAndJobState.get_job_status", args, retType, true, true);
+        Tuple7<String, String, String, Long, String, Long, Long> res = caller.jsonrpcCall("UserAndJobState.get_job_status", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res;
     }
 
@@ -566,7 +629,7 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void completeJob(String job, String token, String status, String error, Results res) throws IOException, JsonClientException {
+    public void completeJob(String job, String token, String status, String error, Results res, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(token);
@@ -574,7 +637,25 @@ public class UserAndJobStateClient {
         args.add(error);
         args.add(res);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.complete_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.complete_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
+    }
+
+    /**
+     * <p>Original spec-file function name: cancel_job</p>
+     * <pre>
+     * Cancel a job.
+     * </pre>
+     * @param   job   instance of original type "job_id" (A job id.)
+     * @param   status   instance of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.)
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public void cancelJob(String job, String status, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(job);
+        args.add(status);
+        TypeReference<Object> retType = new TypeReference<Object>() {};
+        caller.jsonrpcCall("UserAndJobState.cancel_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -587,11 +668,11 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Results getResults(String job) throws IOException, JsonClientException {
+    public Results getResults(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<List<Results>> retType = new TypeReference<List<Results>>() {};
-        List<Results> res = caller.jsonrpcCall("UserAndJobState.get_results", args, retType, true, true);
+        List<Results> res = caller.jsonrpcCall("UserAndJobState.get_results", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -605,11 +686,29 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String getDetailedError(String job) throws IOException, JsonClientException {
+    public String getDetailedError(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("UserAndJobState.get_detailed_error", args, retType, true, true);
+        List<String> res = caller.jsonrpcCall("UserAndJobState.get_detailed_error", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: get_job_info2</p>
+     * <pre>
+     * Get information about a job.
+     * </pre>
+     * @param   job   instance of original type "job_id" (A job id.)
+     * @return   parameter "info" of original type "job_info2" (Information about a job.) &rarr; tuple of size 13: parameter "job" of original type "job_id" (A job id.), parameter "users" of original type "user_info" (Who owns a job and who canceled a job (null if not canceled).) &rarr; tuple of size 2: parameter "owner" of original type "username" (Login name of a KBase user account.), parameter "canceledby" of original type "username" (Login name of a KBase user account.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "times" of original type "time_info" (Job timing information.) &rarr; tuple of size 3: parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "progress" of original type "progress_info" (Job progress information.) &rarr; tuple of size 3: parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "auth" of original type "auth_info" (Job authorization strategy information.) &rarr; tuple of size 2: parameter "strat" of original type "auth_strategy" (An authorization strategy to use for jobs. Other than the DEFAULT strategy (ACLs local to the UJS and managed by the UJS sharing functions), currently the only other strategy is the 'kbaseworkspace' strategy, which consults the workspace service for authorization information.), parameter "param" of original type "auth_param" (An authorization parameter. The contents of this parameter differ by auth_strategy, but for the workspace strategy it is the workspace id (an integer) as a string.), parameter "meta" of original type "usermeta" (User provided metadata about a job. Arbitrary key-value pairs provided by the user.) &rarr; mapping from String to String, parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results> getJobInfo2(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(job);
+        TypeReference<List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>>> retType = new TypeReference<List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>>>() {};
+        List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>> res = caller.jsonrpcCall("UserAndJobState.get_job_info2", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -617,17 +716,36 @@ public class UserAndJobStateClient {
      * <p>Original spec-file function name: get_job_info</p>
      * <pre>
      * Get information about a job.
+     * @deprecated get_job_info2
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
-     * @return   parameter "info" of original type "job_info" (Information about a job.) &rarr; tuple of size 14: parameter "job" of original type "job_id" (A job id.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', or 'error'.), parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
+     * @return   parameter "info" of original type "job_info" (Information about a job. @deprecated job_info2) &rarr; tuple of size 14: parameter "job" of original type "job_id" (A job id.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.), parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results> getJobInfo(String job) throws IOException, JsonClientException {
+    public Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results> getJobInfo(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>> retType = new TypeReference<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>>() {};
-        List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>> res = caller.jsonrpcCall("UserAndJobState.get_job_info", args, retType, true, true);
+        List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>> res = caller.jsonrpcCall("UserAndJobState.get_job_info", args, retType, true, true, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
+    }
+
+    /**
+     * <p>Original spec-file function name: list_jobs2</p>
+     * <pre>
+     * List jobs.
+     * </pre>
+     * @param   params   instance of type {@link us.kbase.userandjobstate.ListJobsParams ListJobsParams}
+     * @return   parameter "jobs" of list of original type "job_info2" (Information about a job.) &rarr; tuple of size 13: parameter "job" of original type "job_id" (A job id.), parameter "users" of original type "user_info" (Who owns a job and who canceled a job (null if not canceled).) &rarr; tuple of size 2: parameter "owner" of original type "username" (Login name of a KBase user account.), parameter "canceledby" of original type "username" (Login name of a KBase user account.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "times" of original type "time_info" (Job timing information.) &rarr; tuple of size 3: parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "progress" of original type "progress_info" (Job progress information.) &rarr; tuple of size 3: parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "auth" of original type "auth_info" (Job authorization strategy information.) &rarr; tuple of size 2: parameter "strat" of original type "auth_strategy" (An authorization strategy to use for jobs. Other than the DEFAULT strategy (ACLs local to the UJS and managed by the UJS sharing functions), currently the only other strategy is the 'kbaseworkspace' strategy, which consults the workspace service for authorization information.), parameter "param" of original type "auth_param" (An authorization parameter. The contents of this parameter differ by auth_strategy, but for the workspace strategy it is the workspace id (an integer) as a string.), parameter "meta" of original type "usermeta" (User provided metadata about a job. Arbitrary key-value pairs provided by the user.) &rarr; mapping from String to String, parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
+     * @throws IOException if an IO exception occurs
+     * @throws JsonClientException if a JSON RPC exception occurs
+     */
+    public List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>> listJobs2(ListJobsParams params, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        args.add(params);
+        TypeReference<List<List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>>>> retType = new TypeReference<List<List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>>>>() {};
+        List<List<Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String,String>, String, Results>>> res = caller.jsonrpcCall("UserAndJobState.list_jobs2", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -636,35 +754,38 @@ public class UserAndJobStateClient {
      * <pre>
      * List jobs. Leave 'services' empty or null to list jobs from all
      * services.
+     * @deprecated list_jobs2
      * </pre>
      * @param   services   instance of list of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.)
-     * @param   filter   instance of original type "job_filter" (A string-based filter for listing jobs. If the string contains: 'R' - running jobs are returned. 'C' - completed jobs are returned. 'E' - jobs that errored out are returned. 'S' - shared jobs are returned. The string can contain any combination of these codes in any order. If the string contains none of the codes or is null, all self-owned jobs that have been started are returned. If only the S filter is present, all jobs that have been started are returned.)
-     * @return   parameter "jobs" of list of original type "job_info" (Information about a job.) &rarr; tuple of size 14: parameter "job" of original type "job_id" (A job id.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', or 'error'.), parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
+     * @param   filter   instance of original type "job_filter" (A string-based filter for listing jobs. If the string contains: 'R' - running jobs are returned. 'C' - completed jobs are returned. 'N' - canceled jobs are returned. 'E' - jobs that errored out are returned. 'S' - shared jobs are returned. The string can contain any combination of these codes in any order. If the string contains none of the codes or is null, all self-owned jobs are returned. If only the S filter is present, all jobs are returned. The S filter is ignored for jobs not using the default authorization strategy.)
+     * @return   parameter "jobs" of list of original type "job_info" (Information about a job. @deprecated job_info2) &rarr; tuple of size 14: parameter "job" of original type "job_id" (A job id.), parameter "service" of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.), parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.), parameter "started" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.), parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "prog" of original type "total_progress" (The total progress of a job.), parameter "max" of original type "max_progress" (The maximum possible progress of a job.), parameter "ptype" of original type "progress_type" (The type of progress that is being tracked. One of: 'none' - no numerical progress tracking 'task' - Task based tracking, e.g. 3/24 'percent' - percentage based tracking, e.g. 5/100%), parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)), parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.), parameter "desc" of original type "job_description" (A job description string supplied by the reporting service. No more than 1000 characters.), parameter "res" of type {@link us.kbase.userandjobstate.Results Results}
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>> listJobs(List<String> services, String filter) throws IOException, JsonClientException {
+    public List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>> listJobs(List<String> services, String filter, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(services);
         args.add(filter);
         TypeReference<List<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>>> retType = new TypeReference<List<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>>>() {};
-        List<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>> res = caller.jsonrpcCall("UserAndJobState.list_jobs", args, retType, true, true);
+        List<List<Tuple14<String, String, String, String, String, String, Long, Long, String, String, Long, Long, String, Results>>> res = caller.jsonrpcCall("UserAndJobState.list_jobs", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
     /**
      * <p>Original spec-file function name: list_job_services</p>
      * <pre>
-     * List all job services.
+     * List all job services. Note that only services with jobs owned by the
+     * user or shared with the user via the default auth strategy will be
+     * listed.
      * </pre>
      * @return   parameter "services" of list of original type "service_name" (A service name. Alphanumerics and the underscore are allowed.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<String> listJobServices() throws IOException, JsonClientException {
+    public List<String> listJobServices(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         TypeReference<List<List<String>>> retType = new TypeReference<List<List<String>>>() {};
-        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_job_services", args, retType, true, true);
+        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.list_job_services", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -672,38 +793,40 @@ public class UserAndJobStateClient {
      * <p>Original spec-file function name: share_job</p>
      * <pre>
      * Share a job. Sharing a job to the same user twice or with the job owner
-     * has no effect.
+     * has no effect. Attempting to share a job not using the default auth
+     * strategy will fail.
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
      * @param   users   instance of list of original type "username" (Login name of a KBase user account.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void shareJob(String job, List<String> users) throws IOException, JsonClientException {
+    public void shareJob(String job, List<String> users, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(users);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.share_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.share_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
      * <p>Original spec-file function name: unshare_job</p>
      * <pre>
      * Stop sharing a job. Removing sharing from a user that the job is not
-     * shared with or the job owner has no effect.
+     * shared with or the job owner has no effect. Attemping to unshare a job
+     * not using the default auth strategy will fail.
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
      * @param   users   instance of list of original type "username" (Login name of a KBase user account.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void unshareJob(String job, List<String> users) throws IOException, JsonClientException {
+    public void unshareJob(String job, List<String> users, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         args.add(users);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.unshare_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.unshare_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -716,11 +839,11 @@ public class UserAndJobStateClient {
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public String getJobOwner(String job) throws IOException, JsonClientException {
+    public String getJobOwner(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<List<String>> retType = new TypeReference<List<String>>() {};
-        List<String> res = caller.jsonrpcCall("UserAndJobState.get_job_owner", args, retType, true, true);
+        List<String> res = caller.jsonrpcCall("UserAndJobState.get_job_owner", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
@@ -728,35 +851,37 @@ public class UserAndJobStateClient {
      * <p>Original spec-file function name: get_job_shared</p>
      * <pre>
      * Get the list of users with which a job is shared. Only the job owner
-     * may access this method.
+     * may access this method. Returns an empty list for jobs not using the
+     * default auth strategy.
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
      * @return   parameter "users" of list of original type "username" (Login name of a KBase user account.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public List<String> getJobShared(String job) throws IOException, JsonClientException {
+    public List<String> getJobShared(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<List<List<String>>> retType = new TypeReference<List<List<String>>>() {};
-        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.get_job_shared", args, retType, true, true);
+        List<List<String>> res = caller.jsonrpcCall("UserAndJobState.get_job_shared", args, retType, true, true, jsonRpcContext, this.serviceVersion);
         return res.get(0);
     }
 
     /**
      * <p>Original spec-file function name: delete_job</p>
      * <pre>
-     * Delete a job. Will fail if the job is not complete.
+     * Delete a job. Will fail if the job is not complete. Only the job owner
+     * can delete a job.
      * </pre>
      * @param   job   instance of original type "job_id" (A job id.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void deleteJob(String job) throws IOException, JsonClientException {
+    public void deleteJob(String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(job);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.delete_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.delete_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
     }
 
     /**
@@ -764,18 +889,26 @@ public class UserAndJobStateClient {
      * <pre>
      * Force delete a job - will succeed unless the job has not been started.
      * In that case, the service must start the job and then delete it, since
-     * a job is not "owned" by any service until it is started.
+     * a job is not "owned" by any service until it is started. Only the job
+     * owner can delete a job.
      * </pre>
      * @param   token   instance of original type "service_token" (A globus ID token that validates that the service really is said service.)
      * @param   job   instance of original type "job_id" (A job id.)
      * @throws IOException if an IO exception occurs
      * @throws JsonClientException if a JSON RPC exception occurs
      */
-    public void forceDeleteJob(String token, String job) throws IOException, JsonClientException {
+    public void forceDeleteJob(String token, String job, RpcContext... jsonRpcContext) throws IOException, JsonClientException {
         List<Object> args = new ArrayList<Object>();
         args.add(token);
         args.add(job);
         TypeReference<Object> retType = new TypeReference<Object>() {};
-        caller.jsonrpcCall("UserAndJobState.force_delete_job", args, retType, false, true);
+        caller.jsonrpcCall("UserAndJobState.force_delete_job", args, retType, false, true, jsonRpcContext, this.serviceVersion);
+    }
+
+    public Map<String, Object> status(RpcContext... jsonRpcContext) throws IOException, JsonClientException {
+        List<Object> args = new ArrayList<Object>();
+        TypeReference<List<Map<String, Object>>> retType = new TypeReference<List<Map<String, Object>>>() {};
+        List<Map<String, Object>> res = caller.jsonrpcCall("UserAndJobState.status", args, retType, true, false, jsonRpcContext, this.serviceVersion);
+        return res.get(0);
     }
 }

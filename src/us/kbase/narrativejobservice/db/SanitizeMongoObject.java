@@ -1,7 +1,6 @@
 package us.kbase.narrativejobservice.db;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -54,14 +53,10 @@ public class SanitizeMongoObject {
 			//save updated keys in separate map so we don't overwrite
 			//keys before they're escaped
 			final Map<String, Object> newm = new HashMap<String, Object>();
-			final Iterator<Entry<String, Object>> iter = m.entrySet().iterator();
-			while (iter.hasNext()) {
-				final Entry<String, Object> e = iter.next();
-				final Object value = alterKeys(e.getValue(), mod);
-				final String newkey = mod.modify(e.getKey());
-				iter.remove();
-				newm.put(newkey, value);
+			for (final Entry<String, Object> e: m.entrySet()) {
+				newm.put(mod.modify(e.getKey()), alterKeys(e.getValue(), mod));
 			}
+			m.clear();
 			m.putAll(newm);
 			return o;
 		} else {

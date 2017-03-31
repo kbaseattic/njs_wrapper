@@ -38,8 +38,11 @@ import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
 public class DockerRunner {
+
+    public static final int CANCELLATION_CHECK_PERIOD_SEC = 5;
+
     private final URI dockerURI;
-    
+
     public DockerRunner(final URI dockerURI) {
         //this.dockerURI = dockerURI;
         URI tmp;
@@ -51,12 +54,12 @@ public class DockerRunner {
         }
         this.dockerURI = tmp;
     }
-    
+
     public File run(
             String imageName,
             final String moduleName,
             final File inputData,
-            final AuthToken token, 
+            final AuthToken token,
             final LineLogger log,
             final File outputFile,
             final boolean removeImage,
@@ -64,19 +67,21 @@ public class DockerRunner {
             final File optionalScratchDir,
             final URL callbackUrl,
             final String jobId,
-            final List<Bind> additionalBinds)
+            final List<Bind> additionalBinds,
+            final CancellationChecker cancellationChecker,
+            final Map<String, String> envVars)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
-            throw new IllegalStateException("Input file has wrong name: " + 
+            throw new IllegalStateException("Input file has wrong name: " +
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
-        DockerClient cl = createDockerClient();
-        imageName = checkImagePulled(cl, imageName);
+        final DockerClient cl = createDockerClient();
+        imageName = checkImagePulled(cl, imageName, log);
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
-            fw.write(token.toString());
+            fw.write(token.getToken());
             fw.close();
             if (outputFile.exists())
                 outputFile.delete();
@@ -87,7 +92,7 @@ public class DockerRunner {
                     break;
                 suffix++;
             }
-            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(), 
+            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(),
                     new Volume("/kb/module/work"))));
             if (refDataDir != null)
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
@@ -98,8 +103,17 @@ public class DockerRunner {
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
-            if (callbackUrl != null)
-                cntCmd = cntCmd.withEnv("SDK_CALLBACK_URL=" + callbackUrl);
+            List<String> envVarList = new ArrayList<String>();
+            if (callbackUrl != null) {
+                envVarList.add("SDK_CALLBACK_URL=" + callbackUrl);
+            }
+            if (envVars != null) {
+                for (String envVarKey : envVars.keySet()) {
+                    envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
+                }
+            }
+            cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
+            // TODO: Should be able to use envVars directly
             Map<String, String> env = System.getenv();
             String [] environment = new String[env.size()+1];
             int j = 0;
@@ -108,9 +122,8 @@ public class DockerRunner {
                 j++;
             }
             environment[j] = "SDK_CALLBACK_URL=" + callbackUrl;
-
             //CreateContainerResponse resp = cntCmd.exec();
-            //String cntId = resp.getId();
+            //final String cntId = resp.getId();
             //Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v",Arrays.toString(binds.toArray())},
                                                   environment);
@@ -139,10 +152,42 @@ public class DockerRunner {
                 ret.start();
                 workers.add(ret);
             }
+            Thread cancellationCheckingThread = null;
+            if (cancellationChecker != null) {
+                cancellationCheckingThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (!Thread.interrupted()) {
+                            try {
+                                Thread.sleep(CANCELLATION_CHECK_PERIOD_SEC * 1000);
+                                if (cancellationChecker.isJobCanceled()) {
+                                    // Stop the container
+                                    try {
+                                        //cl.stopContainerCmd(cntId).exec();
+                                        log.logNextLine("Docker container for module [" + moduleName + "]" +
+                                        		" was successfully stopped during job cancellation", false);
+                                    } catch (Exception ex) {
+                                        ex.printStackTrace();
+                                        log.logNextLine("Error stopping docker container for module [" +
+                                                moduleName + "] during job cancellation: " + ex.getMessage(),
+                                                true);
+                                    }
+                                    break;
+                                }
+                            } catch (InterruptedException ex) {
+                                break;
+                            }
+                        }
+                    }
+                });
+                cancellationCheckingThread.start();
+            }
             for (Thread t : workers)
                 t.join();
             p.waitFor();
             //cl.waitContainerCmd(cntId).exec();
+            if (cancellationCheckingThread != null)
+                cancellationCheckingThread.interrupt();
             //--------------------------------------------------
             //InspectContainerResponse resp2 = cl.inspectContainerCmd(cntId).exec();
             //if (resp2.getState().isRunning()) {
@@ -162,6 +207,10 @@ public class DockerRunner {
             if (outputFile.exists()) {
                 return outputFile;
             } else {
+                if (cancellationChecker != null && cancellationChecker.isJobCanceled())
+                    return null;
+                // TODO: cleanup
+                //int exitCode = resp2.getState().getExitCode();
                 int exitCode = 0; //resp2.getState().getExitCode();
                 StringBuilder err = new StringBuilder();
                 //BufferedReader br = new BufferedReader(new InputStreamReader(
@@ -203,46 +252,58 @@ public class DockerRunner {
                 } catch (Exception ignore) {}
         }
     }
-    
-    public String checkImagePulled(DockerClient cl, String imageName)
+
+    public String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
             throws IOException {
         if (findImageId(cl, imageName) == null) {
-            System.out.println("[DEBUG] DockerRunner: before pulling " + imageName);
+            log.logNextLine("Image " + imageName + " is not pulled yet, pulling...", false);
+            // TODO: Fix and catch error
             ProcessHelper.cmd("mydocker", "pull", imageName).exec(new File("."));
-            System.out.println("[DEBUG] DockerRunner: after pulling " + imageName);
+            //ProcessHelper.cmd("docker", "pull", imageName).exec(new File("."));
+            //if (findImageId(cl, imageName) == null) {
+            //    throw new IllegalStateException("Image was not found: " + imageName);
+            //} else {
+            //    log.logNextLine("Image " + imageName + " is pulled successfully", false);
+            //}
         }
-        //if (findImageId(cl, imageName) == null) {
-        //    throw new IllegalStateException("Image was not found: " + imageName);
-        //}
         return imageName;
     }
 
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix) {
         return findImageId(cl, imageTagOrIdPrefix, false);
     }
-    
+
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix, boolean all) {
-        //for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
-        //    if (image.getId().startsWith(imageTagOrIdPrefix))
-        //        return image;
-        //    for (String tag : image.getRepoTags())
-        //        if (tag.equals(imageTagOrIdPrefix))
-        //            return image;
-        //}
+        if (true)
+          return null;
+        for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
+            if (image.getId().startsWith(imageTagOrIdPrefix))
+                return image;
+            if (image.getRepoTags() == null)
+                continue;
+            for (String tag : image.getRepoTags())
+                if (tag.equals(imageTagOrIdPrefix))
+                    return image;
+        }
         return null;
     }
-    
+
     private Container findContainerByNameOrIdPrefix(DockerClient cl, String nameOrIdPrefix) {
-        //for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
-        //    if (cnt.getId().startsWith(nameOrIdPrefix))
-        //        return cnt;
-        //    for (String name : cnt.getNames())
-        //        if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
-        //            return cnt;
-        //}
+        if (true){
+          return null;          
+        }
+        for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
+            if (cnt.getId().startsWith(nameOrIdPrefix))
+                return cnt;
+            if (cnt.getNames() == null)
+                continue;
+            for (String name : cnt.getNames())
+                if (name.equals(nameOrIdPrefix) || name.equals("/" + nameOrIdPrefix))
+                    return cnt;
+        }
         return null;
     }
-    
+
     public DockerClient createDockerClient() {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
