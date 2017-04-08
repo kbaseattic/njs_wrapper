@@ -353,6 +353,8 @@ public class SDKLocalMethodRunner {
             // Starting up callback server
             String[] callbackNetworks = null;
             String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
+            if (System.getenv("CALLBACK_INTERFACE")!=null)
+                callbackNetworksText = System.getenv("CALLBACK_INTERFACE");
             if (callbackNetworksText != null) {
                 callbackNetworks = callbackNetworksText.trim().split("\\s*,\\s*");
             }
