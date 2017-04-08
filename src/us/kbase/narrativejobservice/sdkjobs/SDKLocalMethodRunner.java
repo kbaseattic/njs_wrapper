@@ -66,6 +66,7 @@ import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
 
 public class SDKLocalMethodRunner {
 
@@ -321,6 +322,8 @@ public class SDKLocalMethodRunner {
             // Starting up callback server
             String[] callbackNetworks = null;
             String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
+            if (System.getenv("CALLBACK_INTERFACE")!=null)
+                callbackNetworksText = System.getenv("CALLBACK_INTERFACE");
             if (callbackNetworksText != null) {
                 callbackNetworks = callbackNetworksText.trim().split("\\s*,\\s*");
             }
@@ -358,11 +361,16 @@ public class SDKLocalMethodRunner {
                         "by the job runner. Local callbacks are disabled.",
                         true);
             }
-            // Calling Docker run
-            new DockerRunner(dockerURI).run(
-                    imageName, modMeth.getModule(),
-                    inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
+            // Calling Runner
+            if (System.getenv("USE_SHIFTER")!=null)
+                new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker);
+            else
+                new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker);
+
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
