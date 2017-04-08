@@ -70,6 +70,7 @@ import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
 
 public class SDKLocalMethodRunner {
 
@@ -389,10 +390,15 @@ public class SDKLocalMethodRunner {
                         "by the job runner. Local callbacks are disabled.",
                         true);
             }
-            // Calling Docker run
-            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
-                    outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                    cancellationChecker, envVars);
+            // Calling Runner
+            if (System.getenv("USE_SHIFTER")!=null)
+                new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker, envVars);
+            else
+                new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker, envVars);
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);

@@ -4,26 +4,32 @@
 # for KBase jobs
 
 # Save the commands for debugging
-echo $@ >> ~/mydocker.debug
 
 if [ "$1" = "pull" ] ;then
+  echo $@ >> ~/mydocker.debug
   if [ $(shifterimg images|grep -c $2) -eq 0 ] ; then
     shifterimg pull docker:$2|tail -10
   fi
 elif [ "$1" = "run" ] ;then
+  echo $@ >> ~/mydocker.debug
   # KBase expects /kb/module to be writeable for now.  So let's make a copy for
   # remounting rw
   IMAGE=docker:$2
   MODULE=$(echo "$2"|sed 's|.*/||'|sed 's/:/_/')
   RW=$SCRATCH/writeable/$MODULE
-  shifter --image=$IMAGE rsync -avz /kb/module/ $RW
+  shifter --image=$IMAGE rsync -aqz /kb/module/ $RW
+  rmdir $RW/work
+  ln -s /work $RW/work
 
   # Get the working directory
-  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//')
+  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//g'|sed 's|/kb/module/work|/work|'|sed 's|/kb/module/work/tmp|/worktmp|'|sed 's/,/ --volume/g')
+  echo "DEBUG: $VOLM"  
+  echo "DEBUG: $5"
   WD=$(echo $VOLM|sed 's/:.*//')/tmp
   echo "Workdir:$WD"
   echo "RW:$RW"
   # Run the job with basically no modifications
+  echo "shifter --image=$IMAGE  --volume $RW:/kb/module  --volume $VOLM $0 inside"
   shifter --image=$IMAGE \
     --volume $RW:/kb/module \
     --volume $VOLM $0 inside
@@ -38,7 +44,7 @@ elif [ "$1" = "run" ] ;then
     export POST=1
     cd $WD
     export RUNDIR=$WD
-    JOBID=$(sbatch slurm.submit|sed 's/.* //')
+    JOBID=$(sbatch -C haswell slurm.submit|sed 's/.* //')
     if [ $? -ne 0 ] ;then
       echo "Submit Failed"
       exit 1
@@ -59,5 +65,9 @@ elif [ "$1" = "inside" ] ;then
   # This is needed because Shifter doesn't handle some docker metadata just yet (cwd)
   echo "Inside Shifter wraper"
   cd /kb/module
+  if [ -e /worktmp ] ; then
+    mv /kb/module/work/tmp /kb/module/work/tmp.prev
+    ln -s /worktmp /kb/module/work/tmp
+  fi
   ./scripts/entrypoint.sh async
 fi
