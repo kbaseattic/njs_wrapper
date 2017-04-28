@@ -134,6 +134,8 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
+            if (System.getenv("CALLBACK_INTERFACE")!=null)
+                config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
             ConfigurableAuthService auth = getAuth(config);
             // We couldn't validate token earlier because we didn't have auth service URL.
             AuthToken token = auth.validateToken(tokenStr);
@@ -353,8 +355,6 @@ public class SDKLocalMethodRunner {
             // Starting up callback server
             String[] callbackNetworks = null;
             String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
-            if (System.getenv("CALLBACK_INTERFACE")!=null)
-                callbackNetworksText = System.getenv("CALLBACK_INTERFACE");
             if (callbackNetworksText != null) {
                 callbackNetworks = callbackNetworksText.trim().split("\\s*,\\s*");
             }
