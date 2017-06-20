@@ -1,5 +1,14 @@
 # A KBase user ID and password.
-user=*****
-password=*****
-# the path to the MongoDB executable. Omit to use mongod found on the path.
-test-mongod-exe=/kb/runtime/bin/mongod
+token=*****
+
+# Temporary folder for tests
+temp.dir=temp_files
+
+# Path to the MongoDB executable. Omit to use mongod found on the path.
+#test-mongod-exe=/kb/runtime/bin/mongod
+
+# Path to AWE binaries (if not set then $PATH is used).
+test-awe-bin-dir=test_data/awe_deps
+
+# Custom parameters overriding values in deploy.cfg:
+#awe.client.docker.uri=

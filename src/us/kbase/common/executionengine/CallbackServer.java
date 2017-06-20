@@ -33,8 +33,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
+import us.kbase.auth.AuthException;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
 import us.kbase.common.service.JacksonTupleModule;
 import us.kbase.common.service.JsonClientException;
@@ -51,7 +51,6 @@ import us.kbase.workspace.SubAction;
 public abstract class CallbackServer extends JsonServerServlet {
     //TODO NJS_SDK move to common repo
     
-    //TODO identical (or close to it) to kb_sdk call back server.
     // should probably go in java_common or make a common repo for shared
     // NJSW & KB_SDK code, since they're tightly coupled
     private static final long serialVersionUID = 1L;
@@ -61,6 +60,7 @@ public abstract class CallbackServer extends JsonServerServlet {
     
     private final AuthToken token;
     private final CallbackServerConfig config;
+
     private ProvenanceAction prov = new ProvenanceAction();
     
     private final static DateTimeFormatter DATE_FORMATTER =
@@ -110,6 +110,16 @@ public abstract class CallbackServer extends JsonServerServlet {
          */
     }
     
+    @Override
+    protected AuthToken validateToken(String tokenString) throws AuthException,
+            IOException {
+        String origTokenString = token.getToken();
+        if (tokenString.equals(origTokenString)) {
+            return token;
+        }
+        return new AuthToken(tokenString, "<unknown>");
+    }
+    
     protected void resetProvenanceAndMethods(final ProvenanceAction newProv) {
         if (newProv == null) {
             throw new NullPointerException("Provenance cannot be null");
@@ -132,7 +142,7 @@ public abstract class CallbackServer extends JsonServerServlet {
            sas.add(new SubAction()
                .withCodeUrl(mrv.getGitURL().toExternalForm())
                .withCommit(mrv.getGitHash())
-               .withName(mrv.getModuleMethod().getModuleDotMethod())
+               .withName(mrv.getModuleMethod().getModule())
                .withVer(mrv.getVersionAndRelease()));
         }
         return new LinkedList<ProvenanceAction>(Arrays.asList(
@@ -155,9 +165,9 @@ public abstract class CallbackServer extends JsonServerServlet {
         return new UObject(data);
     }
 
-    protected static void cbLog(String log) {
-        System.out.println(String.format("%.2f - CallbackServer: %s",
-                (System.currentTimeMillis() / 1000.0), log));
+    protected void cbLog(String log) {
+        config.getLogger().logNextLine(String.format("%.2f - CallbackServer: %s",
+                (System.currentTimeMillis() / 1000.0), log), false);
     }
     
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
@@ -169,7 +179,7 @@ public abstract class CallbackServer extends JsonServerServlet {
             String errorMessage = null;
             Map<String, Object> jsonRpcResponse = null;
             try {
-                jsonRpcResponse = handleCall(rpcCallData);
+                jsonRpcResponse = handleCall(rpcCallData, token);
             } catch (Exception ex) {
                 ex.printStackTrace();
                 errorMessage = ex.getMessage();
@@ -201,8 +211,8 @@ public abstract class CallbackServer extends JsonServerServlet {
     }
 
     private Map<String, Object> handleCall(
-            final RpcCallData rpcCallData) throws IOException,
-            JsonClientException, InterruptedException, TokenFormatException {
+            final RpcCallData rpcCallData, String callTokenText) throws IOException,
+            JsonClientException, InterruptedException {
 
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
@@ -220,14 +230,16 @@ public abstract class CallbackServer extends JsonServerServlet {
             // update method name to get rid of suffixes
             rpcCallData.setMethod(modmeth.getModuleDotMethod());
             incrementJobCount();
+            AuthToken callToken = callTokenText == null ? null :
+                new AuthToken(callTokenText, "<unknown>");
             if (modmeth.isStandard()) {
                 try {
-                    jsonRpcResponse = runner.run(rpcCallData);
+                    jsonRpcResponse = runner.run(rpcCallData, callToken);
                 } finally {
                     decrementJobCount();
                 }
             } else {
-                startJob(rpcCallData, jobId, runner);
+                startJob(rpcCallData, jobId, runner, callToken);
                 jsonRpcResponse = new HashMap<String, Object>();
                 jsonRpcResponse.put("version", "1.1");
                 jsonRpcResponse.put("id", rpcCallData.getId());
@@ -238,7 +250,7 @@ public abstract class CallbackServer extends JsonServerServlet {
     }
 
     private void startJob(final RpcCallData rpcCallData, final UUID jobId,
-            final SubsequentCallRunner runner) throws IOException {
+            final SubsequentCallRunner runner, AuthToken callToken) throws IOException {
         FutureTask<Map<String, Object>> task = null;
         try {
             /* need to make a copy of the RPC data because it contains
@@ -281,7 +293,7 @@ public abstract class CallbackServer extends JsonServerServlet {
             rpcCallData.setParams(newobjs);
             task = new FutureTask<Map<String, Object>>(
                     new SubsequentCallRunnerRunner(
-                            runner, rpcCallData));
+                            runner, rpcCallData, callToken));
             executor.execute(task);
             runningJobs.put(jobId, task);
         } catch (IOException | RuntimeException | Error e) {
@@ -364,7 +376,11 @@ public abstract class CallbackServer extends JsonServerServlet {
             result.put("result", resp.get("result"));
         }
         final Map<String, Object> copy = new HashMap<String, Object>(resp);
-        copy.put("result", Arrays.asList(result));
+        // Adding this check makes java client happy because it doesn't like
+        // to see both "error" and "result" blocks in JSON-RPC response.
+        if (!copy.containsKey("error")) {
+            copy.put("result", Arrays.asList(result));
+        }
         return copy;
     }
 
@@ -392,17 +408,20 @@ public abstract class CallbackServer extends JsonServerServlet {
 
         private final SubsequentCallRunner scr;
         private final RpcCallData rpc;
+        private final AuthToken callToken;
 
         public SubsequentCallRunnerRunner(
                 final SubsequentCallRunner scr,
-                final RpcCallData rpcData) {
+                final RpcCallData rpcData,
+                final AuthToken callToken) {
             this.scr = scr;
             this.rpc = rpcData;
+            this.callToken = callToken;
         }
 
         @Override
         public Map<String, Object> call() throws Exception {
-            return scr.run(rpc);
+            return scr.run(rpc, callToken);
         }
     }
     
@@ -410,7 +429,7 @@ public abstract class CallbackServer extends JsonServerServlet {
             final UUID jobId,
             final RpcContext rpcContext,
             final ModuleMethod modmeth)
-            throws IOException, JsonClientException, TokenFormatException  {
+            throws IOException, JsonClientException  {
         final SubsequentCallRunner runner;
         synchronized (getRunnerLock) {
             final String serviceVer;
@@ -437,7 +456,16 @@ public abstract class CallbackServer extends JsonServerServlet {
             runner = createJobRunner(token, config, jobId, modmeth,
                     serviceVer);
             if (!vers.containsKey(modmeth.getModule())) {
-                vers.put(modmeth.getModule(), runner.getModuleRunVersion());
+                final ModuleRunVersion v = runner.getModuleRunVersion();
+                cbLog(String.format("Running module %s:\n" +
+                        "url: %s\n" +
+                        "commit: %s\n" +
+                        "version: %s\n" +
+                        "release: %s\n",
+                        modmeth.getModule(), v.getGitURL(),
+                        v.getGitHash(), v.getVersion(),
+                        v.getRelease()));
+                vers.put(modmeth.getModule(), v);
             }
         }
         return runner;
@@ -449,7 +477,7 @@ public abstract class CallbackServer extends JsonServerServlet {
             final UUID jobId,
             final ModuleMethod modmeth,
             final String serviceVer)
-            throws IOException, JsonClientException, TokenFormatException;
+            throws IOException, JsonClientException;
     
     @Override
     public void destroy() {
@@ -462,16 +490,25 @@ public abstract class CallbackServer extends JsonServerServlet {
     
     public static URL getCallbackUrl(int callbackPort)
             throws SocketException {
+        return getCallbackUrl(callbackPort, null);
+    }
+
+    public static URL getCallbackUrl(int callbackPort, String[] networkInterfaces)
+            throws SocketException {
+        if (networkInterfaces == null || networkInterfaces.length == 0) {
+            networkInterfaces = new String[] {"docker0", "vboxnet0", "vboxnet1",
+                    "VirtualBox Host-Only Ethernet Adapter", "en0"};
+        }
         final List<String> hostIps = NetUtils.findNetworkAddresses(
-                "docker0", "vboxnet0");
+                networkInterfaces);
         final String hostIp;
         if (hostIps.isEmpty()) {
             return null;
         } else {
             hostIp = hostIps.get(0);
             if (hostIps.size() > 1) {
-                cbLog("WARNING! Several Docker host IP addresses " +
-                        "detected, used first:  " + hostIp);
+                System.out.println("WARNING! Several Docker host IP " +
+                        "addresses detected, used first:  " + hostIp);
             }
         }
         try {

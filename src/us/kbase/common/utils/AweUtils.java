@@ -1,12 +1,15 @@
 package us.kbase.common.utils;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
@@ -17,6 +20,9 @@ import org.apache.http.util.EntityUtils;
 
 import us.kbase.auth.AuthToken;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class AweUtils {
@@ -24,7 +30,8 @@ public class AweUtils {
     @SuppressWarnings("unchecked")
     public static String runTask(String aweServerUrl, String pipeline, 
             String jobName, String args, String scriptName, AuthToken auth,
-            String aweClientGroups) throws Exception {
+            String aweClientGroups, AuthToken adminAuth) throws JsonGenerationException, 
+            JsonMappingException, IOException, AweResponseException {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         Map<String, Object> job = new LinkedHashMap<String, Object>();   // AwfTemplate
@@ -32,7 +39,7 @@ public class AweUtils {
         info.put("pipeline", pipeline);
         info.put("name", jobName);
         info.put("project", "SDK");
-        info.put("user", auth.getClientId());
+        info.put("user", auth.getUserName());
         info.put("clientgroups", aweClientGroups);
         job.put("info", info);
         Map<String, Object> task = new LinkedHashMap<String, Object>();  // AwfTask
@@ -42,8 +49,10 @@ public class AweUtils {
         Map<String, Object> env = new LinkedHashMap<String, Object>();   // AwfEnviron
         env.put("public", new LinkedHashMap<String, Object>());
         Map<String, Object> priv = new LinkedHashMap<String, Object>();
-        String token = auth.toString();
+        String token = auth.getToken();
         priv.put("KB_AUTH_TOKEN", token);
+        if (adminAuth != null)
+            priv.put("KB_ADMIN_AUTH_TOKEN", adminAuth.getToken());
         env.put("private", priv);
         cmd.put("environ", env);
         cmd.put("description", "");
@@ -63,9 +72,7 @@ public class AweUtils {
         builder.addBinaryBody("upload", buffer.toByteArray(),
                 ContentType.APPLICATION_OCTET_STREAM, "tempjob.json");
         httpPost.setEntity(builder.build());
-        HttpResponse response = httpClient.execute(httpPost);
-        String postResponse = EntityUtils.toString(response.getEntity());
-        Map<String, Object> respObj = mapper.readValue(postResponse, Map.class);
+        Map<String, Object> respObj = parseAweResponse(httpClient.execute(httpPost));
         Map<String, Object> respData = (Map<String, Object>)respObj.get("data");
         if (respData == null)
             throw new IllegalStateException("AWE error: " + respObj.get("error"));
@@ -73,23 +80,61 @@ public class AweUtils {
         return aweJobId;
     }
 
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> parseAweResponse(
+            HttpResponse response) throws IOException, ClientProtocolException,
+            JsonParseException, JsonMappingException, AweResponseException {
+        String postResponse = "" + EntityUtils.toString(response.getEntity());
+        Map<String, Object> respObj;
+        try {
+            respObj = new ObjectMapper().readValue(postResponse, Map.class);
+        } catch (Exception ex) {
+            String respHead = postResponse.length() <= 1000 ? postResponse :
+                    (postResponse.subSequence(0, 1000) + "...");
+            throw new IllegalStateException("Error parsing JSON response of AWE server " +
+            		"(" + ex.getMessage() + "). Here is the response head text: \n" +
+            		respHead, ex);
+        }
+        int status = response.getStatusLine().getStatusCode();
+        Integer jsonStatus = (Integer)respObj.get("status");
+        Object errObj = respObj.get("error");
+        if (status != 200 || jsonStatus != null && jsonStatus != 200 ||
+                errObj != null) {
+            if (jsonStatus == null)
+                jsonStatus = status;
+            String error = null;
+            if (errObj != null) {
+                if (errObj instanceof List) {
+                    List<Object> errList = (List<Object>)errObj;
+                    if (errList.size() == 1 && errList.get(0) instanceof String)
+                        error = (String)errList.get(0);
+                }
+                if (error == null)
+                    error = String.valueOf(errObj);
+            }
+            String reason = response.getStatusLine().getReasonPhrase();
+            String fullMessage = "AWE error code " + jsonStatus + ": " +
+                    (error == null ? reason : error);
+            throw new AweResponseException(fullMessage, jsonStatus, reason, error);
+        }
+        return respObj;
+    }
+
     public static Map<String, Object> getAweJobDescr(String aweServerUrl, 
-            String aweJobId, String token) throws Exception {
+            String aweJobId, AuthToken token) throws JsonParseException, 
+            JsonMappingException, ClientProtocolException, IOException, 
+            AweResponseException {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId);
-        httpReq.addHeader("Authorization", "OAuth " + token);
-        HttpResponse response = httpClient.execute(httpReq);
-        String respString = EntityUtils.toString(response.getEntity());
-        ObjectMapper mapper = new ObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> ret = mapper.readValue(respString, Map.class);
-        return ret;
+        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
+        return parseAweResponse(httpClient.execute(httpReq));
     }
     
     public static String getAweJobState(String aweServerUrl, String aweJobId,
-            String token) throws Exception {
+            AuthToken token) throws JsonParseException, JsonMappingException, 
+            ClientProtocolException, IOException, AweResponseException {
         Map<String, Object> aweJob = getAweJobDescr(aweServerUrl, aweJobId, token);
         @SuppressWarnings("unchecked")
         Map<String, Object> data = (Map<String, Object>)aweJob.get("data");
@@ -106,17 +151,14 @@ public class AweUtils {
     }
     
     public static Map<String, Object> getAweJobPosition(String aweServerUrl, 
-            String aweJobId, String token) throws Exception {
+            String aweJobId, AuthToken token) throws JsonParseException, 
+            JsonMappingException, ClientProtocolException, IOException, 
+            AweResponseException {
         if (!aweServerUrl.endsWith("/"))
             aweServerUrl += "/";
         CloseableHttpClient httpClient = HttpClients.createDefault();
         HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId + "?position");
-        httpReq.addHeader("Authorization", "OAuth " + token);
-        HttpResponse response = httpClient.execute(httpReq);
-        String respString = EntityUtils.toString(response.getEntity());
-        ObjectMapper mapper = new ObjectMapper();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> ret = mapper.readValue(respString, Map.class);
-        return ret;
+        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
+        return parseAweResponse(httpClient.execute(httpReq));
     }
 }

@@ -6,7 +6,6 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import static us.kbase.narrativejobservice.test.AweClientDockerJobScriptTest.loadConfig;
 import static us.kbase.narrativejobservice.test.AweClientDockerJobScriptTest.getMVI;
 
 import java.io.IOException;
@@ -43,7 +42,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
-import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.SelectOneModuleParams;
@@ -84,8 +82,7 @@ public class CallbackServerTest {
         Files.deleteIfExists(TEST_DIR);
         Files.createDirectories(TEST_DIR);
         final Properties props = TesterUtils.props();
-        token =  AuthService.login(get(props, "user"),
-                get(props, "password")).getToken();
+        token =  TesterUtils.token(props);
         
     }
 
@@ -119,10 +116,10 @@ public class CallbackServerTest {
         final Path temp = Files.createTempDirectory(TEST_DIR, "cbt");
         final CallbackServerConfig cbcfg =
                 new CallbackServerConfigBuilder(
-                AweClientDockerJobScriptTest.loadConfig(), callbackUrl,
+                TesterUtils.loadConfig(), callbackUrl,
                         temp, log).build();
         final JsonServerServlet callback = new NJSCallbackServer(
-                token, cbcfg, runver, params, wsobjs);
+                token, cbcfg, runver, params, wsobjs, null, null);
         final Server callbackServer = new Server(callbackPort);
         final ServletContextHandler srvContext =
                 new ServletContextHandler(
@@ -243,14 +240,6 @@ public class CallbackServerTest {
                 return res;
             }
         }
-    }
-    
-    private static String get(Properties props, String propName) {
-        final String ret = props.getProperty(propName);
-        if (ret == null)
-            throw new IllegalStateException("Property is not defined: " +
-                    propName);
-        return ret;
     }
     
     private void checkResults(Map<String, Object> got,
@@ -518,11 +507,13 @@ public class CallbackServerTest {
         String moduleName = "njs_sdk_test_1";
         String methodName = "run";
         String release = "dev";
-        String ver = "0.0.2";
+        String ver = "0.0.3";
+        String repo1commit = "de445aa9c3404d68be3a87b03c1dbf2f3fccba24";
+        String repo2commit = "3cd0ed213d8376349bdb0f454c5f5bc8b31ea650";
         final ModuleRunVersion runver = new ModuleRunVersion(
                 new URL("https://github.com/kbasetest/njs_sdk_test_1"),
                 new ModuleMethod(moduleName + "." + methodName),
-                "d0a452d6194cf4289df03585912ab1c7d8ee180c", ver, release);
+                repo1commit, ver, release);
         List<String> wsobjs = Arrays.asList("foo", "bar", "baz");
         List<UObject> params = new ArrayList<UObject>();
         params.add(new UObject(Arrays.asList("foo", "bar")));
@@ -551,23 +542,23 @@ public class CallbackServerTest {
              "}",
              moduleName2 + "." + methodName,
              // dev is on this commit
-             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
+             repo2commit,
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
+             repo1commit,
              moduleName2 + "." + methodName,
              "dev"), Map.class);
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.2")
+            .withVer("0.0.3")
             .withRel("dev")
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.7")
-            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
+            .withVer("0.0.8")
+            .withCommit(repo2commit)
         );
         Map<String, Object> results = res.callMethod(
                 moduleName + '.' + methodName, methparams, "dev");
@@ -654,7 +645,7 @@ public class CallbackServerTest {
     
     private void checkSubActions(List<SubAction> gotsas,
             List<SubActionSpec> expsas) throws Exception {
-        CatalogClient cat = getCatalogClient(token, loadConfig());
+        CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         assertThat("correct # of subactions",
                 gotsas.size(), is(expsas.size()));
         for (SubActionSpec sa: expsas) {
@@ -672,7 +663,7 @@ public class CallbackServerTest {
             assertThat("correct code url", got.getCodeUrl(),
                     is("https://github.com/kbasetest/" + sa.module));
             assertThat("correct commit", got.getCommit(), is(sa.commit));
-            assertThat("correct name", got.getName(), is(sa.module + ".run"));
+            assertThat("correct name", got.getName(), is(sa.module));
             assertThat("correct version", got.getVer(), is(sa.getVerRel()));
         }
     }

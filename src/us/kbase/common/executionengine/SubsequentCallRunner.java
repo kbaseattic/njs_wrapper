@@ -1,6 +1,7 @@
 package us.kbase.common.executionengine;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +13,6 @@ import java.util.UUID;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
@@ -39,46 +39,58 @@ public abstract class SubsequentCallRunner {
     private final UUID jobId;
     private final String imageName;
     private final ModuleRunVersion mrv;
-    private CallbackServerConfig config;
+    private final CallbackServerConfig config;
     
     public SubsequentCallRunner(
             final AuthToken token,
             final CallbackServerConfig config,
             final UUID jobId,
             final ModuleMethod modmeth, 
-            String serviceVer)
-            throws IOException, JsonClientException,
-            TokenFormatException {
+            final String serviceVer)
+            throws IOException, JsonClientException {
         this.token = token;
         this.config = config;
+        this.moduleName = modmeth.getModule();
+        this.jobId = jobId;
+        final ModuleVersion mv = loadModuleVersion(modmeth, serviceVer);
+        mrv =  this.createModuleRunVersion(modmeth, serviceVer, mv);
+        imageName = this.getImageName(mv);
+        Files.createDirectories(getSharedScratchDir(config));
+        final Path jobWorkDir = getJobWorkDir(jobId, config, imageName);
+        Files.createDirectories(jobWorkDir);
+        config.writeJobConfigToFile(jobWorkDir.resolve(
+                JobRunnerConstants.JOB_CONFIG_FILE));
+    }
+
+    protected ModuleVersion loadModuleVersion(ModuleMethod modmeth, 
+            String serviceVer) throws IOException, JsonClientException {
         final CatalogClient catClient = new CatalogClient(
                 config.getCatalogURL());
         //TODO is this needed?
         catClient.setIsInsecureHttpConnectionAllowed(true);
-        this.moduleName = modmeth.getModule();
-        this.jobId = jobId;
         if (serviceVer == null || serviceVer.isEmpty()) {
             serviceVer = RELEASE;
         }
-        final ModuleVersion mv;
         try {
-            mv = catClient.getModuleVersion(new SelectModuleVersion()
+            return catClient.getModuleVersion(new SelectModuleVersion()
                 .withModuleName(moduleName).withVersion(serviceVer));
         } catch (ServerException se) {
             throw new IllegalArgumentException(String.format(
                     "Error looking up module %s with version %s: %s",
                     moduleName, serviceVer, se.getLocalizedMessage()));
         }
-        mrv = new ModuleRunVersion(
+    }
+    
+    protected ModuleRunVersion createModuleRunVersion(ModuleMethod modmeth, 
+            String serviceVer, ModuleVersion mv) throws MalformedURLException {
+        return new ModuleRunVersion(
                 new URL(mv.getGitUrl()), modmeth,
                 mv.getGitCommitHash(), mv.getVersion(),
                 RELEASE_TAGS.contains(serviceVer) ? serviceVer : null);
-        imageName = mv.getDockerImgName();
-        Files.createDirectories(getSharedScratchDir(config));
-        final Path jobWorkDir = getJobWorkDir(jobId, config, imageName);
-        Files.createDirectories(jobWorkDir);
-        config.writeJobConfigToFile(jobWorkDir.resolve(
-                JobRunnerConstants.JOB_CONFIG_FILE));
+    }
+    
+    protected String getImageName(ModuleVersion mv) {
+        return mv.getDockerImgName();
     }
 
     protected static Path getJobWorkDir(
@@ -103,23 +115,39 @@ public abstract class SubsequentCallRunner {
         return mrv;
     }
     
-    public Map<String, Object> run(RpcCallData rpcCallData)
+    public Map<String, Object> run(RpcCallData rpcCallData, AuthToken callToken)
             throws IOException, InterruptedException {
+        if (callToken == null) {
+            callToken = token;
+        }
         final Path inputFile = getJobWorkDir(jobId, config, imageName)
                 .resolve("input.json");
         UObject.getMapper().writeValue(inputFile.toFile(), rpcCallData);
         final Path outputFile = runModule(jobId, inputFile, config,
-                imageName, moduleName, token);
+                imageName, moduleName, callToken);
         if (Files.exists(outputFile)) {
-            return UObject.getMapper().readValue(outputFile.toFile(),
-                    new TypeReference<Map<String, Object>>() {});
+            final Map<String, Object> jsonRpcResponse = UObject.getMapper().readValue(
+                    outputFile.toFile(), new TypeReference<Map<String, Object>>() {});
+            if (jsonRpcResponse.get("error") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> error = (Map<String, Object>)jsonRpcResponse.get("error");
+                String errorName = (String)error.get("name");
+                Integer errorCode = (Integer)error.get("code");
+                String errorMessage = (String)error.get("message");
+                String errorData = (String)error.get("error");
+                logError(rpcCallData.getMethod(), errorName, errorCode, errorMessage, errorData);
+            }
+            return jsonRpcResponse;
         } else {
             final String errorMessage =
                     "Unknown server error (output data wasn't produced)";
             final Map<String, Object> error =
                     new LinkedHashMap<String, Object>();
-            error.put("name", "JSONRPCError");
-            error.put("code", -32601);
+            String errorName = "JSONRPCError";
+            int errorCode = -32601;
+            logError(rpcCallData.getMethod(), errorName, errorCode, errorMessage, null);
+            error.put("name", errorName);
+            error.put("code", errorCode);
             error.put("message", errorMessage);
             error.put("error", errorMessage);
             final Map<String, Object> jsonRpcResponse =
@@ -129,7 +157,36 @@ public abstract class SubsequentCallRunner {
             return jsonRpcResponse;
         }
     }
+    
+    private void logError(String method, String name, Integer code, String message, String data) {
+        String log = "\"" + method + "\" job threw an error";
+        String[] dataLines = null;
+        if (name != null) {
+            log += ", name=\"" + name + "\"";
+        }
+        if (code != null) {
+            log += ", code=" + code;
+        }
+        if (message != null) {
+            log += ", message=\"" + message + "\"";
+        }
+        if (data != null) {
+            log += ", data:";
+            dataLines = data.split("[\\r\\n]+");
+        }
+        logErrorLine(log);
+        if (dataLines != null) {
+            for (String line : dataLines) {
+                logErrorLine(line);
+            }
+        }
+    }
 
+    private void logErrorLine(String line) {
+        config.getLogger().logNextLine(String.format("%.2f - CallbackServer[%s]: %s",
+                (System.currentTimeMillis() / 1000.0), jobId, line), true);
+    }
+    
     protected abstract Path runModule(
             final UUID jobId,
             final Path inputFile,
