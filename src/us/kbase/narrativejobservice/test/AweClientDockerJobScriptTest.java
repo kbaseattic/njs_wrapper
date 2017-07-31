@@ -477,7 +477,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.8";
+        String ver = "0.0.9";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -497,7 +497,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
         
         release = "beta";
-        ver = "0.0.7";
+        ver = "0.0.8";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
