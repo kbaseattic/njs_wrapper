@@ -70,7 +70,6 @@ import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.RpcContext;
 import us.kbase.common.service.ServerException;
 import us.kbase.common.service.Tuple11;
 import us.kbase.common.service.Tuple13;
@@ -478,7 +477,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.8";
+        String ver = "0.0.9";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -498,7 +497,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
         
         release = "beta";
-        ver = "0.0.7";
+        ver = "0.0.8";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
