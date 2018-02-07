@@ -506,6 +506,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
         return returnVal;
+        
     }
 
     /**

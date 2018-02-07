@@ -187,6 +187,7 @@ public class SDKMethodRunner {
 		// TODO: getUjsClient
 		return cjp.toString();
 		// return ujsJobId;
+		
 	}
 
 	private static AuthToken getCatalogAdminAuth(Map<String, String> config) 
