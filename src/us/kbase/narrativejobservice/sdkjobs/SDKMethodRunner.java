@@ -111,7 +111,14 @@ public class SDKMethodRunner {
 		//perform sanity checks before creating job
 		checkWSObjects(authPart, config, params.getSourceWsObjects());
 		//need to update the params before transforming to a Map
-		checkModuleAndUpdateRunJobParams(params, config);
+		
+		
+		
+		// Debug:
+		// checkModuleAndUpdateRunJobParams(params, config);
+		
+		
+		
 		@SuppressWarnings("unchecked")
 		final Map<String, Object> jobInput =
 			UObject.transformObjectToObject(params, Map.class);
@@ -126,14 +133,29 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
-		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		
+		
+		
+		// Debug
+		// TODO: getUjsClient
+		// final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		
+		
+		
 		final CreateJobParams cjp = new CreateJobParams()
 				.withMeta(params.getMeta());
 		if (params.getWsid() != null) {
 			cjp.withAuthstrat("kbaseworkspace")
 				.withAuthparam("" + params.getWsid());
 		}
-		final String ujsJobId = ujsClient.createJob2(cjp);
+		
+		
+		
+		// Debug
+		// TODO: getUjsClient		
+		// final String ujsJobId = ujsClient.createJob2(cjp);
+		
+		
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -141,13 +163,30 @@ public class SDKMethodRunner {
 			aweClientGroups = config.get(NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS);
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
-		String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
-				ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-				authPart, aweClientGroups, getCatalogAdminAuth(config));
-		if (appJobId != null && appJobId.isEmpty())
-			appJobId = ujsJobId;
-		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
-		return ujsJobId;
+		
+		
+		
+		// Debug:
+		// TODO: Create a static method in AweUtils like runTask
+		// String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+		
+		
+
+		// Debug
+		// TODO: getUjsClient
+		// if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
+		
+		
+		
+		// Debug:
+		// addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+		
+		
+
+		// Debug
+		// TODO: getUjsClient
+		return cjp.toString();
+		// return ujsJobId;
 	}
 
 	private static AuthToken getCatalogAdminAuth(Map<String, String> config) 

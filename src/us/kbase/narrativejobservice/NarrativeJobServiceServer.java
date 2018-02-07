@@ -117,6 +117,15 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 		String configPath = System.getProperty(SYS_PROP_KB_DEPLOYMENT_CONFIG);
 		if (configPath == null)
 			configPath = System.getenv(SYS_PROP_KB_DEPLOYMENT_CONFIG);
+		
+		
+		
+    	// Debug:
+		if (configPath == null)
+			configPath = "/Users/amikaili/myKbaseCode/njs_wrapper/deploy.cfg";
+		
+		
+		
 		if (configPath == null) {
 			configError = new IllegalStateException("Configuration file was not defined");
 		} else {
@@ -359,6 +368,19 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     "is not defined: " + CFG_PROP_CATALOG_ADMIN_USER + " or " +
                     CFG_PROP_CATALOG_ADMIN_TOKEN);
         }
+        
+        
+        // Debug:
+        // force a test invocation
+        // to fake a job submittal to Condor
+        //  with client group 'bogus' (per deply.cfg hack)
+        RunJobParams params = new RunJobParams();        
+        AuthToken authPart = null;
+        RpcContext jsonRpcContext = new RpcContext();
+        runJob(params, authPart, jsonRpcContext);
+        
+        
+        
         //END_CONSTRUCTOR
     }
 
@@ -472,7 +494,15 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         String returnVal = null;
         //BEGIN run_job
         System.gc();
-        String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
+        
+        
+
+        // Debug:
+        String aweClientGroups = "bogus";
+        // String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
+        
+        
+        
         returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
         return returnVal;
@@ -632,8 +662,25 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length == 1) {
-            new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
+    	
+    	
+        // Debug:
+    	String port = "8200"; // Got this from deploy.cfg (is ci service port) 
+    	String[] array = new String[args.length + 1];
+    	System.arraycopy(array, 0, args, 0, args.length);
+    	array[0] = port;
+    	
+    	
+    	// Debug:
+        if (array.length == 1) {
+        // if (args.length == 1) {
+        	
+        	
+            new NarrativeJobServiceServer().startupServer(Integer.parseInt(array[0]));
+            // new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
+            
+            
+            
         } else if (args.length == 3) {
             JsonServerSyslog.setStaticUseSyslog(false);
             JsonServerSyslog.setStaticMlogFile(args[1] + ".log");
