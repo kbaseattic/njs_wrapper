@@ -138,8 +138,7 @@ public class SDKMethodRunner {
 		
 		
 		// Debug
-		// TODO: getUjsClient
-		// final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		
 		
 		
@@ -153,7 +152,8 @@ public class SDKMethodRunner {
 		
 		
 		// Debug
-		// TODO: getUjsClient		
+		// TODO: auth fails
+		// Exception in thread "main" us.kbase.common.service.ServerException: Token validation failed: Login failed! Server responded with code 401 Unauthorized
 		// final String ujsJobId = ujsClient.createJob2(cjp);
 		
 		
@@ -168,7 +168,8 @@ public class SDKMethodRunner {
 		
 		
 		// Debug:
-		// TODO: Create a static method in AweUtils like runTask
+		// Awe Util call ends up posting a REST call to Awe Server URL
+		// TODO: Bridge this communication gap with Condor ???
 		// String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
 		
 		

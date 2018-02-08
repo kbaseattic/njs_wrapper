@@ -371,17 +371,21 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         
         
         // Debug:
-        // force a test invocation
+        // force a test invocation of server side
         // to fake a job submittal to Condor
         //  with client group 'bogus' (per deply.cfg hack)
         // TODO: Populate a RunJobParams with job submit information for Condor
         //    Do things like set method to SUBMIT
         RunJobParams params = new RunJobParams();
         // TODO: Figure out token ==> fix UJS  ???
-        AuthToken authPart = null;
+        AuthToken authPart = new AuthToken( "62IYPZGS7O773DBLZZCSE542BP4C2E7G", "amikaili" );
         // OK to leave this as "punt" ???
         RpcContext jsonRpcContext = new RpcContext();
         runJob(params, authPart, jsonRpcContext);
+        
+        // TODO: Ensure this test job submission is recorded in:
+        //// UJS
+        //// Catalog
         
         
         

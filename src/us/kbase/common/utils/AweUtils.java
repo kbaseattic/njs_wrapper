@@ -61,7 +61,9 @@ public class AweUtils {
         // --OR--
         //    Implement a new RESTful wedge in CLIENT that reacts to this httpPost call
         CloseableHttpClient httpClient = HttpClients.createDefault();
+        
         HttpPost httpPost = new HttpPost( condorUrl + "job" );
+        
         httpPost.addHeader("Authorization", "OAuth " + token);
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
@@ -117,7 +119,9 @@ public class AweUtils {
         task.put("totalwork", 1);
         job.put("tasks", Arrays.asList(task));
         CloseableHttpClient httpClient = HttpClients.createDefault();
+        
         HttpPost httpPost = new HttpPost(aweServerUrl + "job");
+        
         httpPost.addHeader("Authorization", "OAuth " + token);
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
