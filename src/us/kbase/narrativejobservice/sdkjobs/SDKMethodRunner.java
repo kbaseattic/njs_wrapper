@@ -118,10 +118,11 @@ public class SDKMethodRunner {
 		// checkModuleAndUpdateRunJobParams(params, config);
 		
 		
-		
+
+		// Transform params from jsonrpc UObject from... to... java hashmap to send to AweUtils,
+		//    Who submits REST httpPost to Awe:
 		@SuppressWarnings("unchecked")
-		final Map<String, Object> jobInput =
-			UObject.transformObjectToObject(params, Map.class);
+		final Map<String, Object> jobInput = UObject.transformObjectToObject(params, Map.class);
 		checkObjectLength(jobInput, MAX_IO_BYTE_SIZE, "Input", null);
 
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);

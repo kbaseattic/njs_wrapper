@@ -26,6 +26,60 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class AweUtils {
+	
+	
+	
+    @SuppressWarnings("unchecked")
+    public static String submitToCondor(String condorUrl, 
+            String jobName, String args, String scriptName, AuthToken auth,
+            String clientGroups) throws JsonGenerationException, 
+            JsonMappingException, IOException {
+    	
+    	// TODO: Submit job to Condor
+    	
+        Map<String, Object> job = new LinkedHashMap<String, Object>();
+        Map<String, Object> info = new LinkedHashMap<String, Object>();    	
+        Map<String, Object> cmd = new LinkedHashMap<String, Object>();
+
+        info.put("name", jobName);
+        info.put("project", "SDK");
+        info.put("user", auth.getUserName());
+        info.put("clientgroups", clientGroups);
+        job.put("info", info);        
+        cmd.put("name", scriptName);
+        
+        Map<String, Object> priv = new LinkedHashMap<String, Object>();
+        Map<String, Object> env = new LinkedHashMap<String, Object>();
+        String token = auth.getToken();
+        priv.put("KB_AUTH_TOKEN", token);
+        env.put("private", priv);
+        
+        
+        
+        // TODO: Replace below REST call (to Awe) with
+        //    RPCish communication with njsw CLIENT
+        // --OR--
+        //    Implement a new RESTful wedge in CLIENT that reacts to this httpPost call
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpPost httpPost = new HttpPost( condorUrl + "job" );
+        httpPost.addHeader("Authorization", "OAuth " + token);
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.writeValue(buffer, job);
+        builder.addBinaryBody("upload", buffer.toByteArray(),
+                ContentType.APPLICATION_OCTET_STREAM, "tempjob.json");
+        httpPost.setEntity(builder.build());
+        // Map<String, Object> respObj = parseAweResponse(httpClient.execute(httpPost));
+        // Map<String, Object> respData = (Map<String, Object>)respObj.get("data");
+        // if (respData == null) throw new IllegalStateException("AWE error: " + respObj.get("error"));
+        // String aweJobId = (String)respData.get("id");        
+
+        
+        return jobName;    	
+    }
+    
+    
     
     @SuppressWarnings("unchecked")
     public static String runTask(String aweServerUrl, String pipeline, 
