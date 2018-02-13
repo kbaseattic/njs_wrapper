@@ -155,6 +155,7 @@ public class SDKMethodRunner {
 		// Debug
 		// TODO: auth fails
 		// Exception in thread "main" us.kbase.common.service.ServerException: Token validation failed: Login failed! Server responded with code 401 Unauthorized
+		final String ujsJobId = "0";
 		// final String ujsJobId = ujsClient.createJob2(cjp);
 		
 		
@@ -170,12 +171,14 @@ public class SDKMethodRunner {
 		
 		// Debug:
 		// Awe Util call ends up posting a REST call to Awe Server URL
-		// TODO: Config switch to switch to calling new Condor Utils method submitToCondor
+		// Config switch to switch to calling new Condor Utils method submitToCondor
+		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
 		// XXX: Java Runtime compatibility issue
 		// Exception in thread "main" java.lang.UnsupportedClassVersionError: condor/CondorScheddLocator has been compiled by a more recent version of the Java Runtime (class file version 53.0), this version of the Java Runtime only recognizes class file versions up to 52.0
-		// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, "amikaili", ".", "bogus" );
-		// String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
-		
+		    int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, "amikaili", ".", "bogus" );
+		} else {
+		    // String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+		}
 		
 
 		// Debug

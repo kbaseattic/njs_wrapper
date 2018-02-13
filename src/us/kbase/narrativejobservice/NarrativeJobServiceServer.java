@@ -67,6 +67,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             JobRunnerConstants.CFG_PROP_HANDLE_SRV_URL;
     public static final String CFG_PROP_SRV_WIZ_URL = 
             JobRunnerConstants.CFG_PROP_SRV_WIZ_URL;
+    
+    
+    
+    public static final String CFG_PROP_CONDOR_MODE = "condor.mode";
+    
+    
+    
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
