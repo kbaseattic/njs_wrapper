@@ -37,6 +37,7 @@ import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
+import us.kbase.common.utils.CondorUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobCanceledResult;
@@ -169,7 +170,10 @@ public class SDKMethodRunner {
 		
 		// Debug:
 		// Awe Util call ends up posting a REST call to Awe Server URL
-		// TODO: Bridge this communication gap with Condor ???
+		// TODO: Config switch to switch to calling new Condor Utils method submitToCondor
+		// XXX: Java Runtime compatibility issue
+		// Exception in thread "main" java.lang.UnsupportedClassVersionError: condor/CondorScheddLocator has been compiled by a more recent version of the Java Runtime (class file version 53.0), this version of the Java Runtime only recognizes class file versions up to 52.0
+		// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, "amikaili", ".", "bogus" );
 		// String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
 		
 		

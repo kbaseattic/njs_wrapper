@@ -105,8 +105,8 @@ public class CondorUtils
 
 
 
-	public static String submitToCondor(String condorUrl, String owner, String jobFileLocation,
-	        String jobName, String args, String scriptName, AuthToken auth,
+	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
+	        // String jobName, String args, String scriptName, AuthToken auth,
 	        String clientGroups) throws MalformedURLException, RemoteException, ServiceException {
 	
 		URL scheddLocation = new URL( condorUrl );
@@ -139,7 +139,7 @@ public class CondorUtils
 		// Ask the Schedd to kick off the Job immediately.
 		schedd.requestReschedule();
 		
-	    return jobName;    	
+	    return jobId;    	
 	}
 
 
