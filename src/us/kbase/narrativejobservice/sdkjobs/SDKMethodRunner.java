@@ -109,15 +109,13 @@ public class SDKMethodRunner {
 	
 	public static String runJob(RunJobParams params, AuthToken authPart, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-		//perform sanity checks before creating job
+
 		checkWSObjects(authPart, config, params.getSourceWsObjects());
 		//need to update the params before transforming to a Map
 		
-		
-		
+				
 		// Debug:
 		// checkModuleAndUpdateRunJobParams(params, config);
-		
 		
 
 		// Transform params from jsonrpc UObject from... to... java hashmap to send to AweUtils,
@@ -170,12 +168,14 @@ public class SDKMethodRunner {
 		
 		
 		// Debug:
-		// Awe Util call ends up posting a REST call to Awe Server URL
 		// Config switch to switch to calling new Condor Utils method submitToCondor
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
-		// XXX: Java Runtime compatibility issue
-		// Exception in thread "main" java.lang.UnsupportedClassVersionError: condor/CondorScheddLocator has been compiled by a more recent version of the Java Runtime (class file version 53.0), this version of the Java Runtime only recognizes class file versions up to 52.0
-		    int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, "amikaili", ".", "bogus" );
+		    // Pass username as owner to submitToCondor:
+			String username = "root";
+			// Change last line to next line (stop faking root) when the "Policy" piece in place:
+			// String username = authPart.getUserName();
+			
+			int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
 		} else {
 		    // String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
 		}

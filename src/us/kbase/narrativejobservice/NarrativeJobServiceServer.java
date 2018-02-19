@@ -385,6 +385,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //    Do things like set method to SUBMIT
         RunJobParams params = new RunJobParams();
         // TODO: Figure out token ==> fix UJS  ???
+        // auth will be queried for username..., and passed to Condor for use as the job "owner"
         AuthToken authPart = new AuthToken( "62IYPZGS7O773DBLZZCSE542BP4C2E7G", "amikaili" );
         // OK to leave this as "punt" ???
         RpcContext jsonRpcContext = new RpcContext();
