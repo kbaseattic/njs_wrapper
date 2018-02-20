@@ -142,7 +142,8 @@ public class CondorUtils
 		ClassAdStructAttr[] jobAd = buildJobAd(owner, jobFileLocation, clusterId, jobId);	
 		
 		// Submit the Job's ClassAd.
-		schedd.submit(transaction, clusterId, jobId, jobAd);	
+		schedd.submit(transaction, clusterId, jobId, jobAd);
+		
 		
 		// Commit the transaction.
 		schedd.commitTransaction(transaction);
@@ -187,6 +188,13 @@ public class CondorUtils
 		
 		// Submit the Job's ClassAd.
 		schedd.submit(transaction, clusterId, jobId, jobAd);
+		
+		
+		
+		// Debug: Dump JobAd
+		System.out.println( "CondorUtils::Dump JobAd: " + jobAd.toString() );
+				
+				
 		
 		// Commit the transaction.
 		schedd.commitTransaction(transaction);
