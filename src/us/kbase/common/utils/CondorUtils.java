@@ -64,15 +64,16 @@ public class CondorUtils
 			createStringAttribute("Err", stdErrLocation),
 			createStringAttribute("ShouldTransferFiles", "NO"), // Using shared FS
 			
-			// XXX: Job id 62.0 has no Owner attribute.  Removing.
+			// ERROR schedd log: Job id 62.0 has no Owner attribute.  Removing.
 			// TODO: Fix Requirements expression; like:
-			//   	createExpressionAttribute("Requirements", "TARGET.Owner=='amikaili@???'"),
+			createExpressionAttribute("Requirements", "TARGET.Owner=='root'"),
+			// createExpressionAttribute("Requirements", "TARGET.Owner=='amikaili@???'"),
 			// http://research.cs.wisc.edu/htcondor/manual/v7.6/4_1Condor_s_ClassAd.html#sec:classad-reference
 			// Owner has "Policy" semantics and configuration connotation
 			// Is used to map jobs to machines
 			// http://research.cs.wisc.edu/htcondor/manual/v7.6/3_5Policy_Configuration.html
-			// 
-			createExpressionAttribute("Requirements", "TRUE"),
+			// Replacing:
+			// createExpressionAttribute("Requirements", "TRUE"),
 			
 			createExpressionAttribute("OnExitRemove",
 			      "(ExitSignal =?= 11 || " +

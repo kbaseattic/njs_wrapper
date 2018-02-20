@@ -333,7 +333,13 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
+        
+        
+        
         //BEGIN_CONSTRUCTOR
+        
+        
+        
         logger = new ErrorLogger() {
             @Override
             public void logErr(Throwable err) {
@@ -385,10 +391,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         //    Do things like set method to SUBMIT
         RunJobParams params = new RunJobParams();
         // TODO: Figure out token ==> fix UJS  ???
-        // auth will be queried for username..., and passed to Condor for use as the job "owner"
-        AuthToken authPart = new AuthToken( "62IYPZGS7O773DBLZZCSE542BP4C2E7G", "amikaili" );
-        // OK to leave this as "punt" ???
+        // TODO: auth will be queried for username..., and passed to Condor for use as the job owner (root is placeholder only)
+        AuthToken authPart = new AuthToken( "62IYPZGS7O773DBLZZCSE542BP4C2E7G", "root" );
+
         RpcContext jsonRpcContext = new RpcContext();
+        
         runJob(params, authPart, jsonRpcContext);
         
         // TODO: Ensure this test job submission is recorded in:
