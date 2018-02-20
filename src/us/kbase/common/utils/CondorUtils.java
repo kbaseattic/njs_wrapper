@@ -67,16 +67,14 @@ public class CondorUtils
 			// ERROR schedd log: Job id 62.0 has no Owner attribute.  Removing.
 			// TODO: Fix Requirements expression; like:
 			
-			createExpressionAttribute("Requirements", "TARGET.Owner==\"root\""),
-			
-			// createExpressionAttribute("Requirements", "TARGET.Owner=='root'"),
-			// createExpressionAttribute("Requirements", "TARGET.Owner=='amikaili@???'"),
+			// createExpressionAttribute("Requirements", "TARGET.Owner==\"root\""),
+
 			// http://research.cs.wisc.edu/htcondor/manual/v7.6/4_1Condor_s_ClassAd.html#sec:classad-reference
 			// Owner has "Policy" semantics and configuration connotation
-			// Is used to map jobs to machines
+			// Is used to map jobs ClassAd to machines ClassAd
 			// http://research.cs.wisc.edu/htcondor/manual/v7.6/3_5Policy_Configuration.html
-			// Replacing:
-			// createExpressionAttribute("Requirements", "TRUE"),
+			
+			createExpressionAttribute("Requirements", "TRUE"),
 			
 			createExpressionAttribute("OnExitRemove",
 			      "(ExitSignal =?= 11 || " +
