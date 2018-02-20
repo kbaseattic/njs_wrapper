@@ -194,7 +194,7 @@ public class CondorUtils
 		// Debug: Dump JobAd
 		System.out.println( "CondorUtils::Dump JobAd: " + jobAd.toString() );
 		for( int i = 0; i < jobAd.length; i++ ) {
-			System.out.println( "    JobAd[ " + i + " ] = " + jobAd[ i ] );
+			System.out.println( "    JobAd[ " + i + " ] name = " + jobAd[ i ].getName() + "    JobAd[ " + i + " ] value = " + jobAd[ i ].getValue() );
 		}
 				
 				
