@@ -230,13 +230,14 @@ public class CondorUtils
 	
 	public static void main(String[] arguments) throws MalformedURLException, RemoteException, ServiceException
 	{
+		String jobId = arguments[ 0 ];
 		// URL scheddLocation = new URL( arguments[ 0 ] );
 		
         // TODO: Call getJobDescr
 		
 		try{
 			
-    	    Map<String, Object> respObj = getJobDescr( );
+    	    Map<String, Object> respObj = getJobDescr( jobId );
     	    
 		} catch( IOException ex ) {
             ex.printStackTrace();
