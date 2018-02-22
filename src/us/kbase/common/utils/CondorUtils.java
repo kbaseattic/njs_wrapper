@@ -65,10 +65,6 @@ public class CondorUtils
 			createStringAttribute("ShouldTransferFiles", "NO"), // Using shared FS
 			
 			// ERROR schedd log: Job id 62.0 has no Owner attribute.  Removing.
-			// TODO: Fix Requirements expression; like:
-			
-			// createExpressionAttribute("Requirements", "TARGET.Owner==\"root\""),
-
 			// http://research.cs.wisc.edu/htcondor/manual/v7.6/4_1Condor_s_ClassAd.html#sec:classad-reference
 			// Owner has "Policy" semantics and configuration connotation
 			// Is used to map jobs ClassAd to machines ClassAd
@@ -80,9 +76,12 @@ public class CondorUtils
 			      "(ExitSignal =?= 11 || " +
 			      " (ExitCode =!= UNDEFINED && " +
 			      "  ExitCode >=0 && ExitCode <= 2))"),
+			
 			createStringAttribute("Arguments",
 			  "-f -l . -Debug 3 "), // also leaving - we can modify for kbase arguments
+			
 			createIntAttribute("ClusterId", clusterId),
+			
 			createIntAttribute("ProcId", jobId)
 		};
 		
@@ -117,6 +116,26 @@ public class CondorUtils
 
 
 
+    public static Map<String, Object> getJobDescr(String aweServerUrl, 
+            String aweJobId, AuthToken token) throws JsonParseException, 
+            JsonMappingException, ClientProtocolException, IOException, 
+            AweResponseException {
+    	
+    	Map<String, Object> respObj = null;
+    	
+        // if (!aweServerUrl.endsWith("/")) aweServerUrl += "/";
+    	/*
+        CloseableHttpClient httpClient = HttpClients.createDefault();
+        HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId);
+        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
+        */
+    	
+        return respObj;
+        // return parseAweResponse(httpClient.execute(httpReq));
+    }
+    
+    
+    
 	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
 	        // String jobName, String args, String scriptName, AuthToken auth,
 	        String clientGroups) throws MalformedURLException, RemoteException, ServiceException {
@@ -125,10 +144,12 @@ public class CondorUtils
 		
 		// Get a handle on a schedd we can make SOAP call on.
 		CondorScheddLocator scheddLocator = new CondorScheddLocator();
+		
 		CondorScheddPortType schedd = scheddLocator.getcondorSchedd(scheddLocation);	
 	
 		// Begin a transaction, allow for 60 seconds between calls
 		TransactionAndStatus transactionAndStatus = schedd.beginTransaction(60);
+		
 		Transaction transaction = transactionAndStatus.getTransaction();
 		
 		// Get a new cluster for the job.
@@ -166,13 +187,14 @@ public class CondorUtils
 		
 		// Get a handle on a schedd we can make SOAP call on.
 		CondorScheddLocator scheddLocator = new CondorScheddLocator();
-		CondorScheddPortType schedd =
-		scheddLocator.getcondorSchedd(scheddLocation);
+		
+		CondorScheddPortType schedd = scheddLocator.getcondorSchedd(scheddLocation);
 		
 		// Begin a transaction, allow for 60 seconds between calls
 		TransactionAndStatus transactionAndStatus = schedd.beginTransaction(60);
 		
 		Transaction transaction = transactionAndStatus.getTransaction();
+		
 		// Get a new cluster for the job.
 		IntAndStatus clusterIdAndStatus = schedd.newCluster(transaction);
 		int clusterId = clusterIdAndStatus.getInteger();
@@ -182,10 +204,7 @@ public class CondorUtils
 		int jobId = jobIdAndStatus.getInteger();
 		
 		// Build the Job's ClassAd.
-		ClassAdStructAttr[] jobAd = buildJobAd(owner,
-		        jobFileLocation,
-		        clusterId,
-		        jobId);
+		ClassAdStructAttr[] jobAd = buildJobAd(owner, jobFileLocation, clusterId, jobId);
 		
 		// Submit the Job's ClassAd.
 		schedd.submit(transaction, clusterId, jobId, jobAd);
