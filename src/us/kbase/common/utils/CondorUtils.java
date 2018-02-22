@@ -1,7 +1,9 @@
 package us.kbase.common.utils;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -116,12 +118,24 @@ public class CondorUtils
 
 
 
-    public static Map<String, Object> getJobDescr(String aweServerUrl, 
-            String aweJobId, AuthToken token) throws JsonParseException, 
-            JsonMappingException, ClientProtocolException, IOException, 
-            AweResponseException {
+    public static Map<String, Object> getJobDescr( /* String condorUrl */ ) throws IOException {
+    	
+		// XXX: Hardcoded path to the script to execute:
+		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q.sh"};
     	
     	Map<String, Object> respObj = null;
+    	
+		
+		Process p = Runtime.getRuntime().exec(cmdScript);
+		
+        BufferedReader reader = new BufferedReader(new InputStreamReader( p.getInputStream() ));
+        String line = reader.readLine();
+        System.out.println( line );
+        line = reader.readLine();
+        while ( line != null ) {    
+            System.out.println( line );
+            line = reader.readLine();
+        }
     	
         // if (!aweServerUrl.endsWith("/")) aweServerUrl += "/";
     	/*
@@ -131,9 +145,47 @@ public class CondorUtils
         */
     	
         return respObj;
-        // return parseAweResponse(httpClient.execute(httpReq));
+        // return parseResponse(httpClient.execute(httpReq));
     }
     
+    public static Map<String, Object> parseResponse(
+            HttpResponse response) throws IOException, ClientProtocolException,
+            JsonParseException, JsonMappingException, AweResponseException {
+        String postResponse = "" + EntityUtils.toString(response.getEntity());
+        Map<String, Object> respObj;
+        try {
+            respObj = new ObjectMapper().readValue(postResponse, Map.class);
+        } catch (Exception ex) {
+            String respHead = postResponse.length() <= 1000 ? postResponse :
+                    (postResponse.subSequence(0, 1000) + "...");
+            throw new IllegalStateException("Error parsing JSON response of AWE server " +
+            		"(" + ex.getMessage() + "). Here is the response head text: \n" +
+            		respHead, ex);
+        }
+        int status = response.getStatusLine().getStatusCode();
+        Integer jsonStatus = (Integer)respObj.get("status");
+        Object errObj = respObj.get("error");
+        if (status != 200 || jsonStatus != null && jsonStatus != 200 ||
+                errObj != null) {
+            if (jsonStatus == null)
+                jsonStatus = status;
+            String error = null;
+            if (errObj != null) {
+                if (errObj instanceof List) {
+                    List<Object> errList = (List<Object>)errObj;
+                    if (errList.size() == 1 && errList.get(0) instanceof String)
+                        error = (String)errList.get(0);
+                }
+                if (error == null)
+                    error = String.valueOf(errObj);
+            }
+            String reason = response.getStatusLine().getReasonPhrase();
+            String fullMessage = "AWE error code " + jsonStatus + ": " +
+                    (error == null ? reason : error);
+            throw new AweResponseException(fullMessage, jsonStatus, reason, error);
+        }
+        return respObj;
+    }
     
     
 	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
@@ -175,9 +227,30 @@ public class CondorUtils
 		
 	    return jobId;    	
 	}
+	
+	public static void main(String[] arguments) throws MalformedURLException, RemoteException, ServiceException
+	{
+		// URL scheddLocation = new URL( arguments[ 0 ] );
+		
+        // TODO: Call getJobDescr
+		
+		try{
+			
+    	    Map<String, Object> respObj = getJobDescr( );
+    	    
+		} catch( IOException ex ) {
+            ex.printStackTrace();
+
+            String message = "CondorUtils: Error calling getJobDescr from main... "  + ex.getMessage();
+            System.err.println(message);
+            // if (log != null) log.logErr(message);
+		}
+
+		
+	}
 
 
-
+    /*
 	public static void main(String[] arguments)
 	throws MalformedURLException, RemoteException, ServiceException
 	{
@@ -209,22 +282,19 @@ public class CondorUtils
 		// Submit the Job's ClassAd.
 		schedd.submit(transaction, clusterId, jobId, jobAd);
 		
-		
-		
 		// Debug: Dump JobAd
 		System.out.println( "CondorUtils::Dump JobAd: " + jobAd.toString() );
 		for( int i = 0; i < jobAd.length; i++ ) {
 			System.out.println( "    JobAd[ " + i + " ] name = " + jobAd[ i ].getName() + "    JobAd[ " + i + " ] value = " + jobAd[ i ].getValue() );
 		}
-				
-				
-		
+					
 		// Commit the transaction.
 		schedd.commitTransaction(transaction);
 		
 		// Ask the Schedd to kick off the Job immediately.
 		schedd.requestReschedule();
 	}
+	*/
 
 } // class CondorUtils
 
