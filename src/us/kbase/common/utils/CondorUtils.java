@@ -150,7 +150,7 @@ public class CondorUtils
     
     public static Map<String, Object> parseResponse(
             HttpResponse response) throws IOException, ClientProtocolException,
-            JsonParseException, JsonMappingException, AweResponseException {
+            JsonParseException, JsonMappingException {
         String postResponse = "" + EntityUtils.toString(response.getEntity());
         Map<String, Object> respObj;
         try {
@@ -182,7 +182,7 @@ public class CondorUtils
             String reason = response.getStatusLine().getReasonPhrase();
             String fullMessage = "AWE error code " + jsonStatus + ": " +
                     (error == null ? reason : error);
-            throw new AweResponseException(fullMessage, jsonStatus, reason, error);
+            // throw new AweResponseException(fullMessage, jsonStatus, reason, error);
         }
         return respObj;
     }
