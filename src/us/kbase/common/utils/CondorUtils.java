@@ -118,10 +118,10 @@ public class CondorUtils
 
 
 
-    public static Map<String, Object> getJobDescr( /* String condorUrl */ ) throws IOException {
+    public static Map<String, Object> getJobDescr( /* String condorUrl */ String jobId ) throws IOException {
     	
 		// XXX: Hardcoded path to the script to execute:
-		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q.sh"};
+		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q.sh", jobId};
     	
     	Map<String, Object> respObj = null;
     	
@@ -249,7 +249,7 @@ public class CondorUtils
 		
 	}
 
-
+    // Test main for submitting via Spinning API
     /*
 	public static void main(String[] arguments)
 	throws MalformedURLException, RemoteException, ServiceException
