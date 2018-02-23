@@ -124,7 +124,7 @@ public class CondorUtils
 		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q.sh", jobId};
     	
     	Map<String, Object> respObj = null;
-    	
+		String message = "";
 		
 		Process p = Runtime.getRuntime().exec(cmdScript);
 		
@@ -132,9 +132,11 @@ public class CondorUtils
         String line = reader.readLine();
         System.out.println( line );
         line = reader.readLine();
+        message += line;
         while ( line != null ) {    
             System.out.println( line );
             line = reader.readLine();
+            message += line;
         }
     	
         // if (!aweServerUrl.endsWith("/")) aweServerUrl += "/";
@@ -144,46 +146,66 @@ public class CondorUtils
         httpReq.addHeader("Authorization", "OAuth " + token.getToken());
         */
     	
+        // return parseResponse( jobId );
         return respObj;
-        // return parseResponse(httpClient.execute(httpReq));
+
     }
     
-    public static Map<String, Object> parseResponse(
-            HttpResponse response) throws IOException, ClientProtocolException,
-            JsonParseException, JsonMappingException {
-        String postResponse = "" + EntityUtils.toString(response.getEntity());
-        Map<String, Object> respObj;
+    // Parse job status
+    public static Map<String, Object> parseResponse( String jobId ) throws IOException, ClientProtocolException, JsonParseException, JsonMappingException {
+        // String postResponse = "" + EntityUtils.toString(response.getEntity());
+        Map<String, Object> respObj = null;
+        /*
         try {
-            respObj = new ObjectMapper().readValue(postResponse, Map.class);
+            respObj = new ObjectMapper().readValue( response, Map.class);
         } catch (Exception ex) {
-            String respHead = postResponse.length() <= 1000 ? postResponse :
-                    (postResponse.subSequence(0, 1000) + "...");
-            throw new IllegalStateException("Error parsing JSON response of AWE server " +
+            String respHead = response.length() <= 1000 ? response :
+                    ( response.subSequence(0, 1000) + "..." );
+            throw new IllegalStateException("Error parsing JSON response from Condor " +
             		"(" + ex.getMessage() + "). Here is the response head text: \n" +
             		respHead, ex);
         }
-        int status = response.getStatusLine().getStatusCode();
-        Integer jsonStatus = (Integer)respObj.get("status");
-        Object errObj = respObj.get("error");
-        if (status != 200 || jsonStatus != null && jsonStatus != 200 ||
-                errObj != null) {
-            if (jsonStatus == null)
-                jsonStatus = status;
+        */
+        // TODO: Query the status int out of response:
+        int status = 1;        
+        // int status = response.getStatusLine().getStatusCode();
+        
+        
+        
+		// XXX: Hardcoded path to the script to execute:
+		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q_long.sh", jobId, "LastJobStatus"};
+		
+		Process p = Runtime.getRuntime().exec( cmdScript );
+		
+        BufferedReader reader = new BufferedReader(new InputStreamReader( p.getInputStream() ));
+        String line = reader.readLine();
+        System.out.println( line );
+
+        // TODO: parse the substring after '=' from line
+        // Gets NPE for job id of bogusJobId
+        status = Integer.valueOf( line.substring( (line.indexOf("=") + 1), line.length() ) );
+        
+        
+        
+        // XXX: NPE next line
+        // Integer jsonStatus = (Integer)respObj.get("status");
+        // Object errObj = respObj.get("error");
+        /*
+        if (status != 200 || jsonStatus != null && jsonStatus != 200 || errObj != null) {
+            if (jsonStatus == null) jsonStatus = status;
             String error = null;
             if (errObj != null) {
                 if (errObj instanceof List) {
                     List<Object> errList = (List<Object>)errObj;
-                    if (errList.size() == 1 && errList.get(0) instanceof String)
-                        error = (String)errList.get(0);
+                    if (errList.size() == 1 && errList.get(0) instanceof String) error = (String)errList.get(0);
                 }
-                if (error == null)
-                    error = String.valueOf(errObj);
+                if (error == null) error = String.valueOf(errObj);
             }
             String reason = response.getStatusLine().getReasonPhrase();
-            String fullMessage = "AWE error code " + jsonStatus + ": " +
-                    (error == null ? reason : error);
-            // throw new AweResponseException(fullMessage, jsonStatus, reason, error);
+            
+            String fullMessage = "Condor error code " + jsonStatus + ": " + (error == null ? reason : error);
         }
+        */
         return respObj;
     }
     
@@ -230,24 +252,40 @@ public class CondorUtils
 	
 	public static void main(String[] arguments) throws MalformedURLException, RemoteException, ServiceException
 	{
-		String jobId = arguments[ 0 ];
-		// URL scheddLocation = new URL( arguments[ 0 ] );
-		
-        // TODO: Call getJobDescr
-		
-		try{
-			
-    	    Map<String, Object> respObj = getJobDescr( jobId );
-    	    
+		String jobId;
+        if( ! ( arguments.length > 0 ) ) {
+        	jobId = "BogusJobId";
+        	
+        } else {
+			jobId = arguments[ 0 ];
+			// URL scheddLocation = new URL( arguments[ 0 ] );
+        }
+        
+	    // Call parseResponse
+        // Usage: CondorUtils $1
+        try{
+				Map<String, Object> respObj = parseResponse( jobId );
+	    	    
 		} catch( IOException ex ) {
-            ex.printStackTrace();
-
-            String message = "CondorUtils: Error calling getJobDescr from main... "  + ex.getMessage();
-            System.err.println(message);
-            // if (log != null) log.logErr(message);
+	            ex.printStackTrace();
+	
+	            String message = "CondorUtils: Error calling parseResponse from main... "  + ex.getMessage();
+	            System.err.println(message);
 		}
-
-		
+			
+	    // Call getJobDescr
+        // Usage: CondorUtils $1
+        /*
+        try{
+				Map<String, Object> respObj = getJobDescr( jobId );    
+		} catch( IOException ex ) {
+	            ex.printStackTrace();
+	
+	            String message = "CondorUtils: Error calling getJobDescr from main... "  + ex.getMessage();
+	            System.err.println(message);
+	            // if (log != null) log.logErr(message);
+		}
+		*/
 	}
 
     // Test main for submitting via Spinning API
@@ -298,55 +336,3 @@ public class CondorUtils
 	*/
 
 } // class CondorUtils
-
-
-
-/*
-public class CondorUtils {
-    @SuppressWarnings("unchecked")
-    public static String submitToCondor(String condorUrl, 
-            String jobName, String args, String scriptName, AuthToken auth,
-            String clientGroups) throws JsonGenerationException, 
-            JsonMappingException, IOException {
-*/    	
-    	// TODO: Submit job to Condor
-    	
-    	
-    	
-    	/*
-        Map<String, Object> job = new LinkedHashMap<String, Object>();
-        Map<String, Object> info = new LinkedHashMap<String, Object>();    	
-        Map<String, Object> cmd = new LinkedHashMap<String, Object>();
-        info.put("name", jobName);
-        info.put("project", "SDK");
-        info.put("user", auth.getUserName());
-        info.put("clientgroups", clientGroups);
-        job.put("info", info);        
-        cmd.put("name", scriptName);
-        Map<String, Object> priv = new LinkedHashMap<String, Object>();
-        Map<String, Object> env = new LinkedHashMap<String, Object>();
-        String token = auth.getToken();
-        priv.put("KB_AUTH_TOKEN", token);
-        env.put("private", priv);
-        
-        CloseableHttpClient httpClient = HttpClients.createDefault();        
-        HttpPost httpPost = new HttpPost( condorUrl + "job" );        
-        httpPost.addHeader("Authorization", "OAuth " + token);
-        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.writeValue(buffer, job);
-        builder.addBinaryBody("upload", buffer.toByteArray(),
-                ContentType.APPLICATION_OCTET_STREAM, "tempjob.json");
-        httpPost.setEntity(builder.build());
-        */
-        // Map<String, Object> respObj = parseAweResponse(httpClient.execute(httpPost));
-        // Map<String, Object> respData = (Map<String, Object>)respObj.get("data");
-        // if (respData == null) throw new IllegalStateException("AWE error: " + respObj.get("error"));
-        // String aweJobId = (String)respData.get("id");        
-/*
-        return jobName;    	
-    }
-    
-}
-*/
