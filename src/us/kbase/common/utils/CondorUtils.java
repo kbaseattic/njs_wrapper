@@ -183,7 +183,7 @@ public class CondorUtils
 
         // TODO: parse the substring after '=' from line
         // Gets NPE for job id of bogusJobId
-        status = Integer.valueOf( line.substring( (line.indexOf("=") + 1), line.length() ) );
+        status = Integer.valueOf( line.substring( (line.indexOf("=") + 2), line.length() ) );
         
         
         
