@@ -117,7 +117,7 @@ public class CondorUtils
 	}
 
 
-
+    // Dump condor_q for the job id
     public static Map<String, Object> getJobDescr( /* String condorUrl */ String jobId ) throws IOException {
     	
 		// XXX: Hardcoded path to the script to execute:
@@ -138,39 +138,20 @@ public class CondorUtils
             line = reader.readLine();
             message += line;
         }
-    	
-        // if (!aweServerUrl.endsWith("/")) aweServerUrl += "/";
-    	/*
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpGet httpReq = new HttpGet(aweServerUrl + "/job/" + aweJobId);
-        httpReq.addHeader("Authorization", "OAuth " + token.getToken());
-        */
-    	
-        // return parseResponse( jobId );
         return respObj;
 
     }
+
     
-    // Parse job status
-    public static Map<String, Object> parseResponse( String jobId ) throws IOException, ClientProtocolException, JsonParseException, JsonMappingException {
-        // String postResponse = "" + EntityUtils.toString(response.getEntity());
-        Map<String, Object> respObj = null;
-        /*
-        try {
-            respObj = new ObjectMapper().readValue( response, Map.class);
-        } catch (Exception ex) {
-            String respHead = response.length() <= 1000 ? response :
-                    ( response.subSequence(0, 1000) + "..." );
-            throw new IllegalStateException("Error parsing JSON response from Condor " +
-            		"(" + ex.getMessage() + "). Here is the response head text: \n" +
-            		respHead, ex);
-        }
-        */
-        // TODO: Query the status int out of response:
-        int status = 1;        
-        // int status = response.getStatusLine().getStatusCode();
-        
-        
+    
+    // Get job status for job id
+    // U = unexpanded (never been run), H = on hold, R = running, I = idle (waiting for a machine to execute on), C = completed, and X = removed
+    public static Integer getJobState( String jobId ) throws IOException, ClientProtocolException, JsonParseException, JsonMappingException {
+
+        Map<String, Object> respObj = new LinkedHashMap<String, Object> ();
+
+        // Query the status int out of response:
+        int status = 1;                
         
 		// XXX: Hardcoded path to the script to execute:
 		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q_long.sh", jobId, "LastJobStatus"};
@@ -181,33 +162,87 @@ public class CondorUtils
         String line = reader.readLine();
         System.out.println( line );
 
-        // TODO: parse the substring after '=' from line
+        // parse the substring after '=' from line
         // Gets NPE for job id of bogusJobId
         status = Integer.valueOf( line.substring( (line.indexOf("=") + 2), line.length() ) );
+        respObj.put( "Status" , status);
+        System.out.println( "CondorUtils::parseResponse::status = " + status );
+        return status;
+    }
         
-        
-        
-        // XXX: NPE next line
-        // Integer jsonStatus = (Integer)respObj.get("status");
-        // Object errObj = respObj.get("error");
-        /*
-        if (status != 200 || jsonStatus != null && jsonStatus != 200 || errObj != null) {
-            if (jsonStatus == null) jsonStatus = status;
-            String error = null;
-            if (errObj != null) {
-                if (errObj instanceof List) {
-                    List<Object> errList = (List<Object>)errObj;
-                    if (errList.size() == 1 && errList.get(0) instanceof String) error = (String)errList.get(0);
-                }
-                if (error == null) error = String.valueOf(errObj);
-            }
-            String reason = response.getStatusLine().getReasonPhrase();
-            
-            String fullMessage = "Condor error code " + jsonStatus + ": " + (error == null ? reason : error);
+    public static boolean checkJobIsNotDone(String jobId) {
+    	boolean b = true;
+    	Integer status = null;
+    	try{
+    		status = getJobState( jobId );
+    		b = status < 5;
+    		return b;
+    	
+	    } catch( IOException ex ) {
+            ex.printStackTrace();
+
+            String message = "CondorUtils: Error calling checkJobIsNotDone "  + ex.getMessage();
+            System.err.println(message);
+            return b;
         }
-        */
+        // return aweState.equals("init") || aweState.equals("queued") || aweState.equals("in-progress");
+    }
+    
+    public static boolean checkJobIsDoneWithoutError(String jobId) {
+    	boolean b = true;
+    	Integer status = null;
+    	try{
+    		status = getJobState( jobId );
+    		b = status == 5;
+    		return b;
+    	
+	    } catch( IOException ex ) {
+            ex.printStackTrace();
+
+            String message = "CondorUtils: Error calling checkJobIsDoneWithoutError "  + ex.getMessage();
+            System.err.println(message);
+            return b;
+        }
+    	// return aweState.equals("completed");
+    }       
+        
+        
+    // Parse job status for job id
+    public static Map<String, Object> parseResponse( String jobId ) throws IOException {
+
+        Map<String, Object> respObj = new LinkedHashMap<String, Object> ();
+
+        // Query the status int out of response:
+        int status = 1;                
+        
+		// XXX: Hardcoded path to the script to execute:
+		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q_long.sh", jobId, "LastJobStatus"};
+		
+		Process p = Runtime.getRuntime().exec( cmdScript );
+		
+        BufferedReader reader = new BufferedReader(new InputStreamReader( p.getInputStream() ));
+        String line = reader.readLine();
+        System.out.println( line );
+
+        // parse the substring after '=' from line
+        // Gets NPE for job id of bogusJobId
+        status = Integer.valueOf( line.substring( (line.indexOf("=") + 2), line.length() ) );
+        respObj.put( "Status" , status);
+        System.out.println( "CondorUtils::parseResponse::status = " + status );
+        
         return respObj;
     }
+    
+
+    
+    public static Map<String, Object> getJobPosition( String jobId ) throws IOException {
+        Map<String, Object> respObj = new LinkedHashMap<String, Object> ();
+
+        // XXX: With Condor:  Is there a notion of Position?
+        
+        return respObj;
+    }
+    
     
     
 	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
@@ -250,7 +285,7 @@ public class CondorUtils
 	    return jobId;    	
 	}
 	
-	public static void main(String[] arguments) throws MalformedURLException, RemoteException, ServiceException
+	public static void main(String[] arguments)
 	{
 		String jobId;
         if( ! ( arguments.length > 0 ) ) {
