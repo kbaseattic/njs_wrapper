@@ -66,12 +66,6 @@ public class CondorUtils
 			createStringAttribute("Err", stdErrLocation),
 			createStringAttribute("ShouldTransferFiles", "NO"), // Using shared FS
 			
-			// ERROR schedd log: Job id 62.0 has no Owner attribute.  Removing.
-			// http://research.cs.wisc.edu/htcondor/manual/v7.6/4_1Condor_s_ClassAd.html#sec:classad-reference
-			// Owner has "Policy" semantics and configuration connotation
-			// Is used to map jobs ClassAd to machines ClassAd
-			// http://research.cs.wisc.edu/htcondor/manual/v7.6/3_5Policy_Configuration.html
-			
 			createExpressionAttribute("Requirements", "TRUE"),
 			
 			createExpressionAttribute("OnExitRemove",
@@ -238,7 +232,11 @@ public class CondorUtils
     public static Map<String, Object> getJobPosition( String jobId ) throws IOException {
         Map<String, Object> respObj = new LinkedHashMap<String, Object> ();
 
-        // XXX: With Condor:  Is there a notion of Position?
+        // With Condor:  Is there a notion of Position?
+        // Condor:: Not FIFO… Policy based with a lot of moving parts to it.
+        // There is a notion of Rank but that’s just a policy attribute not a deterministic position in the execution queue or pool
+        // Todo: Parse "PRIORITY" out of condor_q response
+
         
         return respObj;
     }
