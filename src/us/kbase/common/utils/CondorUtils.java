@@ -301,6 +301,64 @@ public class CondorUtils
 	    return jobId;    	
 	}
 	
+	
+	
+	public static int submitToCondorCLI ( String submitFileContent ) throws IOException
+	{
+		int jobId = 0;
+		String line = "";
+		Runtime r = Runtime.getRuntime();
+		
+		// XXX: Hardcoded path to the script dir:
+		// cd to the scripts directory and purge out temp.sub
+		Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
+		r.exec( "rm -f temp.sub" );
+		
+		// Build a file in njs_wrapper/scripts directory named temp.sub
+		// that contains the String parm submitFileContent
+		p = r.exec( "echo " + submitFileContent + " > temp.sub");
+
+		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
+				"temp.sub" };
+		// Execute job submit script with temp.sub as the submit fle:
+		p = r.exec( cmdScript );
+		
+		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
+		while ((line = b.readLine()) != null) {
+		  System.out.println(line);
+		}
+		b.close();		
+		
+		return jobId;
+	}
+
+	
+    // Test main for submitting via CLI system calls to Condor
+	// Usage: submitToCondorCLI <contents to go in the submit file>
+	public static void main(String[] arguments)
+	{
+		String submitFileContent;
+        if( ! ( arguments.length > 0 ) ) {
+        	// Debug: just do a 'uname -a'
+        	submitFileContent = "job_exec01.sub";
+        } else {
+        	submitFileContent = arguments[ 0 ];
+        }
+        
+	    // Call submitToCondorCLI with submitFileContent
+	    try {
+	    	int jobId =  submitToCondorCLI( submitFileContent );
+	    	
+	    } catch( Exception ex ) {
+            ex.printStackTrace();
+
+            String message = "CondorUtils: Error calling submitToCondorCLI from main... "  + ex.getMessage();
+            System.err.println(message);
+        }
+	}
+	
+	// Test main for exercising the query methods
+	/*
 	public static void main(String[] arguments)
 	{
 		String jobId;
@@ -326,7 +384,6 @@ public class CondorUtils
 			
 	    // Call getJobDescr
         // Usage: CondorUtils $1
-        /*
         try{
 				Map<String, Object> respObj = getJobDescr( jobId );    
 		} catch( IOException ex ) {
@@ -336,13 +393,12 @@ public class CondorUtils
 	            System.err.println(message);
 	            // if (log != null) log.logErr(message);
 		}
-		*/
+	
 	}
-
+    */
     // Test main for submitting via Spinning API
     /*
 	public static void main(String[] arguments)
-	throws MalformedURLException, RemoteException, ServiceException
 	{
 		URL scheddLocation = new URL(arguments[0]);
 		String owner = arguments[1];
