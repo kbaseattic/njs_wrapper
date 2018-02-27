@@ -235,7 +235,25 @@ public class CondorUtils
         // With Condor:  Is there a notion of Position?
         // Condor:: Not FIFO… Policy based with a lot of moving parts to it.
         // There is a notion of Rank but that’s just a policy attribute not a deterministic position in the execution queue or pool
-        // Todo: Parse "PRIORITY" out of condor_q response
+        // Parse "PRIO" out of condor_q response
+
+        int priority = 0;  // Range is -20 to 20, positive is high                
+        
+		// XXX: Hardcoded path to the script to execute:
+		String[] cmdScript = new String[]{"/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_q_long.sh", jobId, "JobPrio"};
+		
+		Process p = Runtime.getRuntime().exec( cmdScript );
+		
+        BufferedReader reader = new BufferedReader(new InputStreamReader( p.getInputStream() ));
+        String line = reader.readLine();
+        System.out.println( line );
+
+        // parse the substring after '=' from line
+        // Gets NPE for job id of bogusJobId
+        priority = Integer.valueOf( line.substring( (line.indexOf("=") + 2), line.length() ) );
+        respObj.put( "Priority" , priority);
+        System.out.println( "CondorUtils::parseResponse::priority = " + priority );
+        
 
         
         return respObj;
