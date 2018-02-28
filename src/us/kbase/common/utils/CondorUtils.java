@@ -314,12 +314,13 @@ public class CondorUtils
 		Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
 		r.exec( "rm -f temp.sub" );
 		
-		// Build a file in njs_wrapper/scripts directory named temp.sub
-		// that contains the String parm submitFileContent
-		p = r.exec( "echo " + submitFileContent + " > temp.sub");
+		// Build a file in njs_wrapper/scripts directory named temp.sh
+		// TODO: will later become the 'executable' attribute inside the submit file 
+		// p = r.exec( "echo " + submitFileContent + " > temp.sh");
 
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
-				"temp.sub" };
+				submitFileContent };
+		
 		// Execute job submit script with temp.sub as the submit fle:
 		p = r.exec( cmdScript );
 		
