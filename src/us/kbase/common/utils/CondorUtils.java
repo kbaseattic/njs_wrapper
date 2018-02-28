@@ -311,8 +311,8 @@ public class CondorUtils
 		
 		// XXX: Hardcoded path to the script dir:
 		// cd to the scripts directory and purge out temp.sub
-		Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
-		r.exec( "rm -f temp.sub" );
+		// Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
+		// r.exec( "rm -f temp.sub" );
 		
 		// Build a file in njs_wrapper/scripts directory named temp.sh
 		// TODO: will later become the 'executable' attribute inside the submit file 
@@ -322,7 +322,7 @@ public class CondorUtils
 				submitFileContent };
 		
 		// Execute job submit script with temp.sub as the submit fle:
-		p = r.exec( cmdScript );
+		Process p = r.exec( cmdScript );
 		
 		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
 		while ((line = b.readLine()) != null) {
