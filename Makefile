@@ -70,6 +70,17 @@ deploy-service: deploy-scripts
 	chmod +x $(SERVICE_DIR)/start_service
 	chmod +x $(SERVICE_DIR)/stop_service
 
+docker_image: compile
+	$(ANT) buildwar
+	# cp server_scripts/glassfish_administer_service.py deployment/bin
+	# chmod 755 deployment/bin/glassfish_administer_service.py
+	-mkdir deployment/lib
+	-mkdir -p deployment/jettybase/webapps
+	-mkdir -p deployment/jettybase/logs
+	-mkdir -p deployment/jettybase/start.d
+	cp dist/$(WAR) deployment/jettybase/webapps/root.war 
+	./build/build_docker_image.sh
+
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
 
