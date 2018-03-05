@@ -303,7 +303,7 @@ public class CondorUtils
 	
 	
 	
-	public static int submitToCondorCLI ( String submitFileContent ) throws IOException
+	public static int submitToCondorCLI ( String submitFilePath ) throws IOException
 	{
 		int jobId = 0;
 		String line = "";
@@ -316,10 +316,10 @@ public class CondorUtils
 		
 		// Build a file in njs_wrapper/scripts directory named temp.sh
 		// TODO: will later become the 'executable' attribute inside the submit file 
-		// p = r.exec( "echo " + submitFileContent + " > temp.sh");
+		// p = r.exec( "echo " + submitFilePath + " > temp.sh");
 
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
-				submitFileContent };
+				submitFilePath };
 		
 		// Execute job submit script with temp.sub as the submit fle:
 		Process p = r.exec( cmdScript );
@@ -338,17 +338,17 @@ public class CondorUtils
 	// Usage: submitToCondorCLI <contents to go in the submit file>
 	public static void main(String[] arguments)
 	{
-		String submitFileContent;
+		String submitFilePath;
         if( ! ( arguments.length > 0 ) ) {
         	// Debug: just do a 'uname -a'
-        	submitFileContent = "job_exec01.sub";
+        	submitFilePath = "job_exec01.sub";
         } else {
-        	submitFileContent = arguments[ 0 ];
+        	submitFilePath = arguments[ 0 ];
         }
         
-	    // Call submitToCondorCLI with submitFileContent
+	    // Call submitToCondorCLI with submitFilePath
 	    try {
-	    	int jobId =  submitToCondorCLI( submitFileContent );
+	    	int jobId =  submitToCondorCLI( submitFilePath );
 	    	
 	    } catch( Exception ex ) {
             ex.printStackTrace();
