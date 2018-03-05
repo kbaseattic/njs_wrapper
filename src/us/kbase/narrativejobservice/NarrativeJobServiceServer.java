@@ -124,15 +124,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 		String configPath = System.getProperty(SYS_PROP_KB_DEPLOYMENT_CONFIG);
 		if (configPath == null)
 			configPath = System.getenv(SYS_PROP_KB_DEPLOYMENT_CONFIG);
-		
-		
-		
-    	// Debug:
-		if (configPath == null)
-			configPath = "/Users/amikaili/myKbaseCode/njs_wrapper/deploy.cfg";
-		
-		
-		
 		if (configPath == null) {
 			configError = new IllegalStateException("Configuration file was not defined");
 		} else {
@@ -333,13 +324,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
-        
-        
-        
         //BEGIN_CONSTRUCTOR
-        
-        
-        
         logger = new ErrorLogger() {
             @Override
             public void logErr(Throwable err) {
@@ -381,29 +366,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     "is not defined: " + CFG_PROP_CATALOG_ADMIN_USER + " or " +
                     CFG_PROP_CATALOG_ADMIN_TOKEN);
         }
-        
-        
-        // Debug:
-        // force a test invocation of server side
-        // to fake a job submittal to Condor
-        //  with client group 'bogus' (per deply.cfg hack)
-        // TODO: Populate a RunJobParams with job submit information for Condor
-        //    Do things like set method to SUBMIT
-        RunJobParams params = new RunJobParams();
-        // TODO: Figure out token ==> fix UJS  ???
-        // TODO: auth will be queried for username..., and passed to Condor for use as the job owner (root is placeholder only)
-        AuthToken authPart = new AuthToken( "62IYPZGS7O773DBLZZCSE542BP4C2E7G", "root" );
-
-        RpcContext jsonRpcContext = new RpcContext();
-        
-        runJob(params, authPart, jsonRpcContext);
-        
-        // TODO: Ensure this test job submission is recorded in:
-        //// UJS
-        //// Catalog
-        
-        
-        
         //END_CONSTRUCTOR
     }
 
@@ -517,19 +479,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         String returnVal = null;
         //BEGIN run_job
         System.gc();
-        
-        
-
-        // Debug:
-        String aweClientGroups = "bogus";
-        // String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
-        
-        
-        
+        String aweClientGroups = SDKMethodRunner.requestClientGroups(config(), params.getMethod());
         returnVal = SDKMethodRunner.runJob(params, authPart, null, config(), aweClientGroups);
         //END run_job
         return returnVal;
-        
     }
 
     /**
@@ -686,25 +639,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
 
     public static void main(String[] args) throws Exception {
-    	
-    	
-        // Debug:
-    	String port = "8200"; // Got this from deploy.cfg (is ci service port) 
-    	String[] array = new String[args.length + 1];
-    	System.arraycopy(array, 0, args, 0, args.length);
-    	array[0] = port;
-    	
-    	
-    	// Debug:
-        if (array.length == 1) {
-        // if (args.length == 1) {
-        	
-        	
-            new NarrativeJobServiceServer().startupServer(Integer.parseInt(array[0]));
-            // new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
-            
-            
-            
+        if (args.length == 1) {
+            new NarrativeJobServiceServer().startupServer(Integer.parseInt(args[0]));
         } else if (args.length == 3) {
             JsonServerSyslog.setStaticUseSyslog(false);
             JsonServerSyslog.setStaticMlogFile(args[1] + ".log");

@@ -22,15 +22,6 @@
   </condition>
 
   <fileset dir="${jarsdir}" id="serverlib">
-  	
-  	
-  	
-    <include name="axis/condor.jar"/>
-    <include name="axis/axis.jar"/>  	
-    <include name="axis/jaxrpc.jar"/>
-  	
-  	
-
     <include name="joda/joda-time-2.2.jar"/>
     <include name="ini4j/ini4j-0.5.2.jar"/>
     <include name="jetty/jetty-all-7.0.0.jar"/>

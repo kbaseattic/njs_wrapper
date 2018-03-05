@@ -109,19 +109,13 @@ public class SDKMethodRunner {
 	
 	public static String runJob(RunJobParams params, AuthToken authPart, 
 			String appJobId, Map<String, String> config, String aweClientGroups) throws Exception {
-
+		//perform sanity checks before creating job
 		checkWSObjects(authPart, config, params.getSourceWsObjects());
 		//need to update the params before transforming to a Map
-		
-				
-		// Debug:
-		// checkModuleAndUpdateRunJobParams(params, config);
-		
-
-		// Transform params from jsonrpc UObject from... to... java hashmap to send to AweUtils,
-		//    Who submits REST httpPost to Awe:
+		checkModuleAndUpdateRunJobParams(params, config);
 		@SuppressWarnings("unchecked")
-		final Map<String, Object> jobInput = UObject.transformObjectToObject(params, Map.class);
+		final Map<String, Object> jobInput =
+			UObject.transformObjectToObject(params, Map.class);
 		checkObjectLength(jobInput, MAX_IO_BYTE_SIZE, "Input", null);
 
 		String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
@@ -133,30 +127,14 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
-		
-		
-		
-		// Debug
 		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		
-		
-		
 		final CreateJobParams cjp = new CreateJobParams()
 				.withMeta(params.getMeta());
 		if (params.getWsid() != null) {
 			cjp.withAuthstrat("kbaseworkspace")
 				.withAuthparam("" + params.getWsid());
 		}
-		
-		
-		
-		// Debug
-		// TODO: auth fails
-		// Exception in thread "main" us.kbase.common.service.ServerException: Token validation failed: Login failed! Server responded with code 401 Unauthorized
-		final String ujsJobId = "0";
-		// final String ujsJobId = ujsClient.createJob2(cjp);
-		
-		
+		final String ujsJobId = ujsClient.createJob2(cjp);
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -176,27 +154,15 @@ public class SDKMethodRunner {
 			// String username = authPart.getUserName();
 			
 			int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
+			
 		} else {
-		    // String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+			if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
+			addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+
 		}
-		
 
-		// Debug
-		// TODO: getUjsClient
-		// if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
-		
-		
-		
-		// Debug:
-		// addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
-		
-		
-
-		// Debug
-		// TODO: getUjsClient
-		return cjp.toString();
-		// return ujsJobId;
-		
+		return ujsJobId;
 	}
 
 	private static AuthToken getCatalogAdminAuth(Map<String, String> config) 
