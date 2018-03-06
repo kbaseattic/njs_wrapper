@@ -6,4 +6,4 @@ export COMMIT=${TRAVIS_COMMIT:-`git rev-parse --short HEAD`}
 docker build --build-arg BUILD_DATE=$DATE \
      		 --build-arg VCS_REF=$COMMIT \
 			 --build-arg BRANCH=$BRANCH \
-             -t kbase/kb_ujs:$COMMIT .
+             -t kbase/kb_njs_wrapper:$COMMIT .
