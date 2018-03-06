@@ -1,8 +1,9 @@
+# submit description file for executable job_exec01.sh
 Universe     = vanilla 
-executable              = ./job_exec01.sh
-# log                     = /home/submitter/submit/Spinning/out/logfile01.txt
-# output                  = /home/submitter/submit/Spinning/out/outfile01.txt
-# error                   = /home/submitter/submit/Spinning/out/errors01.txt
-# should_transfer_files   = No 
+executable              = /home/submitter/submit/njs_wrapper/scripts/job_exec01.sh
+log                     = /home/submitter/submit/njs_wrapper/out/logfile01.txt
+output                  = /home/submitter/submit/njs_wrapper/out/outfile01.txt
+error                   = /home/submitter/submit/njs_wrapper/out/errors01.txt
+should_transfer_files   = Yes 
 # when_to_transfer_output = ON_EXIT
 queue
