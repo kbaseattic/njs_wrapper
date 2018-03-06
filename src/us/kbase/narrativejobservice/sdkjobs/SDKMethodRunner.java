@@ -153,7 +153,10 @@ public class SDKMethodRunner {
 			// Change last line to next line (stop faking root) when the "Policy" piece in place:
 			// String username = authPart.getUserName();
 			
-			int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
+			String submit_file = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
+			System.out.println( "Submit File = " + submit_file );
+			int condorJobId = CondorUtils.submitToCondorCLI( submit_file );			
+			// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
 			
 		} else {
 		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));

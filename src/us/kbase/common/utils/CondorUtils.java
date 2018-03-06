@@ -27,9 +27,9 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.axis.*;
+// import org.apache.axis.*;
 
-import condor.*;
+// import condor.*;
 
 import java.net.URL;
 import java.net.MalformedURLException;
@@ -40,6 +40,8 @@ import javax.xml.rpc.ServiceException;
 public class CondorUtils
 {
 
+	/*
+	
 	private static ClassAdStructAttr[] buildJobAd(String owner, String jobFileLocation, int clusterId, int jobId)
 	{
 		String jobOutputFileLocation = jobFileLocation + ".job.out";
@@ -110,6 +112,7 @@ public class CondorUtils
 		return attribute;
 	}
 
+	*/
 
     // Dump condor_q for the job id
     public static Map<String, Object> getJobDescr( /* String condorUrl */ String jobId ) throws IOException {
@@ -260,7 +263,7 @@ public class CondorUtils
     }
     
     
-    
+    /*
 	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
 	        // String jobName, String args, String scriptName, AuthToken auth,
 	        String clientGroups) throws MalformedURLException, RemoteException, ServiceException {
@@ -300,7 +303,7 @@ public class CondorUtils
 		
 	    return jobId;    	
 	}
-	
+	*/
 	
 	
 	public static int submitToCondorCLI ( String submitFilePath ) throws IOException
