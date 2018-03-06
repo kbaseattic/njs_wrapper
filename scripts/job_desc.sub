@@ -1,0 +1,8 @@
+Universe     = vanilla 
+executable              = ./job_exec01.sh
+# log                     = /home/submitter/submit/Spinning/out/logfile01.txt
+# output                  = /home/submitter/submit/Spinning/out/outfile01.txt
+# error                   = /home/submitter/submit/Spinning/out/errors01.txt
+# should_transfer_files   = No 
+# when_to_transfer_output = ON_EXIT
+queue
