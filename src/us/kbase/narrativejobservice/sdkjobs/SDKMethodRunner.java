@@ -37,6 +37,7 @@ import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
+import us.kbase.common.utils.CondorUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobCanceledResult;
@@ -141,12 +142,29 @@ public class SDKMethodRunner {
 			aweClientGroups = config.get(NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS);
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
-		String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
-				ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-				authPart, aweClientGroups, getCatalogAdminAuth(config));
-		if (appJobId != null && appJobId.isEmpty())
-			appJobId = ujsJobId;
-		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+		
+		
+		
+		// Debug:
+		// Config switch to switch to calling new Condor Utils method submitToCondor
+		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
+		    // Pass username as owner to submitToCondor:
+			String username = "root";
+			// Change last line to next line (stop faking root) when the "Policy" piece in place:
+			// String username = authPart.getUserName();
+			
+			String submit_file = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
+			System.out.println( "Submit File = " + submit_file );
+			int condorJobId = CondorUtils.submitToCondorCLI( submit_file );			
+			// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
+			
+		} else {
+		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+			if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
+			addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+
+		}
+
 		return ujsJobId;
 	}
 
