@@ -32,10 +32,10 @@ auth-service-url-allow-insecure={{ default .Env.auth_service_url_allow_insecure 
 admin.user={{default .Env.admin.user "" }}
 
 # Following parameters define Catalog admin creds for pushing exec-stats:
-catalog.admin.token={{ default .Env.catalog.admin.token "" }}
+catalog.admin.token={{ default .Env.catalog_token "" }}
 #default.awe.client.groups=ci
 # Following parameters define AWE admin creds for checking AWE job-states:
-awe.readonly.admin.token={{ default .Env.awe.readonly.admin.token "" }}
+awe.readonly.admin.token={{ default .Env.awe_token "" }}
 mongodb-host = {{ default .Env.mongodb_host "localhost:27017" }}
 mongodb-database = {{ default .Env.mongodb_database "exec_engine" }}
 mongodb-user = {{ default .Env.mongodb_user "" }}
