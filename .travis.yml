@@ -17,8 +17,6 @@ install:
   - cd -
 
 script:
-  - ant javadoc
-  - ant compile
   - docker pull kbase/kb_jre
   - make docker_image
 
