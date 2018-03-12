@@ -4,6 +4,13 @@ executable              = /home/submitter/submit/njs_wrapper/scripts/job_exec01.
 log                     = /home/submitter/submit/njs_wrapper/out/logfile01.txt
 output                  = /home/submitter/submit/njs_wrapper/out/outfile01.txt
 error                   = /home/submitter/submit/njs_wrapper/out/errors01.txt
-should_transfer_files   = Yes 
+should_transfer_files   = Yes
+# Change above to No, in favor of Using shared FS
+
 # when_to_transfer_output = ON_EXIT
+
+# Arguments: 
+# createStringAttribute("Arguments", "-f -l . -Debug 3 "),
+# modify above for kbase arguments (see AweUtils)
+
 queue
