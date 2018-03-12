@@ -1,20 +1,31 @@
-# Dockerfile that builds a minimal container for IPython + narrative
-#
-# Copyright 2013 The Regents of the University of California,
-# Lawrence Berkeley National Laboratory
-# United States Department of Energy
-# The DOE Systems Biology Knowledgebase (KBase)
-# Made available under the KBase Open Source License
-#
-FROM kbase/depl:latest
-MAINTAINER Shane Canon scanon@lbl.gov
+FROM kbase/kb_jre
 
-ADD ./njs_wrapper /kb/dev_container/modules/njs_wrapper
+# These ARGs values are passed in via the docker build command
+ARG BUILD_DATE
+ARG VCS_REF
+ARG BRANCH=develop
 
-# Use the first line if you are starting a new service not in deployment.cfg, use the second line if you are modifying an already running service.
-#RUN cd /kb/dev_container/modules/THIS_MODULE && . ../../user-env.sh && make && make deploy && cat deploy.cfg >> /kb/deployment/deployment.cfg
-RUN cd /kb/dev_container/modules/njs_wrapper && . ../../user-env.sh && make && make deploy
+COPY deployment/ /kb/deployment/
 
-# Make any changes to ensure the service runs in the foreground.
+ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
-# Do not set the docker instruction "CMD", as this would overwrite kbase defaults.
+# The BUILD_DATE value seem to bust the docker cache when the timestamp changes, move to
+# the end
+LABEL org.label-schema.build-date=$BUILD_DATE \
+      org.label-schema.vcs-url="https://github.com/kbase/njs_wrapper.git" \
+      org.label-schema.vcs-ref=$VCS_REF \
+      org.label-schema.schema-version="1.0.0-rc1" \
+      us.kbase.vcs-branch=$BRANCH \
+      maintainer="Steve Chan sychan@lbl.gov"
+
+EXPOSE 7058
+ENTRYPOINT [ "/kb/deployment/bin/dockerize" ]
+CMD [ "-template", "/kb/deployment/conf/.templates/deployment.cfg.templ:/kb/deployment/conf/deployment.cfg", \
+      "-template", "/kb/deployment/conf/.templates/http.ini.templ:/kb/deployment/jettybase/start.d/http.ini", \
+      "-template", "/kb/deployment/conf/.templates/server.ini.templ:/kb/deployment/jettybase/start.d/server.ini", \
+      "-template", "/kb/deployment/conf/.templates/start_server.sh.templ:/kb/deployment/bin/start_server.sh", \
+      "-stdout", "/kb/deployment/jettybase/logs/request.log", \
+      "/kb/deployment/bin/start_server.sh" ]
+
+WORKDIR /kb/deployment/jettybase
+
