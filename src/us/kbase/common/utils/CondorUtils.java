@@ -34,7 +34,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URL;
 import java.net.MalformedURLException;
 import java.rmi.RemoteException;
-import javax.xml.rpc.ServiceException;
+// import javax.xml.rpc.ServiceException;
 	
 	
 public class CondorUtils
