@@ -3,7 +3,8 @@ FROM kbase/condor:latest AS condor
 RUN tar cf /tmp/condor_submit.tar /lib64/libclassad.* \
            /lib64/libpcre.* /lib64/libcrypto.* /etc/condor/condor_config \
            /lib64/libgomp.* /lib64/libcondor_utils_* /usr/bin/condor_submit \
-           /usr/bin/condor_status /usr/bin/condor_q /usr/bin/condor_rm
+           /usr/bin/condor_status /usr/bin/condor_q /usr/bin/condor_rm \
+           /usr/bin/condor_config_val
 
 FROM kbase/kb_jre
 
@@ -36,6 +37,7 @@ CMD [ "-template", "/kb/deployment/conf/.templates/deployment.cfg.templ:/kb/depl
       "-template", "/kb/deployment/conf/.templates/http.ini.templ:/kb/deployment/jettybase/start.d/http.ini", \
       "-template", "/kb/deployment/conf/.templates/server.ini.templ:/kb/deployment/jettybase/start.d/server.ini", \
       "-template", "/kb/deployment/conf/.templates/start_server.sh.templ:/kb/deployment/bin/start_server.sh", \
+      "-template", "/kb/deployment/conf/.templates/condor_config.templ:/etc/condor/condor_config", \
       "-stdout", "/kb/deployment/jettybase/logs/request.log", \
       "/kb/deployment/bin/start_server.sh" ]
 
