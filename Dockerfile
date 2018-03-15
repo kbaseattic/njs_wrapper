@@ -2,7 +2,8 @@ FROM kbase/condor:latest AS condor
 
 RUN tar cf /tmp/condor_submit.tar /lib64/libclassad.* \
            /lib64/libpcre.* /lib64/libcrypto.* /etc/condor/condor_config \
-           /lib64/libgomp.* /lib64/libcondor_utils_* /usr/bin/condor_submit
+           /lib64/libgomp.* /lib64/libcondor_utils_* /usr/bin/condor_submit \
+           /usr/bin/condor_status /usr/bin/condor_q /usr/bin/condor_rm
 
 FROM kbase/kb_jre
 
