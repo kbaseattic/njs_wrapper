@@ -1,9 +1,20 @@
+FROM kbase/condor:latest AS condor
+
+RUN tar cf /tmp/condor_submit.tar /lib64/libclassad.* \
+           /lib64/libpcre.* /lib64/libcrypto.* /etc/condor/condor_config \
+           /lib64/libgomp.* /lib64/libcondor_utils_* /usr/bin/condor_submit
+
 FROM kbase/kb_jre
 
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
 ARG BRANCH=develop
+
+COPY --from=condor /tmp/condor_submit.tar /tmp/condor_submit.tar
+RUN cd / && \
+    tar xvf /tmp/condor_submit.tar && \
+    cp /lib64/* /usr/lib/x86_64-linux-gnu/
 
 COPY deployment/ /kb/deployment/
 
