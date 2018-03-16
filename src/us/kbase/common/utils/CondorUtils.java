@@ -306,33 +306,50 @@ public class CondorUtils
 	*/
 	
 	
-	public static int submitToCondorCLI ( String submitFilePath ) throws IOException
+	public static float submitToCondorCLI ( String submitFilePath ) throws IOException
 	{
-		int jobId = 0;
+		float jobId = 0;
 		String line = "";
+		int exitVal = 0;
+
 		Runtime r = Runtime.getRuntime();
-		
-		// XXX: Hardcoded path to the script dir:
-		// cd to the scripts directory and purge out temp.sub
-		// Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
-		// r.exec( "rm -f temp.sub" );
-		
-		// Build a file in njs_wrapper/scripts directory named temp.sh
-		// TODO: will later become the 'executable' attribute inside the submit file 
-		// p = r.exec( "echo " + submitFilePath + " > temp.sh");
 
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
 				submitFilePath };
 		
-		// Execute job submit script with temp.sub as the submit fle:
+		// Execute job submit script with submitFilePath as the submit fle path:
 		Process p = r.exec( cmdScript );
+		try {
+			p.waitFor();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		
 		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
+		/*
 		while ((line = b.readLine()) != null) {
 		  System.out.println(line);
 		}
-		b.close();		
+		*/
+		exitVal = p.exitValue();
 		
+		if ( exitVal == 0 ) { // success
+			
+			// Determine job id (cluster id dot zero) of the job just submitted:			
+	        line = b.readLine();
+	        System.out.println( line );
+
+	        // parse the substring after 'c' for proc from line
+	        jobId = Integer.valueOf( line.substring( (line.indexOf("c") + 2), line.length() ) );
+	        
+	        System.out.println( "CondorUtils::submitToCondorCLI::jobId = " + jobId );			
+		} else {
+			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" );			
+            throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
+		}
+		
+		b.close();		
 		return jobId;
 	}
 
@@ -351,7 +368,7 @@ public class CondorUtils
         
 	    // Call submitToCondorCLI with submitFilePath
 	    try {
-	    	int jobId =  submitToCondorCLI( submitFilePath );
+	    	float jobId =  submitToCondorCLI( submitFilePath );
 	    	
 	    } catch( Exception ex ) {
             ex.printStackTrace();

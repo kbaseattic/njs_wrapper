@@ -1,1 +1,1 @@
-condor_submit $1
+condor_submit -verbose $1

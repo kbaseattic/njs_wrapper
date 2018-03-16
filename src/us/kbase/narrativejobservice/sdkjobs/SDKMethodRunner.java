@@ -155,7 +155,7 @@ public class SDKMethodRunner {
 			
 			String submit_file = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
 			System.out.println( "Submit File = " + submit_file );
-			int condorJobId = CondorUtils.submitToCondorCLI( submit_file );			
+			float condorJobId = CondorUtils.submitToCondorCLI( submit_file );			
 			// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
 			
 		} else {
