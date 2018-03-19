@@ -336,16 +336,20 @@ public class CondorUtils
 		  if( line.contains( "** Proc" ) ) break;
 		}
 		b.close();
+		/*
 		if( line == null || !line.contains( "** Proc" ) ) {
 			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
             throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 			
 		}
-		
+		*/
 		exitVal = p.exitValue();		
 		if ( exitVal == 0 ) { // success
 			
 			// Determine job id (cluster id dot zero) of the job just submitted:			
 	        // parse the substring after 'c' for proc from line
+			// TODO: Don't parse... FORCE!!! Force a 'batch' job id (coordianted with ujs/catalog)
+			//     Back up in the call stack heirarchy (add switch to condor_submit.sh to force a 'batch' job id)
+			/*
 			try{
 			    jobId = Integer.valueOf( line.substring( (line.indexOf("** Proc") + 7), line.length() ) );
 			    
@@ -354,12 +358,13 @@ public class CondorUtils
 				System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
 	            throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 
 			}			    
-			
+			*/
 		} else {
 			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" );			
             throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
 		}
-		
+
+		// TODO: Refactor methods's return type (force 'batch' job id ===>> do we still wnat to return it?
 		return jobId;
 	}
 
