@@ -320,16 +320,18 @@ public class CondorUtils
 		
 		// Execute job submit script with submitFilePath as the submit fle path:
 		Process p = r.exec( cmdScript );
+		/*
 		try {
 			p.waitFor();
-		} catch (InterruptedException e) {
-			
+		} catch (InterruptedException e) {			
 			e.printStackTrace();
 		}
-		
+		*/
 		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
 		
-		while ((line = b.readLine()) != null) {
+		line = b.readLine();
+		System.out.println(line);		
+		while (( line = b.readLine()) != null ) {
 		  System.out.println(line);
 		  if( line.contains( "** Proc" ) ) break;
 		}
