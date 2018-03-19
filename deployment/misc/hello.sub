@@ -32,7 +32,7 @@ when_to_transfer_output = ON_EXIT
 #  each job will need on the computer where it runs.
 
 request_cpus = 1
-request_memory = 500MB
+request_memory = 5MB
 request_disk = 1MB
 
 # Tell HTCondor to run 3 instances of our job:
