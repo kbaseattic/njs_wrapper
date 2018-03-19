@@ -334,7 +334,7 @@ public class CondorUtils
 		  if( line.contains( "** Proc" ) ) break;
 		}
 		b.close();
-		if( ! line.contains( "** Proc" ) ) {
+		if( line == null || !line.contains( "** Proc" ) ) {
 			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
             throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 			
 		}
