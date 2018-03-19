@@ -9,9 +9,11 @@ ARG BRANCH=develop
 # noninteractive in order to prevent that
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install -y htcondor
+    apt-get install -y htcondor zile vim && \
+    chown -R kbase:kbase /etc/condor/*
 
-COPY deployment/ /kb/deployment/
+USER kbase
+COPY --chown=kbase deployment/ /kb/deployment/
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
