@@ -8,6 +8,9 @@
 #  assigned to this set of jobs at the time of submission.
 
 universe = vanilla
+
+# Must use condor_pool for remote password authentication
++Owner = "condor_pool"
 log = hello_$(Cluster).log
 error = hello_$(Cluster)_$(Process).err
 
@@ -35,5 +38,6 @@ request_cpus = 1
 request_memory = 5MB
 request_disk = 1MB
 
+accounting_group = sychan
 # Tell HTCondor to run 3 instances of our job:
 queue 3
