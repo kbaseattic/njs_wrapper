@@ -306,7 +306,7 @@ public class CondorUtils
 	*/
 	
 	
-	public static float submitToCondorCLI ( String submitFilePath ) throws IOException
+	public static float submitToCondorCLI ( String ujsJobId, String selfExternalUrl, String submitFilePath ) throws IOException
 	{
 		float jobId = 0;
 		String line = "";
@@ -315,7 +315,10 @@ public class CondorUtils
 		Runtime r = Runtime.getRuntime();
 
 		// TODO: Change path to condor_submit script to a relative path: like ../scripts/condor_submit.sh
+		// TODO: Change the bash script to also include the -batch-name switch; and:
+		// Pass ujsJobId as the first arg to the bash script:
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
+				ujsJobId,
 				submitFilePath };
 		
 		// Execute job submit script with submitFilePath as the submit fle path:
@@ -364,7 +367,7 @@ public class CondorUtils
             throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
 		}
 
-		// TODO: Refactor methods's return type (force 'batch' job id ===>> do we still wnat to return it?
+		// TODO: Refactor methods's return type (force 'batch' job id ===>> do we still want to return it?
 		return jobId;
 	}
 
@@ -373,17 +376,42 @@ public class CondorUtils
 	// Usage: submitToCondorCLI <contents to go in the submit file>
 	public static void main(String[] arguments)
 	{
-		String submitFilePath;
+		String ujsJobId = "";
+		String selfExternalUrl = "";
+		String submitFilePath = "";
+		
         if( ! ( arguments.length > 0 ) ) {
+        	// Debug: defaults:
+        	ujsJobId = "condor@condor";
+        	
         	// Debug: just do a 'uname -a'
         	submitFilePath = "job_exec01.sub";
-        } else {
-        	submitFilePath = arguments[ 0 ];
+        	
+        } else if( arguments.length == 1 ){
+        	ujsJobId = arguments[ 0 ];
+        	
+        	// Debug: just do a 'uname -a'
+        	submitFilePath = "job_exec01.sub";
+        	
+        } else if( arguments.length == 2 ){
+        	
+        	ujsJobId = arguments[ 0 ];
+        	
+        	selfExternalUrl = arguments[ 1 ];
+        	
+        	// Debug: just do a 'uname -a'
+        	submitFilePath = "job_exec01.sub";
+        } else if( arguments.length == 3 ){
+        	
+        	ujsJobId = arguments[ 0 ];
+        	
+        	selfExternalUrl = arguments[ 1 ];
+        	
+        	submitFilePath = arguments[ 2 ];
         }
-        
 	    // Call submitToCondorCLI with submitFilePath
 	    try {
-	    	float jobId =  submitToCondorCLI( submitFilePath );
+	    	float jobId =  submitToCondorCLI( ujsJobId, selfExternalUrl, submitFilePath );
 	    	
 	    } catch( Exception ex ) {
             ex.printStackTrace();

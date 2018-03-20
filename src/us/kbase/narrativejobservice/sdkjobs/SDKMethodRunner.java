@@ -134,7 +134,8 @@ public class SDKMethodRunner {
 			cjp.withAuthstrat("kbaseworkspace")
 				.withAuthparam("" + params.getWsid());
 		}
-		final String ujsJobId = ujsClient.createJob2(cjp);
+		String ujsJobId = ujsClient.createJob2(cjp);
+		// final String ujsJobId = ujsClient.createJob2(cjp);
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -155,7 +156,7 @@ public class SDKMethodRunner {
 			
 			String submit_file = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
 			System.out.println( "Submit File = " + submit_file );
-			float condorJobId = CondorUtils.submitToCondorCLI( submit_file );			
+			float condorJobId = CondorUtils.submitToCondorCLI( ujsJobId, selfExternalUrl, submit_file );			
 			// int condorJobId = CondorUtils.submitToCondor( selfExternalUrl, username, ".", "bogus" );
 			
 		} else {
