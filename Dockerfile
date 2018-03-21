@@ -9,8 +9,18 @@ ARG BRANCH=develop
 # noninteractive in order to prevent that
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install -y htcondor zile vim && \
-    chown -R kbase:kbase /etc/condor
+    apt-get install -y htcondor zile vim libgomp1 && \
+    chown -R kbase:kbase /etc/condor && \
+    mkdir /scratch && \
+    cd /tmp && \
+    wget http://submit-3.batlab.org/nmi-runs/condorauto/2018/03/condorauto_submit-3.batlab.org_1520871025_1539075/userdir/nmi:x86_64_Debian9/results.tar.gz && \
+    tar xvzf results.tar.gz && \
+    cd public && \
+    tar xvzf condor-8.6.10-x86_64_Debian9-stripped.tar.gz && \
+    cd condor-8.6.10-x86_64_Debian9-stripped && \
+    ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --owner=kbase --overwrite && \
+    cd /tmp && \
+    rm -rf results.tar.gz public
 
 USER kbase
 COPY --chown=kbase deployment/ /kb/deployment/
