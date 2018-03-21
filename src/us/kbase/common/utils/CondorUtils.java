@@ -190,21 +190,19 @@ public class CondorUtils
 		Runtime r = Runtime.getRuntime();
 
 		// TODO: Change path to condor_submit script to a relative path: like ../scripts/condor_submit.sh
-		// TODO: Change the bash script to also include the -batch-name switch; and:
-		// Pass ujsJobId as the first arg to the bash script:
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
 				ujsJobId,
 				submitFilePath };
 		
 		// Execute job submit script with submitFilePath as the submit fle path:
 		Process p = r.exec( cmdScript );
-		/*
+		
 		try {
 			p.waitFor();
 		} catch (InterruptedException e) {			
 			e.printStackTrace();
 		}
-		*/
+		/*
 		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
 		
 		line = b.readLine();
@@ -214,7 +212,7 @@ public class CondorUtils
 		  if( line.contains( "** Proc" ) ) break;
 		}
 		b.close();
-		/*
+		
 		if( line == null || !line.contains( "** Proc" ) ) {
 			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
             throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 			
@@ -238,7 +236,8 @@ public class CondorUtils
 			}			    
 			*/
 		} else {
-			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" );			
+			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero; for command:\n"
+					            + cmdScript.toString() );			
             throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
 		}
 
