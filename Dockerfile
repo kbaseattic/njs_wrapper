@@ -10,7 +10,7 @@ ARG BRANCH=develop
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y htcondor zile vim && \
-    chown -R kbase:kbase /etc/condor/*
+    chown -R kbase:kbase /etc/condor
 
 USER kbase
 COPY --chown=kbase deployment/ /kb/deployment/
