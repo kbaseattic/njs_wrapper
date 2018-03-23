@@ -20,10 +20,16 @@ RUN apt-get update && \
     cd condor-8.6.10-x86_64_Debian9-stripped && \
     ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --owner=kbase --overwrite && \
     cd /tmp && \
-    rm -rf results.tar.gz public
+    rm -rf results.tar.gz public && \
+    mkdir /var/run/condor && \
+    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute
 
 USER kbase
 COPY --chown=kbase deployment/ /kb/deployment/
+
+# Extra all of the jars for NJS so that the scripts can use them in classpath
+RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
+
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
@@ -48,3 +54,8 @@ CMD [ "-template", "/kb/deployment/conf/.templates/deployment.cfg.templ:/kb/depl
 
 WORKDIR /kb/deployment/jettybase
 
+# for a NJS worker node use the following CMD in the docker-compose file
+#CMD [ "-template", "/kb/deployment/conf/.templates/condor_config.templ:/etc/condor/condor_config.local", \
+#      "-stdout", "/var/log/condor/ProcLog", \
+#      "-stdout", "/var/log/condor/StartLog", \
+#      "/kb/deployment/bin/start-condor.sh" ]
