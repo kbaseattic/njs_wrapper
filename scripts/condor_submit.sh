@@ -1,1 +1,1 @@
-condor_submit $1
+condor_submit -verbose -batch-name $1 $2

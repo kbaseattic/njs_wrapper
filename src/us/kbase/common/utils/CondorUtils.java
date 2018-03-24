@@ -27,92 +27,13 @@ import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-// import org.apache.axis.*;
-
-// import condor.*;
-
 import java.net.URL;
 import java.net.MalformedURLException;
 import java.rmi.RemoteException;
-// import javax.xml.rpc.ServiceException;
 	
 	
 public class CondorUtils
 {
-
-	/*
-	
-	private static ClassAdStructAttr[] buildJobAd(String owner, String jobFileLocation, int clusterId, int jobId)
-	{
-		String jobOutputFileLocation = jobFileLocation + ".job.out";
-		String jobLogFileLocation = jobFileLocation + ".job.log";
-		String stdOutLocation = jobFileLocation + ".stdout";
-		String stdErrLocation = jobFileLocation + ".stderr";
-		String dagmanLockFile = jobFileLocation + ".lock";
-		String workingDirectory = jobFileLocation.substring(0, jobFileLocation.lastIndexOf("/"));
-		
-		ClassAdStructAttr[] jobAd =
-		{
-			createStringAttribute("Owner", owner), // Need to insert kbase username@realm here
-			createStringAttribute("Iwd", workingDirectory), // Awe creates a working directory per job (uuid) we may need to generate one, or use the job id.  Not sure if condor will create this directory.  If not, we may need to handle working directory creation in the async runner script. 
-			createIntAttribute("JobUniverse", 5), // Vanilla Universe
-			createStringAttribute("Cmd", "run_async_srv_method.sh"),
-			createIntAttribute("JobStatus", 1), // Idle
-			createStringAttribute("Env",
-			  "_CONDOR_MAX_LOG=0;" +
-			  "_CONDOR_LOG=" + jobOutputFileLocation), //leaving in for example setting env var - not needed for kbase
-			createIntAttribute("JobNotification", 0), // Never
-			createStringAttribute("UserLog", jobLogFileLocation),
-			createStringAttribute("RemoveKillSig", "SIGUSR1"),
-			createStringAttribute("Out", stdOutLocation),
-			createStringAttribute("Err", stdErrLocation),
-			createStringAttribute("ShouldTransferFiles", "NO"), // Using shared FS
-			
-			createExpressionAttribute("Requirements", "TRUE"),
-			
-			createExpressionAttribute("OnExitRemove",
-			      "(ExitSignal =?= 11 || " +
-			      " (ExitCode =!= UNDEFINED && " +
-			      "  ExitCode >=0 && ExitCode <= 2))"),
-			
-			createStringAttribute("Arguments",
-			  "-f -l . -Debug 3 "), // also leaving - we can modify for kbase arguments
-			
-			createIntAttribute("ClusterId", clusterId),
-			
-			createIntAttribute("ProcId", jobId)
-		};
-		
-		return jobAd;
-	}
-
-	private static ClassAdStructAttr createStringAttribute(String name, String value)
-	{
-		return createAttribute(name, value, ClassAdAttrType.value3);
-	}
-
-	private static ClassAdStructAttr createIntAttribute(String name, int value)
-	{
-		return createAttribute(name,
-		String.valueOf(value),
-		ClassAdAttrType.value1);
-	}
-
-	private static ClassAdStructAttr createExpressionAttribute(String name, String value)
-	{
-		return createAttribute(name, value, ClassAdAttrType.value4);
-	}
-
-	private static ClassAdStructAttr createAttribute(String name, String value, ClassAdAttrType type)
-	{
-		ClassAdStructAttr attribute = new ClassAdStructAttr();
-		attribute.setName(name);
-		attribute.setValue(value);
-		attribute.setType(type);
-		return attribute;
-	}
-
-	*/
 
     // Dump condor_q for the job id
     public static Map<String, Object> getJobDescr( /* String condorUrl */ String jobId ) throws IOException {
@@ -138,9 +59,7 @@ public class CondorUtils
         return respObj;
 
     }
-
-    
-    
+   
     // Get job status for job id
     // U = unexpanded (never been run), H = on hold, R = running, I = idle (waiting for a machine to execute on), C = completed, and X = removed
     public static Integer getJobState( String jobId ) throws IOException, ClientProtocolException, JsonParseException, JsonMappingException {
@@ -257,82 +176,72 @@ public class CondorUtils
         respObj.put( "Priority" , priority);
         System.out.println( "CondorUtils::parseResponse::priority = " + priority );
         
-
-        
         return respObj;
     }
-    
-    
-    /*
-	public static int submitToCondor( String condorUrl, String owner, String jobFileLocation,
-	        // String jobName, String args, String scriptName, AuthToken auth,
-	        String clientGroups) throws MalformedURLException, RemoteException, ServiceException {
-	
-		URL scheddLocation = new URL( condorUrl );
-		
-		// Get a handle on a schedd we can make SOAP call on.
-		CondorScheddLocator scheddLocator = new CondorScheddLocator();
-		
-		CondorScheddPortType schedd = scheddLocator.getcondorSchedd(scheddLocation);	
-	
-		// Begin a transaction, allow for 60 seconds between calls
-		TransactionAndStatus transactionAndStatus = schedd.beginTransaction(60);
-		
-		Transaction transaction = transactionAndStatus.getTransaction();
-		
-		// Get a new cluster for the job.
-		IntAndStatus clusterIdAndStatus = schedd.newCluster(transaction);
-		int clusterId = clusterIdAndStatus.getInteger();	
-		
-		// Get a new Job ID (aka a ProcId) for the Job.
-		IntAndStatus jobIdAndStatus = schedd.newJob(transaction, clusterId);
-		int jobId = jobIdAndStatus.getInteger();
-		
-		// Build the Job's ClassAd.
-		ClassAdStructAttr[] jobAd = buildJobAd(owner, jobFileLocation, clusterId, jobId);	
-		
-		// Submit the Job's ClassAd.
-		schedd.submit(transaction, clusterId, jobId, jobAd);
-		
-		
-		// Commit the transaction.
-		schedd.commitTransaction(transaction);
-	
-		// Ask the Schedd to kick off the Job immediately.
-		schedd.requestReschedule();
-		
-	    return jobId;    	
-	}
-	*/
+ 
 	
 	
-	public static int submitToCondorCLI ( String submitFilePath ) throws IOException
+	public static float submitToCondorCLI ( String ujsJobId, String selfExternalUrl, String submitFilePath, String aweClientGroups ) throws IOException
 	{
-		int jobId = 0;
+		float jobId = 0;
 		String line = "";
-		Runtime r = Runtime.getRuntime();
-		
-		// XXX: Hardcoded path to the script dir:
-		// cd to the scripts directory and purge out temp.sub
-		// Process p = r.exec( "cd /home/submitter/submit/njs_wrapper/scripts" );
-		// r.exec( "rm -f temp.sub" );
-		
-		// Build a file in njs_wrapper/scripts directory named temp.sh
-		// TODO: will later become the 'executable' attribute inside the submit file 
-		// p = r.exec( "echo " + submitFilePath + " > temp.sh");
+		int exitVal = 0;
 
+		Runtime r = Runtime.getRuntime();
+
+		// TODO: Change path to condor_submit script to a relative path: like ../scripts/condor_submit.sh
 		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
+				ujsJobId,
 				submitFilePath };
 		
-		// Execute job submit script with temp.sub as the submit fle:
+		// Execute job submit script with submitFilePath as the submit fle path:
 		Process p = r.exec( cmdScript );
 		
-		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
-		while ((line = b.readLine()) != null) {
-		  System.out.println(line);
+		try {
+			p.waitFor();
+		} catch (InterruptedException e) {			
+			e.printStackTrace();
 		}
-		b.close();		
+		/*
+		BufferedReader b = new BufferedReader( new InputStreamReader( p.getInputStream() ) );
 		
+		line = b.readLine();
+		System.out.println(line);		
+		while (( line = b.readLine()) != null ) {
+		  System.out.println(line);
+		  if( line.contains( "** Proc" ) ) break;
+		}
+		b.close();
+		
+		if( line == null || !line.contains( "** Proc" ) ) {
+			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
+            throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 			
+		}
+		*/
+		exitVal = p.exitValue();		
+		if ( exitVal == 0 ) { // success
+			
+			// Determine job id (cluster id dot zero) of the job just submitted:			
+	        // parse the substring after 'c' for proc from line
+			// TODO: Don't parse... FORCE!!! Force a 'batch' job id (coordianted with ujs/catalog)
+			//     Back up in the call stack heirarchy (add switch to condor_submit.sh to force a 'batch' job id)
+			/*
+			try{
+			    jobId = Integer.valueOf( line.substring( (line.indexOf("** Proc") + 7), line.length() ) );
+			    
+		        System.out.println( "CondorUtils::submitToCondorCLI::jobId = " + jobId );			
+			} catch (NumberFormatException e) {
+				System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" );			
+	            throw new IOException(  "CondorUtils::submitToCondorCLI: Could not parse jobId from condor_submit IO" ); 
+			}			    
+			*/
+		} else {
+			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero; for command:\n"
+					            + cmdScript.toString() );			
+            throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
+		}
+
+		// TODO: Refactor methods's return type (force 'batch' job id ===>> do we still want to return it?
 		return jobId;
 	}
 
@@ -341,17 +250,44 @@ public class CondorUtils
 	// Usage: submitToCondorCLI <contents to go in the submit file>
 	public static void main(String[] arguments)
 	{
-		String submitFilePath;
+		String ujsJobId = "";
+		String selfExternalUrl = "";
+		String submitFilePath = "";
+		String aweClientGroups = "SCHEDD";
+
+		
         if( ! ( arguments.length > 0 ) ) {
+        	// Debug: defaults:
+        	ujsJobId = "condor@condor";
+        	
         	// Debug: just do a 'uname -a'
         	submitFilePath = "job_exec01.sub";
-        } else {
-        	submitFilePath = arguments[ 0 ];
+        	
+        } else if( arguments.length == 1 ){
+        	ujsJobId = arguments[ 0 ];
+        	
+        	// Debug: just do a 'uname -a'
+        	submitFilePath = "job_exec01.sub";
+        	
+        } else if( arguments.length == 2 ){
+        	
+        	ujsJobId = arguments[ 0 ];
+        	
+        	selfExternalUrl = arguments[ 1 ];
+        	
+        	// Debug: just do a 'uname -a'
+        	submitFilePath = "job_exec01.sub";
+        } else if( arguments.length == 3 ){
+        	
+        	ujsJobId = arguments[ 0 ];
+        	
+        	selfExternalUrl = arguments[ 1 ];
+        	
+        	submitFilePath = arguments[ 2 ];
         }
-        
 	    // Call submitToCondorCLI with submitFilePath
 	    try {
-	    	int jobId =  submitToCondorCLI( submitFilePath );
+	    	float jobId =  submitToCondorCLI( ujsJobId, selfExternalUrl, submitFilePath, aweClientGroups );
 	    	
 	    } catch( Exception ex ) {
             ex.printStackTrace();
@@ -360,6 +296,8 @@ public class CondorUtils
             System.err.println(message);
         }
 	}
+	
+
 	
 	// Test main for exercising the query methods
 	/*
@@ -400,50 +338,6 @@ public class CondorUtils
 	
 	}
     */
-    // Test main for submitting via Spinning API
-    /*
-	public static void main(String[] arguments)
-	{
-		URL scheddLocation = new URL(arguments[0]);
-		String owner = arguments[1];
-		String jobFileLocation = arguments[2];
-		
-		// Get a handle on a schedd we can make SOAP call on.
-		CondorScheddLocator scheddLocator = new CondorScheddLocator();
-		
-		CondorScheddPortType schedd = scheddLocator.getcondorSchedd(scheddLocation);
-		
-		// Begin a transaction, allow for 60 seconds between calls
-		TransactionAndStatus transactionAndStatus = schedd.beginTransaction(60);
-		
-		Transaction transaction = transactionAndStatus.getTransaction();
-		
-		// Get a new cluster for the job.
-		IntAndStatus clusterIdAndStatus = schedd.newCluster(transaction);
-		int clusterId = clusterIdAndStatus.getInteger();
-		
-		// Get a new Job ID (aka a ProcId) for the Job.
-		IntAndStatus jobIdAndStatus = schedd.newJob(transaction, clusterId);
-		int jobId = jobIdAndStatus.getInteger();
-		
-		// Build the Job's ClassAd.
-		ClassAdStructAttr[] jobAd = buildJobAd(owner, jobFileLocation, clusterId, jobId);
-		
-		// Submit the Job's ClassAd.
-		schedd.submit(transaction, clusterId, jobId, jobAd);
-		
-		// Debug: Dump JobAd
-		System.out.println( "CondorUtils::Dump JobAd: " + jobAd.toString() );
-		for( int i = 0; i < jobAd.length; i++ ) {
-			System.out.println( "    JobAd[ " + i + " ] name = " + jobAd[ i ].getName() + "    JobAd[ " + i + " ] value = " + jobAd[ i ].getValue() );
-		}
-					
-		// Commit the transaction.
-		schedd.commitTransaction(transaction);
-		
-		// Ask the Schedd to kick off the Job immediately.
-		schedd.requestReschedule();
-	}
-	*/
-
+	
+	
 } // class CondorUtils
