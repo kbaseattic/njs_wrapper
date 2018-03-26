@@ -141,6 +141,25 @@ java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkj
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
 
+  <!-- The following stanza is for building the docker image run_async script, needed because paths
+    are very, very different from what the script target above assumes -->
+  <target name="script_docker" depends="compile" description="create AWE command-line script for docker image">
+    <copy todir="${jardir}/" flatten="true">
+      <fileset refid="serverlib"/>
+      <resources>
+        <file file="${dist}/${jar.file}"/>
+      </resources>
+    </copy>
+    <echo file="${bindir}/${cmd.file}">#!/bin/sh
+export JAVA_HOME=${java.home}
+export PATH=${java.home}/bin:$PATH
+java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+# java -cp ${image.classpath}/${jar.file}:${image.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+    </echo>
+    <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
+  </target>
+
+
   <target name="docs" description="prepare documentation">
     <mkdir dir="${docs}"/>
   </target>
