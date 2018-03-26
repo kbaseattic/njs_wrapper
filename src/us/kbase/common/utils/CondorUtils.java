@@ -221,10 +221,10 @@ public class CondorUtils
 		exitVal = p.exitValue();		
 		if ( exitVal == 0 ) { // success
 			
-			// Determine job id (cluster id dot zero) of the job just submitted:			
-	        // parse the substring after 'c' for proc from line
-			// TODO: Don't parse... FORCE!!! Force a 'batch' job id (coordianted with ujs/catalog)
-			//     Back up in the call stack heirarchy (add switch to condor_submit.sh to force a 'batch' job id)
+			// XXX: Determine job id (cluster id dot zero) of the job just submitted???			
+	        // XXX: parse the command return string???
+			// TODO: Don't parse it... FORCE it!!! Force a 'batch' job id (coordianted with ujs/catalog)
+			//     Go back... in the call stack heirarchy (added param to condor_submit.sh to force a 'batch' job id)
 			/*
 			try{
 			    jobId = Integer.valueOf( line.substring( (line.indexOf("** Proc") + 7), line.length() ) );
