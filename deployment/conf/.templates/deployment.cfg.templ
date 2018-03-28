@@ -52,3 +52,5 @@ narrative.proxy.sharing.user={{ default .Env.narrative.proxy.sharing.user "narra
 ## Don't forget to revert this flag after reboot.
 reboot.mode={{ default .Env.reboot.mode "false" }}
 
+condor.mode={{ default .Env.condor.mode "1" }}
+condor.submit.desc.file.path={{ .Env.condor.submit.desc.file.path "../scripts/job_desc.sub" }}
