@@ -1,9 +1,15 @@
 package us.kbase.common.utils;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -21,6 +27,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 import us.kbase.auth.AuthToken;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonParseException;
@@ -186,14 +193,79 @@ public class CondorUtils
 		float jobId = 0;
 		String line = "";
 		int exitVal = 0;
+		
+		// Read the template, scripts/submit_async_template.txt, for submit file (to contain all content except executable command and query command)
+		String template = "";
+
+        try {
+		    File f = new File( submitFilePath + "submit_async_template.txt" );
+		    // File f = new File("/Users/amikaili/myKbaseCode/njs_wrapper/scripts/submit_async_template.txt");
+		
+		    FileInputStream tempFile = new FileInputStream( f );
+
+		    BufferedReader reader = new BufferedReader( new InputStreamReader( tempFile ) );
+        
+            line = reader.readLine();
+            template += line;
+            while ( line != null ) {    
+                // System.out.println( line );
+                line = reader.readLine();
+                if( line != null ){
+                    template += line;
+                }
+            }
+            tempFile.close();
+        } catch (IOException e) {
+            System.err.print( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: \n  ERROR reading the template for the submit file:  \n" + 
+            		submitFilePath + "submit_async_template.txt" + " :: \n" +
+            		e.getMessage() );
+            throw new IOException(  "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: ERROR reading the template for the submit file!" ); 			
+
+        }
+				
+		// Append executable command and query command
+        template += "\n executable = " + submitFilePath + "run_async_srv_method.sh ";
+        // template += "\n executable = " + "/Users/amikaili/myKbaseCode/njs_wrapper/scripts/run_async_srv_method.sh ";
+        template += ujsJobId + " " + selfExternalUrl + " \n";
+        template += "\n query \n";
+        
+        // Write submit_async.sub containing String type::: template, to the scripts dir
+        try {
+            byte bWrite [] = template.trim().getBytes();
+            OutputStream os = new FileOutputStream( submitFilePath + "submit_async.sub");
+            // OutputStream os = new FileOutputStream("/Users/amikaili/myKbaseCode/njs_wrapper/scripts/submit_async.sub");
+            
+            BufferedOutputStream stream = new BufferedOutputStream( os );
+            stream.write( bWrite );
+            stream.write(System.lineSeparator().getBytes());
+            stream.flush();
+
+            os.close();
+        
+            // Echo it back out: check to see what went in the file:
+            InputStream is = new FileInputStream( submitFilePath + "submit_async.sub");            
+            // InputStream is = new FileInputStream("/Users/amikaili/myKbaseCode/njs_wrapper/scripts/submit_async.sub");            
+            int size = is.available();
+            for( int i = 0; i < size; i++ ) {
+               System.out.print( (char) is.read() );
+            }            
+            is.close();
+            
+         } catch (IOException e) {
+             System.err.print( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: \n ERROR writing the submit file!\n" + e.getMessage() );
+             throw new IOException(  "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: ERROR writing the submit file!" ); 			
+         }	
 
 		Runtime r = Runtime.getRuntime();
 
-		// TODO: Change path to condor_submit script to a relative path: like ../scripts/condor_submit.sh
-		String[] cmdScript = new String[]{ "/bin/bash", "/home/submitter/submit/njs_wrapper/scripts/condor_submit.sh",
+		String[] cmdScript = new String[]{ "/bin/bash", submitFilePath + "condor_submit.sh",
 				ujsJobId,
 				submitFilePath };
-		
+		/*
+		String[] cmdScript = new String[]{ "/bin/bash", "/Users/amikaili/myKbaseCode/njs_wrapper/scripts/condor_submit.sh",
+				ujsJobId,
+				submitFilePath };
+		*/
 		// Execute job submit script with submitFilePath as the submit fle path:
 		Process p = r.exec( cmdScript );
 		
@@ -236,9 +308,9 @@ public class CondorUtils
 			}			    
 			*/
 		} else {
-			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero; for command:\n"
+			System.err.println( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: \n EXIT value from process calling condor_submit came back non-zero; \n for command:\n"
 					            + cmdScript.toString() );			
-            throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero" ); 
+            throw new IOException(  "CondorUtils::submitToCondorCLI: EXIT value from process calling condor_submit came back non-zero!" ); 
 		}
 
 		// TODO: Refactor methods's return type (force 'batch' job id ===>> do we still want to return it?
@@ -254,20 +326,22 @@ public class CondorUtils
 		String selfExternalUrl = "";
 		String submitFilePath = "";
 		String aweClientGroups = "SCHEDD";
-
+		
+		// String submit_file_path = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
+		String submit_file_path = "/Users/amikaili/myKbaseCode/njs_wrapper/scripts/";
 		
         if( ! ( arguments.length > 0 ) ) {
         	// Debug: defaults:
         	ujsJobId = "condor@condor";
         	
         	// Debug: just do a 'uname -a'
-        	submitFilePath = "job_exec01.sub";
+        	submitFilePath += "submit_async_template.txt";
         	
         } else if( arguments.length == 1 ){
         	ujsJobId = arguments[ 0 ];
         	
         	// Debug: just do a 'uname -a'
-        	submitFilePath = "job_exec01.sub";
+        	submitFilePath += "submit_async_template.txt";
         	
         } else if( arguments.length == 2 ){
         	
@@ -276,7 +350,7 @@ public class CondorUtils
         	selfExternalUrl = arguments[ 1 ];
         	
         	// Debug: just do a 'uname -a'
-        	submitFilePath = "job_exec01.sub";
+        	submitFilePath += "submit_async_template.txt";
         } else if( arguments.length == 3 ){
         	
         	ujsJobId = arguments[ 0 ];
@@ -287,7 +361,7 @@ public class CondorUtils
         }
 	    // Call submitToCondorCLI with submitFilePath
 	    try {
-	    	float jobId =  submitToCondorCLI( ujsJobId, selfExternalUrl, submitFilePath, aweClientGroups );
+	    	float jobId =  submitToCondorCLI( ujsJobId, selfExternalUrl, submit_file_path, aweClientGroups );
 	    	
 	    } catch( Exception ex ) {
             ex.printStackTrace();
