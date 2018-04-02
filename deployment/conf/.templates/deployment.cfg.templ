@@ -11,46 +11,46 @@ max-memory = {{ default .Env.max_memory "1500" }}
 queue.db.dir={{ default .Env.queue.db.dir "/tmp/njs/queue" }}
 basedir={{ default .Env.basedir "njs_wrapper" }}
 scratch={{ default .Env.scratch "/tmp" }}
-ref.data.base={{ default .Env.ref.data.base "/kb/data" }}
+ref.data.base={{ default .Env.ref_data_base "/kb/data" }}
 
-self.external.url={{ default .Env.self.external.url "https://ci.kbase.us/services/njs_wrapper" }}
-kbase.endpoint={{ default .Env.kbase.endpoint "https://ci.kbase.us/services" }}
-workspace.srv.url={{ default .Env.workspace.srv.url "https://ci.kbase.us/services/ws" }}
-jobstatus.srv.url={{ default .Env.jobstatus.srv.url "https://ci.kbase.us/services/userandjobstate" }}
-shock.url={{ default .Env.shock.url "https://ci.kbase.us/services/shock-api" }}
-awe.srv.url={{ default .Env.awe.srv.url "http://ci.kbase.us/services/awe-api" }}
-docker.registry.url={{ default .Env.docker.registry.url "dockerhub-ci.kbase.us" }}
-awe.client.docker.uri={{ default .Env.awe.client.docker.uri "unix:///var/run/docker.sock" }}
-catalog.srv.url={{ default .Env.catalog.srv.url "https://ci.kbase.us/services/catalog" }}
-handle.url={{ default .Env.handle.url "https://ci.kbase.us/services/handle_service" }}
-srv.wiz.url={{ default .Env.srv.wiz.url "https://ci.kbase.us/services/service_wizard" }}
+self.external.url={{ default .Env.self_external_url "https://ci.kbase.us/services/njs_wrapper" }}
+kbase.endpoint={{ default .Env.kbase_endpoint "https://ci.kbase.us/services" }}
+workspace.srv.url={{ default .Env.workspace_srv_url "https://ci.kbase.us/services/ws" }}
+jobstatus.srv.url={{ default .Env.jobstatus_srv_url "https://ci.kbase.us/services/userandjobstate" }}
+shock.url={{ default .Env.shock_url "https://ci.kbase.us/services/shock-api" }}
+awe.srv.url={{ default .Env.awe_srv_url "http://ci.kbase.us/services/awe-api" }}
+docker.registry.url={{ default .Env.docker_registry_url "dockerhub-ci.kbase.us" }}
+awe.client.docker.uri={{ default .Env.awe_client_docker_uri "unix:///var/run/docker.sock" }}
+catalog.srv.url={{ default .Env.catalog_srv_url "https://ci.kbase.us/services/catalog" }}
+handle.url={{ default .Env.handle_url "https://ci.kbase.us/services/handle_service" }}
+srv.wiz.url={{ default .Env.srv_wiz_url "https://ci.kbase.us/services/service_wizard" }}
 auth-service-url = {{ default .Env.auth_service_url "https://ci.kbase.us/services/auth/api/legacy/KBase/Sessions/Login" }}
 auth-service-url-allow-insecure={{ default .Env.auth_service_url_allow_insecure "false" }}
 
 ## This user can run list_running_apps method to get states
 ## of all running apps (running internally on wrapper side). 
-admin.user={{default .Env.admin.user "" }}
+admin.user={{default .Env.admin_user "" }}
 
 # Following parameters define Catalog admin creds for pushing exec-stats:
 catalog.admin.token={{ default .Env.catalog_token "" }}
 
-default.awe.client.groups={{ default .Env.default.awe.client.groups "ci" }}
+default.awe.client.groups={{ default .Env.default_awe_client_groups "ci" }}
 awe.readonly.admin.token={{ default .Env.awe_token "" }}
-awe.client.callback.networks={{ default .Env.awe.client.callback.networks "docker0,eth0" }}
-running.tasks.per.user={{ default .Env.running.tasks.per.user "5" }}
+awe.client.callback.networks={{ default .Env.awe_client_callback_networks "docker0,eth0" }}
+running.tasks.per.user={{ default .Env.running_tasks_per_user "5" }}
 
 mongodb-host = {{ default .Env.mongodb_host "localhost:27017" }}
 mongodb-database = {{ default .Env.mongodb_database "exec_engine" }}
 mongodb-user = {{ default .Env.mongodb_user "" }}
 mongodb-pwd = {{ default .Env.mongodb_pwd "" }}
 
-narrative.proxy.sharing.user={{ default .Env.narrative.proxy.sharing.user "narrativejoblistener" }}
+narrative.proxy.sharing.user={{ default .Env.narrative_proxy_sharing_user "narrativejoblistener" }}
 
 # This next flag really doesn't make sense to me as a startup option, but copying from CI config
 ## Please change next flag before you reboot machine.                                                                
 ## It will help keep tasks in queue and rerun them later.
 ## Don't forget to revert this flag after reboot.
-reboot.mode={{ default .Env.reboot.mode "false" }}
+reboot.mode={{ default .Env.reboot_mode "false" }}
 
-condor.mode={{ default .Env.condor.mode "1" }}
-condor.submit.desc.file.path={{ .Env.condor.submit.desc.file.path "../scripts/job_desc.sub" }}
+condor.mode={{ default .Env.condor_mode "1" }}
+condor.submit.desc.file.path={{ default .Env.condor_submit_desc_file_path "../scripts/job_desc.sub" }}
