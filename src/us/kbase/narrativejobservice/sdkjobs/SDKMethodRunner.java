@@ -152,10 +152,10 @@ public class SDKMethodRunner {
 
 			aweClientGroups = "SCHEDD";
 			
-			String submit_file = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
-			System.out.println( "Submit File = " + submit_file );
+			String submit_file_path = config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_SUBMIT_DESC );
+			System.out.println( "Submit File path = " + submit_file_path );
 			
-			float condorJobId = CondorUtils.submitToCondorCLI( ujsJobId, selfExternalUrl, submit_file, aweClientGroups );			
+			float condorJobId = CondorUtils.submitToCondorCLI( ujsJobId, selfExternalUrl, submit_file_path, aweClientGroups );			
 			
 		} else {
 		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));

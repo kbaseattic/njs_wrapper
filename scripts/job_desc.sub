@@ -7,13 +7,13 @@ Universe     = vanilla
  
 executable              = /bin/sleep
 
-log                     = /home/submitter/submit/njs_wrapper/out/logfile01.txt
-output                  = /home/submitter/submit/njs_wrapper/out/outfile01.txt
-error                   = /home/submitter/submit/njs_wrapper/out/errors01.txt
+# log                     = /home/submitter/submit/njs_wrapper/out/logfile01.txt
+# output                  = /home/submitter/submit/njs_wrapper/out/outfile01.txt
+# error                   = /home/submitter/submit/njs_wrapper/out/errors01.txt
 
 # initialdir    =    /tmp
 
-should_transfer_files   = Yes
+should_transfer_files   = No
 # Change above to No, in favor of Using shared FS
 
 # when_to_transfer_output = ON_EXIT
