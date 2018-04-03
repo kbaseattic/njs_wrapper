@@ -254,13 +254,16 @@ public class CondorUtils
          } catch (IOException e) {
              System.err.print( "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: \n ERROR writing the submit file!\n" + e.getMessage() );
              throw new IOException(  "ERROR ERROR ERROR: CondorUtils::submitToCondorCLI: ERROR writing the submit file!" ); 			
-         }	
+         }
+        
+        String submitFile = submitFilePath +  "submit_async.sub";
 
 		Runtime r = Runtime.getRuntime();
 
 		String[] cmdScript = new String[]{ "/bin/bash", submitFilePath + "condor_submit.sh",
 				ujsJobId,
-				submitFilePath };
+				submitFile };
+		System.out.println( "\n CondorUtils::submitToCondorCLI: Submitted submit file: " + submitFile + "\n" );
 		/*
 		String[] cmdScript = new String[]{ "/bin/bash", "/Users/amikaili/myKbaseCode/njs_wrapper/scripts/condor_submit.sh",
 				ujsJobId,
