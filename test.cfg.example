@@ -1,6 +1,9 @@
 # A KBase user ID and password.
 token=*****
 
+# URL of the server to test against, usually local or CI
+njs_server_url=http://localhost:8080
+
 # Temporary folder for tests
 temp.dir=temp_files
 
