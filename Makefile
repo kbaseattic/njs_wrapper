@@ -53,6 +53,10 @@ test-scripts:
 compile: src
 	$(ANT) war
 
+redeploy: src
+	$(ANT) war
+	cp ./dist/$(WAR_FILE) /kb/deployment/jettybase/webapps/root.war
+
 deploy-client: deploy-scripts
 
 deploy-service: deploy-scripts

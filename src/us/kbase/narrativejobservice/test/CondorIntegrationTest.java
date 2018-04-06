@@ -160,31 +160,11 @@ public class CondorIntegrationTest {
     private static String njs_url_ci = "https://ci.kbase.us/services/njs2";
 
 
-//
-//    @Test
-//    public void testRegistration() throws Exception{
-//        System.out.println("Attempting to register module");
-//        CatalogRegForTests a = new CatalogRegForTests();
-//
-//    }
-
-//
-//    @Test
-//    public void testOneJobCI() throws Exception{
-//        Properties props = TesterUtils.props();
-//        String njs_url = props.getProperty("njs_ci");
-//        System.out.println("Connecting to server:" + njs_url);
-//        System.out.println("Using Token:" + props.getProperty("token"));
-//    }
-
-
-
-
 
     public static void requestOwnership(WorkspaceClient wc, String moduleName) throws  Exception{
         try {
-            System.out.println("ABOUT TO REQUEST OWNERSHIP OF " + moduleName );
             wc.requestModuleOwnership(moduleName);
+            System.out.println("REQUESTING OWNERSHIP OF " + moduleName );
         }
         catch(ServerException e){
             System.out.println(e);
@@ -260,14 +240,13 @@ public class CondorIntegrationTest {
         meta.put("foo", "bar");
         try {
             execStats.clear();
-            String moduleName = "onerepotest";
-            String methodName = "send_data";
+            String moduleName = "simpleapp";
+            String methodName = "simple_add";
             String serviceVer = lookupServiceVersion(moduleName);
             RunJobParams params = new RunJobParams().withMethod(
                     moduleName + "." + methodName).withServiceVer(serviceVer)
                     .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
-                    .withParams(Arrays.asList(UObject.fromJsonString(
-                            "{\"genomeA\":\"myws.mygenome1\",\"genomeB\":\"myws.mygenome2\"}")));
+                    .withParams(Arrays.asList(UObject.fromJsonString("{\"new_number\":\"101\"}")));
 
             String jobId = client.runJob(params);
             JobState ret = null;
@@ -1579,12 +1558,6 @@ public class CondorIntegrationTest {
         registerTypes();
         stageWSObjects();
 
-
-
-
-
-
-
         File dir = new File("test_data");
         GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
         Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
@@ -1592,10 +1565,18 @@ public class CondorIntegrationTest {
         wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
                 new ObjectSaveData().withName(testContigsetObjName).withType("KBaseGenomes.ContigSet")
                         .withData(new UObject(contigsetData)))));
+
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
-        if (!refDataDir.exists())
+
+        System.out.println("About to make reference data dir");
+        System.out.println(refDataDir);
+        if (!refDataDir.exists()) {
+            System.out.println("About to make reference data FOR REAL");
             refDataDir.mkdirs();
-        System.out.println("ALL DONE WITH SETUP");
+        }
+        else{
+            System.out.println("Didn't make reference data dir");
+        }
     }
 
     private static void stageWSObjects() throws Exception {
