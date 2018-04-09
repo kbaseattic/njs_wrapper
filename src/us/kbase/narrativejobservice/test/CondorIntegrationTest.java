@@ -221,9 +221,9 @@ public class CondorIntegrationTest {
         }
     }
 
-    @Test
-    public void testOneJob() throws Exception {
 
+    @Test
+    public void testOneJob2() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
         System.out.println("Connecting to server:" + njs_url);
@@ -238,18 +238,53 @@ public class CondorIntegrationTest {
         System.out.println("Test [testOneJob]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
-        try {
-            execStats.clear();
-            String moduleName = "simpleapp";
-            String methodName = "simple_add";
-            String serviceVer = lookupServiceVersion(moduleName);
-            RunJobParams params = new RunJobParams().withMethod(
-                    moduleName + "." + methodName).withServiceVer(serviceVer)
-                    .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
-                    .withParams(Arrays.asList(UObject.fromJsonString("{\"new_number\":\"101\"}")));
 
-            String jobId = client.runJob(params);
-            JobState ret = null;
+        execStats.clear();
+        String moduleName = "simpleapp";
+        String methodName = "simple_add";
+        String serviceVer = lookupServiceVersion(moduleName);
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+
+
+
+        String jobId = client.runJob(params);
+        JobState ret = null;
+
+    }
+
+
+    @Test
+    public void testOneJob() throws Exception {
+
+//        Properties props = TesterUtils.props();
+//        String njs_url = props.getProperty("njs_server_url");
+//        System.out.println("Connecting to server:" + njs_url);
+//        System.out.println("Using Token:" + props.getProperty("token"));
+//
+//
+//        client = new NarrativeJobServiceClient(new URL(njs_url), token);
+//        client.setIsInsecureHttpConnectionAllowed(true);
+//
+//
+//
+//        System.out.println("Test [testOneJob]");
+//        Map<String, String> meta = new HashMap<String, String>();
+//        meta.put("foo", "bar");
+//        try {
+//            execStats.clear();
+//            String moduleName = "simple2";
+//            String methodName = "simple_add";
+//            String serviceVer = lookupServiceVersion(moduleName);
+//            RunJobParams params = new RunJobParams().withMethod(
+//                    moduleName + "." + methodName).withServiceVer(serviceVer)
+//                    .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+//                    .withParams(Arrays.asList(UObject.fromJsonString("{\"new_number\":\"101\"}")));
+//
+//            String jobId = client.runJob(params);
+//            JobState ret = null;
 //            for (int i = 0; i < 20; i++) {
 //                try {
 //                    CheckJobsResults retAll = client.checkJobs(new CheckJobsParams().withJobIds(
@@ -307,11 +342,11 @@ public class CondorIntegrationTest {
 //            assertThat("incorrect auth strat", u.getE10().getE1(),
 //                    is("kbaseworkspace"));
 //            assertThat("incorrect ws id", u.getE10().getE2(),
-//                    is("" + testWsID));
-        } catch (ServerException ex) {
-            System.err.println(ex.getData());
-            throw ex;
-        }
+////                    is("" + testWsID));
+//        } catch (ServerException ex) {
+//            System.err.println(ex.getData());
+//            throw ex;
+//        }
     }
 
     private Map<String, Object> buildInsanitaryObject() {
