@@ -19,8 +19,7 @@ PREEMPT = False
 KILL = False
 
 # Machine resource settings
-BIGMEM = True
-LONGJOBS = True
 NUM_SLOTS = 1
+CLIENTGROUP = bigmem
 
-STARTD_ATTRS = BIGMEM, LONGJOBS
+STARTD_ATTRS = CLIENTGROUP
