@@ -16,14 +16,7 @@ apt-get -y install make;
 apt-get -y install docker;
 
 #Somewhere in here docker gets installed
-apt-get install apt-transport-https ca-certificates software-properties-common
-curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - ;
-add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian strech stable";
-apt-get install docker-ce;
 wget https://download.docker.com/linux/debian/dists/stretch/pool/stable/amd64/docker-ce_18.03.0~ce-0~debian_amd64.deb
 dpkg -i docker-ce_18.03.0~ce-0~debian_amd64.deb
 apt -y --fix-broken install
 
-#Enable testing of local jar upon compile
-rm /kb/deployment/lib/NJSWrapper.jar
-ln -s /njs/dist/NJSWrapper.jar /kb/deployment/lib/NJSWrapper.jar

@@ -1,4 +1,17 @@
+#!/usr/bin/env bash
 
-echo "Condor Utils::condor_q.sh:: Calling condor_q with param JobId $1 running on `whoami`@`hostname`"
+export baseDir="/njs_wrapper/njs_wrapper/$1"
+mkdir $baseDir
+cd $baseDir
 
-condor_q $1
+cp /kb/deployment/misc/submit.sub .
+
+echo "initialdir = $baseDir" >> submit.sub
+echo "arguments = $1" >> submit.sub
+echo "batch_name = $1" >> submit.sub
+echo "queue 1" >> submit.sub
+
+command="condor_submit -spool -terse submit.sub"
+echo $command > "condor_submit.bash"
+
+$command

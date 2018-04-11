@@ -226,16 +226,12 @@ public class CondorIntegrationTest {
     public void testOneJob2() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testOneJob]");
         System.out.println("Connecting to server:" + njs_url);
         System.out.println("Using Token:" + props.getProperty("token"));
-
-
         client = new NarrativeJobServiceClient(new URL(njs_url), token);
         client.setIsInsecureHttpConnectionAllowed(true);
 
-
-
-        System.out.println("Test [testOneJob]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
@@ -247,11 +243,24 @@ public class CondorIntegrationTest {
                 moduleName + "." + methodName).withServiceVer(serviceVer)
                 .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
-
-
-
         String jobId = client.runJob(params);
         JobState ret = null;
+
+        for (int i = 0; i < 60; i++) {
+            try {
+                ret = client.checkJobs(new CheckJobsParams().withJobIds(
+                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
+
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    System.out.println("Job finished: " + ret.getFinished());
+                    break;
+                }
+                Thread.sleep(5000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
 
     }
 

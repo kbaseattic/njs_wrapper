@@ -1,0 +1,17 @@
+# A KBase user ID and password.
+token=*****
+
+# URL of the server to test against, usually local or CI
+njs_server_url=http://localhost:8080
+
+# Temporary folder for tests
+temp.dir=temp_files
+
+# Path to the MongoDB executable. Omit to use mongod found on the path.
+#test-mongod-exe=/kb/runtime/bin/mongod
+
+# Path to AWE binaries (if not set then $PATH is used).
+test-awe-bin-dir=test_data/awe_deps
+
+# Custom parameters overriding values in deploy.cfg:
+#awe.client.docker.uri=
