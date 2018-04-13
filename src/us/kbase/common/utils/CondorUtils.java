@@ -1,57 +1,62 @@
 package us.kbase.common.utils;
 
-import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import java.io.File;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+
 import org.apache.commons.io.IOUtils;
-
-
-
+import org.apache.commons.io.FileUtils;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.core.type.TypeReference;
 
-import java.net.URL;
-import java.net.MalformedURLException;
-import java.rmi.RemoteException;
-import java.lang.NumberFormatException;
+
 import us.kbase.common.utils.CondorResponse;
 
+public class CondorUtils {
 
-	
-public class CondorUtils
-{
+    private static File createCondorSubmitFile(String ujsJobId, String token, String clientGroups, String kbaseEndpoint) throws IOException {
 
+        clientGroups = clientGroupsToRequirements(clientGroups);
+        kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
+        String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
+        String[] args = {  ujsJobId, kbaseEndpoint};
+        String arguments = String.join(" ",args);
+
+
+        List<String> csf = new ArrayList<String>();
+        csf.add("universe = vanilla");
+        csf.add("accounting_group = sychan");
+        csf.add("+Owner = \"condor_pool\"");
+        csf.add("universe = vanilla");
+        csf.add("executable = " + executable);
+        csf.add("ShouldTransferFiles = YES");
+        csf.add("when_to_transfer_output = ON_EXIT");
+        csf.add("request_cpus = 1");
+        csf.add("request_memory = 5MB");
+        csf.add("request_disk = 1MB");
+        csf.add("log    = logfile.txt");
+        csf.add("output = outfile.txt");
+        csf.add("error  = errors.txt");
+        csf.add("getenv = true");
+        csf.add("requirements = " + clientGroups);
+        csf.add(String.format("environment = \"KB_DOCKER_NETWORK=minikb_default KB_AUTH_TOKEN=%s\"", token));
+        csf.add("arguments = " + arguments);
+        csf.add("batch_name = " + ujsJobId);
+        csf.add("queue 1");
+
+        File submitFile = new File(ujsJobId + "/output.txt");
+        FileUtils.writeLines(submitFile, "UTF-8", csf);
+        submitFile.setExecutable(true);
+
+        return submitFile;
+    }
 
 
     public static CondorResponse runProcess(String[] condorCommand) throws IOException {
@@ -62,7 +67,7 @@ public class CondorUtils
          */
         //TODO DELETE PRINT STATEMENT
         System.out.println("Running command: [" + String.join(" ", condorCommand) + "]");
-        final Process process =  Runtime.getRuntime().exec(condorCommand);
+        final Process process = Runtime.getRuntime().exec(condorCommand);
         try {
             process.waitFor();
 
@@ -75,11 +80,11 @@ public class CondorUtils
 
         if (process.exitValue() != 0) {
             System.err.println("STDOUT:");
-            for (String s : stdOutMessage){
+            for (String s : stdOutMessage) {
                 System.err.println(s);
             }
             System.out.println("STDERR:");
-            for (String s : stdOutMessage){
+            for (String s : stdOutMessage) {
                 System.err.println(stdErrMessage);
             }
             throw new IOException("Error running condorCommand:" + String.join(" ", condorCommand));
@@ -87,19 +92,42 @@ public class CondorUtils
         return new CondorResponse(stdOutMessage, stdErrMessage);
     }
 
-    public static String submitToCondorCLI ( String ujsJobId, AuthToken token ) throws IOException {
+    public static String clientGroupsToRequirements(String clientGroups) {
+        /**
+         * Remove spaces and maybe perform other logic
+         * @param clientGroups to run the job with
+         * @return String modified client groups
+         */
+        //TODO REMOVE THIS OR UPDATE METHODS
+        if(clientGroups.equals("ci")){
+            clientGroups = "njs";
+        }
+        List<String> requirementsStatement = new ArrayList<String>();
+        for (String cg : clientGroups.split(",")) {
+            cg = cleanCondorInputs(cg);
+            requirementsStatement.add(String.format("(CLIENTGROUP == \"%s\")", cg));
+        }
+        return "(" + String.join(" || ", requirementsStatement) + ")";
+    }
+
+    public static String cleanCondorInputs(String input) {
+        return input.replace(" ", "")
+                .replace("'", "")
+                .replace("\"", "");
+    }
+
+
+    public static String submitToCondorCLI(String ujsJobId, String token, String clientGroups, String kbaseEndpoint) throws IOException {
         /**
          * Call condor_submit with the ujsJobId as batch job name
          * @param jobID ujsJobId to name the batch job with
          * @param token token to place into the shell script
          * @return String condor job id
          */
-        //TODO USE TOKEN IN CONDOR_SUBMIT
-        //TODO USE CLIENTGROUPS
-        //TODO See if there is anything else to pass
-        String[] cmdScript = new String[]{ "/kb/deployment/misc/condor_submit.sh", ujsJobId };
-        String ret = runProcess(cmdScript).stdout.get(0);
-        return ret;
+
+        String condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint).getAbsolutePath();
+        String[] cmdScript = {"condor_submit", "-spool" ,"-terse" , condorSubmitFile};
+        return runProcess(cmdScript).stdout.get(0);
     }
 
 
@@ -123,13 +151,12 @@ public class CondorUtils
             } catch (com.fasterxml.jackson.databind.JsonMappingException e) {
                 return null;
             }
-        }
-        else{
+        } else {
             return null;
         }
     }
 
-    public static String getJobState(String ujsJobId) throws Exception{
+    public static String getJobState(String ujsJobId) throws Exception {
         /**
          * Get job state from condor_q with the LastJobStatus param
          * @param jobID ujsJobId to get job state for
@@ -137,7 +164,8 @@ public class CondorUtils
          */
         return condorQ(ujsJobId, "LastJobStatus");
     }
-    public static String getJobPriority(String ujsJobId) throws Exception{
+
+    public static String getJobPriority(String ujsJobId) throws Exception {
         /**
          * Get job priority from condor_q with the JobPrio param
          * @param jobID ujsJobId to get job JobPrio for
@@ -147,7 +175,4 @@ public class CondorUtils
     }
 
 
-
-
-	
 } // class CondorUtils

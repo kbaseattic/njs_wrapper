@@ -1,0 +1,208 @@
+On branch condor-cli
+Your branch is ahead of 'origin/condor-cli' by 1 commit.
+  (use "git push" to publish your local commits)
+
+Changes to be committed:
+  (use "git reset HEAD <file>..." to unstage)
+
+modified:   ../../src/us/kbase/narrativejobservice/sdkjobs/SDKMethodRunner.java
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+deleted:    ../../.gitignore
+deleted:    ../../.travis.yml
+modified:   ../../DEPENDENCIES
+modified:   ../../Dockerfile
+modified:   ../../Makefile
+modified:   ../../NJSWrapper.spec
+modified:   ../../README.md
+modified:   ../../RELEASE_NOTES.txt
+modified:   ../../build.xml
+modified:   ../bin/README.md
+modified:   ../conf/.templates/condor_config.templ
+modified:   ../conf/.templates/deployment.cfg.templ
+modified:   ../conf/.templates/http.ini.templ
+modified:   ../conf/.templates/server.ini.templ
+modified:   ../conf/.templates/shared_port_config.templ
+modified:   ../jettybase/start.d/deploy.ini
+modified:   ../jettybase/start.d/request.ini
+modified:   condor_q.sh
+deleted:    ../../dev_tools/Dockerfile
+deleted:    ../../dev_tools/README.MD
+modified:   ../../dev_tools/deploy_ci.cfg
+modified:   ../../dev_tools/deploy_local_minikb.cfg
+modified:   ../../dev_tools/execution-engine.yml
+modified:   ../../dev_tools/njs-wrapper-minikb.ini
+modified:   ../../dev_tools/submit.sh
+modified:   ../../dev_tools/test_login_legacy.sh
+modified:   ../../dev_tools/test_login_v2.sh
+modified:   ../../lib/Bio/KBase/njs_wrapper/Client.pm
+modified:   ../../lib/biokbase/__init__.py
+modified:   ../../lib/biokbase/njs_wrapper/__init__.py
+modified:   ../../lib/biokbase/njs_wrapper/authclient.py
+modified:   ../../lib/biokbase/njs_wrapper/baseclient.py
+modified:   ../../lib/biokbase/njs_wrapper/client.py
+modified:   ../../lib/javascript/njs_wrapper/Client.js
+modified:   ../../license.md
+modified:   ../../server_scripts/jetty.xml
+modified:   ../../src/us/kbase/catalog/AppClientGroup.java
+modified:   ../../src/us/kbase/catalog/BasicModuleInfo.java
+modified:   ../../src/us/kbase/catalog/BasicModuleVersionInfo.java
+modified:   ../../src/us/kbase/catalog/BuildInfo.java
+modified:   ../../src/us/kbase/catalog/BuildLog.java
+modified:   ../../src/us/kbase/catalog/BuildLogLine.java
+modified:   ../../src/us/kbase/catalog/CatalogClient.java
+modified:   ../../src/us/kbase/catalog/ClientGroupConfig.java
+modified:   ../../src/us/kbase/catalog/ClientGroupFilter.java
+modified:   ../../src/us/kbase/catalog/CompilationReport.java
+modified:   ../../src/us/kbase/catalog/CurrentRepoParams.java
+modified:   ../../src/us/kbase/catalog/ExecAggrStats.java
+modified:   ../../src/us/kbase/catalog/ExecAggrTableParams.java
+modified:   ../../src/us/kbase/catalog/FavoriteCount.java
+modified:   ../../src/us/kbase/catalog/FavoriteItem.java
+modified:   ../../src/us/kbase/catalog/FavoriteUser.java
+modified:   ../../src/us/kbase/catalog/Function.java
+modified:   ../../src/us/kbase/catalog/FunctionPlace.java
+modified:   ../../src/us/kbase/catalog/GetBuildLogParams.java
+modified:   ../../src/us/kbase/catalog/GetClientGroupParams.java
+modified:   ../../src/us/kbase/catalog/GetExecAggrStatsParams.java
+modified:   ../../src/us/kbase/catalog/GetExecRawStatsParams.java
+modified:   ../../src/us/kbase/catalog/GetLocalFunctionDetails.java
+modified:   ../../src/us/kbase/catalog/GetRawStatsParams.java
+modified:   ../../src/us/kbase/catalog/GetSecureConfigParamsInput.java
+modified:   ../../src/us/kbase/catalog/HistoryRepoParams.java
+modified:   ../../src/us/kbase/catalog/IOTags.java
+modified:   ../../src/us/kbase/catalog/Icon.java
+modified:   ../../src/us/kbase/catalog/ListBuildParams.java
+modified:   ../../src/us/kbase/catalog/ListFavoriteCounts.java
+modified:   ../../src/us/kbase/catalog/ListLocalFunctionParams.java
+modified:   ../../src/us/kbase/catalog/ListModuleParams.java
+modified:   ../../src/us/kbase/catalog/ListReposParams.java
+modified:   ../../src/us/kbase/catalog/ListServiceModuleParams.java
+modified:   ../../src/us/kbase/catalog/LocalFunctionDetails.java
+modified:   ../../src/us/kbase/catalog/LocalFunctionInfo.java
+modified:   ../../src/us/kbase/catalog/LocalFunctionTags.java
+modified:   ../../src/us/kbase/catalog/LogExecStatsParams.java
+modified:   ../../src/us/kbase/catalog/ModifySecureConfigParamsInput.java
+modified:   ../../src/us/kbase/catalog/ModuleInfo.java
+modified:   ../../src/us/kbase/catalog/ModuleState.java
+modified:   ../../src/us/kbase/catalog/ModuleVersion.java
+modified:   ../../src/us/kbase/catalog/ModuleVersionInfo.java
+modified:   ../../src/us/kbase/catalog/ModuleVersionLookupParams.java
+modified:   ../../src/us/kbase/catalog/Parameter.java
+modified:   ../../src/us/kbase/catalog/RegisterRepoParams.java
+modified:   ../../src/us/kbase/catalog/ReleaseReview.java
+modified:   ../../src/us/kbase/catalog/RepoDetails.java
+modified:   ../../src/us/kbase/catalog/RepoVersion.java
+modified:   ../../src/us/kbase/catalog/RequestedReleaseInfo.java
+modified:   ../../src/us/kbase/catalog/SecureConfigParameter.java
+modified:   ../../src/us/kbase/catalog/SelectModuleParams.java
+modified:   ../../src/us/kbase/catalog/SelectModuleVersion.java
+modified:   ../../src/us/kbase/catalog/SelectModuleVersionParams.java
+modified:   ../../src/us/kbase/catalog/SelectOneLocalFunction.java
+modified:   ../../src/us/kbase/catalog/SelectOneModuleParams.java
+modified:   ../../src/us/kbase/catalog/SetRegistrationStateParams.java
+modified:   ../../src/us/kbase/catalog/SetRepoStateParams.java
+modified:   ../../src/us/kbase/catalog/SpecFile.java
+modified:   ../../src/us/kbase/catalog/UpdateGitUrlParams.java
+modified:   ../../src/us/kbase/catalog/VersionCommitInfo.java
+modified:   ../../src/us/kbase/catalog/VolumeMount.java
+modified:   ../../src/us/kbase/catalog/VolumeMountConfig.java
+modified:   ../../src/us/kbase/catalog/VolumeMountFilter.java
+modified:   ../../src/us/kbase/common/executionengine/CallbackServer.java
+modified:   ../../src/us/kbase/common/executionengine/CallbackServerConfigBuilder.java
+modified:   ../../src/us/kbase/common/executionengine/JobRunnerConstants.java
+modified:   ../../src/us/kbase/common/executionengine/LineLogger.java
+modified:   ../../src/us/kbase/common/executionengine/ModuleMethod.java
+modified:   ../../src/us/kbase/common/executionengine/ModuleRunVersion.java
+modified:   ../../src/us/kbase/common/executionengine/SubsequentCallRunner.java
+modified:   ../../src/us/kbase/common/service/Tuple13.java
+modified:   ../../src/us/kbase/common/service/Tuple14.java
+modified:   ../../src/us/kbase/common/service/Tuple2.java
+modified:   ../../src/us/kbase/common/service/Tuple3.java
+modified:   ../../src/us/kbase/common/service/Tuple4.java
+modified:   ../../src/us/kbase/common/service/Tuple5.java
+modified:   ../../src/us/kbase/common/service/Tuple6.java
+modified:   ../../src/us/kbase/common/service/Tuple7.java
+modified:   ../../src/us/kbase/common/utils/AweResponseException.java
+modified:   ../../src/us/kbase/common/utils/AweUtils.java
+modified:   ../../src/us/kbase/common/utils/NetUtils.java
+modified:   ../../src/us/kbase/common/utils/ProcessHelper.java
+modified:   ../../src/us/kbase/common/utils/TextUtils.java
+modified:   ../../src/us/kbase/narrativejobservice/.gitignore
+modified:   ../../src/us/kbase/narrativejobservice/AppEventListener.java
+modified:   ../../src/us/kbase/narrativejobservice/CancelJobParams.java
+modified:   ../../src/us/kbase/narrativejobservice/CheckJobCanceledResult.java
+modified:   ../../src/us/kbase/narrativejobservice/CheckJobsParams.java
+modified:   ../../src/us/kbase/narrativejobservice/CheckJobsResults.java
+modified:   ../../src/us/kbase/narrativejobservice/FinishJobParams.java
+modified:   ../../src/us/kbase/narrativejobservice/GetJobLogsParams.java
+modified:   ../../src/us/kbase/narrativejobservice/GetJobLogsResults.java
+modified:   ../../src/us/kbase/narrativejobservice/JobState.java
+modified:   ../../src/us/kbase/narrativejobservice/JsonRpcError.java
+modified:   ../../src/us/kbase/narrativejobservice/LogLine.java
+modified:   ../../src/us/kbase/narrativejobservice/MethodCall.java
+modified:   ../../src/us/kbase/narrativejobservice/NarrativeJobServiceClient.java
+modified:   ../../src/us/kbase/narrativejobservice/NarrativeJobServiceServer.java
+modified:   ../../src/us/kbase/narrativejobservice/RpcContext.java
+modified:   ../../src/us/kbase/narrativejobservice/RunJobParams.java
+modified:   ../../src/us/kbase/narrativejobservice/Status.java
+modified:   ../../src/us/kbase/narrativejobservice/UpdateJobParams.java
+modified:   ../../src/us/kbase/narrativejobservice/UpdateJobResults.java
+modified:   ../../src/us/kbase/narrativejobservice/Util.java
+modified:   ../../src/us/kbase/narrativejobservice/WorkspaceObject.java
+modified:   ../../src/us/kbase/narrativejobservice/db/ExecEngineMongoDb.java
+modified:   ../../src/us/kbase/narrativejobservice/db/ExecLog.java
+modified:   ../../src/us/kbase/narrativejobservice/db/ExecLogLine.java
+modified:   ../../src/us/kbase/narrativejobservice/db/ExecTask.java
+modified:   ../../src/us/kbase/narrativejobservice/db/SanitizeMongoObject.java
+modified:   ../../src/us/kbase/narrativejobservice/sdkjobs/CancellationChecker.java
+modified:   ../../src/us/kbase/narrativejobservice/sdkjobs/ErrorLogger.java
+modified:   ../../src/us/kbase/narrativejobservice/sdkjobs/SDKLocalMethodRunner.java
+modified:   ../../src/us/kbase/narrativejobservice/subjobs/NJSCallbackServer.java
+modified:   ../../src/us/kbase/narrativejobservice/subjobs/NJSSubsequentCallRunner.java
+modified:   ../../src/us/kbase/narrativejobservice/test/AweClientDockerJobScriptTest.java
+modified:   ../../src/us/kbase/narrativejobservice/test/CallbackServerTest.java
+modified:   ../../src/us/kbase/narrativejobservice/test/CatalogRegForTests.java
+modified:   ../../src/us/kbase/narrativejobservice/test/CondorIntegrationTest.java
+modified:   ../../src/us/kbase/narrativejobservice/test/ExecEngineMongoDbTest.java
+modified:   ../../src/us/kbase/narrativejobservice/test/MongoDBHelper.java
+modified:   ../../src/us/kbase/narrativejobservice/test/OnerepotestClient.java
+deleted:    ../../test.cfg.example
+modified:   ../../test_data/Rhodobacter.contigset.json.gz
+modified:   ../../test_data/Rhodobacter.genome.json.gz
+modified:   ../../test_data/awe_deps/.gitignore
+modified:   ../../test_data/specfiles/Empty.spec
+modified:   ../../test_data/specfiles/KBaseGenomes.spec
+modified:   ../../war/web.xml
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+../../5ace5c96e4b060b7e98dd1c4/
+../../5ace5f2ee4b060b7e98dd1c5/
+../../5ace6047e4b060b7e98dd1c6/
+../../5ace60fde4b060b7e98dd1c7/
+../../5ace62dce4b060b7e98dd1c8/
+../../5ace6431e4b060b7e98dd1c9/
+../../5ace670ce4b060b7e98dd1ca/
+../../5ace69dae4b0ca72dd1edc03/
+../../deploy.cfg
+../jettybase/webapps/
+../lib/
+.submit.s.swp
+out
+../../dev_tools/.DS_Store
+../../dev_tools/do.sh
+../../dev_tools/docker-ce_18.03.0~ce-0~debian_amd64.deb
+../../dev_tools/docker-ce_18.03.0~ce-0~debian_amd64.deb.1
+../../dev_tools/submit2.sh
+../../dist/
+../../hello.sh
+../../out
+../../src/us/kbase/narrativejobservice/sdkjobs/SDKMethodRunnerOld.java
+../../test.cfg
+../../~
+
