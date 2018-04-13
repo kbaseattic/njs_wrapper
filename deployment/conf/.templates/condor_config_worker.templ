@@ -1,8 +1,15 @@
 ##  What machine is your central manager?
-
 CONDOR_HOST = {{ default .Env.CONDOR_HOST "condor" }}
 SCHEDD_HOST = {{ default .Env.SCHEDD_HOST "kbase@condor" }}
 
+# Set COLLECTOR_HOST if collector's internal hostname doesn't match DNS name
+# and also set sock=COLLECTOR if using shared port
+# example:
+# COLLECTOR_HOST = ci.kbase.us:9618?sock=collector
+{{ if .Env.COLLECTOR_HOST -}} COLLECTOR_HOST = {{ .Env.COLLECTOR_HOST }} {{- end }}
+# Set UPDATE_COLLECTOR_WITH_TCP to use TCP instead of UDP for daemon communications
+# UPDATE_COLLECTOR_WITH_TCP = True
+{{ if .Env.UPDATE_COLLECTOR_WITH_TCP -}} UPDATE_COLLECTOR_WITH_TCP = {{ .Env.UPDATE_COLLECTOR_WITH_TCP }} {{- end }}
 SEC_DEFAULT_AUTHENTICATION = {{ default .Env.SEC_DEFAULT_AUTHENTICATION "PASSWORD" }}
 SEC_DEFAULT_AUTHENTICATION_METHODS = {{ default .Env.SEC_AUTHENTICATION_METHODS "PASSWORD" }} 
 SEC_DEFAULT_NEGOTIATION = {{ default .Env.SEC_DEFAULT_NEGOTIATION "REQUIRED" }} 
