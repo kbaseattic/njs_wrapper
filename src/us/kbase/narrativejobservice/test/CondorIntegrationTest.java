@@ -222,6 +222,7 @@ public class CondorIntegrationTest {
     }
 
 
+
     @Test
     public void testOneJob2() throws Exception {
         Properties props = TesterUtils.props();
@@ -246,21 +247,32 @@ public class CondorIntegrationTest {
         String jobId = client.runJob(params);
         JobState ret = null;
 
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < 5; i++) {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-
+                if(ret == null){
+                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+                }
                 if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     System.out.println("Job finished: " + ret.getFinished());
                     break;
                 }
-                Thread.sleep(5000);
+                Thread.sleep(2000);
             } catch (ServerException ex) {
                 System.out.println(ex.getData());
                 throw ex;
             }
         }
+        try{
+            ret = client.checkJob(jobId);
+            System.out.println("Job was submitted and status = ");
+            System.out.println(ret);
+        }
+        catch (Exception e){
+            throw new IllegalStateException("Couldnt get job status for" + jobId);
+        }
+
 
     }
 

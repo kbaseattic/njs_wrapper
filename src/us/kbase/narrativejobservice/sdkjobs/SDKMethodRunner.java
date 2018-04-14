@@ -151,7 +151,7 @@ public class SDKMethodRunner {
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
 
 			System.out.println("sh submit.sh " + ujsJobId);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl);
 
 			//There can be a race condition here
 			System.out.println("condorID: " + condorID);
@@ -658,10 +658,7 @@ public class SDKMethodRunner {
                 .withCanceled(APP_STATE_CANCELED.equals(jobStatus.getE2()) ? 1L : 0L);
     }
 
-
-
-
-	public static String getJobState(String jobId) throws Exception{
+	public static String getJobState(String jobId) throws Exception {
 		/**
 		 * Get job state from a condor status based on
 		 * http://pages.cs.wisc.edu/~adesmet/status.html
@@ -670,14 +667,14 @@ public class SDKMethodRunner {
 		 */
 		String jobState = CondorUtils.getJobState(jobId);
 		int retries = 5;
-		if(jobState == null){
-			while(retries > 0 && jobState ==null) {
+		if (jobState == null) {
+			while (retries > 0 && jobState == null) {
 				Thread.sleep(2000);
 				retries--;
 				jobState = CondorUtils.getJobState(jobId);
 			}
 		}
-		if(jobState == null){
+		if (jobState == null) {
 			return APP_STATE_ERROR;
 		}
 		switch (jobState) {
@@ -696,8 +693,8 @@ public class SDKMethodRunner {
 			default:
 				return APP_STATE_ERROR;
 		}
-
 	}
+
 	@SuppressWarnings("unchecked")
 	public static JobState checkJob(String jobId, AuthToken authPart,
 									Map<String, String> config) throws Exception{
