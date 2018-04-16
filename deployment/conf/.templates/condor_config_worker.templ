@@ -29,6 +29,6 @@ KILL = False
 
 # Machine resource settings
 {{ if .Env.NUM_SLOTS -}} NUM_SLOTS = {{ .Env.NUM_SLOTS }} {{- end }}
-CLIENTGROUP = {{ default .Env.CLIENTGROUP "njs" }}
+CLIENTGROUP = {{ default .Env.CLIENTGROUP "\"njs\"" }}
 
 STARTD_ATTRS = CLIENTGROUP
