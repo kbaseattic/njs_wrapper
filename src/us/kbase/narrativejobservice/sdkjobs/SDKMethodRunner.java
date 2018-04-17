@@ -151,6 +151,8 @@ public class SDKMethodRunner {
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
 
 			System.out.println("sh submit.sh " + ujsJobId);
+			selfExternalUrl = kbaseEndpoint + "/njs2";
+
 			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl);
 
 			//There can be a race condition here
