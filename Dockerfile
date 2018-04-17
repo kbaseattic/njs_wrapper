@@ -24,6 +24,18 @@ RUN apt-get update && \
     mkdir /var/run/condor && \
     chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute
 
+# Install docker binaries based on
+# https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
+# Also add the user to the groups that map to "docker" on Linux and "daemon" on
+# MacOS
+RUN apt-get install -y apt-transport-https software-properties-common && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y docker-ce=18.03.0~ce-0~debian && \
+    usermod -a -G 0 kbase && \
+    usermod -a -G 999 kbase
+
 USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
