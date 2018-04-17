@@ -24,7 +24,7 @@ RUN apt-get update && \
     mkdir /var/run/condor && \
     chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute
 
-USER kbase
+USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
