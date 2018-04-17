@@ -222,6 +222,42 @@ public class CondorIntegrationTest {
     }
 
 
+    @Test
+    public void testCheckJob() throws Exception{
+        Properties props = TesterUtils.props();
+        String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testOneJob]");
+        System.out.println("Connecting to server:" + njs_url);
+        System.out.println("Using Token:" + props.getProperty("token"));
+        client = new NarrativeJobServiceClient(new URL(njs_url), token);
+        client.setIsInsecureHttpConnectionAllowed(true);
+
+        String jobId = "5ad18e1ce4b00b63d04e188d";
+        JobState ret = null;
+        JobState ret2 = null;
+        for (int i = 0; i < 5; i++) {
+            System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
+            try {
+                System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
+                ret = client.checkJobs(new CheckJobsParams().withJobIds(
+                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
+
+//                if(ret == null){
+//                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+//                }
+                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    System.out.println("Job finished: " + ret.getFinished());
+                    break;
+                }
+                System.out.println("STATUS = ");
+                Thread.sleep(2000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+    }
+
 
     @Test
     public void testOneJob2() throws Exception {
@@ -245,15 +281,16 @@ public class CondorIntegrationTest {
                 .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
         String jobId = client.runJob(params);
+        System.out.println("Submitted job and got" + jobId);
         JobState ret = null;
 
         for (int i = 0; i < 5; i++) {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-                if(ret == null){
-                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
-                }
+//                if(ret == null){
+//                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+//                }
                 if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     System.out.println("Job finished: " + ret.getFinished());
                     break;
@@ -264,15 +301,7 @@ public class CondorIntegrationTest {
                 throw ex;
             }
         }
-        try{
-            ret = client.checkJob(jobId);
-            System.out.println("Job was submitted and status = ");
-            System.out.println(ret);
-        }
-        catch (Exception e){
-            throw new IllegalStateException("Couldnt get job status for" + jobId);
-        }
-
+        System.out.println("COMPLETE");
 
     }
 
