@@ -144,19 +144,13 @@ public class SDKMethodRunner {
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
 		
-		
-		
-		// Debug:
 		// Config switch to switch to calling new Condor Utils method submitToCondor
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
-
 		    //TODO REMOVE
-			System.out.println("sh submit.sh " + ujsJobId);
-			//TODO MOVE TO CONFIG FILE AND MAKE SURE THAT KB_DEPLOYMENT FILE MATCHES THIS
-			selfExternalUrl = kbaseEndpoint + "/njs2";
+			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = "/mnt/awe/condor";
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl,baseDir);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL,baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
 
 		} else {
