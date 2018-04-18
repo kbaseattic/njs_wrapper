@@ -156,7 +156,6 @@ public class SDKMethodRunner {
 			selfExternalUrl = kbaseEndpoint + "/njs2";
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = "/mnt/awe/condor";
-
 			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl,baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
 

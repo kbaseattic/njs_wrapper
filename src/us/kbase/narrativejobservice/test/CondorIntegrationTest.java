@@ -289,9 +289,6 @@ public class CondorIntegrationTest {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-//                if(ret == null){
-//                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
-//                }
                 if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     System.out.println("Job finished: " + ret.getFinished());
                     break;
@@ -302,6 +299,10 @@ public class CondorIntegrationTest {
                 throw ex;
             }
         }
+        if(ret == null){
+            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+        }
+
         System.out.println("COMPLETE");
 
     }
