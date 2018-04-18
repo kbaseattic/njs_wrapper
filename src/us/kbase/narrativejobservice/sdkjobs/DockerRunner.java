@@ -122,10 +122,10 @@ public class DockerRunner {
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
-            try {
-                cntCmd.withNetworkMode("minikb_default");
-            }
-            catch (Exception ignore){};
+//            try {
+//                cntCmd.withNetworkMode("minikb_default");
+//            }
+//            catch (Exception ignore){};
 
             System.out.println("ENV VAR LIST =");
             List<String> envVarList = new ArrayList<String>();

@@ -150,25 +150,15 @@ public class SDKMethodRunner {
 		// Config switch to switch to calling new Condor Utils method submitToCondor
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
 
+		    //TODO REMOVE
 			System.out.println("sh submit.sh " + ujsJobId);
+			//TODO MOVE TO CONFIG FILE AND MAKE SURE THAT KB_DEPLOYMENT FILE MATCHES THIS
 			selfExternalUrl = kbaseEndpoint + "/njs2";
+			//TODO MOVE TO CONFIG FILE
+			String baseDir = "/mnt/awe/condor";
 
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl);
-
-			//There can be a race condition here
-			System.out.println("condorID: " + condorID);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl,baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
-
-			String state = getJobState(ujsJobId);
-			System.out.println("JOBSTATE: " + state);
-
-			String priority = CondorUtils.getJobPriority(ujsJobId);
-			if(priority == null){
-				priority = "NOT AVAILABLE";
-			}
-			System.out.println("PRIORITY: " + priority);
-
-
 
 		} else {
 		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));

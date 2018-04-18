@@ -158,6 +158,7 @@ public class CondorIntegrationTest {
 
     private static String njs_url = "http://localhost:8080";
     private static String njs_url_ci = "https://ci.kbase.us/services/njs2";
+    private static String ujsJob = "";
 
 
 
@@ -222,41 +223,41 @@ public class CondorIntegrationTest {
     }
 
 
-    @Test
-    public void testCheckJob() throws Exception{
-        Properties props = TesterUtils.props();
-        String njs_url = props.getProperty("njs_server_url");
-        System.out.println("Test [testOneJob]");
-        System.out.println("Connecting to server:" + njs_url);
-        System.out.println("Using Token:" + props.getProperty("token"));
-        client = new NarrativeJobServiceClient(new URL(njs_url), token);
-        client.setIsInsecureHttpConnectionAllowed(true);
-
-        String jobId = "5ad18e1ce4b00b63d04e188d";
-        JobState ret = null;
-        JobState ret2 = null;
-        for (int i = 0; i < 5; i++) {
-            System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
-            try {
-                System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
-                ret = client.checkJobs(new CheckJobsParams().withJobIds(
-                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-
-//                if(ret == null){
-//                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+//    @Test
+//    public void testCheckJob() throws Exception{
+//        Properties props = TesterUtils.props();
+//        String njs_url = props.getProperty("njs_server_url");
+//        System.out.println("Test [testOneJob]");
+//        System.out.println("Connecting to server:" + njs_url);
+//        System.out.println("Using Token:" + props.getProperty("token"));
+//        client = new NarrativeJobServiceClient(new URL(njs_url), token);
+//        client.setIsInsecureHttpConnectionAllowed(true);
+//
+//        String jobId = "5ad18e1ce4b00b63d04e188d";
+//        JobState ret = null;
+//        JobState ret2 = null;
+//        for (int i = 0; i < 5; i++) {
+//            System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
+//            try {
+//                System.out.println("ATTEMPTING TO CHECK JOB" + jobId);
+//                ret = client.checkJobs(new CheckJobsParams().withJobIds(
+//                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
+//
+////                if(ret == null){
+////                    throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+////                }
+//                if (ret.getFinished() != null && ret.getFinished() == 1L) {
+//                    System.out.println("Job finished: " + ret.getFinished());
+//                    break;
 //                }
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    System.out.println("Job finished: " + ret.getFinished());
-                    break;
-                }
-                System.out.println("STATUS = ");
-                Thread.sleep(2000);
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
-            }
-        }
-    }
+//                System.out.println("STATUS = ");
+//                Thread.sleep(2000);
+//            } catch (ServerException ex) {
+//                System.out.println(ex.getData());
+//                throw ex;
+//            }
+//        }
+//    }
 
 
     @Test

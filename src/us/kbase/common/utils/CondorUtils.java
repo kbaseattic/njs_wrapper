@@ -21,15 +21,13 @@ import us.kbase.common.utils.CondorResponse;
 
 public class CondorUtils {
 
-    private static File createCondorSubmitFile(String ujsJobId, String token, String clientGroups, String kbaseEndpoint) throws IOException {
+    private static File createCondorSubmitFile(String ujsJobId, String token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
 
         clientGroups = clientGroupsToRequirements(clientGroups);
         kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {  ujsJobId, kbaseEndpoint};
         String arguments = String.join(" ",args);
-
-
         List<String> csf = new ArrayList<String>();
         csf.add("universe = vanilla");
         csf.add("accounting_group = sychan");
@@ -51,7 +49,7 @@ public class CondorUtils {
         csf.add("batch_name = " + ujsJobId);
         csf.add("queue 1");
 
-        File submitFile = new File(ujsJobId + "/output.txt");
+        File submitFile = new File(String.format("%s/%s/submitscript.sub", baseDir,ujsJobId ) );
         FileUtils.writeLines(submitFile, "UTF-8", csf);
         submitFile.setExecutable(true);
 
@@ -117,7 +115,7 @@ public class CondorUtils {
     }
 
 
-    public static String submitToCondorCLI(String ujsJobId, String token, String clientGroups, String kbaseEndpoint) throws IOException {
+    public static String submitToCondorCLI(String ujsJobId, String token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
         /**
          * Call condor_submit with the ujsJobId as batch job name
          * @param jobID ujsJobId to name the batch job with
@@ -125,7 +123,7 @@ public class CondorUtils {
          * @return String condor job id
          */
 
-        String condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint).getAbsolutePath();
+        String condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint, baseDir).getAbsolutePath();
         String[] cmdScript = {"condor_submit", "-spool" ,"-terse" , condorSubmitFile};
         return runProcess(cmdScript).stdout.get(0);
     }
