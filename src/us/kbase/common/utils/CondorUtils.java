@@ -49,7 +49,7 @@ public class CondorUtils {
         csf.add("batch_name = " + ujsJobId);
         csf.add("queue 1");
 
-        File submitFile = new File(String.format("%s/%s/submitscript.sub", baseDir, ujsJobId));
+        File submitFile = new File(String.format("%s.sub", ujsJobId));
         FileUtils.writeLines(submitFile, "UTF-8", csf);
         submitFile.setExecutable(true);
 
