@@ -143,30 +143,16 @@ public class SDKMethodRunner {
 			aweClientGroups = config.get(NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS);
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
-		
-		
-		
-		// Debug:
+
 		// Config switch to switch to calling new Condor Utils method submitToCondor
 		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
-
-			System.out.println("sh submit.sh " + ujsJobId);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,selfExternalUrl);
-
-			//There can be a race condition here
-			System.out.println("condorID: " + condorID);
+		    //TODO REMOVE
+			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
+			//TODO MOVE TO CONFIG FILE
+			String baseDir = "/mnt/awe/condor";
+			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,newExternalURL,baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
-
-			String state = getJobState(ujsJobId);
-			System.out.println("JOBSTATE: " + state);
-
-			String priority = CondorUtils.getJobPriority(ujsJobId);
-			if(priority == null){
-				priority = "NOT AVAILABLE";
-			}
-			System.out.println("PRIORITY: " + priority);
-
-
 
 		} else {
 		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
@@ -389,124 +375,121 @@ public class SDKMethodRunner {
         return ret;
     }
 
-    public static void finishJob(
-            final String ujsJobId,
-            final FinishJobParams params, 
-            final AuthToken auth,
-            final ErrorLogger log,
-            final Map<String, String> config)
-            throws Exception {
-        if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
-            params.setIsCanceled(params.getIsCancelled());
-        }
-        final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        final Tuple7<String, String, String, Long, String, Long,
-            Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
-        if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
-            // Job was already done
-            final List<LogLine> lines = new ArrayList<LogLine>();
-            lines.add(new LogLine().withLine(
-                    "Attempt to finish already completed job")
-                    .withIsError(1L));
-            addJobLogs(ujsJobId, lines, auth, config);
-            return;
-        }
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> jobOutput =
-                UObject.transformObjectToObject(params, Map.class);
-        //should never trigger since the local method runner limits uploads to
-        //15k
-        checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
-        SanitizeMongoObject.sanitize(jobOutput);
-        // Updating UJS job state
-        if  (params.getIsCanceled() != null &&
-                params.getIsCanceled() == 1L) {
-            // will throw an error here if user doesn't have rights to cancel
-            ujsClient.cancelJob(ujsJobId, "canceled by user");
-            getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-//TODO DELETE
-//            updateAweTaskExecTime(ujsJobId, config, true);
-            return;
-        }
-        final String jobOwner = ujsClient.getJobOwner(ujsJobId);
-        if (auth == null || !jobOwner.equals(auth.getUserName())) {
-                throw new IllegalStateException(
-                        "Only the owner of a job can complete it");
-        }
-        getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-        ///TODO DELETE
-        //updateAweTaskExecTime(ujsJobId, config, true);
-        if (jobStatus.getE2().equals("created")) {
-            // job hasn't started yet. Need to put it in started state to
-            // complete it
-            try {
-                ujsClient.startJob(ujsJobId, auth.getToken(),
-                        "starting job so that it can be finished",
-                        "as state", new InitProgress().withPtype("none"),
-                        null);
-            } catch (ServerException se) {
-                // ignore and continue if the job was just started
-            }
-        }
-        if (params.getError() != null) {
-            String status = params.getError().getMessage();
-            if (status == null)
-                status = "Unknown error";
-            if (status.length() > 200)
-                status = status.substring(0, 197) + "...";
-            ujsClient.completeJob(ujsJobId, auth.getToken(), status,
-                    params.getError().getError(), null);
-        } else {
-            ujsClient.completeJob(ujsJobId, auth.getToken(), "done", null,
-                    new Results());
-        }
-        // let's make a call to catalog sending execution stats
-		//TODO UNDELETE
-//        try {
-//            final AppInfo info = getAppInfo(ujsJobId, config);
-//            final RunJobParams input = getJobInput(ujsJobId, config);
-//            String[] parts = input.getMethod().split(Pattern.quote("."));
-//            String funcModuleName = parts.length > 1 ? parts[0] : null;
-//            String funcName = parts.length > 1 ? parts[1] : parts[0];
-//            String gitCommitHash = input.getServiceVer();
-//            Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
-//            long creationTime = execTimes[0];
-//            long execStartTime = execTimes[1];
-//            long finishTime = execTimes[2];
-//            boolean isError = params.getError() != null;
-//            String errorMessage = null;
-//            try {
-//                sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
-//                        info.methodSpecId, funcModuleName, funcName,
-//                        gitCommitHash, creationTime, execStartTime, finishTime,
-//                        isError, ujsJobId, config);
-//            } catch (ServerException ex) {
-//                errorMessage = ex.getData();
-//                if (errorMessage == null)
-//                    errorMessage = ex.getMessage();
-//                if (errorMessage == null)
-//                    errorMessage = "Unknown server error";
-//            } catch (Exception ex) {
-//                errorMessage = ex.getMessage();
-//                if (errorMessage == null)
-//                    errorMessage = "Unknown error";
-//            }
-//            if (errorMessage != null) {
-//                String message = "Error sending execution stats to catalog (" +
-//                        auth.getUserName() + ", " + info.uiModuleName + ", " + info.methodSpecId +
-//                        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " +
-//                        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError +
-//                        "): " + errorMessage;
-//                System.err.println(message);
-//                if (log != null)
-//                    log.logErr(message);
-//            }
-//        } catch (Exception ex) {
-//            ex.printStackTrace();
-//            if (log != null)
-//                log.logErr(ex);
-//        }
-    }
+	public static void finishJob(
+			final String ujsJobId,
+			final FinishJobParams params,
+			final AuthToken auth,
+			final ErrorLogger log,
+			final Map<String, String> config)
+			throws Exception {
+		if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
+			params.setIsCanceled(params.getIsCancelled());
+		}
+		final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+		final Tuple7<String, String, String, Long, String, Long,
+				Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
+		if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
+			// Job was already done
+			final List<LogLine> lines = new ArrayList<LogLine>();
+			lines.add(new LogLine().withLine(
+					"Attempt to finish already completed job")
+					.withIsError(1L));
+			addJobLogs(ujsJobId, lines, auth, config);
+			return;
+		}
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> jobOutput =
+				UObject.transformObjectToObject(params, Map.class);
+		//should never trigger since the local method runner limits uploads to
+		//15k
+		checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
+		SanitizeMongoObject.sanitize(jobOutput);
+		// Updating UJS job state
+		if  (params.getIsCanceled() != null &&
+				params.getIsCanceled() == 1L) {
+			// will throw an error here if user doesn't have rights to cancel
+			ujsClient.cancelJob(ujsJobId, "canceled by user");
+			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+			updateAweTaskExecTime(ujsJobId, config, true);
+			return;
+		}
+		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
+		if (auth == null || !jobOwner.equals(auth.getUserName())) {
+			throw new IllegalStateException(
+					"Only the owner of a job can complete it");
+		}
+		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+		updateAweTaskExecTime(ujsJobId, config, true);
+		if (jobStatus.getE2().equals("created")) {
+			// job hasn't started yet. Need to put it in started state to
+			// complete it
+			try {
+				ujsClient.startJob(ujsJobId, auth.getToken(),
+						"starting job so that it can be finished",
+						"as state", new InitProgress().withPtype("none"),
+						null);
+			} catch (ServerException se) {
+				// ignore and continue if the job was just started
+			}
+		}
+		if (params.getError() != null) {
+			String status = params.getError().getMessage();
+			if (status == null)
+				status = "Unknown error";
+			if (status.length() > 200)
+				status = status.substring(0, 197) + "...";
+			ujsClient.completeJob(ujsJobId, auth.getToken(), status,
+					params.getError().getError(), null);
+		} else {
+			ujsClient.completeJob(ujsJobId, auth.getToken(), "done", null,
+					new Results());
+		}
+		// let's make a call to catalog sending execution stats
+		try {
+			final AppInfo info = getAppInfo(ujsJobId, config);
+			final RunJobParams input = getJobInput(ujsJobId, config);
+			String[] parts = input.getMethod().split(Pattern.quote("."));
+			String funcModuleName = parts.length > 1 ? parts[0] : null;
+			String funcName = parts.length > 1 ? parts[1] : parts[0];
+			String gitCommitHash = input.getServiceVer();
+			Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
+			long creationTime = execTimes[0];
+			long execStartTime = execTimes[1];
+			long finishTime = execTimes[2];
+			boolean isError = params.getError() != null;
+			String errorMessage = null;
+			try {
+				sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
+						info.methodSpecId, funcModuleName, funcName,
+						gitCommitHash, creationTime, execStartTime, finishTime,
+						isError, ujsJobId, config);
+			} catch (ServerException ex) {
+				errorMessage = ex.getData();
+				if (errorMessage == null)
+					errorMessage = ex.getMessage();
+				if (errorMessage == null)
+					errorMessage = "Unknown server error";
+			} catch (Exception ex) {
+				errorMessage = ex.getMessage();
+				if (errorMessage == null)
+					errorMessage = "Unknown error";
+			}
+			if (errorMessage != null) {
+				String message = "Error sending execution stats to catalog (" +
+						auth.getUserName() + ", " + info.uiModuleName + ", " + info.methodSpecId +
+						", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " +
+						creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError +
+						"): " + errorMessage;
+				System.err.println(message);
+				if (log != null)
+					log.logErr(message);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			if (log != null)
+				log.logErr(ex);
+		}
+	}
 
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
 			String methodSpecId, String funcModuleName, String funcName, String gitCommitHash, 

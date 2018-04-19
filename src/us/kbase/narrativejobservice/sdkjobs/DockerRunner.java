@@ -66,24 +66,13 @@ public class DockerRunner {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " + 
                     inputData.getName() + "(it should be named input.json)");
-
-
         File workDir = inputData.getCanonicalFile().getParentFile();
-        System.out.println("ABOUT TO GET CANONICAL FILE IN WORKDIR");
-        System.out.println(workDir);
-
-        System.out.println("About to set token file to ");
         File tokenFile = new File(workDir, "token");
-
-        System.out.println(tokenFile);
         final DockerClient cl = createDockerClient();
         imageName = checkImagePulled(cl, imageName, log);
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
-            System.out.println("About to print token file:");
-            System.out.println(  token.getToken());
-
             fw.write(token.getToken());
             fw.close();
             if (outputFile.exists())
@@ -97,68 +86,27 @@ public class DockerRunner {
             }
             List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(), 
                     new Volume("/kb/module/work"))));
-
-            System.out.println("Binds are");
-            System.out.println(binds);
-
             if (refDataDir != null)
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
-
-            System.out.println("Binds are");
-            System.out.println(binds);
-
             if (optionalScratchDir != null)
                 binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
-
-            System.out.println("Binds are");
-            System.out.println(binds);
-
             if (additionalBinds != null)
                 binds.addAll(additionalBinds);
-
-            System.out.println("Binds are");
-            System.out.println(binds);
-
             CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
                     .withName(cntName).withTty(true).withCmd("async").withBinds(
                             binds.toArray(new Bind[binds.size()]));
-
-            if(! System.getenv("KB_DOCKER_NETWORK").equals("")){
-                cntCmd.withNetworkMode(System.getenv("KB_DOCKER_NETWORK"));
-            }
-            cntCmd.withNetworkMode("minikb_default");
-
-
-            System.out.println("ENV VAR LIST =");
             List<String> envVarList = new ArrayList<String>();
-
-            System.out.println("CALLBACKURL =");
-            System.out.println(callbackUrl);
             if (callbackUrl != null) {
                 envVarList.add("SDK_CALLBACK_URL=" + callbackUrl);
-
             }
             if (envVars != null) {
                 for (String envVarKey : envVars.keySet()) {
                     envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
                 }
             }
-
-            envVarList.add("KB_AUTH_TOKEN" + "=" + System.getenv("KB_AUTH_TOKEN"));
-            envVarList.add("KBASE_ENDPOINT" + "=" + System.getenv("KBASE_ENDPOINT"));
-
-            System.out.println(envVarList);
-            System.out.println( envVarList.toArray(new String[envVarList.size()]));
-
-
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
             CreateContainerResponse resp = cntCmd.exec();
             final String cntId = resp.getId();
-
-            System.out.println("About to start docker container" + cntId);
-
-            Thread.sleep(2000);
-
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
