@@ -5,6 +5,12 @@ ARG BUILD_DATE
 ARG VCS_REF
 ARG BRANCH=develop
 
+
+ADD ./dev_tools/install.sh /install.sh 
+CMD ["/install.sh"]
+RUN /install.sh
+
+
 # The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
 # noninteractive in order to prevent that
 RUN apt-get update && \
@@ -24,23 +30,14 @@ RUN apt-get update && \
     mkdir /var/run/condor && \
     chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute
 
-# Install docker binaries based on
-# https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
-# Also add the user to the groups that map to "docker" on Linux and "daemon" on
-# MacOS
-RUN apt-get install -y apt-transport-https software-properties-common && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
-    apt-get update && \
-    apt-get install -y docker-ce=18.03.0~ce-0~debian && \
-    usermod -a -G 0 kbase && \
-    usermod -a -G 999 kbase
-
-USER kbase:999
+USER kbase
 COPY --chown=kbase deployment/ /kb/deployment/
+
+
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
 RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
+
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 

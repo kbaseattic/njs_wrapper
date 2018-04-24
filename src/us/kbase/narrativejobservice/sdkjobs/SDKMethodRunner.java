@@ -37,6 +37,7 @@ import us.kbase.common.service.Tuple7;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.AweUtils;
+import us.kbase.common.utils.CondorUtils;
 import us.kbase.common.utils.CountingOutputStream;
 import us.kbase.narrativejobservice.CancelJobParams;
 import us.kbase.narrativejobservice.CheckJobCanceledResult;
@@ -133,7 +134,8 @@ public class SDKMethodRunner {
 			cjp.withAuthstrat("kbaseworkspace")
 				.withAuthparam("" + params.getWsid());
 		}
-		final String ujsJobId = ujsClient.createJob2(cjp);
+		String ujsJobId = ujsClient.createJob2(cjp);
+		// final String ujsJobId = ujsClient.createJob2(cjp);
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -141,12 +143,23 @@ public class SDKMethodRunner {
 			aweClientGroups = config.get(NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS);
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
-		String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), 
-				ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, 
-				authPart, aweClientGroups, getCatalogAdminAuth(config));
-		if (appJobId != null && appJobId.isEmpty())
-			appJobId = ujsJobId;
-		addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+
+		// Config switch to switch to calling new Condor Utils method submitToCondor
+		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
+		    //TODO REMOVE
+			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
+			//TODO MOVE TO CONFIG FILE
+			String baseDir = "/mnt/awe/condor";
+			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,newExternalURL,baseDir);
+			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
+
+		} else {
+		    String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
+			if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
+			addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
+			//CALL THIS AND LOOK INSIDE OF THE DOCUMENT
+		}
 		return ujsJobId;
 	}
 
@@ -362,121 +375,121 @@ public class SDKMethodRunner {
         return ret;
     }
 
-    public static void finishJob(
-            final String ujsJobId,
-            final FinishJobParams params, 
-            final AuthToken auth,
-            final ErrorLogger log,
-            final Map<String, String> config)
-            throws Exception {
-        if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
-            params.setIsCanceled(params.getIsCancelled());
-        }
-        final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-        final Tuple7<String, String, String, Long, String, Long,
-            Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
-        if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
-            // Job was already done
-            final List<LogLine> lines = new ArrayList<LogLine>();
-            lines.add(new LogLine().withLine(
-                    "Attempt to finish already completed job")
-                    .withIsError(1L));
-            addJobLogs(ujsJobId, lines, auth, config);
-            return;
-        }
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> jobOutput =
-                UObject.transformObjectToObject(params, Map.class);
-        //should never trigger since the local method runner limits uploads to
-        //15k
-        checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
-        SanitizeMongoObject.sanitize(jobOutput);
-        // Updating UJS job state
-        if  (params.getIsCanceled() != null &&
-                params.getIsCanceled() == 1L) {
-            // will throw an error here if user doesn't have rights to cancel
-            ujsClient.cancelJob(ujsJobId, "canceled by user");
-            getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-            updateAweTaskExecTime(ujsJobId, config, true);
-            return;
-        }
-        final String jobOwner = ujsClient.getJobOwner(ujsJobId);
-        if (auth == null || !jobOwner.equals(auth.getUserName())) {
-                throw new IllegalStateException(
-                        "Only the owner of a job can complete it");
-        }
-        getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-        updateAweTaskExecTime(ujsJobId, config, true);
-        if (jobStatus.getE2().equals("created")) {
-            // job hasn't started yet. Need to put it in started state to
-            // complete it
-            try {
-                ujsClient.startJob(ujsJobId, auth.getToken(),
-                        "starting job so that it can be finished",
-                        "as state", new InitProgress().withPtype("none"),
-                        null);
-            } catch (ServerException se) {
-                // ignore and continue if the job was just started
-            }
-        }
-        if (params.getError() != null) {
-            String status = params.getError().getMessage();
-            if (status == null)
-                status = "Unknown error";
-            if (status.length() > 200)
-                status = status.substring(0, 197) + "...";
-            ujsClient.completeJob(ujsJobId, auth.getToken(), status,
-                    params.getError().getError(), null);
-        } else {
-            ujsClient.completeJob(ujsJobId, auth.getToken(), "done", null,
-                    new Results());
-        }
-        // let's make a call to catalog sending execution stats
-        try {
-            final AppInfo info = getAppInfo(ujsJobId, config);
-            final RunJobParams input = getJobInput(ujsJobId, config);
-            String[] parts = input.getMethod().split(Pattern.quote("."));
-            String funcModuleName = parts.length > 1 ? parts[0] : null;
-            String funcName = parts.length > 1 ? parts[1] : parts[0];
-            String gitCommitHash = input.getServiceVer();
-            Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
-            long creationTime = execTimes[0];
-            long execStartTime = execTimes[1];
-            long finishTime = execTimes[2];
-            boolean isError = params.getError() != null;
-            String errorMessage = null;
-            try {
-                sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
-                        info.methodSpecId, funcModuleName, funcName,
-                        gitCommitHash, creationTime, execStartTime, finishTime,
-                        isError, ujsJobId, config);
-            } catch (ServerException ex) {
-                errorMessage = ex.getData();
-                if (errorMessage == null)
-                    errorMessage = ex.getMessage();
-                if (errorMessage == null)
-                    errorMessage = "Unknown server error";
-            } catch (Exception ex) {
-                errorMessage = ex.getMessage();
-                if (errorMessage == null)
-                    errorMessage = "Unknown error";
-            }
-            if (errorMessage != null) {
-                String message = "Error sending execution stats to catalog (" + 
-                        auth.getUserName() + ", " + info.uiModuleName + ", " + info.methodSpecId + 
-                        ", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " + 
-                        creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError + 
-                        "): " + errorMessage;
-                System.err.println(message);
-                if (log != null)
-                    log.logErr(message);
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            if (log != null)
-                log.logErr(ex);
-        }
-    }
+	public static void finishJob(
+			final String ujsJobId,
+			final FinishJobParams params,
+			final AuthToken auth,
+			final ErrorLogger log,
+			final Map<String, String> config)
+			throws Exception {
+		if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
+			params.setIsCanceled(params.getIsCancelled());
+		}
+		final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
+		final Tuple7<String, String, String, Long, String, Long,
+				Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
+		if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
+			// Job was already done
+			final List<LogLine> lines = new ArrayList<LogLine>();
+			lines.add(new LogLine().withLine(
+					"Attempt to finish already completed job")
+					.withIsError(1L));
+			addJobLogs(ujsJobId, lines, auth, config);
+			return;
+		}
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> jobOutput =
+				UObject.transformObjectToObject(params, Map.class);
+		//should never trigger since the local method runner limits uploads to
+		//15k
+		checkObjectLength(jobOutput, MAX_IO_BYTE_SIZE, "Output", ujsJobId);
+		SanitizeMongoObject.sanitize(jobOutput);
+		// Updating UJS job state
+		if  (params.getIsCanceled() != null &&
+				params.getIsCanceled() == 1L) {
+			// will throw an error here if user doesn't have rights to cancel
+			ujsClient.cancelJob(ujsJobId, "canceled by user");
+			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+			updateAweTaskExecTime(ujsJobId, config, true);
+			return;
+		}
+		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
+		if (auth == null || !jobOwner.equals(auth.getUserName())) {
+			throw new IllegalStateException(
+					"Only the owner of a job can complete it");
+		}
+		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
+		updateAweTaskExecTime(ujsJobId, config, true);
+		if (jobStatus.getE2().equals("created")) {
+			// job hasn't started yet. Need to put it in started state to
+			// complete it
+			try {
+				ujsClient.startJob(ujsJobId, auth.getToken(),
+						"starting job so that it can be finished",
+						"as state", new InitProgress().withPtype("none"),
+						null);
+			} catch (ServerException se) {
+				// ignore and continue if the job was just started
+			}
+		}
+		if (params.getError() != null) {
+			String status = params.getError().getMessage();
+			if (status == null)
+				status = "Unknown error";
+			if (status.length() > 200)
+				status = status.substring(0, 197) + "...";
+			ujsClient.completeJob(ujsJobId, auth.getToken(), status,
+					params.getError().getError(), null);
+		} else {
+			ujsClient.completeJob(ujsJobId, auth.getToken(), "done", null,
+					new Results());
+		}
+		// let's make a call to catalog sending execution stats
+		try {
+			final AppInfo info = getAppInfo(ujsJobId, config);
+			final RunJobParams input = getJobInput(ujsJobId, config);
+			String[] parts = input.getMethod().split(Pattern.quote("."));
+			String funcModuleName = parts.length > 1 ? parts[0] : null;
+			String funcName = parts.length > 1 ? parts[1] : parts[0];
+			String gitCommitHash = input.getServiceVer();
+			Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
+			long creationTime = execTimes[0];
+			long execStartTime = execTimes[1];
+			long finishTime = execTimes[2];
+			boolean isError = params.getError() != null;
+			String errorMessage = null;
+			try {
+				sendExecStatsToCatalog(auth.getUserName(), info.uiModuleName,
+						info.methodSpecId, funcModuleName, funcName,
+						gitCommitHash, creationTime, execStartTime, finishTime,
+						isError, ujsJobId, config);
+			} catch (ServerException ex) {
+				errorMessage = ex.getData();
+				if (errorMessage == null)
+					errorMessage = ex.getMessage();
+				if (errorMessage == null)
+					errorMessage = "Unknown server error";
+			} catch (Exception ex) {
+				errorMessage = ex.getMessage();
+				if (errorMessage == null)
+					errorMessage = "Unknown error";
+			}
+			if (errorMessage != null) {
+				String message = "Error sending execution stats to catalog (" +
+						auth.getUserName() + ", " + info.uiModuleName + ", " + info.methodSpecId +
+						", " + funcModuleName + ", " + funcName + ", " + gitCommitHash + ", " +
+						creationTime + ", " + execStartTime + ", " + finishTime + ", " + isError +
+						"): " + errorMessage;
+				System.err.println(message);
+				if (log != null)
+					log.logErr(message);
+			}
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			if (log != null)
+				log.logErr(ex);
+		}
+	}
 
 	private static void sendExecStatsToCatalog(String userId, String uiModuleName,
 			String methodSpecId, String funcModuleName, String funcName, String gitCommitHash, 
@@ -627,16 +640,64 @@ public class SDKMethodRunner {
                 .withFinished(jobStatus.getE6() == null ? 0 : jobStatus.getE6())
                 .withCanceled(APP_STATE_CANCELED.equals(jobStatus.getE2()) ? 1L : 0L);
     }
-	
+
+	public static String getJobState(String jobId) throws Exception {
+		/**
+		 * Get job state from a condor status based on
+		 * http://pages.cs.wisc.edu/~adesmet/status.html
+		 * @param jobID ujsJobId to get job state for
+		 * @return Return an appropriate status constant based on condor status code
+		 */
+		String jobState = CondorUtils.getJobState(jobId);
+		int retries = 5;
+		if (jobState == null) {
+			while (retries > 0 && jobState == null) {
+				Thread.sleep(2000);
+				retries--;
+				jobState = CondorUtils.getJobState(jobId);
+			}
+		}
+		if (jobState == null) {
+			return APP_STATE_ERROR;
+		}
+		switch (jobState) {
+			case "0":
+				return APP_STATE_QUEUED; //Maybe need to return a new state here?
+			case "1":
+				return APP_STATE_QUEUED; //Maybe need to return a new state here?
+			case "2":
+				return APP_STATE_STARTED;
+			case "3":
+				return APP_STATE_CANCELED;
+			case "4":
+				return APP_STATE_DONE;
+			case "5":
+				return APP_STATE_QUEUED; //Maybe need to return a new state here?
+			default:
+				return APP_STATE_ERROR;
+		}
+	}
+
 	@SuppressWarnings("unchecked")
-	public static JobState checkJob(String jobId, AuthToken authPart, 
-			Map<String, String> config) throws Exception {
+	public static JobState checkJob(String jobId, AuthToken authPart,
+									Map<String, String> config) throws Exception{
+		if( config.get( NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE ).equals( "1" ) ) {
+			return checkJobCondor(jobId,authPart,config);
+		}
+		else{
+			return checkJobAwe(jobId,authPart,config);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	public static JobState checkJobAwe(String jobId, AuthToken authPart,
+									Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		String aweJobId = getAweTaskAweJobId(jobId, config);
 		returnVal.getAdditionalProperties().put("awe_job_id", aweJobId);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus = 
+		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
@@ -646,13 +707,13 @@ public class SDKMethodRunner {
 		}
 		if (params == null) {
 			// We should consult AWE for case the job was killed or gone with no reason.
-		    AuthToken aweAdminToken = getAweAdminAuth(config);
+			AuthToken aweAdminToken = getAweAdminAuth(config);
 			Map<String, Object> aweData = null;
 			String aweState = null;
 			String aweServerUrl = getAweServerURL(config);
 			try {
 				Map<String, Object> aweJob = AweUtils.getAweJobDescr(aweServerUrl, aweJobId,
-				        aweAdminToken);
+						aweAdminToken);
 				aweData = (Map<String, Object>)aweJob.get("data");
 				if (aweData != null) {
 					aweState = (String)aweData.get("state");
@@ -666,7 +727,7 @@ public class SDKMethodRunner {
 				throw new IllegalStateException("Error checking AWE job (id=" + aweJobId + ") " +
 						"for ujs-id=" + jobId + " - state is null. AWE returned:\n " + aweDataStr);
 			}
-			if ((!aweState.equals("init")) && (!aweState.equals("queued")) && 
+			if ((!aweState.equals("init")) && (!aweState.equals("queued")) &&
 					(!aweState.equals("in-progress"))) {
 				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
 				jobStatus = ujsClient.getJobStatus(jobId);
@@ -676,13 +737,13 @@ public class SDKMethodRunner {
 					params = getJobOutput(jobId, authPart, config);
 				} else {
 					if (aweState.equals("suspend")) {
-						throw new IllegalStateException("FATAL error in AWE job (" + aweState + 
-								" for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ? 
-										" whereas job script wasn't started at all" : ""));
+						throw new IllegalStateException("FATAL error in AWE job (" + aweState +
+								" for id=" + aweJobId + ")" + (jobStatus.getE2().equals("created") ?
+								" whereas job script wasn't started at all" : ""));
 					}
 					throw new IllegalStateException(String.format(
-					        "Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
-					        aweState, jobId, aweJobId));
+							"Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
+							aweState, jobId, aweJobId));
 				}
 			}
 			if (!complete) {
@@ -694,8 +755,8 @@ public class SDKMethodRunner {
 				} else {
 					returnVal.setJobState(APP_STATE_QUEUED);
 					try {
-						Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl, 
-						        aweJobId, aweAdminToken);
+						Map<String, Object> aweResp = AweUtils.getAweJobPosition(aweServerUrl,
+								aweJobId, aweAdminToken);
 						Map<String, Object> posData = (Map<String, Object>)aweResp.get("data");
 						if (posData != null && posData.containsKey("position"))
 							returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
@@ -704,18 +765,18 @@ public class SDKMethodRunner {
 			}
 		}
 		if (complete) {
-		    boolean isCanceled = params.getIsCanceled() == null ? false :
-                (params.getIsCanceled() == 1L);
+			boolean isCanceled = params.getIsCanceled() == null ? false :
+					(params.getIsCanceled() == 1L);
 			returnVal.setFinished(1L);
 			returnVal.setCanceled(isCanceled ? 1L : 0L);
 			// Next line is here for backward compatibility:
-            returnVal.setCancelled(isCanceled ? 1L : 0L);
+			returnVal.setCancelled(isCanceled ? 1L : 0L);
 			returnVal.setResult(params.getResult());
 			returnVal.setError(params.getError());
 			if (params.getError() != null) {
 				returnVal.setJobState(APP_STATE_ERROR);
 			} else if (isCanceled) {
-			    returnVal.setJobState(APP_STATE_CANCELLED);
+				returnVal.setJobState(APP_STATE_CANCELLED);
 			} else {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
@@ -731,6 +792,100 @@ public class SDKMethodRunner {
 		}
 		return returnVal;
 	}
+
+
+
+	@SuppressWarnings("unchecked")
+	public static JobState checkJobCondor(String jobId, AuthToken authPart,
+									Map<String, String> config) throws Exception {
+		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
+		String jobState = getJobState(jobId);
+		returnVal.getAdditionalProperties().put("awe_job_id", jobState);
+		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
+				ujsClient.getJobStatus(jobId);
+		returnVal.setStatus(new UObject(jobStatus));
+
+		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
+		FinishJobParams params = null;
+		if (complete)
+			params = getJobOutput(jobId, authPart, config);
+
+		if (params == null) {
+			if (jobState == null) {
+				throw new IllegalStateException("Error checking CONDOR job (id=" + jobId + ") " +
+						"for ujs-id=" + jobId + " - state is null.  )");
+			}
+			if ((!jobState.equals("init")) && (!jobState.equals("queued")) &&
+					(!jobState.equals("in-progress"))) {
+				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
+				jobStatus = ujsClient.getJobStatus(jobId);
+				complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
+				if (complete) { // Yes, we are switching to "complete" scenario
+					returnVal.setStatus(new UObject(jobStatus));
+					params = getJobOutput(jobId, authPart, config);
+				} else {
+					if (jobState.equals("suspend")) {
+						throw new IllegalStateException("FATAL error in condor job (" + jobState +
+								" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
+								" whereas job script wasn't started at all" : ""));
+					}
+					throw new IllegalStateException(String.format(
+							"Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
+							jobState, jobId, jobId));
+				}
+			}
+			if (!complete) {
+				returnVal.getAdditionalProperties().put("awe_job_state", jobState);
+				returnVal.setFinished(0L);
+				String stage = jobStatus.getE2();
+				if (stage != null && stage.equals("started")) {
+					returnVal.setJobState(APP_STATE_STARTED);
+				} else {
+					returnVal.setJobState(APP_STATE_QUEUED);
+					try {
+						String jobPosition = CondorUtils.getJobPriority(jobId);
+						if (jobPosition != null){
+							try{
+								returnVal.setPosition(Long.parseLong(jobPosition));
+							}
+							catch (Exception ignore){};
+						}
+
+					} catch (Exception ignore) {}
+				}
+			}
+		}
+		if (complete) {
+			boolean isCanceled = params.getIsCanceled() == null ? false :
+					(params.getIsCanceled() == 1L);
+			returnVal.setFinished(1L);
+			returnVal.setCanceled(isCanceled ? 1L : 0L);
+			// Next line is here for backward compatibility:
+			returnVal.setCancelled(isCanceled ? 1L : 0L);
+			returnVal.setResult(params.getResult());
+			returnVal.setError(params.getError());
+			if (params.getError() != null) {
+				returnVal.setJobState(APP_STATE_ERROR);
+			} else if (isCanceled) {
+				returnVal.setJobState(APP_STATE_CANCELLED);
+			} else {
+				returnVal.setJobState(APP_STATE_DONE);
+			}
+		}
+		Long[] execTimes = getAweTaskExecTimes(jobId, config);
+		if (execTimes != null) {
+			if (execTimes[0] != null)
+				returnVal.withCreationTime(execTimes[0]);
+			if (execTimes[1] != null)
+				returnVal.withExecStartTime(execTimes[1]);
+			if (execTimes[2] != null)
+				returnVal.withFinishTime(execTimes[2]);
+		}
+		return returnVal;
+	}
+
 
 	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
 	        Map<String, String> config) throws Exception {
@@ -858,6 +1013,16 @@ public class SDKMethodRunner {
 		dbTask.setAppJobId(appJobId);
 		db.insertExecTask(dbTask);
 	}
+
+
+
+//	private static ExecTask getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
+//		ExecEngineMongoDb db = getDb(config);
+//		ExecTask dbTask = db.getExecTask(ujsJobId);
+//		if (dbTask == null)
+//			throw new IllegalStateException("AWE task wasn't found in DB for jobid=" + ujsJobId);
+//		return dbTask;
+//	}
 
 	private static ExecTask getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
 		ExecEngineMongoDb db = getDb(config);

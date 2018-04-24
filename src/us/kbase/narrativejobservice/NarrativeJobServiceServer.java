@@ -67,6 +67,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             JobRunnerConstants.CFG_PROP_HANDLE_SRV_URL;
     public static final String CFG_PROP_SRV_WIZ_URL = 
             JobRunnerConstants.CFG_PROP_SRV_WIZ_URL;
+    
+    
+    
+    public static final String CFG_PROP_CONDOR_MODE = "condor.mode";
+    public static final String CFG_PROP_CONDOR_SUBMIT_DESC = "condor.submit.desc.file.path";
+    
+    
+    
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
@@ -381,7 +389,14 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 CFG_PROP_SHOCK_URL,
                 CFG_PROP_WORKSPACE_SRV_URL, 
                 CFG_PROP_KBASE_ENDPOINT,
-                CFG_PROP_SELF_EXTERNAL_URL, 
+                CFG_PROP_SELF_EXTERNAL_URL,
+                
+                
+                CFG_PROP_CONDOR_MODE,                
+                CFG_PROP_CONDOR_SUBMIT_DESC,
+                
+                
+                
                 CFG_PROP_REF_DATA_BASE,
                 CFG_PROP_CATALOG_SRV_URL, 
                 CFG_PROP_AWE_CLIENT_DOCKER_URI,
