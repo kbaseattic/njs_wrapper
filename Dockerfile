@@ -42,7 +42,6 @@ COPY --chown=kbase deployment/ /kb/deployment/
 # Extra all of the jars for NJS so that the scripts can use them in classpath
 RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
 
-
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
 # The BUILD_DATE value seem to bust the docker cache when the timestamp changes, move to
