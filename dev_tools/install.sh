@@ -6,7 +6,7 @@ apt-get update
 apt-get -y install git;
 apt-get -y install ant;
 apt-get -y install default-jdk;
-apt-get -y install mongodb;
+#apt-get -y install mongodb;
 apt-get -y install procps;
 apt-get -y install htop;
 apt-get -y install vim;

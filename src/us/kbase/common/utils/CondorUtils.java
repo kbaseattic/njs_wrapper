@@ -1,7 +1,9 @@
 package us.kbase.common.utils;
 
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +23,11 @@ import us.kbase.common.utils.CondorResponse;
 
 public class CondorUtils {
 
-    private static File createCondorSubmitFile(String ujsJobId, String token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
+
+
+
+
+    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
 
         clientGroups = clientGroupsToRequirements(clientGroups);
         kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
@@ -30,7 +36,7 @@ public class CondorUtils {
         String arguments = String.join(" ", args);
         List<String> csf = new ArrayList<String>();
         csf.add("universe = vanilla");
-        csf.add("accounting_group = sychan");
+        csf.add(String.format("accounting_group = %s", token.getUserName()));
         csf.add("+Owner = \"condor_pool\"");
         csf.add("universe = vanilla");
         csf.add("executable = " + executable);
@@ -44,7 +50,7 @@ public class CondorUtils {
         csf.add("error  = errors.txt");
         csf.add("getenv = true");
         csf.add("requirements = " + clientGroups);
-        csf.add(String.format("environment = \"KB_DOCKER_NETWORK=minikb_default KB_AUTH_TOKEN=%s BASE_DIR=%s\"", token, baseDir));
+        csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s BASE_DIR=%s\"", token.getToken(), baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
         csf.add("queue 1");
@@ -97,7 +103,7 @@ public class CondorUtils {
          * @return String modified client groups
          */
         //TODO REMOVE THIS OR UPDATE METHODS
-        if(clientGroups.equals("ci")){
+        if (clientGroups.equals("ci")) {
             clientGroups = "njs";
         }
         List<String> requirementsStatement = new ArrayList<String>();
@@ -115,7 +121,7 @@ public class CondorUtils {
     }
 
 
-    public static String submitToCondorCLI(String ujsJobId, String token, String clientGroups, String kbaseEndpoint, String baseDir) throws Exception {
+    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws Exception {
         /**
          * Call condor_submit with the ujsJobId as batch job name
          * @param jobID ujsJobId to name the batch job with
@@ -124,39 +130,46 @@ public class CondorUtils {
          */
 
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint, baseDir);
-        String[] cmdScript = {"condor_submit", "-spool" ,"-terse" , condorSubmitFile.getAbsolutePath()};
+        String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = runProcess(cmdScript).stdout.get(0);
 
         //TODO Investigate if it might be better to check to see job has been succesfully submitted before deleting it
         Thread.sleep(1000);
-        condorSubmitFile.delete();
+        //condorSubmitFile.delete();
         return jobID;
     }
 
 
-    public static String condorQ(String ujsJobId, String attribute) throws IOException {
+    public static String condorQ(String ujsJobId, String attribute) throws IOException,InterruptedException {
         /**
          * Call condor_q with the ujsJobId a string target to filter condor_q
          * @param jobID ujsJobId to get job JobPrio for
          * @param attribute attribute to search condorQ for
          * @return String condor job attribute or NULL
          */
+        int retries = 5;
+        String result = null;
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_q.sh", ujsJobId, attribute};
-        String result = String.join("\n", runProcess(cmdScript).stdout);
-        // convert JSON string to Map There has to be a better way than this
-        if (result.contains(attribute)) {
-            try {
-                ObjectMapper mapper = new ObjectMapper();
-                List<Map<String, Object>> myObjects =
-                        mapper.readValue(result, new TypeReference<List<Map<String, Object>>>() {
-                        });
-                return myObjects.get(0).get(attribute).toString();
-            } catch (com.fasterxml.jackson.databind.JsonMappingException e) {
-                return null;
+        while (result == null && retries > 0) {
+            Thread.sleep(5000);
+            result = String.join("\n", runProcess(cmdScript).stdout);
+            // convert JSON string to Map There has to be a better way than this
+            if (result.contains(attribute)) {
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    List<Map<String, Object>> myObjects =
+                            mapper.readValue(result, new TypeReference<List<Map<String, Object>>>() {
+                            });
+                    result = myObjects.get(0).get(attribute).toString();
+                } catch (com.fasterxml.jackson.databind.JsonMappingException e) {
+                    result = null;
+                }
+            } else {
+                result = null;
             }
-        } else {
-            return null;
+            retries--;
         }
+        return result;
     }
 
     public static String getJobState(String ujsJobId) throws Exception {
@@ -175,6 +188,18 @@ public class CondorUtils {
          * @return String  condor job priority or NULL
          */
         return condorQ(ujsJobId, "JobPrio");
+    }
+
+    public static String condorRemoveJobRange(String ujsJobID) throws Exception {
+        /**
+         * Remove condor jobs with a given batch name
+         * @param jobID ujsJobId for the job batch name
+         * @return Result of the condor_rm command
+         */
+
+        String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
+        String processResult = runProcess(cmdScript).stdout.get(0);
+        return processResult;
     }
 
 

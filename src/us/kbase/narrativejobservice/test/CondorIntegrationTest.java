@@ -260,16 +260,85 @@ public class CondorIntegrationTest {
 //    }
 
 
+    public static String runApp(String moduleName, String methodName, String serviceVer, String jsonInput) throws Exception{
+        execStats.clear();
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString(jsonInput)));
+        return client.runJob(params);
+    }
+
+
+    public static JobState checkJobStatusCompletein60(String jobId) throws Exception{
+        JobState ret = null;
+        for (int i = 0; i < 30; i++) {
+            try {
+                ret = client.checkJobs(new CheckJobsParams().withJobIds(
+                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
+                if (ret!= null && ret.getFinished() != null && ret.getFinished() == 1L) {
+                    System.out.println("Job finished: " + ret.getFinished());
+                    return ret;
+                }
+                System.out.println("Checking status for:" + jobId);
+                Thread.sleep(2000);
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        if(ret == null){
+            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+        }
+        return null;
+    }
+
+
+//    @Test
+//    public void testSubmitSimpleJobToCompletion() throws Exception{
+//        Properties props = TesterUtils.props();
+//        String njs_url = props.getProperty("njs_server_url");
+//        client = new NarrativeJobServiceClient(new URL(njs_url), token);
+//        client.setIsInsecureHttpConnectionAllowed(true);
+//
+//        String moduleName = "simpleapp";
+//        String methodName = "simple_add";
+//
+//        String jsonInput = "{\"base_number\":\"101\"}";
+//        String serviceVer = lookupServiceVersion(moduleName);
+//
+//        String jobID = runApp(moduleName,methodName,serviceVer,jsonInput);
+//        assertNotNull(jobID);
+//        System.out.println("Submitted job and got" + jobID);
+//        JobState ret = checkJobStatusCompletein60(jobID);
+//        System.out.println("JOB STATE =");
+//        System.out.println(ret);
+//        assertNotNull(ret);
+//
+//        List<Map<String, Map<String, String>>> data = ret.getResult().asClassInstance(List.class);
+//        Map<String, String> outParams = data.get(0).get("result");
+//        Assert.assertEquals(outParams.get("new_number"), 101 + 100);
+//
+//    }
+
     @Test
-    public void testOneJob2() throws Exception {
+    public void testDeleteJob() throws Exception{
+        String moduleName = "simpleapp";
+        String methodName = "simple_add";
+        String serviceVer = lookupServiceVersion(moduleName);
+        String jobID = runApp(moduleName,methodName,serviceVer,"{\"base_number\":\"101\"}");
+        System.out.println("ABOUT TO CANCEL" + jobID);
+        client.cancelJob(new CancelJobParams().withJobId(jobID));
+    }
+
+
+    @Test
+    public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
-        System.out.println("Test [testOneJob]");
-        System.out.println("Connecting to server:" + njs_url);
-        System.out.println("Using Token:" + props.getProperty("token"));
-        client = new NarrativeJobServiceClient(new URL(njs_url), token);
-        client.setIsInsecureHttpConnectionAllowed(true);
-
+        System.out.println("Test [testSimpleJob]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
@@ -282,18 +351,28 @@ public class CondorIntegrationTest {
                 .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
         String jobId = client.runJob(params);
-        System.out.println("Submitted job and got" + jobId);
+        assertNotNull(jobId);
+        System.out.println("Submitted job and got: " + jobId);
         JobState ret = null;
 
-        for (int i = 0; i < 5; i++) {
+
+
+        long FinishState = 0;
+        for (int i = 0; i < 60; i++) {
             try {
-                ret = client.checkJobs(new CheckJobsParams().withJobIds(
-                        Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-                if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    System.out.println("Job finished: " + ret.getFinished());
+                Thread.sleep(2000);
+                ret = client.checkJob(jobId);
+                if(ret==null){
+                    System.out.println(String.format("jobid%s is not yet finished", jobId));
+                    continue;
+                }
+                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     break;
                 }
-                Thread.sleep(2000);
+                else{
+                    System.out.println(ret);
+                }
+
             } catch (ServerException ex) {
                 System.out.println(ex.getData());
                 throw ex;
@@ -302,15 +381,18 @@ public class CondorIntegrationTest {
         if(ret == null){
             throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
         }
-
-        System.out.println("COMPLETE");
+        if (ret.getFinished() != null && ret.getFinished() == 1L) {
+            System.out.println("Job finished: " + ret.getFinished());
+            System.out.println(ret);
+        }
+        assertTrue(ret.getFinished() == 1L);
 
     }
 
 
-    @Test
-    public void testOneJob() throws Exception {
-
+//    @Test
+//    public void testOneJob() throws Exception {
+//
 //        Properties props = TesterUtils.props();
 //        String njs_url = props.getProperty("njs_server_url");
 //        System.out.println("Connecting to server:" + njs_url);
@@ -399,7 +481,7 @@ public class CondorIntegrationTest {
 //            System.err.println(ex.getData());
 //            throw ex;
 //        }
-    }
+//    }
 
     private Map<String, Object> buildInsanitaryObject() {
         Map<String, Object> inner = new HashMap<String, Object>();
@@ -1605,22 +1687,8 @@ public class CondorIntegrationTest {
         aweClientDir = new File(workDir, "awe_client");
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
-        String mongoExepath = TesterUtils.getMongoExePath(props);
-  //      System.out.print("Starting MongoDB executable at " + mongoExepath +
-    //            "... ");
-      //  mongo = new MongoController(mongoExepath, mongoDir.toPath());
-       // System.out.println("Done. Port " + mongo.getServerPort());
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
-        //awePort = startupAweServer(findAweBinary("awe-server"),
-        //        aweServerDir, mongo.getServerPort(), authUrl, token);
         catalogWrapper = startupCatalogWrapper();
-        //njsService = startupNJSService(njsServiceDir, binDir, awePort,
-        //        catalogWrapper.getConnectors()[0].getLocalPort(),
-        //        mongo.getServerPort(), token);
-        int jobServicePort = 8080;
-        //startupAweClient(findAweBinary("awe-client"), aweClientDir, awePort, binDir);
-//        client = new NarrativeJobServiceClient(new URL("https://ci.kbase.us/services/njs2:" + jobServicePort), token);
-//        client.setIsInsecureHttpConnectionAllowed(true);
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();
@@ -1645,25 +1713,11 @@ public class CondorIntegrationTest {
         registerTypes();
         stageWSObjects();
 
-        File dir = new File("test_data");
-        GZIPInputStream is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.contigset.json.gz")));
-        Map<String, Object> contigsetData = UObject.getMapper().readValue(is, Map.class);
-        is.close();
-        wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
-                new ObjectSaveData().withName(testContigsetObjName).withType("KBaseGenomes.ContigSet")
-                        .withData(new UObject(contigsetData)))));
 
-        refDataDir = new File(njsServiceDir, "onerepotest/0.2");
+        client = new NarrativeJobServiceClient(new URL(njs_url), token);
+        client.setIsInsecureHttpConnectionAllowed(true);
 
-        System.out.println("About to make reference data dir");
-        System.out.println(refDataDir);
-        if (!refDataDir.exists()) {
-            System.out.println("About to make reference data FOR REAL");
-            refDataDir.mkdirs();
-        }
-        else{
-            System.out.println("Didn't make reference data dir");
-        }
+
     }
 
     private static void stageWSObjects() throws Exception {
