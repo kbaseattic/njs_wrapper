@@ -151,7 +151,7 @@ public class SDKMethodRunner {
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = "/mnt/awe/condor";
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart.getToken(),aweClientGroups,newExternalURL,baseDir);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId,authPart,aweClientGroups,newExternalURL,baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
 
 		} else {
@@ -388,6 +388,7 @@ public class SDKMethodRunner {
 		final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
 		final Tuple7<String, String, String, Long, String, Long,
 				Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
+
 		if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
 			// Job was already done
 			final List<LogLine> lines = new ArrayList<LogLine>();
@@ -649,7 +650,7 @@ public class SDKMethodRunner {
 		 * @return Return an appropriate status constant based on condor status code
 		 */
 		String jobState = CondorUtils.getJobState(jobId);
-		int retries = 5;
+		int retries = 1;
 		if (jobState == null) {
 			while (retries > 0 && jobState == null) {
 				Thread.sleep(2000);
@@ -806,7 +807,6 @@ public class SDKMethodRunner {
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
 		returnVal.setStatus(new UObject(jobStatus));
-
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 		FinishJobParams params = null;
 		if (complete)

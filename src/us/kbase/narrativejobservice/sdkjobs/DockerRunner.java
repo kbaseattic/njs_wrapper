@@ -105,6 +105,11 @@ public class DockerRunner {
                 }
             }
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
+
+            if(! System.getenv("KB_DOCKER_NETWORK").equals("")) {
+                cntCmd.withNetworkMode(System.getenv("KB_DOCKER_NETWORK"));
+            }
+
             CreateContainerResponse resp = cntCmd.exec();
             final String cntId = resp.getId();
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
