@@ -1,6 +1,5 @@
 package us.kbase.common.utils;
 
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -9,23 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.io.File;
 
-
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.FileUtils;
-
-import us.kbase.auth.AuthToken;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 
-
+import us.kbase.auth.AuthToken;
 import us.kbase.common.utils.CondorResponse;
 
 public class CondorUtils {
-
-
-
-
 
     private static File createCondorSubmitFile(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
 
@@ -61,8 +52,7 @@ public class CondorUtils {
 
         return submitFile;
     }
-
-
+    
     public static CondorResponse runProcess(String[] condorCommand) throws IOException {
         /**
          * Run the condor command and return
@@ -120,7 +110,6 @@ public class CondorUtils {
                 .replace("\"", "");
     }
 
-
     public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws Exception {
         /**
          * Call condor_submit with the ujsJobId as batch job name
@@ -135,7 +124,7 @@ public class CondorUtils {
 
         //TODO Investigate if it might be better to check to see job has been succesfully submitted before deleting it
         Thread.sleep(1000);
-        //condorSubmitFile.delete();
+        condorSubmitFile.delete();
         return jobID;
     }
 
@@ -196,11 +185,8 @@ public class CondorUtils {
          * @param jobID ujsJobId for the job batch name
          * @return Result of the condor_rm command
          */
-
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
         String processResult = runProcess(cmdScript).stdout.get(0);
         return processResult;
     }
-
-
 } // class CondorUtils
