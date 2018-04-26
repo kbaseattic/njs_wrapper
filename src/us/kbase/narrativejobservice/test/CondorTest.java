@@ -50,8 +50,6 @@ import java.util.HashMap;
 
 public class CondorTest {
 
-
-
     @Test
     public void testFakeJobStatus() throws Exception{
         String ujsJobId = "5acd7057e4b057726bc40d7e";

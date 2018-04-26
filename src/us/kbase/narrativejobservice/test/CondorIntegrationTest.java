@@ -156,10 +156,6 @@ public class CondorIntegrationTest {
 
 
 
-    private static String njs_url = "http://localhost:8080";
-    private static String njs_url_ci = "https://ci.kbase.us/services/njs2";
-    private static String ujsJob = "";
-
 
 
     public static void requestOwnership(WorkspaceClient wc, String moduleName) throws  Exception{
@@ -1713,11 +1709,9 @@ public class CondorIntegrationTest {
         registerTypes();
         stageWSObjects();
 
-
+        String njs_url = props.getProperty("njs_server_url");
         client = new NarrativeJobServiceClient(new URL(njs_url), token);
         client.setIsInsecureHttpConnectionAllowed(true);
-
-
     }
 
     private static void stageWSObjects() throws Exception {
