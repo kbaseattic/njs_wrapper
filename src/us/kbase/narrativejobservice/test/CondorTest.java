@@ -68,7 +68,7 @@ public class CondorTest {
     @Test
     public void testFakeJobSub() throws Exception{
         String ujsJobId = "5acd7057e4b057726bc40d7e";
-        String token = "62IYPZGS7O773DBLZZCSE542BP4C2E7G";
+        AuthToken token = new AuthToken("62IYPZGS7O773DBLZZCSE542BP4C2E7G");
         String endpoint = "http://nginx/services/njs";
         String basedir = "/njs_wrapper/newfolder";
         String jobID = (CondorUtils.submitToCondorCLI(ujsJobId,token,"njs",endpoint,basedir));
