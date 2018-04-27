@@ -121,18 +121,19 @@ public class CondorUtils {
         String jobID = null;
         int retries = 10;
 
-        while(jobID == null && retries > 0){
+        while (jobID == null && retries > 0) {
             jobID = runProcess(cmdScript).stdout.get(0);
+            retries--;
         }
-        if(jobID == null){
-           throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
+        if (jobID == null) {
+            throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
         condorSubmitFile.delete();
         return jobID;
     }
 
 
-    public static String condorQ(String ujsJobId, String attribute) throws IOException,InterruptedException {
+    public static String condorQ(String ujsJobId, String attribute) throws IOException, InterruptedException {
         /**
          * Call condor_q with the ujsJobId a string target to filter condor_q
          * @param jobID ujsJobId to get job JobPrio for
