@@ -650,10 +650,10 @@ public class SDKMethodRunner {
 		 * @return Return an appropriate status constant based on condor status code
 		 */
 		String jobState = CondorUtils.getJobState(jobId);
-		int retries = 1;
+		int retries = 1	;
 		if (jobState == null) {
 			while (retries > 0 && jobState == null) {
-				Thread.sleep(2000);
+				Thread.sleep(10);
 				retries--;
 				jobState = CondorUtils.getJobState(jobId);
 			}
@@ -802,7 +802,7 @@ public class SDKMethodRunner {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		String jobState = getJobState(jobId);
-		returnVal.getAdditionalProperties().put("awe_job_id", jobState);
+		returnVal.getAdditionalProperties().put("condor_job_id", jobId);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);

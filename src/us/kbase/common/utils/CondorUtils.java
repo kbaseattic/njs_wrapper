@@ -1,20 +1,17 @@
 package us.kbase.common.utils;
 
-import java.io.BufferedReader;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+
+import us.kbase.auth.AuthToken;
+
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.io.File;
-
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.FileUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
-
-import us.kbase.auth.AuthToken;
-import us.kbase.common.utils.CondorResponse;
 
 public class CondorUtils {
 
@@ -52,7 +49,7 @@ public class CondorUtils {
 
         return submitFile;
     }
-    
+
     public static CondorResponse runProcess(String[] condorCommand) throws IOException {
         /**
          * Run the condor command and return
@@ -81,7 +78,8 @@ public class CondorUtils {
             for (String s : stdOutMessage) {
                 System.err.println(stdErrMessage);
             }
-            throw new IOException("Error running condorCommand:" + String.join(" ", condorCommand));
+            return null;
+            //throw new IOException("Error running condorCommand:" + String.join(" ", condorCommand));
         }
         return new CondorResponse(stdOutMessage, stdErrMessage);
     }
@@ -120,10 +118,15 @@ public class CondorUtils {
 
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint, baseDir);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
-        String jobID = runProcess(cmdScript).stdout.get(0);
+        String jobID = null;
+        int retries = 10;
 
-        //TODO Investigate if it might be better to check to see job has been succesfully submitted before deleting it
-        Thread.sleep(1000);
+        while(jobID == null && retries > 0){
+            jobID = runProcess(cmdScript).stdout.get(0);
+        }
+        if(jobID == null){
+           throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
+        }
         condorSubmitFile.delete();
         return jobID;
     }
@@ -136,11 +139,11 @@ public class CondorUtils {
          * @param attribute attribute to search condorQ for
          * @return String condor job attribute or NULL
          */
-        int retries = 5;
+        int retries = 1;
         String result = null;
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_q.sh", ujsJobId, attribute};
         while (result == null && retries > 0) {
-            Thread.sleep(5000);
+            Thread.sleep(10);
             result = String.join("\n", runProcess(cmdScript).stdout);
             // convert JSON string to Map There has to be a better way than this
             if (result.contains(attribute)) {
@@ -188,5 +191,8 @@ public class CondorUtils {
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
         String processResult = runProcess(cmdScript).stdout.get(0);
         return processResult;
+
+        //TODO : CALL NJS and CANCEL THE JOB
+
     }
 } // class CondorUtils
