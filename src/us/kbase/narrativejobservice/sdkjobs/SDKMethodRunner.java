@@ -148,7 +148,7 @@ public class SDKMethodRunner {
 			//TODO REMOVE
 			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
 			//TODO MOVE TO CONFIG FILE
-			String baseDir = "/mnt/awe/condor";
+			String baseDir = String.format("/mnt/awe/condor/%s/", authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir);
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
@@ -844,7 +844,6 @@ public class SDKMethodRunner {
 							returnVal.setPosition(Long.parseLong(jobPosition));
 						} catch (Exception ignore) {
 						}
-						;
 					}
 				} catch (Exception ignore) {
 				}
