@@ -41,3 +41,6 @@ KILL = False
 CLIENTGROUP = {{ default .Env.CLIENTGROUP "\"njs\"" }}
 
 STARTD_ATTRS = CLIENTGROUP
+
+CCB_ADDRESS = {{ default .Env.CONDOR_HOST "condor" }}
+PRIVATE_NETWORK_NAME = {{ default .Env.HOSTNAME "condor" }}
