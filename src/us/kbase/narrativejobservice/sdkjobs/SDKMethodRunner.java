@@ -648,7 +648,7 @@ public class SDKMethodRunner {
 		 * @return Return an appropriate status constant based on condor status code
 		 */
 		String jobState = CondorUtils.getJobState(ujsJobId);
-		int retries = 1;
+		int retries = 5;
 		if (jobState == null) {
 			while (retries > 0 && jobState == null) {
 				retries--;
@@ -797,10 +797,11 @@ public class SDKMethodRunner {
 										  Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		String condorJobState = getJobState(jobId);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
+
+
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 		FinishJobParams params = null;
@@ -823,6 +824,8 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		} else {
+			String condorJobState = getJobState(jobId);
+
 			if (condorJobState == APP_STATE_ERROR) {
 				throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
 						" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
