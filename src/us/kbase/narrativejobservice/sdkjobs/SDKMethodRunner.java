@@ -648,7 +648,7 @@ public class SDKMethodRunner {
 		 * @return Return an appropriate status constant based on condor status code
 		 */
 		String jobState = CondorUtils.getJobState(ujsJobId);
-		int retries = 5;
+		int retries = 10;
 		if (jobState == null) {
 			while (retries > 0 && jobState == null) {
 				retries--;
@@ -656,7 +656,7 @@ public class SDKMethodRunner {
 			}
 		}
 		if (jobState == null) {
-			return null;
+			return "unavailable";
 		}
 		switch (jobState) {
 			case "0":

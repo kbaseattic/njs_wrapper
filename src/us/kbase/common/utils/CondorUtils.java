@@ -140,11 +140,11 @@ public class CondorUtils {
          * @param attribute attribute to search condorQ for
          * @return String condor job attribute or NULL
          */
-        int retries = 1;
+        int retries = 3;
         String result = null;
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_q.sh", ujsJobId, attribute};
         while (result == null && retries > 0) {
-            Thread.sleep(10);
+            Thread.sleep(10000);
             result = String.join("\n", runProcess(cmdScript).stdout);
             // convert JSON string to Map There has to be a better way than this
             if (result.contains(attribute)) {
