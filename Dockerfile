@@ -22,7 +22,8 @@ RUN apt-get update && \
     cd /tmp && \
     rm -rf results.tar.gz public && \
     mkdir /var/run/condor && \
-    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute
+    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute && \
+    touch /var/log/condor/StartLog /var/log/condor/ProcLog
 
 # Install docker binaries based on
 # https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
