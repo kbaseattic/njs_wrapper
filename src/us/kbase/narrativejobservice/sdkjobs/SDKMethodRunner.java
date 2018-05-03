@@ -831,30 +831,10 @@ public class SDKMethodRunner {
 			String stage = jobStatus.getE2();
 			if (stage != null && stage.equals("started")) {
 				returnVal.setJobState(APP_STATE_STARTED);
-				//Faking it here
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
-				returnVal.getAdditionalProperties().put("condor_job_state", APP_STATE_STARTED);
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
-//				//Check to see if it is really queued
-////				String condorJobState = getJobState(jobId);
-////
-////				if (condorJobState == APP_STATE_ERROR) {
-////					throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
-////							" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-////							" whereas job script wasn't started at all" : ""));
-////				}
-//
-//				try {
-//					String jobPosition = CondorUtils.getJobPriority(jobId);
-//					if (jobPosition != null) {
-//						try {
-//							returnVal.setPosition(Long.parseLong(jobPosition));
-//						} catch (Exception ignore) {
-//						}
-//					}
-//				} catch (Exception ignore) {
-//				}
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 			}
 		}
 		Long[] execTimes = getAweTaskExecTimes(jobId, config);
