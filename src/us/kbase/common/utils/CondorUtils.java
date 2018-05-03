@@ -117,7 +117,7 @@ public class CondorUtils {
          * @return String condor job id
          */
 
-        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken , clientGroups, kbaseEndpoint, baseDir);
+        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
         int retries = 10;
