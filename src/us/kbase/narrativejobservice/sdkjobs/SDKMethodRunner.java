@@ -836,25 +836,25 @@ public class SDKMethodRunner {
 				returnVal.getAdditionalProperties().put("condor_job_state", APP_STATE_STARTED);
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
-				//Check to see if it is really queued
-//				String condorJobState = getJobState(jobId);
+//				//Check to see if it is really queued
+////				String condorJobState = getJobState(jobId);
+////
+////				if (condorJobState == APP_STATE_ERROR) {
+////					throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
+////							" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
+////							" whereas job script wasn't started at all" : ""));
+////				}
 //
-//				if (condorJobState == APP_STATE_ERROR) {
-//					throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
-//							" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-//							" whereas job script wasn't started at all" : ""));
+//				try {
+//					String jobPosition = CondorUtils.getJobPriority(jobId);
+//					if (jobPosition != null) {
+//						try {
+//							returnVal.setPosition(Long.parseLong(jobPosition));
+//						} catch (Exception ignore) {
+//						}
+//					}
+//				} catch (Exception ignore) {
 //				}
-
-				try {
-					String jobPosition = CondorUtils.getJobPriority(jobId);
-					if (jobPosition != null) {
-						try {
-							returnVal.setPosition(Long.parseLong(jobPosition));
-						} catch (Exception ignore) {
-						}
-					}
-				} catch (Exception ignore) {
-				}
 			}
 		}
 		Long[] execTimes = getAweTaskExecTimes(jobId, config);
