@@ -150,7 +150,7 @@ public class SDKMethodRunner {
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = String.format("/mnt/awe/condor/%s/", authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
 
 		} else {
@@ -824,22 +824,27 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		} else {
-			String condorJobState = getJobState(jobId);
 
-			if (condorJobState == APP_STATE_ERROR) {
-				throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
-						" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-						" whereas job script wasn't started at all" : ""));
-			}
-			returnVal.getAdditionalProperties().put("awe_job_state", condorJobState);
-			returnVal.getAdditionalProperties().put("condor_job_state", condorJobState);
+
 			returnVal.setFinished(0L);
 
 			String stage = jobStatus.getE2();
 			if (stage != null && stage.equals("started")) {
 				returnVal.setJobState(APP_STATE_STARTED);
+				//Faking it here
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
+				returnVal.getAdditionalProperties().put("condor_job_state", APP_STATE_STARTED);
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
+				//Check to see if it is really queued
+//				String condorJobState = getJobState(jobId);
+//
+//				if (condorJobState == APP_STATE_ERROR) {
+//					throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
+//							" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
+//							" whereas job script wasn't started at all" : ""));
+//				}
+
 				try {
 					String jobPosition = CondorUtils.getJobPriority(jobId);
 					if (jobPosition != null) {
