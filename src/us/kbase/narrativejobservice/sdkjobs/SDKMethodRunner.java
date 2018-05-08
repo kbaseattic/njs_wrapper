@@ -56,7 +56,6 @@ import us.kbase.narrativejobservice.db.ExecLog;
 import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.narrativejobservice.db.SanitizeMongoObject;
-import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.userandjobstate.CreateJobParams;
 import us.kbase.userandjobstate.InitProgress;
 import us.kbase.userandjobstate.Results;
@@ -150,8 +149,10 @@ public class SDKMethodRunner {
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = String.format("/mnt/awe/condor/%s/", authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
-			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
+			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
+			String schedulerType = "condor";
+			String lastJobState = APP_STATE_QUEUED;
+			saveTask(ujsJobId, condorId, jobInput, appJobId, "condor", lastJobState, config);
 
 		} else {
 			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
@@ -370,7 +371,7 @@ public class SDKMethodRunner {
 							"%s. Server stacktrace:\n%s",
 					ujsJobId, jobstage, se.getData()), se);
 		}
-		updateAweTaskExecTime(ujsJobId, config, false);
+		updateTaskExecTime(ujsJobId, config, false);
 		return ret;
 	}
 
@@ -409,7 +410,7 @@ public class SDKMethodRunner {
 			// will throw an error here if user doesn't have rights to cancel
 			ujsClient.cancelJob(ujsJobId, "canceled by user");
 			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-			updateAweTaskExecTime(ujsJobId, config, true);
+			updateTaskExecTime(ujsJobId, config, true);
 			return;
 		}
 		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
@@ -418,7 +419,7 @@ public class SDKMethodRunner {
 					"Only the owner of a job can complete it");
 		}
 		getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-		updateAweTaskExecTime(ujsJobId, config, true);
+		updateTaskExecTime(ujsJobId, config, true);
 		if (jobStatus.getE2().equals("created")) {
 			// job hasn't started yet. Need to put it in started state to
 			// complete it
@@ -451,7 +452,7 @@ public class SDKMethodRunner {
 			String funcModuleName = parts.length > 1 ? parts[0] : null;
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
 			String gitCommitHash = input.getServiceVer();
-			Long[] execTimes = getAweTaskExecTimes(ujsJobId, config);
+			Long[] execTimes = getTaskExecTimes(ujsJobId, config);
 			long creationTime = execTimes[0];
 			long execStartTime = execTimes[1];
 			long finishTime = execTimes[2];
@@ -779,7 +780,7 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		}
-		Long[] execTimes = getAweTaskExecTimes(jobId, config);
+		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
 			if (execTimes[0] != null)
 				returnVal.withCreationTime(execTimes[0]);
@@ -824,10 +825,7 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		} else {
-
-
 			returnVal.setFinished(0L);
-
 			String stage = jobStatus.getE2();
 			if (stage != null && stage.equals("started")) {
 				returnVal.setJobState(APP_STATE_STARTED);
@@ -837,7 +835,7 @@ public class SDKMethodRunner {
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 			}
 		}
-		Long[] execTimes = getAweTaskExecTimes(jobId, config);
+		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
 			if (execTimes[0] != null)
 				returnVal.withCreationTime(execTimes[0]);
@@ -928,7 +926,7 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		}
-		Long[] execTimes = getAweTaskExecTimes(jobId, config);
+		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
 			if (execTimes[0] != null)
 				returnVal.withCreationTime(execTimes[0]);
@@ -1067,18 +1065,38 @@ public class SDKMethodRunner {
 		dbTask.setAppJobId(appJobId);
 		db.insertExecTask(dbTask);
 	}
+	/**
+	 * Saves state in mongodb to allow the job to communicate its status
+	 * @param ujsJobId ID Generated from UJS
+	 * @param jobId ID Generated from scheduler
+	 * @param jobInput RunJob Params
+	 * @param schedulerType Scheduler type, such as Condor or Awe
+	 * @param config Configuration file
+	 * @return void
+	 */
+	private static void saveTask(
+			final String ujsJobId,
+			final String jobId,
+			final Map<String, Object> jobInput,
+			final String appJobId,
+			final String schedulerType,
+			final String lastJobState,
+			final Map<String, String> config) throws Exception {
 
+		SanitizeMongoObject.sanitize(jobInput);
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask dbTask = new ExecTask();
+		dbTask.setUjsJobId(ujsJobId);
+		dbTask.setJobInput(jobInput);
+		dbTask.setCreationTime(System.currentTimeMillis());
+		dbTask.setAppJobId(appJobId);
+		dbTask.setSchdulerType(schedulerType);
+		dbTask.setTaskId(jobId);
+		dbTask.setLastJobState(lastJobState);
+		db.insertExecTask(dbTask);
+	}
 
-
-//	private static ExecTask getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
-//		ExecEngineMongoDb db = getDb(config);
-//		ExecTask dbTask = db.getExecTask(ujsJobId);
-//		if (dbTask == null)
-//			throw new IllegalStateException("AWE task wasn't found in DB for jobid=" + ujsJobId);
-//		return dbTask;
-//	}
-
-	private static ExecTask getAweTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
+	private static ExecTask getTaskDescription(String ujsJobId, Map<String, String> config) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		if (dbTask == null)
@@ -1087,10 +1105,10 @@ public class SDKMethodRunner {
 	}
 
 	private static String getAweTaskAweJobId(String ujsJobId, Map<String, String> config) throws Exception {
-		return getAweTaskDescription(ujsJobId, config).getAweJobId();
+		return getTaskDescription(ujsJobId, config).getAweJobId();
 	}
 
-	private static void updateAweTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
+	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		Long prevTime = finishTime ? dbTask.getFinishTime() : dbTask.getExecStartTime();
@@ -1098,7 +1116,7 @@ public class SDKMethodRunner {
 		    db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
 	}
 
-	private static Long[] getAweTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
+	private static Long[] getTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		if (dbTask == null)
@@ -1137,7 +1155,7 @@ public class SDKMethodRunner {
 			final String ujsJobId,
 			final Map<String, String> config)
 			throws Exception {
-	    return getJobInput(getAweTaskDescription(ujsJobId, config));
+	    return getJobInput(getTaskDescription(ujsJobId, config));
 	}
 
     private static RunJobParams getJobInput(
@@ -1156,7 +1174,7 @@ public class SDKMethodRunner {
 			final String ujsJobId,
 			final AuthToken token,
 			final Map<String, String> config) throws Exception {
-		final ExecTask task = getAweTaskDescription(ujsJobId, config);
+		final ExecTask task = getTaskDescription(ujsJobId, config);
 		if (task.getJobOutput() != null) {
 			SanitizeMongoObject.befoul(task.getJobOutput());
 			FinishJobParams ret = UObject.transformObjectToObject(task.getJobOutput(),
@@ -1173,7 +1191,7 @@ public class SDKMethodRunner {
 			final String ujsJobId,
 			final Map<String, String> config)
 			throws Exception {
-        ExecTask task = getAweTaskDescription(ujsJobId, config);
+        ExecTask task = getTaskDescription(ujsJobId, config);
         RunJobParams params = getJobInput(task);
         String methodSpecId = params.getAppId();
 		String uiModuleName = null;
