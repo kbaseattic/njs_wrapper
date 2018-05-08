@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-import kbase.narrativejobservice.db.UserJobStateMongoDb;
+import us.kbase.narrativejobservice.db.UserJobStateMongoDb;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
