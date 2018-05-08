@@ -150,7 +150,7 @@ public class SDKMethodRunner {
 			//TODO MOVE TO CONFIG FILE
 			String baseDir = String.format("/mnt/awe/condor/%s/", authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir);
+			String condorID = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
 			addAweTaskDescription(ujsJobId, condorID, jobInput, appJobId, config);
 
 		} else {
@@ -648,7 +648,7 @@ public class SDKMethodRunner {
 		 * @return Return an appropriate status constant based on condor status code
 		 */
 		String jobState = CondorUtils.getJobState(ujsJobId);
-		int retries = 1;
+		int retries = 10;
 		if (jobState == null) {
 			while (retries > 0 && jobState == null) {
 				retries--;
@@ -656,7 +656,7 @@ public class SDKMethodRunner {
 			}
 		}
 		if (jobState == null) {
-			return null;
+			return "unavailable";
 		}
 		switch (jobState) {
 			case "0":
@@ -797,10 +797,11 @@ public class SDKMethodRunner {
 										  Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		String condorJobState = getJobState(jobId);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
+
+
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 		FinishJobParams params = null;
@@ -823,30 +824,17 @@ public class SDKMethodRunner {
 				returnVal.setJobState(APP_STATE_DONE);
 			}
 		} else {
-			if (condorJobState == APP_STATE_ERROR) {
-				throw new IllegalStateException("FATAL error in Condor job (" + APP_STATE_ERROR +
-						" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-						" whereas job script wasn't started at all" : ""));
-			}
-			returnVal.getAdditionalProperties().put("awe_job_state", condorJobState);
-			returnVal.getAdditionalProperties().put("condor_job_state", condorJobState);
+
+
 			returnVal.setFinished(0L);
 
 			String stage = jobStatus.getE2();
 			if (stage != null && stage.equals("started")) {
 				returnVal.setJobState(APP_STATE_STARTED);
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
-				try {
-					String jobPosition = CondorUtils.getJobPriority(jobId);
-					if (jobPosition != null) {
-						try {
-							returnVal.setPosition(Long.parseLong(jobPosition));
-						} catch (Exception ignore) {
-						}
-					}
-				} catch (Exception ignore) {
-				}
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 			}
 		}
 		Long[] execTimes = getAweTaskExecTimes(jobId, config);

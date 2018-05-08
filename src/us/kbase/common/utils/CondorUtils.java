@@ -15,9 +15,10 @@ import java.util.Map;
 
 public class CondorUtils {
 
-    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
+    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
 
-        clientGroups = clientGroupsToRequirements(clientGroups);
+
+        String clientGroupsNew = clientGroupsToRequirements(clientGroups);
         kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {ujsJobId, kbaseEndpoint};
@@ -37,8 +38,8 @@ public class CondorUtils {
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
         csf.add("getenv = true");
-        csf.add("requirements = " + clientGroups);
-        csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s BASE_DIR=%s\"", token.getToken(), baseDir));
+        csf.add("requirements = " + clientGroupsNew);
+        csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
         csf.add("queue 1");
@@ -108,7 +109,7 @@ public class CondorUtils {
                 .replace("\"", "");
     }
 
-    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir) throws Exception {
+    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, AuthToken adminToken) throws Exception {
         /**
          * Call condor_submit with the ujsJobId as batch job name
          * @param jobID ujsJobId to name the batch job with
@@ -116,7 +117,7 @@ public class CondorUtils {
          * @return String condor job id
          */
 
-        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, clientGroups, kbaseEndpoint, baseDir);
+        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
         int retries = 10;
@@ -140,11 +141,11 @@ public class CondorUtils {
          * @param attribute attribute to search condorQ for
          * @return String condor job attribute or NULL
          */
-        int retries = 1;
+        int retries = 3;
         String result = null;
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_q.sh", ujsJobId, attribute};
         while (result == null && retries > 0) {
-            Thread.sleep(10);
+            Thread.sleep(5000);
             result = String.join("\n", runProcess(cmdScript).stdout);
             // convert JSON string to Map There has to be a better way than this
             if (result.contains(attribute)) {
