@@ -1,0 +1,17 @@
+universe = vanilla
+accounting_group = sychan
++Owner = "condor_pool"
+executable = /kb/deployment/misc/submit.sh
+
+#transfer_input_files = distribution, random_words
+ShouldTransferFiles = YES
+when_to_transfer_output = ON_EXIT
+
+request_cpus = 1
+request_memory = 5MB
+request_disk = 1MB
+
+log    = logfile.txt
+output = outfile.txt
+error  = errors.txt
+getenv = true

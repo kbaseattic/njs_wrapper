@@ -209,6 +209,7 @@ module NarrativeJobService {
         position - position of the job in execution waiting queue;
         creation_time, exec_start_time and finish_time - time moments of submission, execution 
             start and finish events in milliseconds since Unix Epoch,
+        canceled - whether the job is canceled or not.
         cancelled - Deprecated field, please use 'canceled' field instead.
     */
     typedef structure {
@@ -237,9 +238,15 @@ module NarrativeJobService {
         boolean with_job_params;
     } CheckJobsParams;
 
+    /*
+        job_states - states of jobs,
+        job_params - parameters of jobs,
+        check_error - this map includes info about errors happening during job checking.
+    */
     typedef structure {
         mapping<job_id, JobState> job_states;
         mapping<job_id, RunJobParams> job_params;
+        mapping<job_id, JsonRpcError> check_error;
     } CheckJobsResults;
     
     funcdef check_jobs(CheckJobsParams params) returns (CheckJobsResults)
@@ -250,5 +257,22 @@ module NarrativeJobService {
     } CancelJobParams;
 
     funcdef cancel_job(CancelJobParams params) returns () authentication required;
+
+    /*
+        job_id - id of job running method
+        finished - indicates whether job is done (including error/cancel cases) or not
+        canceled - whether the job is canceled or not.
+        ujs_url - url of UserAndJobState service used by job service
+    */
+    typedef structure {
+        job_id job_id;
+        boolean finished;
+        boolean canceled;
+        string ujs_url;
+    } CheckJobCanceledResult;
+
+    /* Check whether a job has been canceled. This method is lightweight compared to check_job. */
+    funcdef check_job_canceled(CancelJobParams params) returns (CheckJobCanceledResult result)
+        authentication required;
 
 };

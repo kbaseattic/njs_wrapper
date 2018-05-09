@@ -53,6 +53,10 @@ test-scripts:
 compile: src
 	$(ANT) war
 
+redeploy: src
+	$(ANT) war
+	cp ./dist/$(WAR_FILE) /kb/deployment/jettybase/webapps/root.war
+
 deploy-client: deploy-scripts
 
 deploy-service: deploy-scripts
@@ -69,6 +73,19 @@ deploy-service: deploy-scripts
 
 	chmod +x $(SERVICE_DIR)/start_service
 	chmod +x $(SERVICE_DIR)/stop_service
+
+docker_image: compile
+	#$(ANT) war
+	# cp server_scripts/glassfish_administer_service.py deployment/bin
+	# chmod 755 deployment/bin/glassfish_administer_service.py
+	-mkdir deployment/lib
+	-mkdir -p deployment/jettybase/webapps
+	-mkdir -p deployment/jettybase/logs
+	-mkdir -p deployment/jettybase/start.d
+	cp dist/$(WAR_FILE) deployment/jettybase/webapps/root.war
+	ant script_docker -Djardir=deployment/lib  -Dbindir=deployment/bin -Djava.home=\$JAVA_HOME -Dimage.classpath=/kb/deployment/lib
+	./build/build_docker_image.sh
+	rm deployment/bin/run_async_srv_method.sh
 
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)

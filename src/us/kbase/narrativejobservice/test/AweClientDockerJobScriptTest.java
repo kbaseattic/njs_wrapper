@@ -12,7 +12,6 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
@@ -39,7 +38,6 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
-import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -52,15 +50,16 @@ import org.junit.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 
-import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
 import us.kbase.catalog.ClientGroupConfig;
 import us.kbase.catalog.ClientGroupFilter;
+import us.kbase.catalog.GetSecureConfigParamsInput;
 import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleInfo;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.ModuleVersionInfo;
+import us.kbase.catalog.SecureConfigParameter;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.SelectModuleVersionParams;
 import us.kbase.catalog.SelectOneModuleParams;
@@ -82,9 +81,12 @@ import us.kbase.common.test.controllers.mongo.MongoController;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.ProcessHelper;
 import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.CheckJobsParams;
+import us.kbase.narrativejobservice.CheckJobsResults;
 import us.kbase.narrativejobservice.GetJobLogsParams;
 import us.kbase.narrativejobservice.JobState;
+import us.kbase.narrativejobservice.JsonRpcError;
 import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.NarrativeJobServiceClient;
 import us.kbase.narrativejobservice.NarrativeJobServiceServer;
@@ -160,8 +162,14 @@ public class AweClientDockerJobScriptTest {
             JobState ret = null;
             for (int i = 0; i < 20; i++) {
                 try {
-                    ret = client.checkJobs(new CheckJobsParams().withJobIds(
-                            Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
+                    CheckJobsResults retAll = client.checkJobs(new CheckJobsParams().withJobIds(
+                            Arrays.asList(jobId)).withWithJobParams(1L));
+                    ret = retAll.getJobStates().get(jobId);
+                    if (ret == null) {
+                        JsonRpcError error = retAll.getCheckError().get(jobId);
+                        System.out.println("Error: " + error);
+                        throw new IllegalStateException("Error: " + error);
+                    }
                     System.out.println("Job finished: " + ret.getFinished());
                     if (ret.getFinished() != null && ret.getFinished() == 1L) {
                         break;
@@ -203,7 +211,7 @@ public class AweClientDockerJobScriptTest {
             Tuple13<String, Tuple2<String, String>, String, String, String,
                 Tuple3<String, String, String>, Tuple3<Long, Long, String>,
                 Long, Long, Tuple2<String, String>, Map<String, String>,
-                String, Results> u = getUJSClient(token, loadConfig())
+                String, Results> u = getUJSClient(token, TesterUtils.loadConfig())
                     .getJobInfo2(jobId);
             assertThat("incorrect metadata", u.getE11(), is(meta));
             assertThat("incorrect auth strat", u.getE10().getE1(),
@@ -303,7 +311,7 @@ public class AweClientDockerJobScriptTest {
             JsonClientException, Exception, InvalidFileFormatException {
         Tuple11<Long, String, String, String, Long, String, Long, String,
             String, Long, Map<String, String>> obj =
-                getWsClient(token, loadConfig())
+                getWsClient(token, TesterUtils.loadConfig())
                     .saveObjects(new SaveObjectsParams()
                         .withWorkspace(testWsName)
                         .withObjects(Arrays.asList(
@@ -334,7 +342,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "async-basic";
         String release = "dev";
-        String ver = "0.0.2";
+        String ver = "0.0.3";
         final String modmeth = moduleName + "." + methodName;
         Map<String, Object> p = ImmutableMap.<String, Object>builder()
             .put("save", ImmutableMap.<String,Object>builder()
@@ -381,7 +389,7 @@ public class AweClientDockerJobScriptTest {
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
             expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.2")
+            .withVer("0.0.3")
             .withRel("dev")
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
@@ -407,7 +415,7 @@ public class AweClientDockerJobScriptTest {
         String aweState = null;
         for (int i = 0; i < 5; i++) {
             Map<String, Object> aweJob = AweUtils.getAweJobDescr(
-                    aweServerUrl, aweJobId, token.toString());
+                    aweServerUrl, aweJobId, token);
             Map<String, Object> aweData =
                     (Map<String, Object>)aweJob.get("data");
             if (aweData != null)
@@ -469,7 +477,7 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov-basic";
         String release = "dev";
-        String ver = "0.0.7";
+        String ver = "0.0.9";
         UObject methparams = UObject.fromJsonString(
             "{\"save\": {\"ws\":\"" + testWsName + "\"," +
                         "\"name\":\"" + objectName + "\"" +
@@ -489,7 +497,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
         
         release = "beta";
-        ver = "0.0.6";
+        ver = "0.0.8";
         expsas.set(0, new SubActionSpec()
             .withMod(moduleName)
             .withVer(ver)
@@ -503,6 +511,7 @@ public class AweClientDockerJobScriptTest {
     
     @Test
     public void testMultiCallProvenance() throws Exception {
+        // TODO: run
         System.out.println("Test [testMultiCallProvenance]");
         execStats.clear();
         String moduleName = "njs_sdk_test_1";
@@ -510,7 +519,9 @@ public class AweClientDockerJobScriptTest {
         String methodName = "run";
         String objectName = "prov_multi";
         String release = "dev";
-        String ver = "0.0.2";
+        String ver = "0.0.3";
+        String repo1commit = "de445aa9c3404d68be3a87b03c1dbf2f3fccba24";
+        String repo2commit = "3cd0ed213d8376349bdb0f454c5f5bc8b31ea650";
         UObject methparams = UObject.fromJsonString(String.format(
             "{\"save\": {\"ws\":\"%s\"," +
                         "\"name\":\"%s\"" +
@@ -532,23 +543,23 @@ public class AweClientDockerJobScriptTest {
              "}", testWsName, objectName,
              moduleName2 + "." + methodName,
              // dev is on this commit
-             "07366d715b697b6f9eac9eaba3ec0993c361b71a",
+             repo2commit,
              moduleName + "." + methodName,
              // this is the latest commit, but a prior commit is registered
              //for dev
-             "5178356a8a7f63be055cc581e9ea90dd53d6aed3",
+             repo1commit,
              moduleName2 + "." + methodName,
              "dev"));
         List<SubActionSpec> expsas = new LinkedList<SubActionSpec>();
         expsas.add(new SubActionSpec()
             .withMod(moduleName)
-            .withVer("0.0.2")
+            .withVer("0.0.3")
             .withRel("dev")
         );
         expsas.add(new SubActionSpec()
             .withMod(moduleName2)
-            .withVer("0.0.7")
-            .withCommit("07366d715b697b6f9eac9eaba3ec0993c361b71a")
+            .withVer("0.0.8")
+            .withCommit(repo2commit)
         );
         JobState res = runJobAndCheckProvenance(moduleName, methodName,
                 release, ver, methparams, objectName, expsas,
@@ -672,6 +683,39 @@ public class AweClientDockerJobScriptTest {
         
     }
 
+    @Test
+    public void testErrorInSubjob() throws Exception {
+        System.out.println("Test [testErrorInSubjob]");
+        execStats.clear();
+        String moduleName = "njs_sdk_test_1";
+        String methodName = "run";
+        String methparams = String.format(
+            "{\"save\": {\"ws\":\"%s\"," +
+                        "\"name\":\"%s\"" +
+                        "}," + 
+             "\"jobs\": [{\"method\": \"onerepotest.generate_error\"," +
+                         "\"params\": [\"Custom error message!\"]," +
+                         "\"ver\": \"dev\"" +
+                         "}" +
+                        "]," +
+             "\"id\": \"myid\"" + 
+             "}", testWsName, "unused_object");
+        JobState st = runAsyncMethodAndWait(moduleName, methodName, methparams);
+        List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(st.getJobId())
+                .withSkipLines(0L)).getLines();
+        String textForSearch = 
+                "\"onerepotest.generate_error\" job threw an error, name=\"Server error\", code=-32000, " +
+                "message=\"Custom error message!\", data:";
+        boolean found = false;
+        for (LogLine l : lines) {
+            if (l.getIsError() == 1 && l.getLine().contains(textForSearch)) {
+                found = true;
+                break;
+            }
+        }
+        Assert.assertTrue(found);
+    }
+
     private void failJobMultiCall(String outerModMeth, String innerModMeth,
             String outerRel, String innerRel, String msg) throws Exception {
         UObject methparams = UObject.fromJsonString(String.format(
@@ -785,7 +829,7 @@ public class AweClientDockerJobScriptTest {
             ver = ver + "-" + release;
         }
 
-        WorkspaceClient ws = getWsClient(token, loadConfig());
+        WorkspaceClient ws = getWsClient(token, TesterUtils.loadConfig());
         ObjectData od = ws.getObjects2(new GetObjects2Params().withObjects(Arrays.asList(
                 new ObjectSpecification().withWorkspace(testWsName)
                 .withName(objectName)))).getData().get(0);
@@ -823,7 +867,7 @@ public class AweClientDockerJobScriptTest {
     
     private void checkSubActions(List<SubAction> gotsas,
             List<SubActionSpec> expsas) throws Exception {
-        CatalogClient cat = getCatalogClient(token, loadConfig());
+        CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         assertThat("correct # of subactions",
                 gotsas.size(), is(expsas.size()));
         for (SubActionSpec sa: expsas) {
@@ -898,7 +942,7 @@ public class AweClientDockerJobScriptTest {
                 .withParams(inputValues);
         String jobId = client.runJob(params);
         JobState ret = null;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 60; i++) {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
@@ -997,6 +1041,11 @@ public class AweClientDockerJobScriptTest {
                             .withParams(Arrays.asList(new UObject("1\n2\n3\n4\n5\n6\n7\n8\n9")))
                             .withAppId(moduleName + "/" + methodName);
             String jobId = client.runJob(job);
+            final CheckJobCanceledResult cres = client.checkJobCanceled(
+                    new CancelJobParams().withJobId(jobId));
+            assertThat("incorrect job id", cres.getJobId(), is(jobId));
+            assertThat("incorrect canceled state", cres.getCanceled(), is(0L));
+            assertThat("incorrect finished state", cres.getFinished(), is(0L));
             JobState ret = null;
             int logLinesRecieved = 0;
             for (int i = 0; i < 100; i++) {
@@ -1029,13 +1078,18 @@ public class AweClientDockerJobScriptTest {
             Assert.assertEquals(errMsg, 1L, (long)ret.getCanceled());
             Assert.assertEquals(errMsg, SDKMethodRunner.APP_STATE_CANCELLED, ret.getJobState());
             Assert.assertEquals(0, execStats.size());
+            final CheckJobCanceledResult cres2 = client.checkJobCanceled(
+                    new CancelJobParams().withJobId(jobId));
+            assertThat("incorrect job id", cres2.getJobId(), is(jobId));
+            assertThat("incorrect canceled state", cres2.getCanceled(), is(1L));
+            assertThat("incorrect finished state", cres2.getFinished(), is(1L));
             boolean canceledLogLine = false;
             // Let's check in logs how many lines (out of 9) from input text we see. It depends on
             // how long it takes to stop docker container really. But we shouldn't see all 9 since
             // they are printed with 5 second interval.
             logLinesRecieved = 0;
             int logLinesFromInput = 0;
-            for (int i = 0; i < 30; i++) {
+            for (int i = 0; i < 60; i++) {
                 List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
                         .withSkipLines((long)logLinesRecieved)).getLines();
                 for (LogLine line : lines) {
@@ -1047,11 +1101,24 @@ public class AweClientDockerJobScriptTest {
                         // We see this line in logs only after docker container is stopped
                         canceledLogLine = true;
                     }
-                }            
+                }
                 if (canceledLogLine)
                     break;
                 logLinesRecieved += lines.size();
                 Thread.sleep(1000);
+            }
+            if (!canceledLogLine) {
+                System.out.println("All logs:");
+                List<LogLine> lines = client.getJobLogs(new GetJobLogsParams().withJobId(jobId)
+                        .withSkipLines((long)0)).getLines();
+                for (LogLine line : lines) {
+                    String lineText = line.getLine();
+                    System.out.println("ALL-LOGs: " + lineText);
+                    if (line.getLine().contains("Job was canceled")) {
+                        canceledLogLine = true;
+                    }
+                }
+                System.out.println("------------------------------------------------");
             }
             Assert.assertTrue(errMsg, canceledLogLine);
             // Since docker stop may take about 10-15 seconds there shouldn't be more than 3-4 log
@@ -1060,6 +1127,23 @@ public class AweClientDockerJobScriptTest {
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
+        }
+    }
+    
+    @Test
+    public void testCheckJobCanceledWithBadInput() throws Exception {
+        failCheckJobCanceled(null, "No parameters supplied to method");
+        failCheckJobCanceled(new CancelJobParams().withJobId(null), "No job id supplied");
+        failCheckJobCanceled(new CancelJobParams().withJobId("   \t "), "No job id supplied");
+    }
+
+    private void failCheckJobCanceled(final CancelJobParams p,
+            final String exception) throws IOException, JsonClientException {
+        try {
+            client.checkJobCanceled(p);
+            fail("ran check job canceled with bad input");
+        } catch (ServerException ex) {
+            assertThat("incorrect exception message", ex.getMessage(), is(exception));
         }
     }
 
@@ -1128,6 +1212,7 @@ public class AweClientDockerJobScriptTest {
             Assert.assertNotNull(errMsg, output);
             Assert.assertNotNull(errMsg, output.get("kbase-endpoint"));
             Assert.assertTrue(errMsg, output.get("kbase-endpoint").startsWith("http"));
+            Assert.assertEquals(errMsg, "Super password!", output.get("secret-password"));
         } catch (ServerException ex) {
             System.err.println(ex.getData());
             throw ex;
@@ -1173,7 +1258,7 @@ public class AweClientDockerJobScriptTest {
         // <work-dir>/<userid> folder exists in host file system. This
         System.out.println("Test [testCustomData]");
         String dataFileName = "custom_test.txt";
-        File customDir = new File(workDir, token.getClientId());
+        File customDir = new File(workDir, token.getUserName());
         File customFile = new File(customDir, dataFileName);
         try {
             customDir.mkdir();
@@ -1250,9 +1335,56 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
+    @Test
+    public void testBulkCheckJobs() throws Exception {
+        System.out.println("Test [testBulkCheckJobs]");
+        try {
+            String moduleName = "onerepotest";
+            String methodName = "local_sdk_callback";
+            String inputText = "123\n456";
+            List<UObject> inputValues = Arrays.asList(new UObject(inputText));
+            RunJobParams params = new RunJobParams().withMethod(
+                    moduleName + "." + methodName).withServiceVer(lookupServiceVersion(moduleName))
+                    .withAppId(moduleName + "/" + methodName).withWsid(testWsID)
+                    .withParams(inputValues);
+            String jobId = client.runJob(params);
+            JobState ret = null;
+            String hiddenJobId = "HIDDEN_UNKNOWN_JOB";
+            JsonRpcError hiddenJobError = null;
+            for (int i = 0; i < 20; i++) {
+                try {
+                    CheckJobsResults results = client.checkJobs(new CheckJobsParams().withJobIds(
+                            Arrays.asList(jobId, hiddenJobId))
+                            .withWithJobParams(1L));
+                    ret = results.getJobStates().get(jobId);
+                    hiddenJobError = results.getCheckError().get(hiddenJobId);
+                    System.out.println("Job finished: " + ret.getFinished());
+                    if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                        break;
+                    }
+                    Thread.sleep(5000);
+                } catch (ServerException ex) {
+                    System.out.println(ex.getData());
+                    throw ex;
+                }
+            }
+            String errMsg = "Unexpected app state: " + UObject.getMapper().writeValueAsString(ret);
+            UObject obj = checkJobOutput(ret);
+            List<String> data = obj.asClassInstance(List.class);
+            Assert.assertEquals(errMsg, inputText, data.get(0));
+            Assert.assertEquals(errMsg, "OK", data.get(1));
+            Assert.assertNotNull(hiddenJobError);
+            Assert.assertEquals("AWE task wasn't found in DB for jobid=" + hiddenJobId, 
+                    hiddenJobError.getMessage());
+        } catch (ServerException ex) {
+            System.err.println(ex.getData());
+            throw ex;
+        }
+    }
+
     public String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
-        CatalogClient cat = getCatalogClient(token, loadConfig());
+        CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         String ver = cat.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName)).getDev().getGitCommitHash();
         return ver;
     }
@@ -1285,33 +1417,12 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    private static String token(Properties props) throws Exception {
-        return AuthService.login(get(props, "user"), get(props, "password")).getTokenString();
-    }
-
-    private static String get(Properties props, String propName) {
-        String ret = props.getProperty(propName);
-        if (ret == null)
-            throw new IllegalStateException("Property is not defined: " + propName);
-        return ret;
-    }
-
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
-        token = new AuthToken(token(props));
+        token = TesterUtils.token(props);
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
-        File scriptFile = new File(workDir, "check_deps.sh");
-        writeFileLines(readReaderLines(new InputStreamReader(
-                AweClientDockerJobScriptTest.class.getResourceAsStream(
-                        "check_deps.sh.properties"))), scriptFile);
-        ProcessHelper ph = ProcessHelper.cmd(
-                "bash", scriptFile.getCanonicalPath()).exec(workDir);
-        if (ph.getExitCode() > 0) {
-            throw new TestException("Set up script failed with exit code " +
-                    ph.getExitCode());
-        }
         mongoDir = new File(workDir, "mongo");
         aweServerDir = new File(workDir, "awe_server");
         aweClientDir = new File(workDir, "awe_client");
@@ -1322,21 +1433,21 @@ public class AweClientDockerJobScriptTest {
                 "... ");
         mongo = new MongoController(mongoExepath, mongoDir.toPath());
         System.out.println("Done. Port " + mongo.getServerPort());
-        File aweBinDir = new File(workDir, "deps/bin").getCanonicalFile();
-        awePort = startupAweServer(findAweBinary(aweBinDir, "awe-server"),
-                aweServerDir, mongo.getServerPort());
+        String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        awePort = startupAweServer(findAweBinary("awe-server"),
+                aweServerDir, mongo.getServerPort(), authUrl, token);
         catalogWrapper = startupCatalogWrapper();
         njsService = startupNJSService(njsServiceDir, binDir, awePort, 
                 catalogWrapper.getConnectors()[0].getLocalPort(),
-                mongo.getServerPort());
+                mongo.getServerPort(), token);
         int jobServicePort = njsService.getConnectors()[0].getLocalPort();
-        startupAweClient(findAweBinary(aweBinDir, "awe-client"), aweClientDir, awePort, binDir);
+        startupAweClient(findAweBinary("awe-client"), aweClientDir, awePort, binDir);
         client = new NarrativeJobServiceClient(new URL("http://localhost:" + jobServicePort), token);
         client.setIsInsecureHttpConnectionAllowed(true);
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();
-        WorkspaceClient wscl = getWsClient(token, loadConfig());
+        WorkspaceClient wscl = getWsClient(token, TesterUtils.loadConfig());
         Exception error = null;
         for (int i = 0; i < 5; i++) {
             testWsName = "test_awe_docker_job_script_" + machineName + "_" + suf;
@@ -1361,14 +1472,6 @@ public class AweClientDockerJobScriptTest {
         wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
                 new ObjectSaveData().withName(testContigsetObjName).withType("KBaseGenomes.ContigSet")
                 .withData(new UObject(contigsetData)))));
-        /*is = new GZIPInputStream(new FileInputStream(new File(dir, "Rhodobacter.genome.json.gz")));
-        Map<String, Object> genomeData = UObject.getMapper().readValue(is, Map.class);
-        is.close();
-        String genomeObjName = "temp_contigset.1";
-        genomeData.put("contigset_ref", testWsName + "/" + testContigsetObjName);
-        wscl.saveObjects(new SaveObjectsParams().withWorkspace(testWsName).withObjects(Arrays.asList(
-                new ObjectSaveData().withName(genomeObjName).withType("KBaseGenomes.Genome")
-                .withData(new UObject(genomeData)))));*/
         refDataDir = new File(njsServiceDir, "onerepotest/0.2");
         if (!refDataDir.exists())
             refDataDir.mkdirs();
@@ -1376,7 +1479,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private static void stageWSObjects() throws Exception {
-        WorkspaceClient wsc = getWsClient(token, loadConfig());
+        WorkspaceClient wsc = getWsClient(token, TesterUtils.loadConfig());
         Map<String, String> mt = new HashMap<String, String>();
         List<Tuple11<Long, String, String, String, Long, String, Long, String,
             String, Long, Map<String, String>>> ret =
@@ -1399,9 +1502,14 @@ public class AweClientDockerJobScriptTest {
                 ret.get(1).getE1() + "/" + ret.get(1).getE5());
     }
 
-    private static String findAweBinary(File dir, String program) throws Exception {
-        if (new File(dir, program).exists())
-            return new File(dir, program).getAbsolutePath();
+    private static String findAweBinary(String program) throws Exception {
+        String dirText = TesterUtils.props().getProperty("test-awe-bin-dir");
+        if (dirText != null && !dirText.trim().isEmpty()) {
+            File ret = new File(new File(dirText), program);
+            if (ret.exists()) {
+                return ret.getAbsolutePath();
+            }
+        }
         return program;
     }
     
@@ -1421,7 +1529,8 @@ public class AweClientDockerJobScriptTest {
         //killPid(shockDir);
         try {
             if (testWsName != null) {
-                getWsClient(token, loadConfig()).deleteWorkspace(new WorkspaceIdentity().withWorkspace(testWsName));
+                getWsClient(token, TesterUtils.loadConfig()).deleteWorkspace(
+                        new WorkspaceIdentity().withWorkspace(testWsName));
                 //System.out.println("Test workspace " + testWsName + " was deleted");
             }
         } catch (Exception ex) {
@@ -1434,7 +1543,15 @@ public class AweClientDockerJobScriptTest {
         System.out.println();
     }
     
-    private static int startupAweServer(String aweServerExePath, File dir, int mongoPort) throws Exception {
+    private static int startupAweServer(String aweServerExePath, File dir, int mongoPort,
+            String authUrl, AuthToken token) throws Exception {
+        //auth-service-url = https://ci.kbase.us/auth2services/auth/api/legacy/KBase/Sessions/Login
+        //globus_token_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/goauth/token?grant_type=client_credentials
+        //globus_profile_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/users
+        String globusUrl = "https://nexus.api.globusonline.org";
+        if (authUrl != null && authUrl.endsWith("KBase/Sessions/Login")) {
+            globusUrl = authUrl.replace("KBase/Sessions/Login", "globus");
+        }
         if (aweServerExePath == null) {
             aweServerExePath = "awe-server";
         }
@@ -1446,6 +1563,9 @@ public class AweClientDockerJobScriptTest {
         logsDir.mkdir();
         File siteDir = new File(dir, "site");
         siteDir.mkdir();
+        File siteJsDir = new File(siteDir, "js");
+        siteJsDir.mkdir();
+        writeFileLines(Arrays.asList("var RetinaConfig = {}"), new File(siteJsDir, "config.js.tt"));
         File awfDir = new File(dir, "awfs");
         awfDir.mkdir();
         int port = findFreePort();
@@ -1453,7 +1573,7 @@ public class AweClientDockerJobScriptTest {
         writeFileLines(Arrays.asList(
                 "[Admin]",
                 "email=shock-admin@kbase.us",
-                "users=" + get(TesterUtils.props(), "user"),
+                "users=" + token.getUserName(),
                 "[Anonymous]",
                 "read=true",
                 "write=true",
@@ -1464,8 +1584,8 @@ public class AweClientDockerJobScriptTest {
                 "[Args]",
                 "debuglevel=0",
                 "[Auth]",
-                "globus_token_url=https://nexus.api.globusonline.org/goauth/token?grant_type=client_credentials",
-                "globus_profile_url=https://nexus.api.globusonline.org/users",
+                "globus_token_url=" + globusUrl + "/goauth/token?grant_type=client_credentials",
+                "globus_profile_url=" + globusUrl + "/users",
                 "client_auth_required=false",
                 "[Directories]",
                 "data=" + dataDir.getAbsolutePath(),
@@ -1479,7 +1599,9 @@ public class AweClientDockerJobScriptTest {
                 "id=unique:true",
                 "[Ports]",
                 "site-port=" + findFreePort(),
-                "api-port=" + port
+                "api-port=" + port,
+                "[External]",
+                "api-url=http://localhost:" + port + "/"
                 ), configFile);
         File scriptFile = new File(dir, "start_awe_server.sh");
         writeFileLines(Arrays.asList(
@@ -1595,7 +1717,7 @@ public class AweClientDockerJobScriptTest {
     }
 
     private static Server startupNJSService(File dir, File binDir, int awePort, 
-            int catalogPort, int mongoPort) throws Exception {
+            int catalogPort, int mongoPort, AuthToken token) throws Exception {
         if (!dir.exists())
             dir.mkdirs();
         if (!binDir.exists())
@@ -1607,8 +1729,7 @@ public class AweClientDockerJobScriptTest {
         initSilentJettyLogger();
         File configFile = new File(dir, "deploy.cfg");
         int port = findFreePort();
-        Map<String, String> origConfig = loadConfig();
-        Properties testProps = TesterUtils.props();
+        Map<String, String> origConfig = TesterUtils.loadConfig();
         List<String> configLines = new ArrayList<String>(Arrays.asList(
                 "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
                 NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
@@ -1622,13 +1743,12 @@ public class AweClientDockerJobScriptTest {
                 NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT),
                 NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
                 NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_TOKEN + "=" + token.getToken(),
                 NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_USER + "=" + get(testProps, "user"),
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_PWD + "=" + get(testProps, "password"),
+                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN + "=" + token.getToken(),
                 NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
-                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine"
+                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine",
+                NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL)
                 ));
         String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
         if (dockerURI != null)
@@ -1737,13 +1857,6 @@ public class AweClientDockerJobScriptTest {
         });
     }
     
-    public static Map<String, String> loadConfig() throws IOException,
-            InvalidFileFormatException {
-        Ini ini = new Ini(new File("deploy.cfg"));
-        Map<String, String> origConfig = ini.get(NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
-        return origConfig;
-    }
-
     private static void killPid(File dir) {
         if (dir == null)
             return;
@@ -1802,7 +1915,7 @@ public class AweClientDockerJobScriptTest {
         }
         
         private CatalogClient fwd() throws IOException, JsonClientException {
-            Map<String, String> origConfig = loadConfig();
+            Map<String, String> origConfig = TesterUtils.loadConfig();
             String url = origConfig.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
             CatalogClient ret = new CatalogClient(new URL(url));
             ret.setAllSSLCertificatesTrusted(true);
@@ -1839,7 +1952,7 @@ public class AweClientDockerJobScriptTest {
 
         @JsonServerMethod(rpc = "Catalog.list_volume_mounts")
         public List<VolumeMountConfig> listVolumeMounts(VolumeMountFilter filter) throws IOException, JsonClientException {
-            String userId = token.getClientId();
+            String userId = token.getUserName();
             if (filter.getModuleName().equals("onerepotest") && filter.getFunctionName().equals("list_ref_data") &&
                     filter.getClientGroup().equals("test_client_group") && new File(workDir, userId).exists()) {
                 VolumeMountConfig ret = new VolumeMountConfig().withVolumeMounts(Arrays.asList(
@@ -1847,6 +1960,15 @@ public class AweClientDockerJobScriptTest {
                 return Arrays.asList(ret);
             }
             return null;
+        }
+        
+        @JsonServerMethod(rpc = "Catalog.get_secure_config_params")
+        public List<SecureConfigParameter> getSecureConfigParams(GetSecureConfigParamsInput params, AuthToken authPart) throws IOException, JsonClientException {
+            List<SecureConfigParameter> ret = new ArrayList<>();
+            if (params.getModuleName().equals("onerepotest")) {
+                ret.add(new SecureConfigParameter().withModuleName("onerepotest").withParamName("secret_password").withParamValue("Super password!"));
+            }
+            return ret;
         }
     }
 }

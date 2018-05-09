@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,11 +31,15 @@ import org.joda.time.format.DateTimeFormatter;
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
+import com.google.common.html.HtmlEscapers;
 
+import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
+import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.GetSecureConfigParamsInput;
 import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SecureConfigParameter;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.catalog.VolumeMount;
 import us.kbase.catalog.VolumeMountConfig;
@@ -52,6 +57,8 @@ import us.kbase.common.service.Tuple2;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.UnauthorizedException;
 import us.kbase.common.utils.NetUtils;
+import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
 import us.kbase.narrativejobservice.FinishJobParams;
 import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.JsonRpcError;
@@ -72,12 +79,10 @@ public class SDKLocalMethodRunner {
     public static final String DEV = JobRunnerConstants.DEV;
     public static final String BETA = JobRunnerConstants.BETA;
     public static final String RELEASE = JobRunnerConstants.RELEASE;
-    public static final Set<String> RELEASE_TAGS =
-            JobRunnerConstants.RELEASE_TAGS;
+    public static final Set<String> RELEASE_TAGS = JobRunnerConstants.RELEASE_TAGS;
     private static final long MAX_OUTPUT_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
     
-    public static final String JOB_CONFIG_FILE =
-            JobRunnerConstants.JOB_CONFIG_FILE;
+    public static final String JOB_CONFIG_FILE = JobRunnerConstants.JOB_CONFIG_FILE;
     public static final String CFG_PROP_EE_SERVER_VERSION =
             JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS = 
@@ -100,9 +105,10 @@ public class SDKLocalMethodRunner {
             tokenStr = System.getProperty("KB_AUTH_TOKEN");  // For tests
         if (tokenStr == null || tokenStr.isEmpty())
             throw new IllegalStateException("Token is not defined");
-        final AuthToken token = new AuthToken(tokenStr);
+        // We should skip token validation now because we don't have auth service URL yet.
+        final AuthToken tempToken = new AuthToken(tokenStr, "<unknown>");
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
-                jobSrvUrl, token);
+                jobSrvUrl, tempToken);
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
@@ -127,9 +133,12 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
-            final URL catalogURL = getURL(jobInput.getE2(),
+            ConfigurableAuthService auth = getAuth(config);
+            // We couldn't validate token earlier because we didn't have auth service URL.
+            AuthToken token = auth.validateToken(tokenStr);
+            final URL catalogURL = getURL(config,
                     NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-            final URI dockerURI = getURI(jobInput.getE2(),
+            final URI dockerURI = getURI(config,
                     NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
                     true);
             RunJobParams job = jobInput.getE1();
@@ -161,16 +170,7 @@ public class SDKLocalMethodRunner {
             UObject.getMapper().writeValue(inputFile, rpc);
             File outputFile = new File(workDir, "output.json");
             File configFile = new File(workDir, JOB_CONFIG_FILE);
-            PrintWriter pw = new PrintWriter(configFile);
-            pw.println("[global]");
-            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
-            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
-            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
             String kbaseEndpoint = config.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT);
-            if (kbaseEndpoint != null)
-                pw.println("kbase_endpoint = " + kbaseEndpoint);
-            pw.close();
-            
             String clientDetails = hostnameAndIP[1];
             String clientName = System.getenv("AWE_CLIENTNAME");
             if (clientName != null && !clientName.isEmpty()) {
@@ -245,13 +245,16 @@ public class SDKLocalMethodRunner {
             });
             logFlusher.setDaemon(true);
             logFlusher.start();
-            // Let's check if there are some volume mount rules set up for this module
+            // Let's check if there are some volume mount rules or secure configuration parameters
+            // set up for this module
             List<Bind> additionalBinds = null;
+            Map<String, String> envVars = null;
+            List<SecureConfigParameter> secureCfgParams = null;
             String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
             if (adminTokenStr == null || adminTokenStr.isEmpty())
                 adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
             if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
-                final AuthToken adminToken = new AuthToken(adminTokenStr);
+                final AuthToken adminToken = auth.validateToken(adminTokenStr);
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
                 adminCatClient.setAllSSLCertificatesTrusted(true);
@@ -270,7 +273,7 @@ public class SDKLocalMethodRunner {
                     for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
                         boolean isReadOnly = vm.getReadOnly() != null && vm.getReadOnly() != 0L;
                         File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(), 
-                                token.getClientId()));
+                                token.getUserName()));
                         if (!hostDir.exists()) {
                             if (isReadOnly) {
                                 throw new IllegalStateException("Volume mount directory doesn't exist: " + 
@@ -285,7 +288,36 @@ public class SDKLocalMethodRunner {
                         additionalBinds.add(new Bind(hostDir.getCanonicalPath(), new Volume(contDir), am));
                     }
                 }
+                secureCfgParams = adminCatClient.getSecureConfigParams(
+                        new GetSecureConfigParamsInput().withModuleName(modMeth.getModule())
+                        .withVersion(mv.getGitCommitHash()).withLoadAllVersions(0L));
+                envVars = new TreeMap<String, String>();
+                for (SecureConfigParameter param : secureCfgParams) {
+                    envVars.put("KBASE_SECURE_CONFIG_PARAM_" + param.getParamName(), 
+                            param.getParamValue());
+                }
             }
+            
+            PrintWriter pw = new PrintWriter(configFile);
+            pw.println("[global]");
+            if (kbaseEndpoint != null)
+                pw.println("kbase_endpoint = " + kbaseEndpoint);
+            pw.println("job_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL));
+            pw.println("workspace_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL));
+            pw.println("shock_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL));
+            pw.println("handle_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_HANDLE_SRV_URL));
+            pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
+            pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
+            pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
+            pw.println("auth_service_url_allow_insecure = " + 
+                    config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));
+            if (secureCfgParams != null) {
+                for (SecureConfigParameter param : secureCfgParams) {
+                    pw.println(param.getParamName() + " = " + param.getParamValue());
+                }
+            }
+            pw.close();
+            
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
                 Boolean canceled = null;
@@ -294,19 +326,25 @@ public class SDKLocalMethodRunner {
                     if (canceled != null)
                         return canceled;
                     try {
-                        JobState jobState = jobSrvClient.checkJob(jobId);
+                        final CheckJobCanceledResult jobState = jobSrvClient.checkJobCanceled(
+                                new CancelJobParams().withJobId(jobId));
                         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
                             canceled = true;
                             if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
                                 // Print cancellation message after DockerRunner is done
                             } else {
-                                log.logNextLine("Job was registered as finished by another worker", true);
+                                log.logNextLine("Job was registered as finished by another worker",
+                                        true);
                             }
                             flushLog(jobSrvClient, jobId, logLines);
                             return true;
                         }
                     } catch (Exception ex) {
-                        log.logNextLine("Error checking job state: " + ex.getMessage(), true);
+                        log.logNextLine("Non-critical error checking for job cancelation - " +
+                                String.format("Will check again in %s seconds. ",
+                                        DockerRunner.CANCELLATION_CHECK_PERIOD_SEC) + 
+                                "Error reported by execution engine was: " +
+                                HtmlEscapers.htmlEscaper().escape(ex.getMessage()), true);
                     }
                     return false;
                 }
@@ -352,10 +390,9 @@ public class SDKLocalMethodRunner {
                         true);
             }
             // Calling Docker run
-            new DockerRunner(dockerURI).run(
-                    imageName, modMeth.getModule(),
-                    inputFile, token, log, outputFile, false, 
-                    refDataDir, null, callbackUrl, jobId, additionalBinds, cancellationChecker);
+            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                    outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                    cancellationChecker, envVars);
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
@@ -486,14 +523,30 @@ public class SDKLocalMethodRunner {
             ret.mkdir();
         return ret;
     }
-
+    
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
-            MalformedURLException, TokenFormatException {
+            MalformedURLException {
         final NarrativeJobServiceClient jobSrvClient =
                 new NarrativeJobServiceClient(new URL(jobSrvUrl), token);
         jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
         return jobSrvClient;
+    }
+    
+    private static ConfigurableAuthService getAuth(final Map<String, String> config) 
+            throws Exception {
+        String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        if (authUrl == null) {
+            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
+        }
+        String authAllowInsecure = config.get(
+                NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+        final AuthConfig c = new AuthConfig().withKBaseAuthServerURL(new URL(authUrl));
+        if ("true".equals(authAllowInsecure)) {
+            c.withAllowInsecureURLs(true);
+        }
+        return new ConfigurableAuthService(c);
     }
 
     private static URL getURL(final Map<String, String> config,

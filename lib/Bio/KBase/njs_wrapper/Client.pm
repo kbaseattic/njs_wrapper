@@ -1124,6 +1124,7 @@ boolean is an int
 CheckJobsResults is a reference to a hash where the following keys are defined:
 	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+	check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 JobState is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	finished has a value which is a NarrativeJobService.boolean
@@ -1179,6 +1180,7 @@ boolean is an int
 CheckJobsResults is a reference to a hash where the following keys are defined:
 	job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 	job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+	check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 JobState is a reference to a hash where the following keys are defined:
 	job_id has a value which is a string
 	finished has a value which is a NarrativeJobService.boolean
@@ -1361,6 +1363,106 @@ job_id is a string
     }
 }
  
+
+
+=head2 check_job_canceled
+
+  $result = $obj->check_job_canceled($params)
+
+=over 4
+
+=item Parameter and return types
+
+=begin html
+
+<pre>
+$params is a NarrativeJobService.CancelJobParams
+$result is a NarrativeJobService.CheckJobCanceledResult
+CancelJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+job_id is a string
+CheckJobCanceledResult is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	finished has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+boolean is an int
+
+</pre>
+
+=end html
+
+=begin text
+
+$params is a NarrativeJobService.CancelJobParams
+$result is a NarrativeJobService.CheckJobCanceledResult
+CancelJobParams is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+job_id is a string
+CheckJobCanceledResult is a reference to a hash where the following keys are defined:
+	job_id has a value which is a NarrativeJobService.job_id
+	finished has a value which is a NarrativeJobService.boolean
+	canceled has a value which is a NarrativeJobService.boolean
+	ujs_url has a value which is a string
+boolean is an int
+
+
+=end text
+
+=item Description
+
+Check whether a job has been canceled. This method is lightweight compared to check_job.
+
+=back
+
+=cut
+
+ sub check_job_canceled
+{
+    my($self, @args) = @_;
+
+# Authentication: required
+
+    if ((my $n = @args) != 1)
+    {
+	Bio::KBase::Exceptions::ArgumentValidationError->throw(error =>
+							       "Invalid argument count for function check_job_canceled (received $n, expecting 1)");
+    }
+    {
+	my($params) = @args;
+
+	my @_bad_arguments;
+        (ref($params) eq 'HASH') or push(@_bad_arguments, "Invalid type for argument 1 \"params\" (value was \"$params\")");
+        if (@_bad_arguments) {
+	    my $msg = "Invalid arguments passed to check_job_canceled:\n" . join("", map { "\t$_\n" } @_bad_arguments);
+	    Bio::KBase::Exceptions::ArgumentValidationError->throw(error => $msg,
+								   method_name => 'check_job_canceled');
+	}
+    }
+
+    my $url = $self->{url};
+    my $result = $self->{client}->call($url, $self->{headers}, {
+	    method => "NarrativeJobService.check_job_canceled",
+	    params => \@args,
+    });
+    if ($result) {
+	if ($result->is_error) {
+	    Bio::KBase::Exceptions::JSONRPC->throw(error => $result->error_message,
+					       code => $result->content->{error}->{code},
+					       method_name => 'check_job_canceled',
+					       data => $result->content->{error}->{error} # JSON::RPC::ReturnObject only supports JSONRPC 1.1 or 1.O
+					      );
+	} else {
+	    return wantarray ? @{$result->result} : $result->result->[0];
+	}
+    } else {
+        Bio::KBase::Exceptions::HTTP->throw(error => "Error invoking method check_job_canceled",
+					    status_line => $self->{client}->status_line,
+					    method_name => 'check_job_canceled',
+				       );
+    }
+}
+ 
    
 
 sub version {
@@ -1374,16 +1476,16 @@ sub version {
             Bio::KBase::Exceptions::JSONRPC->throw(
                 error => $result->error_message,
                 code => $result->content->{code},
-                method_name => 'cancel_job',
+                method_name => 'check_job_canceled',
             );
         } else {
             return wantarray ? @{$result->result} : $result->result->[0];
         }
     } else {
         Bio::KBase::Exceptions::HTTP->throw(
-            error => "Error invoking method cancel_job",
+            error => "Error invoking method check_job_canceled",
             status_line => $self->{client}->status_line,
-            method_name => 'cancel_job',
+            method_name => 'check_job_canceled',
         );
     }
 }
@@ -2037,6 +2139,7 @@ job_state - 'queued', 'in-progress', 'completed', or 'suspend';
 position - position of the job in execution waiting queue;
 creation_time, exec_start_time and finish_time - time moments of submission, execution 
     start and finish events in milliseconds since Unix Epoch,
+canceled - whether the job is canceled or not.
 cancelled - Deprecated field, please use 'canceled' field instead.
 
 
@@ -2126,6 +2229,13 @@ with_job_params has a value which is a NarrativeJobService.boolean
 
 
 
+=item Description
+
+job_states - states of jobs,
+job_params - parameters of jobs,
+check_error - this map includes info about errors happening during job checking.
+
+
 =item Definition
 
 =begin html
@@ -2134,6 +2244,7 @@ with_job_params has a value which is a NarrativeJobService.boolean
 a reference to a hash where the following keys are defined:
 job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 
 </pre>
 
@@ -2144,6 +2255,7 @@ job_params has a value which is a reference to a hash where the key is a Narrati
 a reference to a hash where the following keys are defined:
 job_states has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JobState
 job_params has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.RunJobParams
+check_error has a value which is a reference to a hash where the key is a NarrativeJobService.job_id and the value is a NarrativeJobService.JsonRpcError
 
 
 =end text
@@ -2174,6 +2286,50 @@ job_id has a value which is a NarrativeJobService.job_id
 
 a reference to a hash where the following keys are defined:
 job_id has a value which is a NarrativeJobService.job_id
+
+
+=end text
+
+=back
+
+
+
+=head2 CheckJobCanceledResult
+
+=over 4
+
+
+
+=item Description
+
+job_id - id of job running method
+finished - indicates whether job is done (including error/cancel cases) or not
+canceled - whether the job is canceled or not.
+ujs_url - url of UserAndJobState service used by job service
+
+
+=item Definition
+
+=begin html
+
+<pre>
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+finished has a value which is a NarrativeJobService.boolean
+canceled has a value which is a NarrativeJobService.boolean
+ujs_url has a value which is a string
+
+</pre>
+
+=end html
+
+=begin text
+
+a reference to a hash where the following keys are defined:
+job_id has a value which is a NarrativeJobService.job_id
+finished has a value which is a NarrativeJobService.boolean
+canceled has a value which is a NarrativeJobService.boolean
+ujs_url has a value which is a string
 
 
 =end text

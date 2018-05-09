@@ -6,13 +6,22 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
+import org.ini4j.Ini;
+import org.ini4j.InvalidFileFormatException;
 
+import us.kbase.auth.AuthConfig;
+import us.kbase.auth.AuthToken;
+import us.kbase.auth.ConfigurableAuthService;
 import us.kbase.common.test.TestException;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 public class TesterUtils {
     
@@ -80,5 +89,41 @@ public class TesterUtils {
             exep = sw.toString().trim();
         }
         return exep;
+    }
+    
+    //TODO should use test.cfg for this, esp since deploy.cfg is checked in
+    public static Map<String, String> loadConfig() 
+            throws IOException, InvalidFileFormatException {
+        Ini ini = new Ini(new File("deploy.cfg"));
+        Map<String, String> origConfig = ini.get(
+                NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME);
+        Properties props = props();
+        for (String key : new ArrayList<String>(origConfig.keySet())) {
+            if (props.containsKey(key)) {
+                String value = props.getProperty(key).trim();
+                origConfig.put(key, value);
+            }
+        }
+        return origConfig;
+    }
+    
+    public static AuthToken token(Properties props) throws Exception {
+        String authUrl = loadConfig().get("auth-service-url");
+        String authInsecure = loadConfig().get("auth-service-url-allow-insecure");
+        ConfigurableAuthService auth = new ConfigurableAuthService(
+                new AuthConfig().withKBaseAuthServerURL(new URL(authUrl))
+                .withAllowInsecureURLs("true".equals(authInsecure)));
+        String token = props.getProperty("token");
+        if (token != null) {
+            return auth.validateToken(token);
+        }
+        return auth.login(get(props, "user"), get(props, "password")).getToken();
+    }
+
+    public static String get(Properties props, String propName) {
+        String ret = props.getProperty(propName);
+        if (ret == null)
+            throw new IllegalStateException("Property is not defined: " + propName);
+        return ret;
     }
 }

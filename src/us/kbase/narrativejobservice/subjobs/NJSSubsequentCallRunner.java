@@ -8,7 +8,6 @@ import java.util.UUID;
 import com.github.dockerjava.api.model.Bind;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
 import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.executionengine.SubsequentCallRunner;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
@@ -28,7 +27,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
             final String serviceVer,
             final List<Bind> additionalBinds,
             final CancellationChecker cancellationChecker)
-            throws IOException, JsonClientException, TokenFormatException {
+            throws IOException, JsonClientException {
         super(token, config, jobId, modmeth, serviceVer);
         this.additionalBinds = additionalBinds;
         this.cancellationChecker = cancellationChecker;
@@ -54,7 +53,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, null,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString(), additionalBinds, cancellationChecker);
+                jobId.toString(), additionalBinds, cancellationChecker, null);
         return outputFile;
     }
     

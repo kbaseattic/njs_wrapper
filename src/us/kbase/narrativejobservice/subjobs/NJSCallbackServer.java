@@ -12,7 +12,6 @@ import com.github.dockerjava.api.model.Bind;
 
 import us.kbase.auth.AuthService;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.TokenFormatException;
 import us.kbase.common.executionengine.CallbackServer;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder;
 import us.kbase.common.executionengine.LineLogger;
@@ -51,38 +50,9 @@ public class NJSCallbackServer extends CallbackServer {
             final UUID jobId,
             final ModuleMethod modmeth,
             final String serviceVer)
-            throws IOException, JsonClientException, TokenFormatException {
+            throws IOException, JsonClientException {
         return new NJSSubsequentCallRunner(token, config,
                 jobId, modmeth, serviceVer, additionalBinds, 
                 cancellationChecker);
-    }
-    
-    public static void main(final String[] args) throws Exception {
-        final AuthToken token = AuthService.login(args[0], args[1]).getToken();
-        int port = 10000;
-        CallbackServerConfig cfg = new CallbackServerConfigBuilder(
-                new URL("https://ci.kbase.us/services/"),
-                getCallbackUrl(port),
-                Paths.get("temp_CallbackServer"),
-                new LineLogger() {
-                    @Override
-                    public void logNextLine(String line, boolean isError) {
-                        System.out.println("Docker logger std" +
-                                (isError ? "err" : "out") + ": " + line);
-                    }
-                })
-                .withDockerURI(new URI("unix:///var/run/docker.sock"))
-                .build();
-
-        ModuleRunVersion runver = new ModuleRunVersion(
-                new URL("https://github.com/mcreosote/foo"),
-                new ModuleMethod("foo.bar"), "hash", "1034.1.0", "dev");
-        
-        NJSCallbackServer serv = new NJSCallbackServer(token, cfg, runver,
-                new LinkedList<UObject>(), new LinkedList<String>(), null, null);
-        
-        new Thread(new CallbackRunner(serv, port)).start();
-        System.out.println("Started on port " + port);
-        System.out.println("workdir: " + cfg.getWorkDir());
     }
 }
