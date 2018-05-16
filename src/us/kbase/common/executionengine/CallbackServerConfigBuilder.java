@@ -47,7 +47,7 @@ public class CallbackServerConfigBuilder {
     private URI dockerURI = null;
     final private URL callbackURL;
     final private Path workDir;
-    final private Path refDataDir;
+    final private Path refDataBase;
     final private LineLogger logger;
     
     public CallbackServerConfigBuilder(
@@ -63,7 +63,7 @@ public class CallbackServerConfigBuilder {
             final URL catalogURL,
             final URL callbackURL,
             final Path workDir,
-            final Path refDataDir,
+            final Path refDataBase,
             final LineLogger logger) {
         super();
         checkNulls(kbaseEndpointURL, authServiceURL, callbackURL, workDir, logger);
@@ -80,7 +80,7 @@ public class CallbackServerConfigBuilder {
         this.catalogURL = optionalURL(catalogURL, kbaseEndpointURL, EP_CAT);
         this.callbackURL = callbackURL;
         this.workDir = workDir;
-        this.refDataDir = refDataDir;
+        this.refDataBase = refDataBase;
         this.logger = logger;
     }
     
@@ -88,7 +88,7 @@ public class CallbackServerConfigBuilder {
             final Map<String, String> config,
             final URL callbackURL,
             final Path workDir,
-            final Path refDataDir,
+            final Path refDataBase,
             final LineLogger logger) {
         super();
         checkNulls(config, callbackURL, workDir, logger);
@@ -126,7 +126,7 @@ public class CallbackServerConfigBuilder {
                 true);
         this.callbackURL = callbackURL;
         this.workDir = workDir;
-        this.refDataDir = refDataDir;
+        this.refDataBase = refDataBase;
         this.logger = logger;
     }
     
@@ -140,7 +140,7 @@ public class CallbackServerConfigBuilder {
         return new CallbackServerConfig(
                 kbaseEndpointURL, workspaceURL, shockURL, userJobStateURL, 
                 handleURL, srvWizURL, njswURL, authServiceURL, authAllowInsecure,
-                catalogURL, dockerURI, callbackURL, workDir, refDataDir, logger);
+                catalogURL, dockerURI, callbackURL, workDir, refDataBase, logger);
     }
 
 
@@ -248,12 +248,12 @@ public class CallbackServerConfigBuilder {
         final private URL callbackURL;
         final private Path workDir;
         final private LineLogger logger;
-        final public Path refDataDir;
+        final public Path refDataBase;
 
         private CallbackServerConfig(URL kbaseEndpointURL, URL workspaceURL, URL shockURL, 
                 URL userJobStateURL, URL handleURL, URL srvWizURL, URL njswURL, URL authServiceURL,
                 String authAllowInsecure, URL catalogURL, URI dockerURI, URL callbackURL, 
-                Path workDir, Path refDataDir, LineLogger logger) {
+                Path workDir, Path refDataBase, LineLogger logger) {
             super();
             this.kbaseEndpointURL = kbaseEndpointURL;
             this.workspaceURL = workspaceURL;
@@ -268,7 +268,7 @@ public class CallbackServerConfigBuilder {
             this.dockerURI = dockerURI;
             this.callbackURL = callbackURL;
             this.workDir = workDir;
-            this.refDataDir = refDataDir;
+            this.refDataBase = refDataBase;
             this.logger = logger;
         }
 
