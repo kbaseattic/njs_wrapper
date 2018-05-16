@@ -367,7 +367,7 @@ public class SDKLocalMethodRunner {
                         requestedRelease);
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
-                                jobDir.toPath(), log).build();
+                                jobDir.toPath(), refDataDir.toPath(), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects(), additionalBinds, cancellationChecker);

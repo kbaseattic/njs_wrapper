@@ -51,7 +51,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         final Path sharedScratchDir = getSharedScratchDir(config);
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile.toFile(), token,
-                config.getLogger(), outputFile.toFile(), false, null,
+                config.getLogger(), outputFile.toFile(), false, config.refDataDir.toFile(),
                 sharedScratchDir.toFile(), config.getCallbackURL(),
                 jobId.toString(), additionalBinds, cancellationChecker, null);
         return outputFile;
