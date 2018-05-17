@@ -159,6 +159,6 @@ public class ExecTask {
 
     @JsonProperty("last_job_state")
     public void setLastJobState(String lastJobState) {
-        this.lastJobState = taskId;
+        this.lastJobState = lastJobState;
     }
 }

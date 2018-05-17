@@ -106,13 +106,10 @@ public class DockerRunner {
             }
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
 
-//            try {
-//                String networkMode = System.getenv("KB_DOCKER_NETWORK");
-//                if(networkMode != null){
-//                    cntCmd.withNetworkMode(networkMode);
-//                }
-//            }
-//            catch (Exception ignore){}
+            String miniKB = System.getenv("MINI_KB");
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")){
+                cntCmd.withNetworkMode("minikb_default");
+            }
 
 
             CreateContainerResponse resp = cntCmd.exec();

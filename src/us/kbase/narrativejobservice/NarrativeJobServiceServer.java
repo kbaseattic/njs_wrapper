@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-import us.kbase.narrativejobservice.db.UserJobStateMongoDb;
+
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
@@ -120,8 +120,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     private static Map<String, String> config = null;
     
     private static ExecEngineMongoDb db = null;
-    private static UserJobStateMongoDb ujsDB = null;
-    
+
     private final ErrorLogger logger;
     
     private final static long maxRPCPackageSize = JobRunnerConstants.MAX_IO_BYTE_SIZE;
@@ -201,19 +200,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 	    return db;
 	}
 
-    public static UserJobStateMongoDb getUserJobStateMongoDb(Map<String, String> config) throws Exception {
-        if (ujsDB == null) {
-            String hosts = config.get(CFG_PROP_UJS_MONGO_HOSTS);
-            if (hosts == null)
-                throw new IllegalStateException("Parameter " + CFG_PROP_UJS_MONGO_HOSTS + " is not defined in configuration");
-            String dbname = config.get(CFG_PROP_UJS_MONGO_DBNAME);
-            if (dbname == null)
-                throw new IllegalStateException("Parameter " + CFG_PROP_UJS_MONGO_DBNAME + " is not defined in configuration");
-            ujsDB = new UserJobStateMongoDb(hosts, dbname, config.get(CFG_PROP_UJS_MONGO_USER),
-                    config.get(CFG_PROP_UJS_MONGO_PWD), null);
-        }
-        return ujsDB;
-    }
 
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
             String requestHeaderXForwardedFor, ResponseStatusSetter response, OutputStream output,
