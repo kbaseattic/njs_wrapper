@@ -11,6 +11,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -214,8 +215,8 @@ public class SDKLocalMethodRunner {
             }
             String imageName = mv.getDockerImgName();
             File refDataDir = null;
+            String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
             if (mv.getDataFolder() != null && mv.getDataVersion() != null) {
-                String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
                 if (refDataBase == null)
                     throw new IllegalStateException("Reference data parameters are defined for image but " + 
                             NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
@@ -367,7 +368,7 @@ public class SDKLocalMethodRunner {
                         requestedRelease);
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
-                                jobDir.toPath(), log).build();
+                                jobDir.toPath(), Paths.get(refDataBase), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects(), additionalBinds, cancellationChecker);
