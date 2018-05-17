@@ -36,7 +36,7 @@ Then, you would need to log into the condor_workers and swap out the `/kb/deploy
 * Copy over the dev_tools/deploy_local_minikb.cfg to /njs_wrapper/njs_wrapper/deploy.cfg to do local testing
 * Ensure the test.cfg points to the same `self.external.url` as in the deploy.cfg
 * Ensure the token is populated to the minikb token
-* Edit the $KB_DEPLOYMENT_CONFIG and add the correct ci catalog admin token &&  `touchjettybase/webapps/root.war`
+* Edit the $KB_DEPLOYMENT_CONFIG and add the correct ci catalog admin token &&  `touch jettybase/webapps/root.war`
 * Ensure that the src/us/kbase/narrativejobservice/sdkjobs/DockerRunner.java runner has the correct network with
 
 ```
