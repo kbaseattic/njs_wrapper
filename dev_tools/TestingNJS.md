@@ -37,6 +37,7 @@ Rebuild docker images with
 `make docker_image`
 
 Then you can edit the execution-engine.yml and add your new image tag there
+```
 njs:
   image: YourNewImageName
 
@@ -45,6 +46,7 @@ condor_worker_max:
   
 condor_worker_min:
   image: YourNewImageName
+```
 
 
 # Testing in mini_kb
