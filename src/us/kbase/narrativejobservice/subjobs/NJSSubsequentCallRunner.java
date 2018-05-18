@@ -2,14 +2,12 @@ package us.kbase.narrativejobservice.subjobs;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 
 import com.github.dockerjava.api.model.Bind;
 
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.ModuleVersion;
 import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.common.executionengine.SubsequentCallRunner;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
@@ -42,7 +40,6 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
             final CallbackServerConfig config,
             final String imageName,
             final String moduleName,
-            final ModuleVersion moduleVersion,
             final AuthToken token)
             throws IOException, InterruptedException {
         final Path outputFile = getJobWorkDir(jobId, config, imageName)
@@ -63,7 +60,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         }
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile.toFile(), token,
-                config.getLogger(), outputFile.toFile(), false, refDataDir.toFile(),
+                config.getLogger(), outputFile.toFile(), false, null,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
                 jobId.toString(), additionalBinds, cancellationChecker, null);
         return outputFile;

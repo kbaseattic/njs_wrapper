@@ -3,6 +3,8 @@ package us.kbase.common.executionengine;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URL;
@@ -200,7 +202,10 @@ public abstract class CallbackServer extends JsonServerServlet {
             try {
                 jsonRpcResponse = handleCall(rpcCallData, token);
             } catch (Exception ex) {
-                ex.printStackTrace();
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                ex.printStackTrace(pw);
+                cbLog(sw.toString());
                 errorMessage = ex.getMessage();
             }
             try {
