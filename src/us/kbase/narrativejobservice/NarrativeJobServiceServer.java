@@ -4,7 +4,7 @@ import java.io.File;
 import java.util.List;
 import java.util.Map;
 
-
+import us.kbase.narrativejobservice.db.UserJobStateMongoDb;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.service.JsonServerMethod;
 import us.kbase.common.service.JsonServerServlet;
@@ -38,7 +38,6 @@ import us.kbase.common.service.UObject;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
-import us.kbase.narrativejobservice.Reaper;
 //END_HEADER
 
 /**
@@ -100,12 +99,6 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
-
-    public static final String CFG_PROP_UJS_MONGO_HOSTS = "ujs-mongodb-host";
-    public static final String CFG_PROP_UJS_MONGO_DBNAME = "ujs-mongodb-database";
-    public static final String CFG_PROP_UJS_MONGO_USER = "ujs-mongodb-user";
-    public static final String CFG_PROP_UJS_MONGO_PWD = "ujs-mongodb-pwd";
-
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     public static final String CFG_PROP_AUTH_SERVICE_URL = 
@@ -200,6 +193,19 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 	    return db;
 	}
 
+    public static UserJobStateMongoDb getUserJobStateMongoDb(Map<String, String> config) throws Exception {
+        if (ujsDB == null) {
+            String hosts = config.get(CFG_PROP_UJS_MONGO_HOSTS);
+            if (hosts == null)
+                throw new IllegalStateException("Parameter " + CFG_PROP_UJS_MONGO_HOSTS + " is not defined in configuration");
+            String dbname = config.get(CFG_PROP_UJS_MONGO_DBNAME);
+            if (dbname == null)
+                throw new IllegalStateException("Parameter " + CFG_PROP_UJS_MONGO_DBNAME + " is not defined in configuration");
+            ujsDB = new UserJobStateMongoDb(hosts, dbname, config.get(CFG_PROP_UJS_MONGO_USER),
+                    config.get(CFG_PROP_UJS_MONGO_PWD), null);
+        }
+        return ujsDB;
+    }
 
     protected void processRpcCall(RpcCallData rpcCallData, String token, JsonServerSyslog.RpcInfo info, 
             String requestHeaderXForwardedFor, ResponseStatusSetter response, OutputStream output,
