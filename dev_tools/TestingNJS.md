@@ -27,9 +27,25 @@ see [restart_minikb.sh](restart_minikb.sh)
 
 # Redeploying your changes
 
+## Manual Way
 When you compile njs_wrapper, a jar and war file are created in `njs_wrapper/dist`. You would need to log into the njs container and swap out the 
 `/kb/deployment/jettybase/webapps/root.war` file with your new `dist/NJSWrapper.war`
 Then, you would need to log into the condor_workers and swap out the `/kb/deployment/lib/NJSWrapper.jar` with the new `NJSWrapper.jar`.
+
+## Automated Way
+Rebuild docker images with
+`make docker_image`
+
+Then you can edit the execution-engine.yml and add your new image tag there
+njs:
+  image: YourNewImageName
+
+condor_worker_max:
+  image: YourNewImageName
+  
+condor_worker_min:
+  image: YourNewImageName
+
 
 # Testing in mini_kb
 
@@ -46,3 +62,7 @@ cntCmd.withNetworkMode("mini_kb");
  * Install test dependencies with dev_tools/install.sh
  * Ensure you are the kbase user 
  * Run a test such as `cd /njs_wrapper/njs_wrapper/ && ant testCondorintegration`
+### Test from your local machine
+Add `127.0.0.01 nginx` to your hosts file
+
+  
