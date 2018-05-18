@@ -117,7 +117,7 @@ public class CallbackServerTest {
         final CallbackServerConfig cbcfg =
                 new CallbackServerConfigBuilder(
                 TesterUtils.loadConfig(), callbackUrl,
-                        temp, log).build();
+                        temp, null, log).build();
         final JsonServerServlet callback = new NJSCallbackServer(
                 token, cbcfg, runver, params, wsobjs, null, null);
         final Server callbackServer = new Server(callbackPort);
