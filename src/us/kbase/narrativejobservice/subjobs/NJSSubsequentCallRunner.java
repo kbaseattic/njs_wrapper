@@ -53,11 +53,14 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 "Running docker container for image: " + imageName, false);
         final Path sharedScratchDir = getSharedScratchDir(config);
         // Create a refdata path in the format 'dataBase/dataFolder/dataVersion'
-        final Path refDataDir = Paths.get(
-            config.refDataBase.toString(),
-            moduleVersion.getDataFolder(),
-            moduleVersion.getDataVersion()
-        );
+        Path refDataDir = null;
+        if (moduleVersion.getDataFolder() != null && moduleVersion.getDataVersion() != null) {
+            refDataDir = Paths.get(
+                config.refDataBase.toString(),
+                moduleVersion.getDataFolder(),
+                moduleVersion.getDataVersion()
+            );
+        }
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, refDataDir.toFile(),
