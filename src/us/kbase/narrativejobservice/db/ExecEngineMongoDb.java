@@ -2,12 +2,11 @@ package us.kbase.narrativejobservice.db;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 
+import com.mongodb.*;
+import com.mongodb.client.MongoDatabase;
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
 import org.slf4j.Logger;
@@ -18,12 +17,6 @@ import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.google.common.collect.Lists;
-import com.mongodb.DB;
-import com.mongodb.DuplicateKeyException;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.MongoException;
-import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
 	private DB mongo;
@@ -161,7 +154,7 @@ public class ExecEngineMongoDb {
 			.setLevel(Level.OFF);
 			@SuppressWarnings("deprecation")
 			final MongoClientOptions opts = MongoClientOptions.builder()
-			.autoConnectRetry(true).build();
+			.connectTimeout(120000).build();
 			try {
 				List<ServerAddress> addr = new ArrayList<ServerAddress>();
 				for (String s: hosts.split(","))
@@ -179,42 +172,52 @@ public class ExecEngineMongoDb {
 		return client;
 	}
 
+
+	private synchronized static MongoClient getMongoClientWithCredential(final String hosts, MongoCredential credential)
+			throws UnknownHostException, InvalidHostException {
+		//Only make one instance of MongoClient per JVM per mongo docs
+		final MongoClient client;
+		if (!HOSTS_TO_CLIENT.containsKey(hosts)) {
+			// Don't print to stderr
+			java.util.logging.Logger.getLogger("com.mongodb")
+					.setLevel(Level.OFF);
+			@SuppressWarnings("deprecation")
+			final MongoClientOptions opts = MongoClientOptions.builder()
+					.connectTimeout(120000).build();
+			try {
+				List<ServerAddress> addr = new ArrayList<ServerAddress>();
+				for (String s: hosts.split(","))
+					addr.add(new ServerAddress(s));
+				client = new MongoClient(addr, Arrays.asList(credential), opts);
+			} catch (NumberFormatException nfe) {
+				//throw a better exception if 10gen ever fixes this
+				throw new InvalidHostException(hosts
+						+ " is not a valid mongodb host");
+			}
+			HOSTS_TO_CLIENT.put(hosts, client);
+		} else {
+			client = HOSTS_TO_CLIENT.get(hosts);
+		}
+		return client;
+	}
+
 	@SuppressWarnings("deprecation")
-	private static DB getDB(final String hosts, final String database,
+	private static DB getDB(final String hosts, final String databaseName,
 			final String user, final String pwd,
 			final int retryCount, final int logIntervalCount)
 					throws UnknownHostException, InvalidHostException, IOException,
 					MongoAuthException, InterruptedException {
-		if (database == null || database.isEmpty()) {
+		if (databaseName == null || databaseName.isEmpty()) {
 			throw new IllegalArgumentException(
 					"database may not be null or the empty string");
 		}
-		final DB db = getMongoClient(hosts).getDB(database);
-		if (user != null && pwd != null) {
-			int retries = 0;
-			while (true) {
-				try {
-					db.authenticate(user, pwd.toCharArray());
-					break;
-				} catch (MongoException.Network men) {
-					if (retries >= retryCount) {
-						throw (IOException) men.getCause();
-					}
-					if (retries % logIntervalCount == 0) {
-						getLogger().info(
-								"Retrying MongoDB connection {}/{}, attempt {}/{}",
-								hosts, database, retries, retryCount);
-					}
-					Thread.sleep(1000);
-				}
-				retries++;
-			}
-		}
+		MongoCredential credential = MongoCredential.createCredential(user, databaseName, pwd.toCharArray());
+		final DB db = getMongoClientWithCredential(hosts,credential).getDB(databaseName);
 		try {
 			db.getCollectionNames();
 		} catch (MongoException me) {
 			throw new MongoAuthException("Not authorized for database "
-					+ database, me);
+					+ databaseName, me);
 		}
 		return db;
 	}

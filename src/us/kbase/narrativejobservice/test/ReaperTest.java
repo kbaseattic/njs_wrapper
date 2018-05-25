@@ -4,7 +4,7 @@ import org.ini4j.InvalidFileFormatException;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import us.kbase.narrativejobservice.ReaperPrototype;
+import us.kbase.narrativejobservice.ReaperService;
 
 import org.ini4j.InvalidFileFormatException;
 import org.junit.Before;
@@ -34,14 +34,22 @@ public class ReaperTest {
     static String jobStatusURL;
 
 
+//    @Test
+//    public void testSimple() throws Exception {
+//
+//        ReaperPrototype r = new ReaperPrototype(token, jobStatusURL);
+//        System.out.println("STATUS OF REPEAR=" + r.checkCondor());
+//        assert(false);
+//
+//    }
+
     @Test
     public void testSimple() throws Exception {
 
-        ReaperPrototype r = new ReaperPrototype(token, jobStatusURL);
-        System.out.println("STATUS OF REPEAR=" + r.checkCondor());
-        assert(false);
+        ReaperService r = new ReaperService();
 
     }
+
 
 
     @BeforeClass
