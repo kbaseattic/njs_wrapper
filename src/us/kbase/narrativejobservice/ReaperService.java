@@ -24,6 +24,8 @@ import static com.mongodb.client.model.Updates.*;
 
 import com.mongodb.client.result.UpdateResult;
 
+import static com.mongodb.client.model.Projections.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -38,24 +40,27 @@ public class ReaperService {
 
 
         MongoCredential credential = MongoCredential.createCredential(user, db, password.toCharArray());
-
-        MongoClient mongoClient = new com.mongodb.MongoClient(new ServerAddress("host1", 27017),
-                Arrays.asList(credential));
+// Arrays.asList(credential)
+        MongoClient mongoClient = new com.mongodb.MongoClient(new ServerAddress("localhost", 27017)
+        );
         MongoDatabase database = mongoClient.getDatabase(db);
         MongoCollection<Document> collection = database.getCollection("jobstate");
 
-        System.out.println("HEY");
 
-        Block<Document> getID = new Block<Document>() {
-            @Override
-            public void apply(final Document document) {
-                System.out.println(document.toJson());
-            }
-        };
+        final List<String> idList = new ArrayList<>();
 
+        collection.find(eq("complete", false)).projection(include("_id")).forEach(
+                new Block<Document>() {
+                    @Override
+                    public void apply(final Document document) {
 
+                        idList.add(document.get("_id").toString());
 
-        collection.find(eq("complete", false)).forEach(getID);
+                    }
+                });
+
+        System.out.println("Incomplete IDS are");
+        System.out.println(idList);
     }
 
 

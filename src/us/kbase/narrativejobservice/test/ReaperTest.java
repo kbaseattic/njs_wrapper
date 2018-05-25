@@ -46,7 +46,9 @@ public class ReaperTest {
     @Test
     public void testSimple() throws Exception {
 
+
         ReaperService r = new ReaperService();
+        r.init();
 
     }
 
