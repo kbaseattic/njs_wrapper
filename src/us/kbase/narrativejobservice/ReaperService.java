@@ -1,97 +1,107 @@
 package us.kbase.narrativejobservice;
 
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientURI;
-import com.mongodb.ServerAddress;
-import com.mongodb.MongoCredential;
 
-import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.MongoCollection;
-
-import org.bson.Document;
-
-import java.util.Arrays;
-
-import com.mongodb.Block;
-
-import com.mongodb.client.MongoCursor;
-
-import static com.mongodb.client.model.Filters.*;
-
-import com.mongodb.client.result.DeleteResult;
-
-import static com.mongodb.client.model.Updates.*;
-
-import com.mongodb.client.result.UpdateResult;
-
-import static com.mongodb.client.model.Projections.*;
+import com.mongodb.*;
+import org.bson.types.ObjectId;
+import us.kbase.common.utils.CondorUtils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 
 public class ReaperService {
 
-    public void init() throws Exception {
-        //http://mongodb.github.io/mongo-java-driver/3.4/driver/tutorials/authentication/
-        String user = "bsadkhin";
-        String password = "password";
-        String db = "userjobstate";
+    MongoClient mongoClient;
+    DB db;
+    DBCollection coll;
 
 
-        MongoCredential credential = MongoCredential.createCredential(user, db, password.toCharArray());
-// Arrays.asList(credential)
-        MongoClient mongoClient = new com.mongodb.MongoClient(new ServerAddress("localhost", 27017)
-        );
-        MongoDatabase database = mongoClient.getDatabase(db);
-        MongoCollection<Document> collection = database.getCollection("jobstate");
-
+    /**
+     * Create a new instance of the reaper service and select the jobstate database on ci-mongo
+     *
+     * @throws Exception
+     */
+    public ReaperService() throws Exception {
+        //TODO Auth from file
+        this.mongoClient = new MongoClient("ci-mongo", 27017);
+        this.db = this.mongoClient.getDB("userjobstate");
+        this.coll = this.db.getCollection("jobstate");
+    }
+    /**
+     * Get a list of incomplete jobs from the UserJobState db.
+     *
+     * @return The complete list of UJS Job Ids that are marked as incomplete
+     */
+    public List<String> getIncompleteJobs() {
 
         final List<String> idList = new ArrayList<>();
-
-        collection.find(eq("complete", false)).projection(include("_id")).forEach(
-                new Block<Document>() {
-                    @Override
-                    public void apply(final Document document) {
-
-                        idList.add(document.get("_id").toString());
-
-                    }
-                });
-
-        System.out.println("Incomplete IDS are");
-        System.out.println(idList);
+        BasicDBObject query = new BasicDBObject("complete", false);
+        DBCursor cursor = coll.find(query);
+        try {
+            while (cursor.hasNext()) {
+                idList.add(cursor.next().get("_id").toString());
+            }
+        } finally {
+            cursor.close();
+        }
+        return idList;
     }
 
+    /**
+     * Get a list of jobs that are marked as incomplete in UJS, and are either
+     * A) Not found in Condor or
+     * B) Are found in HTCondor and are marked Removed or Submission_Err
+     * jobStatus = {"Unexpanded": "0", "Idle": "1", "Running": "2",  "Removed": "3", "Completed": "4", "Held": "5", "Submission_Err": "6"}
+     *
+     * @return A list of ghost jobs to be removed
+     * @throws Exception
+     */
+    public List<String> getGhostJobs() throws Exception {
+        List<String> incompleteJobs = this.getIncompleteJobs();
+        HashMap<String, String> runningCondorJobs = CondorUtils.getAllJobStates();
 
-//    private synchronized static MongoClient getMongoClient(final String hosts)
-//            throws UnknownHostException, InvalidHostException {
-////Only make one instance of MongoClient per JVM per mongo docs
-//        final MongoClient client;
-//        if (!HOSTS_TO_CLIENT.containsKey(hosts)) {
-//            // Don't print to stderr
-//            java.util.logging.Logger.getLogger("com.mongodb")
-//                    .setLevel(Level.OFF);
-//            @SuppressWarnings("deprecation") final MongoClientOptions opts = MongoClientOptions.builder()
-//                    .autoConnectRetry(true).build();
-//            try {
-//                List<ServerAddress> addr = new ArrayList<ServerAddress>();
-//                for (String s : hosts.split(","))
-//                    addr.add(new ServerAddress(s));
-//                client = new MongoClient(addr, opts);
-//            } catch (NumberFormatException nfe) {
-//                //throw a better exception if 10gen ever fixes this
-//                throw new InvalidHostException(hosts
-//                        + " is not a valid mongodb host");
-//            }
-//            HOSTS_TO_CLIENT.put(hosts, client);
-//        } else {
-//            client = HOSTS_TO_CLIENT.get(hosts);
-//        }
-//        return client;
-//    }
+        List<String> deadJobs = new ArrayList<>();
+        for (String jobID : incompleteJobs) {
+            if (runningCondorJobs.containsKey(jobID)) {
+                String status = runningCondorJobs.get(jobID);
+                if (status == "3" || status == "6")
+                    deadJobs.add(jobID);
+            } else {
+                deadJobs.add(jobID);
+            }
+        }
+        return deadJobs;
+    }
 
+    /**
+     * Get ghost jobs and then purge them by seting their status in UJS to
+     * complete=true, error=true
+     *
+     * @return The result of the removed jobs, or Null
+     * @throws Exception
+     */
+    public BulkWriteResult purgeGhostJobs() throws Exception {
+        List<String> ghostJobs = getGhostJobs();
+        BulkWriteResult result;
+        if (ghostJobs.size() > 0) {
+            BulkWriteOperation builder = coll.initializeOrderedBulkOperation();
 
+            for (String jobID : ghostJobs) {
+
+                BasicDBObject updateFields = new BasicDBObject();
+                updateFields.append("complete", true);
+                updateFields.append("error", true);
+                BasicDBObject setQuery = new BasicDBObject();
+                setQuery.append("$set", updateFields);
+                builder.find(new BasicDBObject("_id", new ObjectId(jobID))).update(setQuery);
+            }
+            result = builder.execute();
+        } else {
+            System.out.println("No ghost jobs to purge");
+        }
+        return null;
+    }
 }
 
 

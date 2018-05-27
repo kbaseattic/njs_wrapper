@@ -4,12 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-
 import us.kbase.auth.AuthToken;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -129,7 +129,7 @@ public class CondorUtils {
         if (jobID == null) {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
-        condorSubmitFile.delete();
+        //condorSubmitFile.delete();
         return jobID;
     }
 
@@ -164,6 +164,17 @@ public class CondorUtils {
             retries--;
         }
         return result;
+    }
+
+    public static HashMap<String, String> getAllJobStates() throws Exception {
+        String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "LastJobStatus"};
+        List<String> processResult = runProcess(cmdScript).stdout;
+        HashMap<String, String> JobStates = new HashMap<>();
+        for (String line : processResult) {
+            String[] idStatusLine = line.split(" ");
+            JobStates.put(idStatusLine[0], idStatusLine[1]);
+        }
+        return JobStates;
     }
 
     public static String getJobState(String ujsJobId) throws Exception {

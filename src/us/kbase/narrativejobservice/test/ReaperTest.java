@@ -1,9 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import org.ini4j.InvalidFileFormatException;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import us.kbase.narrativejobservice.ReaperService;
 
 import org.ini4j.InvalidFileFormatException;
@@ -19,13 +17,19 @@ import us.kbase.narrativejobservice.test.TesterUtils;
 import us.kbase.workspace.CreateWorkspaceParams;
 import us.kbase.workspace.WorkspaceClient;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.Map;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
+
 
 
 public class ReaperTest {
@@ -45,10 +49,9 @@ public class ReaperTest {
 
     @Test
     public void testSimple() throws Exception {
-
-
         ReaperService r = new ReaperService();
-        r.init();
+        System.out.println(r.getIncompleteJobs());
+        System.out.println(r.purgeGhostJobs());
 
     }
 
@@ -64,6 +67,15 @@ public class ReaperTest {
 //        setupWorkSpace();
 
 
+    }
+
+
+    @Test
+    public void testNonRootUser() throws Exception {
+        Process p = Runtime.getRuntime().exec("whoami");
+        BufferedReader buffer = new BufferedReader(new InputStreamReader((p.getInputStream())));
+        String userName = buffer.lines().collect(Collectors.joining("\n"));
+        Assert.assertFalse("FAILURE: Do not run these tests as ROOT", userName.equals("root"));
     }
 
 
