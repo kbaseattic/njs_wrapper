@@ -44,6 +44,11 @@ mongodb-database = {{ default .Env.mongodb_database "exec_engine" }}
 mongodb-user = {{ default .Env.mongodb_user "" }}
 mongodb-pwd = {{ default .Env.mongodb_pwd "" }}
 
+ujs-mongodb-host = {{ default .Env.ujs_mongodb_host "localhost:27017" }}
+ujs-mongodb-database = {{ default .Env.ujs_mongodb_database "userjobstate" }}
+ujs-mongodb-user = {{ default .Env.ujs_mongodb_user "" }}
+ujs-mongodb-pwd = {{ default .Env.ujs_mongodb_pwd "" }}
+
 narrative.proxy.sharing.user={{ default .Env.narrative_proxy_sharing_user "narrativejoblistener" }}
 
 # This next flag really doesn't make sense to me as a startup option, but copying from CI config
