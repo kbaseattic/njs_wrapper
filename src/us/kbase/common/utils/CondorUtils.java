@@ -129,7 +129,7 @@ public class CondorUtils {
         if (jobID == null) {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
-        //condorSubmitFile.delete();
+        condorSubmitFile.delete();
         return jobID;
     }
 
