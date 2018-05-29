@@ -97,6 +97,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_USER_UJS = "ujs-mongodb-user";
     public static final String CFG_PROP_MONGO_PWD_UJS = "ujs-mongodb-pwd";
 
+    public static final String CFG_PROP_CONDOR_JOB_DATA_DIR= "condor-submit-workdir";
+
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     public static final String CFG_PROP_AUTH_SERVICE_URL =

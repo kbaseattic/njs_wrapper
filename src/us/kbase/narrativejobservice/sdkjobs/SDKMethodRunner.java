@@ -147,7 +147,8 @@ public class SDKMethodRunner {
 			//TODO REMOVE
 			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
 			//TODO MOVE TO CONFIG FILE
-			String baseDir = String.format("/mnt/awe/condor/%s/", authPart.getUserName());
+			String baseDir = config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR);
+			baseDir = String.format("%s/%s/", baseDir, authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
 			String schedulerType = "condor";
