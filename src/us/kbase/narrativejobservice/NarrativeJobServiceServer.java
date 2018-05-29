@@ -67,14 +67,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             JobRunnerConstants.CFG_PROP_HANDLE_SRV_URL;
     public static final String CFG_PROP_SRV_WIZ_URL = 
             JobRunnerConstants.CFG_PROP_SRV_WIZ_URL;
-    
-    
-    
     public static final String CFG_PROP_CONDOR_MODE = "condor.mode";
     public static final String CFG_PROP_CONDOR_SUBMIT_DESC = "condor.submit.desc.file.path";
-    
-    
-    
     public static final String CFG_PROP_AWE_SRV_URL = "awe.srv.url";
     public static final String CFG_PROP_AWE_CLIENT_SCRATCH = "awe.client.scratch";
     public static final String CFG_PROP_AWE_CLIENT_DOCKER_URI =
@@ -94,10 +88,20 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AWE_READONLY_ADMIN_USER = "awe.readonly.admin.user";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_PWD = "awe.readonly.admin.pwd";
     public static final String CFG_PROP_AWE_READONLY_ADMIN_TOKEN = "awe.readonly.admin.token";
+
     public static final String CFG_PROP_MONGO_HOSTS = "mongodb-host";
     public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
+
+    public static final String CFG_PROP_MONGO_HOSTS_UJS = "ujs-mongodb-host";
+    public static final String CFG_PROP_MONGO_DBNAME_UJS = "ujs-mongodb-database";
+    public static final String CFG_PROP_MONGO_USER_UJS = "ujs-mongodb-user";
+    public static final String CFG_PROP_MONGO_PWD_UJS = "ujs-mongodb-pwd";
+
+
+
+
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
     public static final String CFG_PROP_AUTH_SERVICE_URL = 
@@ -367,6 +371,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                     "is not defined: " + CFG_PROP_CATALOG_ADMIN_USER + " or " +
                     CFG_PROP_CATALOG_ADMIN_TOKEN);
         }
+
         //END_CONSTRUCTOR
     }
 

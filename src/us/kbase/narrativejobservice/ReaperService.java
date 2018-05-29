@@ -5,7 +5,10 @@ import com.mongodb.*;
 import org.bson.types.ObjectId;
 import us.kbase.common.utils.CondorUtils;
 
+import java.text.SimpleDateFormat;
+
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 
@@ -23,11 +26,20 @@ public class ReaperService {
      * @throws Exception
      */
     public ReaperService() throws Exception {
-        //TODO Auth from file
-        this.mongoClient = new MongoClient("ci-mongo", 27017);
+        this.mongoClient = new MongoClient("ci-mongo:27017");
         this.db = this.mongoClient.getDB("userjobstate");
         this.coll = this.db.getCollection("jobstate");
     }
+
+    public ReaperService(String userName, String password, String host, String database) throws Exception {
+        //TODO Add support for replicate dbs
+        List<MongoCredential> mc_list = new ArrayList<MongoCredential>();
+        mc_list.add(MongoCredential.createMongoCRCredential(userName, database, password.toCharArray()));
+        this.mongoClient = new MongoClient(new ServerAddress(host), mc_list);
+        this.db = this.mongoClient.getDB("userjobstate");
+        this.coll = this.db.getCollection("jobstate");
+    }
+
     /**
      * Get a list of incomplete jobs from the UserJobState db.
      *
@@ -59,6 +71,10 @@ public class ReaperService {
      */
     public List<String> getGhostJobs() throws Exception {
         List<String> incompleteJobs = this.getIncompleteJobs();
+
+        //Give condor a chance
+        //Thread.sleep(30000);
+
         HashMap<String, String> runningCondorJobs = CondorUtils.getAllJobStates();
 
         List<String> deadJobs = new ArrayList<>();
@@ -86,7 +102,6 @@ public class ReaperService {
         BulkWriteResult result;
         if (ghostJobs.size() > 0) {
             BulkWriteOperation builder = coll.initializeOrderedBulkOperation();
-
             for (String jobID : ghostJobs) {
 
                 BasicDBObject updateFields = new BasicDBObject();
@@ -98,7 +113,7 @@ public class ReaperService {
             }
             result = builder.execute();
         } else {
-            System.out.println("No ghost jobs to purge");
+            System.err.println("No ghost jobs to purge. " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
         return null;
     }

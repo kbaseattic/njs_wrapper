@@ -1,51 +1,28 @@
 package us.kbase.narrativejobservice.test;
 
-import org.ini4j.InvalidFileFormatException;
-import org.junit.*;
-import us.kbase.narrativejobservice.ReaperService;
-
-import org.ini4j.InvalidFileFormatException;
-import org.junit.Before;
+import com.mongodb.DB;
+import com.mongodb.MongoClient;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import us.kbase.auth.AuthToken;
-import us.kbase.auth.ConfigurableAuthService;
-import us.kbase.common.service.JsonClientException;
-import us.kbase.common.service.UObject;
-import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
+import us.kbase.narrativejobservice.ReaperService;
 import us.kbase.narrativejobservice.test.TesterUtils;
-import us.kbase.workspace.CreateWorkspaceParams;
-import us.kbase.workspace.WorkspaceClient;
 
 import java.io.BufferedReader;
-import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URL;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Properties;
 import java.util.Map;
-import java.util.List;
+import java.util.Properties;
 import java.util.stream.Collectors;
-
-import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
-
 
 
 public class ReaperTest {
 
     static AuthToken token;
     static String jobStatusURL;
+    static Properties props;
+    static Map<String, String> config;
 
-
-//    @Test
-//    public void testSimple() throws Exception {
-//
-//        ReaperPrototype r = new ReaperPrototype(token, jobStatusURL);
-//        System.out.println("STATUS OF REPEAR=" + r.checkCondor());
-//        assert(false);
-//
-//    }
 
     @Test
     public void testSimple() throws Exception {
@@ -55,20 +32,36 @@ public class ReaperTest {
 
     }
 
+    @Test
+    public void testWithAuthSimple() throws Exception {
+        String host = config.get("ujs-mongodb-host");
+        String db = config.get("ujs-mongodb-database");
+        String user = config.get("ujs-mongodb-user");
+        String pwd = config.get("ujs-mongodb-pwd");
 
+        ReaperService r = new ReaperService(user, pwd, host, db);
+        System.out.println(r.getIncompleteJobs());
+        System.out.println(r.purgeGhostJobs());
+    }
+
+    private static void createMongoUserForMiniKB() throws Exception {
+        String host = config.get("ujs-mongodb-host");
+        String dbName = config.get("ujs-mongodb-database");
+        String user = config.get("ujs-mongodb-user");
+        String pwd = config.get("ujs-mongodb-pwd");
+
+        MongoClient mongo = new MongoClient(host);
+        DB db = mongo.getDB(dbName);
+        db.addUser(user, pwd.toCharArray(), false);
+    }
 
     @BeforeClass
     public static void setUpStuff() throws Exception {
-        Properties props = TesterUtils.props();
+        props = TesterUtils.props();
         token = TesterUtils.token(props);
-//        String njs_url = props.getProperty("njs_server_url");
-        jobStatusURL = props.getProperty("jobstatus_url");
-//        String config = TesterUtils.loadConfig();
-//        setupWorkSpace();
-
-
+        config = TesterUtils.loadConfig();
+        createMongoUserForMiniKB();
     }
-
 
     @Test
     public void testNonRootUser() throws Exception {
@@ -77,6 +70,4 @@ public class ReaperTest {
         String userName = buffer.lines().collect(Collectors.joining("\n"));
         Assert.assertFalse("FAILURE: Do not run these tests as ROOT", userName.equals("root"));
     }
-
-
 }
