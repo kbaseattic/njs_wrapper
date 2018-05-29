@@ -166,6 +166,11 @@ public class CondorUtils {
         return result;
     }
 
+    /**
+     * Get a list of jobs ids and job statuses for all jobs recorded in condor
+     * @return A List of job IDS and their respective statuses.
+     * @throws Exception
+     */
     public static HashMap<String, String> getAllJobStates() throws Exception {
         String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "LastJobStatus"};
         List<String> processResult = runProcess(cmdScript).stdout;
