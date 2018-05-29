@@ -3,6 +3,11 @@
     <listener>
         <listener-class>us.kbase.narrativejobservice.AppEventListener</listener-class>
     </listener>
+
+    <listener>
+        <listener-class>us.kbase.narrativejobservice.ReaperServiceServlet</listener-class>
+    </listener>
+
     <servlet>
         <servlet-name>RootServlet</servlet-name>
         <servlet-class>us.kbase.narrativejobservice.NarrativeJobServiceServer</servlet-class>

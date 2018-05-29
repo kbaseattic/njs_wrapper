@@ -254,7 +254,14 @@ public class SDKLocalMethodRunner {
             String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
             if (adminTokenStr == null || adminTokenStr.isEmpty())
                 adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
-            if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
+
+            String miniKB = System.getenv("MINI_KB");
+            boolean useVolumeMounts = true;
+            if (miniKB != null && !miniKB.isEmpty()){
+                useVolumeMounts = false;
+            }
+
+            if (adminTokenStr != null && !adminTokenStr.isEmpty() && useVolumeMounts) {
                 final AuthToken adminToken = auth.validateToken(adminTokenStr);
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
