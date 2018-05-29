@@ -72,8 +72,8 @@ public class ReaperService {
     public List<String> getGhostJobs() throws Exception {
         List<String> incompleteJobs = this.getIncompleteJobs();
 
-        //Give condor a chance
-        //Thread.sleep(30000);
+        //Give condor a chance to catch up
+        Thread.sleep(30000);
 
         HashMap<String, String> runningCondorJobs = CondorUtils.getAllJobStates();
 
