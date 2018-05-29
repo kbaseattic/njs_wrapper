@@ -77,7 +77,7 @@
     <include name="apache_commons/commons-logging-1.1.1.jar"/>
     <include name="apache_commons/commons-lang-2.4.jar"/>
     <include name="apache_commons/commons-lang3-3.1.jar"/>
-    <include name="mongo/mongo-java-driver-3.4.2.jar"/>
+    <include name="mongo/mongo-java-driver-2.13.3.jar"/>
     <include name="jongo/jongo-0.5-early-20130912-1506.jar"/>
     <include name="bson4jackson/bson4jackson-2.2.0-2.2.0.jar"/>
   </fileset>
