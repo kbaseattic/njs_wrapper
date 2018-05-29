@@ -15,6 +15,17 @@ import java.util.Map;
 
 public class CondorUtils {
 
+    /**
+     * Create a condor submit file for Submitted Jobs
+     * @param ujsJobId The UJS job id
+     * @param token The token of the user of the submitted job
+     * @param adminToken The admin token used for bind mounts, stored in configs
+     * @param clientGroups The AWE Client Group
+     * @param kbaseEndpoint The URL of the NJS Server
+     * @param baseDir The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @return The generated condor submit file
+     * @throws IOException
+     */
     private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
 
 
@@ -51,12 +62,13 @@ public class CondorUtils {
         return submitFile;
     }
 
+    /**
+     * Run the condor command and return
+     * @param condorCommand command to run
+     * @returnCondorResponse with STDIN and STDOUT
+     * @throws IOException
+     */
     public static CondorResponse runProcess(String[] condorCommand) throws IOException {
-        /**
-         * Run the condor command and return
-         * @param condorCommand command to run
-         * @return CondorResponse with STDIN and STDOUT
-         */
         //TODO DELETE PRINT STATEMENT
         System.out.println("Running command: [" + String.join(" ", condorCommand) + "]");
         final Process process = Runtime.getRuntime().exec(condorCommand);
@@ -85,12 +97,12 @@ public class CondorUtils {
         return new CondorResponse(stdOutMessage, stdErrMessage);
     }
 
+    /**
+     * Remove spaces and maybe perform other logic
+     * @param clientGroups to run the job with
+     * @return String modified client groups
+     */
     public static String clientGroupsToRequirements(String clientGroups) {
-        /**
-         * Remove spaces and maybe perform other logic
-         * @param clientGroups to run the job with
-         * @return String modified client groups
-         */
         //TODO REMOVE THIS OR UPDATE METHODS
         if (clientGroups.equals("ci")) {
             clientGroups = "njs";
@@ -103,20 +115,29 @@ public class CondorUtils {
         return "(" + String.join(" || ", requirementsStatement) + ")";
     }
 
+    /**
+     * Remove space, remove single quote, and remove double quotes.
+     * @param input
+     * @return
+     */
     public static String cleanCondorInputs(String input) {
         return input.replace(" ", "")
                 .replace("'", "")
                 .replace("\"", "");
     }
 
+    /**
+     * Call condor_submit with the ujsJobId as batch job name
+     * @param ujsJobId The UJS job id
+     * @param token The token of the user of the submitted job
+     * @param clientGroups The AWE Client Group
+     * @param kbaseEndpoint The URL of the NJS Server
+     * @param baseDir The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param adminToken The admin token used for bind mounts, stored in configs
+     * @return String condor job id Range
+     * @throws Exception
+     */
     public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, AuthToken adminToken) throws Exception {
-        /**
-         * Call condor_submit with the ujsJobId as batch job name
-         * @param jobID ujsJobId to name the batch job with
-         * @param token token to place into the shell script
-         * @return String condor job id
-         */
-
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
@@ -133,14 +154,13 @@ public class CondorUtils {
         return jobID;
     }
 
-
+    /**
+     * Call condor_q with the ujsJobId a string target to filter condor_q
+     * @param ujsJobId to get job JobPrio for
+     * @param attribute attribute to search condorQ for
+     * @return String condor job attribute or NULL
+     */
     public static String condorQ(String ujsJobId, String attribute) throws IOException, InterruptedException {
-        /**
-         * Call condor_q with the ujsJobId a string target to filter condor_q
-         * @param jobID ujsJobId to get job JobPrio for
-         * @param attribute attribute to search condorQ for
-         * @return String condor job attribute or NULL
-         */
         int retries = 3;
         String result = null;
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_q.sh", ujsJobId, attribute};
@@ -181,31 +201,29 @@ public class CondorUtils {
         }
         return JobStates;
     }
-
+    /**
+     * Get job state from condor_q with the LastJobStatus param
+     * @param ujsJobId ujsJobId to get job state for
+     * @return String  condor job state or NULL
+     */
     public static String getJobState(String ujsJobId) throws Exception {
-        /**
-         * Get job state from condor_q with the LastJobStatus param
-         * @param jobID ujsJobId to get job state for
-         * @return String  condor job state or NULL
-         */
         return condorQ(ujsJobId, "LastJobStatus");
     }
-
+    /**
+     * Get job priority from condor_q with the JobPrio param
+     * @param ujsJobId ujsJobId to get job JobPrio for
+     * @return String  condor job priority or NULL
+     */
     public static String getJobPriority(String ujsJobId) throws Exception {
-        /**
-         * Get job priority from condor_q with the JobPrio param
-         * @param jobID ujsJobId to get job JobPrio for
-         * @return String  condor job priority or NULL
-         */
         return condorQ(ujsJobId, "JobPrio");
     }
-
+    /**
+     * Remove condor jobs with a given batch name
+     * @param ujsJobID ujsJobId for the job batch name
+     * @return Result of the condor_rm command
+     */
     public static String condorRemoveJobRange(String ujsJobID) throws Exception {
-        /**
-         * Remove condor jobs with a given batch name
-         * @param jobID ujsJobId for the job batch name
-         * @return Result of the condor_rm command
-         */
+
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
         String processResult = runProcess(cmdScript).stdout.get(0);
         return processResult;
