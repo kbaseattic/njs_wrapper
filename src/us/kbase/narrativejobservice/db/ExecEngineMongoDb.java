@@ -2,7 +2,13 @@ package us.kbase.narrativejobservice.db;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Iterator;
+
 import java.util.logging.Level;
 
 import org.jongo.Jongo;
