@@ -377,60 +377,60 @@ public class CondorIntegrationTest {
     }
 
 
-//    @Test
-//    public void testSimpleJob() throws Exception {
-//        Properties props = TesterUtils.props();
-//        String njs_url = props.getProperty("njs_server_url");
-//        System.out.println("Test [testSimpleJob]");
-//        Map<String, String> meta = new HashMap<String, String>();
-//        meta.put("foo", "bar");
-//
-//        execStats.clear();
-//        String moduleName = "simpleapp";
-//        String methodName = "simple_add";
-//        String serviceVer = lookupServiceVersion(moduleName);
-//        RunJobParams params = new RunJobParams().withMethod(
-//                moduleName + "." + methodName).withServiceVer(serviceVer)
-//                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
-//                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
-//        String jobId = client.runJob(params);
-//        assertNotNull(jobId);
-//        System.out.println("Submitted job and got: " + jobId);
-//        JobState ret = null;
-//
-//
-//
-//        long FinishState = 0;
-//        for (int i = 0; i < 60; i++) {
-//            try {
-//                Thread.sleep(2000);
-//                ret = client.checkJob(jobId);
-//                if(ret==null){
-//                    System.out.println(String.format("jobid%s is not yet finished", jobId));
-//                    continue;
-//                }
-//                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
-//                    break;
-//                }
-//                else{
-//                    System.out.println(ret);
-//                }
-//
-//            } catch (ServerException ex) {
-//                System.out.println(ex.getData());
-//                throw ex;
-//            }
-//        }
-//        if(ret == null){
-//            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
-//        }
-//        if (ret.getFinished() != null && ret.getFinished() == 1L) {
-//            System.out.println("Job finished: " + ret.getFinished());
-//            System.out.println(ret);
-//        }
-//        assertTrue(ret.getFinished() == 1L);
-//
-//    }
+    @Test
+    public void testSimpleJob() throws Exception {
+        Properties props = TesterUtils.props();
+        String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testSimpleJob]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
+
+        execStats.clear();
+        String moduleName = "simpleapp";
+        String methodName = "simple_add";
+        String serviceVer = lookupServiceVersion(moduleName);
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+        String jobId = client.runJob(params);
+        assertNotNull(jobId);
+        System.out.println("Submitted job and got: " + jobId);
+        JobState ret = null;
+
+
+
+        long FinishState = 0;
+        for (int i = 0; i < 60; i++) {
+            try {
+                Thread.sleep(2000);
+                ret = client.checkJob(jobId);
+                if(ret==null){
+                    System.out.println(String.format("jobid%s is not yet finished", jobId));
+                    continue;
+                }
+                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    break;
+                }
+                else{
+                    System.out.println(ret);
+                }
+
+            } catch (ServerException ex) {
+                System.out.println(ex.getData());
+                throw ex;
+            }
+        }
+        if(ret == null){
+            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+        }
+        if (ret.getFinished() != null && ret.getFinished() == 1L) {
+            System.out.println("Job finished: " + ret.getFinished());
+            System.out.println(ret);
+        }
+        assertTrue(ret.getFinished() == 1L);
+
+    }
 
 
 //    @Test
