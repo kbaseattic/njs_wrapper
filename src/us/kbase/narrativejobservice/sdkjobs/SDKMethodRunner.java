@@ -1075,13 +1075,13 @@ public class SDKMethodRunner {
 	/**
 	 * Saves state in mongodb to allow the job to communicate its status
 	 * @param ujsJobId (UJS ID)
-	 * @param jobId (CONDOR ID)
+	 * @param jobId (Scheduler ID, such as condor job range)
 	 * @param jobInput (Runjob Params)
 	 * @param appJobId
 	 * @param schedulerType (Scheduler Type, such as Condor or Awe)
 	 * @param lastJobState (Last job state, such as queued)
 	 * @param parentJobId (ID of Parent Job)
-	 * @param config (COnfiguration File)
+	 * @param config (Configuration File)
 	 * @throws Exception
 	 */
 	private static void saveTask(
