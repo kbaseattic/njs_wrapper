@@ -321,6 +321,7 @@ public class CondorIntegrationTest {
 
     @Test
     public void testDeleteJob() throws Exception{
+        System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
@@ -334,7 +335,7 @@ public class CondorIntegrationTest {
     public void testSimpleJobWithParent() throws Exception{
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
-        System.out.println("Test [testSimpleJob]");
+        System.out.println("Test [testSimpleJobWithParent]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
