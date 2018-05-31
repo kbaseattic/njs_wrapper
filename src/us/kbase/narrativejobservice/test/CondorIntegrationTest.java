@@ -1,10 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,6 +46,7 @@ import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+
 
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
@@ -113,6 +111,8 @@ import us.kbase.workspace.GrantModuleOwnershipParams;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import us.kbase.common.service.JsonTokenStream;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 
 
@@ -321,12 +321,60 @@ public class CondorIntegrationTest {
 
     @Test
     public void testDeleteJob() throws Exception{
+        System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
         String jobID = runApp(moduleName,methodName,serviceVer,"{\"base_number\":\"101\"}");
         System.out.println("ABOUT TO CANCEL" + jobID);
         client.cancelJob(new CancelJobParams().withJobId(jobID));
+    }
+
+
+    @Test
+    public void testSimpleJobWithParent() throws Exception{
+        Properties props = TesterUtils.props();
+        String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testSimpleJobWithParent]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
+
+        //ParentJob
+        String moduleName = "simpleapp";
+        String methodName = "simple_add";
+        String serviceVer = lookupServiceVersion(moduleName);
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+        String jobId = client.runJob(params);
+        assertNotNull(jobId);
+
+        //ChildJob
+        RunJobParams params2 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child1 = client.runJob(params2);
+        assertNotNull(jobId_child1);
+
+        //ChildJob
+        RunJobParams params3 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child2 = client.runJob(params3);
+        assertNotNull(jobId_child2);
+
+       JobState ret = client.checkJob(jobId);
+        List<String> child_jobs = new ArrayList<String>();
+        child_jobs.add(jobId_child1);
+        child_jobs.add(jobId_child2);
+
+        List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
+        System.out.println("Asserting child jobs match sub jobs");
+       assertEquals(child_jobs,subjobs);
+
     }
 
 

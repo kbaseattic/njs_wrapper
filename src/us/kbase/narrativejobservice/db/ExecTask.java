@@ -32,6 +32,9 @@ public class ExecTask {
     @JsonProperty("last_job_state")
     private String lastJobState;
 
+    @JsonProperty("parent_job_id")
+    private String parentJobId;
+
     @JsonProperty("ujs_job_id")
     public String getUjsJobId() {
         return ujsJobId;
@@ -160,5 +163,15 @@ public class ExecTask {
     @JsonProperty("last_job_state")
     public void setLastJobState(String lastJobState) {
         this.lastJobState = lastJobState;
+    }
+
+    @JsonProperty("parent_job_id")
+    public String getParentJobId() {
+        return parentJobId;
+    }
+
+    @JsonProperty("parent_job_id")
+    public void setParentJobId(String parentJobId) {
+        this.parentJobId = parentJobId;
     }
 }

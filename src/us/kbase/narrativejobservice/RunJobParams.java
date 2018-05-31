@@ -39,6 +39,8 @@ import us.kbase.common.service.UObject;
  * wsid - a workspace id to associate with the job. This is passed to the
  *     UJS service, which will share the job based on the permissions of
  *     the workspace rather than UJS ACLs.
+ * parent_job_id - UJS id of the parent of a batch job. Sub jobs will add
+ * this id to the NJS database under the field "parent_job_id"
  * </pre>
  * 
  */
@@ -53,7 +55,8 @@ import us.kbase.common.service.UObject;
     "source_ws_objects",
     "app_id",
     "meta",
-    "wsid"
+    "wsid",
+    "parent_job_id"
 })
 public class RunJobParams {
 
@@ -84,6 +87,9 @@ public class RunJobParams {
     @JsonProperty("wsid")
     private Long wsid;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
+    @JsonProperty("parent_job_id")
+    private String parentJobId;
+
 
     @JsonProperty("method")
     public java.lang.String getMethod() {
@@ -235,6 +241,24 @@ public class RunJobParams {
         this.wsid = wsid;
         return this;
     }
+
+    @JsonProperty("parent_job_id")
+    public String getParentJobId() {
+        return parentJobId;
+    }
+
+    @JsonProperty("parent_job_id")
+    public void setParentJobId(String parentJobId) {
+        this.parentJobId = parentJobId;
+    }
+
+    public RunJobParams withParentJobId(String parentJobId) {
+        this.parentJobId = parentJobId;
+        return this;
+    }
+
+
+
 
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {
