@@ -1,10 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,6 +46,7 @@ import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+
 
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
@@ -113,6 +111,8 @@ import us.kbase.workspace.GrantModuleOwnershipParams;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import us.kbase.common.service.JsonTokenStream;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 
 
@@ -331,14 +331,14 @@ public class CondorIntegrationTest {
 
 
     @Test
-    public void testSimpleJob() throws Exception {
+    public void testSimpleJobWithParent() throws Exception{
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
         System.out.println("Test [testSimpleJob]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
-        execStats.clear();
+        //ParentJob
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
@@ -348,42 +348,89 @@ public class CondorIntegrationTest {
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
         String jobId = client.runJob(params);
         assertNotNull(jobId);
-        System.out.println("Submitted job and got: " + jobId);
-        JobState ret = null;
 
+        //ChildJob
+        RunJobParams params2 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child1 = client.runJob(params2);
+        assertNotNull(jobId_child1);
 
+        //ChildJob
+        RunJobParams params3 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child2 = client.runJob(params3);
+        assertNotNull(jobId_child2);
 
-        long FinishState = 0;
-        for (int i = 0; i < 60; i++) {
-            try {
-                Thread.sleep(2000);
-                ret = client.checkJob(jobId);
-                if(ret==null){
-                    System.out.println(String.format("jobid%s is not yet finished", jobId));
-                    continue;
-                }
-                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
-                    break;
-                }
-                else{
-                    System.out.println(ret);
-                }
+       JobState ret = client.checkJob(jobId);
+        List<String> child_jobs = new ArrayList<String>();
+        child_jobs.add(jobId_child1);
+        child_jobs.add(jobId_child2);
 
-            } catch (ServerException ex) {
-                System.out.println(ex.getData());
-                throw ex;
-            }
-        }
-        if(ret == null){
-            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
-        }
-        if (ret.getFinished() != null && ret.getFinished() == 1L) {
-            System.out.println("Job finished: " + ret.getFinished());
-            System.out.println(ret);
-        }
-        assertTrue(ret.getFinished() == 1L);
+        List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
+        System.out.println("Asserting child jobs match sub jobs");
+       assertEquals(child_jobs,subjobs);
 
     }
+
+
+//    @Test
+//    public void testSimpleJob() throws Exception {
+//        Properties props = TesterUtils.props();
+//        String njs_url = props.getProperty("njs_server_url");
+//        System.out.println("Test [testSimpleJob]");
+//        Map<String, String> meta = new HashMap<String, String>();
+//        meta.put("foo", "bar");
+//
+//        execStats.clear();
+//        String moduleName = "simpleapp";
+//        String methodName = "simple_add";
+//        String serviceVer = lookupServiceVersion(moduleName);
+//        RunJobParams params = new RunJobParams().withMethod(
+//                moduleName + "." + methodName).withServiceVer(serviceVer)
+//                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+//                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+//        String jobId = client.runJob(params);
+//        assertNotNull(jobId);
+//        System.out.println("Submitted job and got: " + jobId);
+//        JobState ret = null;
+//
+//
+//
+//        long FinishState = 0;
+//        for (int i = 0; i < 60; i++) {
+//            try {
+//                Thread.sleep(2000);
+//                ret = client.checkJob(jobId);
+//                if(ret==null){
+//                    System.out.println(String.format("jobid%s is not yet finished", jobId));
+//                    continue;
+//                }
+//                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
+//                    break;
+//                }
+//                else{
+//                    System.out.println(ret);
+//                }
+//
+//            } catch (ServerException ex) {
+//                System.out.println(ex.getData());
+//                throw ex;
+//            }
+//        }
+//        if(ret == null){
+//            throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
+//        }
+//        if (ret.getFinished() != null && ret.getFinished() == 1L) {
+//            System.out.println("Job finished: " + ret.getFinished());
+//            System.out.println(ret);
+//        }
+//        assertTrue(ret.getFinished() == 1L);
+//
+//    }
 
 
 //    @Test

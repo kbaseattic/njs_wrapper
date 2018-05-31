@@ -53,7 +53,8 @@ import us.kbase.common.service.UObject;
     "source_ws_objects",
     "app_id",
     "meta",
-    "wsid"
+    "wsid",
+    "parent_job_id"
 })
 public class RunJobParams {
 
@@ -84,6 +85,9 @@ public class RunJobParams {
     @JsonProperty("wsid")
     private Long wsid;
     private Map<java.lang.String, Object> additionalProperties = new HashMap<java.lang.String, Object>();
+    @JsonProperty("parent_job_id")
+    private String parentJobId;
+
 
     @JsonProperty("method")
     public java.lang.String getMethod() {
@@ -235,6 +239,24 @@ public class RunJobParams {
         this.wsid = wsid;
         return this;
     }
+
+    @JsonProperty("parent_job_id")
+    public String getParentJobId() {
+        return parentJobId;
+    }
+
+    @JsonProperty("parent_job_id")
+    public void setParentJobId(String parentJobId) {
+        this.parentJobId = parentJobId;
+    }
+
+    public RunJobParams withParentJobId(String parentJobId) {
+        this.parentJobId = parentJobId;
+        return this;
+    }
+
+
+
 
     @JsonAnyGetter
     public Map<java.lang.String, Object> getAdditionalProperties() {

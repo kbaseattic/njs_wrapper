@@ -146,14 +146,14 @@ public class SDKMethodRunner {
 		if (config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE).equals("1")) {
 			//TODO REMOVE
 			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
-			//TODO MOVE TO CONFIG FILE
 			String baseDir = config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR);
 			baseDir = String.format("%s/%s/", baseDir, authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
 			String schedulerType = "condor";
-			String lastJobState = APP_STATE_QUEUED;
-			saveTask(ujsJobId, condorId, jobInput, appJobId, "condor", lastJobState, config);
+			String lastJobState = null;
+			String parentJobId = params.getParentJobId();
+			saveTask(ujsJobId, condorId, jobInput, appJobId, "condor", lastJobState, parentJobId, config);
 
 		} else {
 			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
@@ -794,6 +794,7 @@ public class SDKMethodRunner {
 	}
 
 
+
 	@SuppressWarnings("unchecked")
 	public static JobState checkJobCondor(String jobId, AuthToken authPart,
 										  Map<String, String> config) throws Exception {
@@ -802,6 +803,9 @@ public class SDKMethodRunner {
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
+
+		String[] subJobs = getDb(config).getSubJobIds(jobId);
+		returnVal.getAdditionalProperties().put("sub_jobs", subJobs);
 
 
 		returnVal.setStatus(new UObject(jobStatus));
@@ -1066,14 +1070,19 @@ public class SDKMethodRunner {
 		dbTask.setAppJobId(appJobId);
 		db.insertExecTask(dbTask);
 	}
+
+
 	/**
 	 * Saves state in mongodb to allow the job to communicate its status
-	 * @param ujsJobId ID Generated from UJS
-	 * @param jobId ID Generated from scheduler
-	 * @param jobInput RunJob Params
-	 * @param schedulerType Scheduler type, such as Condor or Awe
-	 * @param config Configuration file
-	 * @return void
+	 * @param ujsJobId (UJS ID)
+	 * @param jobId (CONDOR ID)
+	 * @param jobInput (Runjob Params)
+	 * @param appJobId
+	 * @param schedulerType (Scheduler Type, such as Condor or Awe)
+	 * @param lastJobState (Last job state, such as queued)
+	 * @param parentJobId (ID of Parent Job)
+	 * @param config (COnfiguration File)
+	 * @throws Exception
 	 */
 	private static void saveTask(
 			final String ujsJobId,
@@ -1082,6 +1091,7 @@ public class SDKMethodRunner {
 			final String appJobId,
 			final String schedulerType,
 			final String lastJobState,
+			final String parentJobId,
 			final Map<String, String> config) throws Exception {
 
 		SanitizeMongoObject.sanitize(jobInput);
@@ -1094,6 +1104,8 @@ public class SDKMethodRunner {
 		dbTask.setSchdulerType(schedulerType);
 		dbTask.setTaskId(jobId);
 		dbTask.setLastJobState(lastJobState);
+		dbTask.setParentJobId(parentJobId);
+
 		db.insertExecTask(dbTask);
 	}
 

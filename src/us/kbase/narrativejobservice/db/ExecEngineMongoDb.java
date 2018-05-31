@@ -2,10 +2,7 @@ package us.kbase.narrativejobservice.db;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 
 import org.jongo.Jongo;
@@ -79,6 +76,18 @@ public class ExecEngineMongoDb {
 			//version is already there so do nothing
 		}
 	}
+
+	public String[] getSubJobIds(String ujsJobId) throws Exception{
+		Iterator<us.kbase.narrativejobservice.db.ExecTask> ids = execTasks.find(String.format("{parent_job_id: '%s'}", ujsJobId)).
+				projection("{ujs_job_id: 1}").as(us.kbase.narrativejobservice.db.ExecTask.class).iterator();
+
+		List<String> idList = new ArrayList<String>();
+		while (ids.hasNext()) {
+			idList.add(ids.next().getUjsJobId());
+		}
+		return idList.toArray(new String[idList.size()]);
+	}
+
 
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
 		List<ExecLog> ret = Lists.newArrayList(execLogs.find(
