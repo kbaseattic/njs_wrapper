@@ -1,13 +1,22 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import ch.qos.logback.classic.Level;
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.InspectContainerResponse;
+import com.github.dockerjava.api.model.*;
+import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import us.kbase.auth.AuthToken;
+import us.kbase.common.executionengine.LineLogger;
+import us.kbase.common.utils.ProcessHelper;
+
+import java.io.*;
 import java.net.URI;
 import java.net.URL;
 import java.util.ArrayList;
@@ -15,48 +24,24 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.commons.io.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import us.kbase.auth.AuthToken;
-import us.kbase.common.executionengine.LineLogger;
-import us.kbase.common.utils.ProcessHelper;
-
-import ch.qos.logback.classic.Level;
-
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.model.AccessMode;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.Container;
-import com.github.dockerjava.api.model.Image;
-import com.github.dockerjava.api.model.Volume;
-import com.github.dockerjava.core.DockerClientBuilder;
-import com.github.dockerjava.core.DockerClientConfig;
-
-import org.apache.commons.io.FileUtils;
-
 
 public class DockerRunner {
-    
+
     public static final int CANCELLATION_CHECK_PERIOD_SEC = 5;
     public static String dockerJobIdLogsDir = "docker_job_ids";
     public static DockerClient cl;
-    
+
     private final URI dockerURI;
-    
+
     public DockerRunner(final URI dockerURI) {
         this.dockerURI = dockerURI;
     }
-    
+
     public File run(
             String imageName,
             final String moduleName,
             final File inputData,
-            final AuthToken token, 
+            final AuthToken token,
             final LineLogger log,
             final File outputFile,
             final boolean removeImage,
@@ -69,7 +54,7 @@ public class DockerRunner {
             final Map<String, String> envVars)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
-            throw new IllegalStateException("Input file has wrong name: " + 
+            throw new IllegalStateException("Input file has wrong name: " +
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
@@ -90,9 +75,7 @@ public class DockerRunner {
                 suffix++;
             }
 
-
-
-            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(), 
+            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(),
                     new Volume("/kb/module/work"))));
             if (refDataDir != null)
                 binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
@@ -115,7 +98,7 @@ public class DockerRunner {
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
 
             String miniKB = System.getenv("MINI_KB");
-            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")){
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
                 cntCmd.withNetworkMode("minikb_default");
             }
 
@@ -123,14 +106,13 @@ public class DockerRunner {
             final String cntId = resp.getId();
 
             //Create a log of all docker jobs
-
             new File(dockerJobIdLogsDir).mkdirs();
-            File logFile = new File (dockerJobIdLogsDir + "/" + cntName);
+            File logFile = new File(dockerJobIdLogsDir + "/" + cntName);
             FileUtils.writeStringToFile(logFile, cntId);
 
-            Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
+            Process p = Runtime.getRuntime().exec(new String[]{"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
-            InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
+            InputStream[] inputStreams = new InputStream[]{p.getInputStream(), p.getErrorStream()};
             for (int i = 0; i < inputStreams.length; i++) {
                 final InputStream is = inputStreams[i];
                 final boolean isError = i == 1;
@@ -168,18 +150,17 @@ public class DockerRunner {
                                         cl.stopContainerCmd(cntId).exec();
 
                                         log.logNextLine("Docker container for module [" + moduleName + "]" +
-                                        		" was successfully stopped during job cancellation", false);
+                                                " was successfully stopped during job cancellation", false);
                                     } catch (Exception ex) {
                                         ex.printStackTrace();
-                                        log.logNextLine("Error stopping docker container for module [" + 
-                                                moduleName + "] during job cancellation: " + ex.getMessage(), 
+                                        log.logNextLine("Error stopping docker container for module [" +
+                                                        moduleName + "] during job cancellation: " + ex.getMessage(),
                                                 true);
                                     }
                                     try {
-                                        log.logNextLine("Attemping to kill subjobs.",false);
+                                        log.logNextLine("Attemping to kill subjobs.", false);
                                         killSubJobs();
-                                    }
-                                    catch (Exception ex){
+                                    } catch (Exception ex) {
                                         ex.printStackTrace();
                                     }
                                     break;
@@ -257,40 +238,48 @@ public class DockerRunner {
             if (tokenFile.exists())
                 try {
                     tokenFile.delete();
-                } catch (Exception ignore) {}
+                } catch (Exception ignore) {
+                }
         }
     }
 
-
-    public static List<String> getSubJobDockerIds() throws Exception{
+    /**
+     * Get a list of subjob docker ids from the dockerJobIdLogsDir
+     *
+     * @return A list of subjob ids
+     * @throws Exception
+     */
+    public static List<String> getSubJobDockerIds() throws Exception {
         File folder = new File(dockerJobIdLogsDir);
         List<String> files = new ArrayList<>();
         for (final File fileEntry : folder.listFiles()) {
-            if (! fileEntry.isDirectory()) {
+            if (!fileEntry.isDirectory()) {
                 String text = FileUtils.readFileToString(fileEntry);
-                files.add(text.replace( System.getProperty("line.separator"), ""));
+                files.add(text.replace(System.getProperty("line.separator"), ""));
             }
         }
         return files;
 
     }
 
-    public static void killSubJobs() throws Exception{
+    /**
+     * Get a list of subjob ids, and then send a cl.killContainerCmd to them all.
+     *
+     * @throws Exception
+     */
+    public static void killSubJobs() throws Exception {
         List<String> subJobIds = getSubJobDockerIds();
-        for(final String subjobid : subJobIds){
+        for (final String subjobid : subJobIds) {
             System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
             try {
                 cl.killContainerCmd(subjobid);
-            }
-            catch (Exception e){
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
     }
 
-
-    
-    public  String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
+    public String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
             throws IOException {
         if (findImageId(cl, imageName) == null) {
             log.logNextLine("Image " + imageName + " is not pulled yet, pulling...", false);
@@ -307,9 +296,9 @@ public class DockerRunner {
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix) {
         return findImageId(cl, imageTagOrIdPrefix, false);
     }
-    
+
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix, boolean all) {
-        for (Image image: cl.listImagesCmd().withShowAll(all).exec()) {
+        for (Image image : cl.listImagesCmd().withShowAll(all).exec()) {
             if (image.getId().startsWith(imageTagOrIdPrefix))
                 return image;
             if (image.getRepoTags() == null)
@@ -320,7 +309,7 @@ public class DockerRunner {
         }
         return null;
     }
-    
+
     private Container findContainerByNameOrIdPrefix(DockerClient cl, String nameOrIdPrefix) {
         for (Container cnt : cl.listContainersCmd().withShowAll(true).exec()) {
             if (cnt.getId().startsWith(nameOrIdPrefix))
@@ -333,12 +322,12 @@ public class DockerRunner {
         }
         return null;
     }
-    
+
     public DockerClient createDockerClient() {
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "ERROR");
         Logger log = LoggerFactory.getLogger("com.github.dockerjava");
         if (log instanceof ch.qos.logback.classic.Logger) {
-            ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger)log;
+            ch.qos.logback.classic.Logger log2 = (ch.qos.logback.classic.Logger) log;
             log2.setLevel(Level.ERROR);
         }
         if (dockerURI != null) {
