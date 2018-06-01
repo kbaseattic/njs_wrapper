@@ -103,10 +103,6 @@ public class CondorUtils {
      * @return String modified client groups
      */
     public static String clientGroupsToRequirements(String clientGroups) {
-        //TODO REMOVE THIS OR UPDATE METHODS
-        if (clientGroups.equals("ci")) {
-            clientGroups = "njs";
-        }
         List<String> requirementsStatement = new ArrayList<String>();
         for (String cg : clientGroups.split(",")) {
             cg = cleanCondorInputs(cg);
@@ -118,7 +114,7 @@ public class CondorUtils {
     /**
      * Remove space, remove single quote, and remove double quotes.
      * @param input
-     * @return
+     * @return cleaned string
      */
     public static String cleanCondorInputs(String input) {
         return input.replace(" ", "")
