@@ -243,7 +243,7 @@ public class DockerRunner {
         }
     }
 
-       /**
+    /**
      * Get a list of subjob docker ids from the dockerJobIdLogsDir
      *
      * @return A list of subjob ids
