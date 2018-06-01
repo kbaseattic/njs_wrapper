@@ -37,9 +37,14 @@ import com.github.dockerjava.api.model.Volume;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 
+import org.apache.commons.io.FileUtils;
+
+
 public class DockerRunner {
     
     public static final int CANCELLATION_CHECK_PERIOD_SEC = 5;
+    public static String dockerJobIdLogsDir = "docker_job_ids";
+    public static DockerClient cl;
     
     private final URI dockerURI;
     
@@ -68,7 +73,7 @@ public class DockerRunner {
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
-        final DockerClient cl = createDockerClient();
+        cl = createDockerClient();
         imageName = checkImagePulled(cl, imageName, log);
         String cntName = null;
         try {
@@ -84,6 +89,9 @@ public class DockerRunner {
                     break;
                 suffix++;
             }
+
+
+
             List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(), 
                     new Volume("/kb/module/work"))));
             if (refDataDir != null)
@@ -111,9 +119,15 @@ public class DockerRunner {
                 cntCmd.withNetworkMode("minikb_default");
             }
 
-
             CreateContainerResponse resp = cntCmd.exec();
             final String cntId = resp.getId();
+
+            //Create a log of all docker jobs
+
+            new File(dockerJobIdLogsDir).mkdirs();
+            File logFile = new File (dockerJobIdLogsDir + "/" + cntName);
+            FileUtils.writeStringToFile(logFile, cntId);
+
             Process p = Runtime.getRuntime().exec(new String[] {"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
@@ -152,6 +166,7 @@ public class DockerRunner {
                                     // Stop the container
                                     try {
                                         cl.stopContainerCmd(cntId).exec();
+
                                         log.logNextLine("Docker container for module [" + moduleName + "]" +
                                         		" was successfully stopped during job cancellation", false);
                                     } catch (Exception ex) {
@@ -159,6 +174,13 @@ public class DockerRunner {
                                         log.logNextLine("Error stopping docker container for module [" + 
                                                 moduleName + "] during job cancellation: " + ex.getMessage(), 
                                                 true);
+                                    }
+                                    try {
+                                        log.logNextLine("Attemping to kill subjobs.",false);
+                                        killSubJobs();
+                                    }
+                                    catch (Exception ex){
+                                        ex.printStackTrace();
                                     }
                                     break;
                                 }
@@ -238,8 +260,37 @@ public class DockerRunner {
                 } catch (Exception ignore) {}
         }
     }
+
+
+    public static List<String> getSubJobDockerIds() throws Exception{
+        File folder = new File(dockerJobIdLogsDir);
+        List<String> files = new ArrayList<>();
+        for (final File fileEntry : folder.listFiles()) {
+            if (! fileEntry.isDirectory()) {
+                String text = FileUtils.readFileToString(fileEntry);
+                files.add(text.replace( System.getProperty("line.separator"), ""));
+            }
+        }
+        return files;
+
+    }
+
+    public static void killSubJobs() throws Exception{
+        List<String> subJobIds = getSubJobDockerIds();
+        for(final String subjobid : subJobIds){
+            System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
+            try {
+                cl.killContainerCmd(subjobid);
+            }
+            catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+
     
-    public String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
+    public  String checkImagePulled(DockerClient cl, String imageName, LineLogger log)
             throws IOException {
         if (findImageId(cl, imageName) == null) {
             log.logNextLine("Image " + imageName + " is not pulled yet, pulling...", false);
