@@ -243,21 +243,24 @@ public class DockerRunner {
         }
     }
 
-    /**
+       /**
      * Get a list of subjob docker ids from the dockerJobIdLogsDir
      *
      * @return A list of subjob ids
      * @throws Exception
      */
     public static List<String> getSubJobDockerIds() throws Exception {
+        System.out.println("About to look at " + dockerJobIdLogsDir);
         File folder = new File(dockerJobIdLogsDir);
         List<String> files = new ArrayList<>();
-        File[] listFiles = folder.listFiles();
-        if(listFiles != null) {
-            for (final File fileEntry : listFiles) {
-                if (!fileEntry.isDirectory()) {
-                    String text = FileUtils.readFileToString(fileEntry);
-                    files.add(text.replace(System.getProperty("line.separator"), ""));
+        if (folder.exists()) {
+            File[] listFiles = folder.listFiles();
+            if (listFiles != null) {
+                for (final File fileEntry : listFiles) {
+                    if (!fileEntry.isDirectory()) {
+                        String text = FileUtils.readFileToString(fileEntry);
+                        files.add(text.replace(System.getProperty("line.separator"), ""));
+                    }
                 }
             }
         }
