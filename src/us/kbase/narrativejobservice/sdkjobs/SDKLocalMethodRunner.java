@@ -71,6 +71,8 @@ import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
+
 
 public class SDKLocalMethodRunner {
 
@@ -98,6 +100,22 @@ public class SDKLocalMethodRunner {
                 System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    DockerRunner.killSubJobs();
+                }
+                catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
+
+
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
         String jobSrvUrl = args[1];
@@ -485,7 +503,7 @@ public class SDKLocalMethodRunner {
                 }
         }
     }
-    
+
     public static String processHostPathForVolumeMount(String path, String username) {
         return path.replace("${username}", username);
     }

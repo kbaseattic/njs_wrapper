@@ -326,7 +326,8 @@ public class CondorIntegrationTest {
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
         String jobID = runApp(moduleName,methodName,serviceVer,"{\"base_number\":\"101\"}");
-        System.out.println("ABOUT TO CANCEL" + jobID);
+        System.out.println("ABOUT TO CANCEL: " + jobID);
+        Thread.sleep(10000);
         client.cancelJob(new CancelJobParams().withJobId(jobID));
     }
 
@@ -373,8 +374,7 @@ public class CondorIntegrationTest {
 
         List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
         System.out.println("Asserting child jobs match sub jobs");
-       assertEquals(child_jobs,subjobs);
-
+        assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
     }
 
 
@@ -382,7 +382,7 @@ public class CondorIntegrationTest {
     public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
-        System.out.println("Test [testSimpleJob]");
+        System.out.println("Test [testSimpleJob + get job status]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
