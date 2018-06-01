@@ -250,7 +250,6 @@ public class DockerRunner {
      * @throws Exception
      */
     public static List<String> getSubJobDockerIds() throws Exception {
-        System.out.println("About to look at " + dockerJobIdLogsDir);
         File folder = new File(dockerJobIdLogsDir);
         List<String> files = new ArrayList<>();
         if (folder.exists()) {
