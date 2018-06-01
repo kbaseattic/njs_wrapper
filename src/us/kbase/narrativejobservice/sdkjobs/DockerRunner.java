@@ -252,12 +252,14 @@ public class DockerRunner {
     public static List<String> getSubJobDockerIds() throws Exception {
         File folder = new File(dockerJobIdLogsDir);
         List<String> files = new ArrayList<>();
-        File[] listFiles = folder.listFiles();
-        if(listFiles != null) {
-            for (final File fileEntry : listFiles) {
-                if (!fileEntry.isDirectory()) {
-                    String text = FileUtils.readFileToString(fileEntry);
-                    files.add(text.replace(System.getProperty("line.separator"), ""));
+        if (folder.exists()) {
+            File[] listFiles = folder.listFiles();
+            if (listFiles != null) {
+                for (final File fileEntry : listFiles) {
+                    if (!fileEntry.isDirectory()) {
+                        String text = FileUtils.readFileToString(fileEntry);
+                        files.add(text.replace(System.getProperty("line.separator"), ""));
+                    }
                 }
             }
         }
