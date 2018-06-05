@@ -61,8 +61,14 @@ public class DockerRunner {
                     inputData.getName() + "(it should be named input.json)");
         File workDir = inputData.getCanonicalFile().getParentFile();
         File tokenFile = new File(workDir, "token");
+        System.out.println("CREATING CLIENT");
+
+        log.logNextLine("LOG: CREATING CLIENT error false",true);
+
         cl = createDockerClient();
+        log.logNextLine("LOG: CHECK TO SEE IF IMAGE IS PULLED",true);
         imageName = checkImagePulled(cl, imageName, log);
+        log.logNextLine("LOG: CHECK TO SEE IF IMAGE IS PULLED - DONEs",true);
         String cntName = null;
         try {
             FileWriter fw = new FileWriter(tokenFile);
@@ -98,21 +104,24 @@ public class DockerRunner {
                     envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
                 }
             }
+            log.logNextLine("LOG: CREATING CNT CMD",true);
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
 
             String miniKB = System.getenv("MINI_KB");
             if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
                 cntCmd.withNetworkMode("minikb_default");
             }
-
+            log.logNextLine("LOG: CREATE CONTAINER REPSONSE",true);
             CreateContainerResponse resp = cntCmd.exec();
             final String cntId = resp.getId();
+            log.logNextLine("LOG: CREATE CONTAINER ID=" + cntId ,true);
 
             //Create a log of all docker jobs
             new File(dockerJobIdLogsDir).mkdirs();
             File logFile = new File(dockerJobIdLogsDir + "/" + cntName);
             FileUtils.writeStringToFile(logFile, cntId);
 
+            log.logNextLine("START  CONTAINER WITH EXEC LOL=" + cntId ,true);
             Process p = Runtime.getRuntime().exec(new String[]{"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[]{p.getInputStream(), p.getErrorStream()};
@@ -139,6 +148,7 @@ public class DockerRunner {
                 ret.start();
                 workers.add(ret);
             }
+            log.logNextLine("STARTING CANCELLATION CHECKER THREAD=" ,true);
             Thread cancellationCheckingThread = null;
             if (cancellationChecker != null) {
                 cancellationCheckingThread = new Thread(new Runnable() {
@@ -179,9 +189,13 @@ public class DockerRunner {
             for (Thread t : workers)
                 t.join();
             p.waitFor();
-            WaitContainerResultCallback wcrc = new WaitContainerResultCallback().awaitCompletion();
+            log.logNextLine("WAIT CONTAINER CALLBACK="  ,true);
 
-            cl.waitContainerCmd(cntId).exec(wcrc);
+
+
+            int statusCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
+
+            log.logNextLine("WAIT CONTAINER CALLBACK HAS COMPLETED, container is done" + cntId ,true);
             if (cancellationCheckingThread != null)
                 cancellationCheckingThread.interrupt();
             //--------------------------------------------------
@@ -196,7 +210,7 @@ public class DockerRunner {
                 throw new IllegalStateException("Container was still running");
             }
 
-
+            log.logNextLine("LOG CONTAINER "  ,true);
             LogContainerCmd logContainerCmd = cl.logContainerCmd(cntId).withStdOut(true).withStdErr(true).withTimestamps(true);
 
             final List<String> logs = new ArrayList<>();
@@ -223,7 +237,7 @@ public class DockerRunner {
             }
             writer.close();
 
-
+            log.logNextLine("CHECK TO SEE IF OUTPUT FILE EXISTS"  ,true);
             if (outputFile.exists()) {
                 return outputFile;
             } else {

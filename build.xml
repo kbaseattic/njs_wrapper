@@ -42,16 +42,23 @@
     <include name="apache_commons/http/httpcore-4.3.jar"/>
     <include name="apache_commons/http/httpmime-4.3.1.jar"/>
     <include name="bouncycastle/bcprov-jdk15on-1.51.jar"/>
-    <include name="dockerjava/docker-java-3.0.14.jar"/>
     <include name="jaxrs/javax.ws.rs-api-2.0.jar"/>
     <include name="jersey/jersey-client-2.11.jar"/>
     <include name="jersey/jersey-common-2.11.jar"/>
-    <include name="hk2/hk2-api-2.3.0-b05.jar"/>
-    <include name="slf4j/slf4j-api-1.7.7.jar"/>
     <include name="jersey/jersey-guava-2.11.jar"/>
     <include name="jersey/jersey-apache-connector-2.11.jar"/>
-    <include name="hk2/javax.inject-2.3.0-b05.jar"/>
+
+    <include name="dockerjava/docker-java-3.0.14.jar"/>
     <include name="jackson/jackson-jaxrs-json-provider-2.1.2.jar"/>
+    <include name="junix/junixsocket-common-2.0.4.jar"/>
+    <include name="junix/junixsocket-native-common-2.0.4.jar"/>
+    <include name="scijava/scijava-common-2.69.0.jar"/>
+    <include name="scijava/native-lib-loader-2.2.0.jar"/>
+    <!--<include name="gesellixgesellix/unix-socket-factory-2016-04-06T22-21-19.jar"/>-->
+    <!--<include name="gesellix/unix-socket-factory-2015-01-27T15-02-14.jar"/>-->
+    <include name="hk2/hk2-api-2.3.0-b05.jar"/>
+    <include name="slf4j/slf4j-api-1.7.7.jar"/>
+    <include name="hk2/javax.inject-2.3.0-b05.jar"/>
     <include name="hk2/aopalliance-repackaged-2.3.0-b05.jar"/>
     <include name="bouncycastle/bcpkix-jdk15on-1.51.jar"/>
     <include name="cglib/cglib-nodep-2.2.jar"/>
@@ -70,7 +77,6 @@
     <include name="objenesis/objenesis-1.2.jar"/>
     <include name="hk2/osgi-resource-locator-1.0.1.jar"/>
     <include name="persistence/persistence-api-1.0.jar"/>
-    <include name="gesellix/unix-socket-factory-2015-01-27T15-02-14.jar"/>
     <include name="apache_commons/commons-codec-1.8.jar"/>
     <include name="google/guava-18.0.jar"/>
     <include name="apache_commons/commons-io-2.4.jar"/>
@@ -250,6 +256,10 @@ java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.Mi
     <junit printsummary="yes" haltonfailure="yes" fork="true">
       <classpath>
         <pathelement location="${dist}/${jar.file}"/>
+        <path refid="compile.classpath"/>
+      </classpath>
+      <classpath>
+        <pathelement location="${jarsdir}"/>
         <path refid="compile.classpath"/>
       </classpath>
       <formatter type="plain" usefile="false" />
