@@ -319,7 +319,9 @@ public class DockerRunner {
     }
 
     private Image findImageId(DockerClient cl, String imageTagOrIdPrefix, boolean all) {
-        for (Image image : cl.listImagesCmd().withShowAll(all).exec()) {
+        List<Image> imageList = cl.listImagesCmd().withShowAll(all).exec();
+
+        for (Image image : imageList) {
             if (image.getId().startsWith(imageTagOrIdPrefix))
                 return image;
             if (image.getRepoTags() == null)
