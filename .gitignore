@@ -9,3 +9,7 @@
 /migrate_shock_data_to_mongo.sh
 /deploy-test.cfg
 /migrate.log
+.DS_STORE
+deploy.cfg
+test.cfg
+

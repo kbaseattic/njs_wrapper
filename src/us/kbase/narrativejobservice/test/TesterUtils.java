@@ -91,6 +91,7 @@ public class TesterUtils {
         return exep;
     }
     
+    //TODO should use test.cfg for this, esp since deploy.cfg is checked in
     public static Map<String, String> loadConfig() 
             throws IOException, InvalidFileFormatException {
         Ini ini = new Ini(new File("deploy.cfg"));

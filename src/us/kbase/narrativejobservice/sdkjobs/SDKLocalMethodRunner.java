@@ -11,6 +11,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -70,6 +71,8 @@ import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
+
 
 public class SDKLocalMethodRunner {
 
@@ -97,6 +100,22 @@ public class SDKLocalMethodRunner {
                 System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
+
+        Runtime.getRuntime().addShutdownHook(new Thread()
+        {
+            @Override
+            public void run()
+            {
+                try {
+                    DockerRunner.killSubJobs();
+                }
+                catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
+
+
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
         String jobSrvUrl = args[1];
@@ -214,8 +233,8 @@ public class SDKLocalMethodRunner {
             }
             String imageName = mv.getDockerImgName();
             File refDataDir = null;
+            String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
             if (mv.getDataFolder() != null && mv.getDataVersion() != null) {
-                String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
                 if (refDataBase == null)
                     throw new IllegalStateException("Reference data parameters are defined for image but " + 
                             NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
@@ -253,7 +272,14 @@ public class SDKLocalMethodRunner {
             String adminTokenStr = System.getenv("KB_ADMIN_AUTH_TOKEN");
             if (adminTokenStr == null || adminTokenStr.isEmpty())
                 adminTokenStr = System.getProperty("KB_ADMIN_AUTH_TOKEN");  // For tests
-            if (adminTokenStr != null && !adminTokenStr.isEmpty()) {
+
+            String miniKB = System.getenv("MINI_KB");
+            boolean useVolumeMounts = true;
+            if (miniKB != null && !miniKB.isEmpty()){
+                useVolumeMounts = false;
+            }
+
+            if (adminTokenStr != null && !adminTokenStr.isEmpty() && useVolumeMounts) {
                 final AuthToken adminToken = auth.validateToken(adminTokenStr);
                 final CatalogClient adminCatClient = new CatalogClient(catalogURL, adminToken);
                 adminCatClient.setIsInsecureHttpConnectionAllowed(true);
@@ -367,7 +393,7 @@ public class SDKLocalMethodRunner {
                         requestedRelease);
                 final CallbackServerConfig cbcfg = 
                         new CallbackServerConfigBuilder(config, callbackUrl,
-                                jobDir.toPath(), log).build();
+                                jobDir.toPath(), Paths.get(refDataBase), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
                         token, cbcfg, runver, job.getParams(),
                         job.getSourceWsObjects(), additionalBinds, cancellationChecker);
@@ -477,7 +503,7 @@ public class SDKLocalMethodRunner {
                 }
         }
     }
-    
+
     public static String processHostPathForVolumeMount(String path, String username) {
         return path.replace("${username}", username);
     }

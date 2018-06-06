@@ -1,0 +1,46 @@
+##  What machine is your central manager?
+CONDOR_HOST = {{ default .Env.CONDOR_HOST "condor" }}
+SCHEDD_HOST = {{ default .Env.SCHEDD_HOST "kbase@condor" }}
+
+# Set COLLECTOR_HOST if collector's internal hostname doesn't match DNS name
+# and also set sock=COLLECTOR if using shared port
+# example:
+# COLLECTOR_HOST = ci.kbase.us:9618?sock=collector
+{{ if .Env.COLLECTOR_HOST -}} COLLECTOR_HOST = {{ .Env.COLLECTOR_HOST }} {{- end }}
+
+# If the environment variable USE_TCP is set to true, the template will enable
+# this group of directives that convert communications to TCP
+# per https://lists.cs.wisc.edu/archive/htcondor-users/2011-August/msg00085.shtml
+# UPDATE_COLLECTOR_WITH_TCP = True
+# WANT_UDP_COMMAND_SOCKET = False
+# COLLECTOR_MAX_FILE_DESCRIPTORS = 3000
+{{ if .Env.USE_TCP -}}
+UPDATE_COLLECTOR_WITH_TCP = True
+UPDATE_VIEW_COLLECTOR_WITH_TCP = True
+WANT_UDP_COMMAND_SOCKET = False
+COLLECTOR_MAX_FILE_DESCRIPTORS = 3000
+{{- end }}
+
+SEC_DEFAULT_AUTHENTICATION = {{ default .Env.SEC_DEFAULT_AUTHENTICATION "PASSWORD" }}
+SEC_DEFAULT_AUTHENTICATION_METHODS = {{ default .Env.SEC_AUTHENTICATION_METHODS "PASSWORD" }} 
+SEC_DEFAULT_NEGOTIATION = {{ default .Env.SEC_DEFAULT_NEGOTIATION "REQUIRED" }} 
+
+SEC_PASSWORD_FILE = {{ default .Env.SEC_PASSWORD_FILE "/etc/condor/password" }}
+
+UID_DOMAIN = {{ default .Env.UID_DOMAIN "condor" }}
+DAEMON_LIST = MASTER, STARTD
+DISCARD_SESSION_KEYRING_ON_STARTUP = False
+
+START = True
+SUSPEND = False
+PREEMPT = False
+KILL = False
+
+# Machine resource settings
+{{ if .Env.NUM_SLOTS -}} NUM_SLOTS = {{ .Env.NUM_SLOTS }} {{- end }}
+CLIENTGROUP = {{ default .Env.CLIENTGROUP "\"njs\"" }}
+
+STARTD_ATTRS = CLIENTGROUP
+
+CCB_ADDRESS = {{ default .Env.CCB_ADDRESS "condor" }}
+PRIVATE_NETWORK_NAME = {{ default .Env.HOSTNAME "condor" }}
