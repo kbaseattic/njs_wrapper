@@ -30,9 +30,7 @@
     <include name="syslog4j/syslog4j-0.9.46.jar"/>
     <include name="junit/junit-4.9.jar"/>
     <include name="kbase/auth/kbase-auth-0.4.4.jar"/>
-    <include name="jackson/jackson-annotations-2.2.3.jar"/>
-    <include name="jackson/jackson-core-2.2.3.jar"/>
-    <include name="jackson/jackson-databind-2.2.3.jar"/>
+
     <include name="kbase/common/kbase-common-0.0.23.jar"/>
     <include name="kbase/workspace/WorkspaceClient-0.6.0.jar"/>
     <include name="derby/derby-10.10.1.1.jar"/>
@@ -49,13 +47,23 @@
     <include name="jersey/jersey-apache-connector-2.11.jar"/>
 
     <include name="dockerjava/docker-java-3.0.14.jar"/>
-    <include name="jackson/jackson-jaxrs-json-provider-2.1.2.jar"/>
     <include name="junix/junixsocket-common-2.0.4.jar"/>
     <include name="junix/junixsocket-native-common-2.0.4.jar"/>
+
+
+    <include name="jackson/jackson-annotations-2.2.3.jar"/>
+    <include name="jackson/jackson-core-2.2.3.jar"/>
+    <include name="jackson/jackson-databind-2.2.3.jar"/>
+    <include name="jackson/jackson-jaxrs-json-provider-2.1.2.jar"/>
+
+
+
+    <include name="jackson/jackson-jaxrs-json-provider-2.6.4.jar"/>
+
+
     <include name="scijava/scijava-common-2.69.0.jar"/>
     <include name="scijava/native-lib-loader-2.2.0.jar"/>
-    <!--<include name="gesellixgesellix/unix-socket-factory-2016-04-06T22-21-19.jar"/>-->
-    <!--<include name="gesellix/unix-socket-factory-2015-01-27T15-02-14.jar"/>-->
+
     <include name="hk2/hk2-api-2.3.0-b05.jar"/>
     <include name="slf4j/slf4j-api-1.7.7.jar"/>
     <include name="hk2/javax.inject-2.3.0-b05.jar"/>
