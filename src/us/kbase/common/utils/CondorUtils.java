@@ -26,7 +26,7 @@ public class CondorUtils {
      * @return The generated condor submit file
      * @throws IOException
      */
-    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroups, String kbaseEndpoint, String baseDir) throws IOException {
+    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String,String> optClassAds) throws IOException {
 
 
         String clientGroupsNew = clientGroupsToRequirements(clientGroups);
@@ -53,6 +53,9 @@ public class CondorUtils {
         csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
+        for (Map.Entry<String, String> pair: optClassAds.entrySet()) {
+            csf.add(String.format("+%s = \"%s\"", pair.getKey(), pair.getValue()));
+        }
         csf.add("queue 1");
 
         File submitFile = new File(String.format("%s.sub", ujsJobId));
@@ -133,8 +136,8 @@ public class CondorUtils {
      * @return String condor job id Range
      * @throws Exception
      */
-    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, AuthToken adminToken) throws Exception {
-        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir);
+    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String,String> optClassAds, AuthToken adminToken) throws Exception {
+        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
         int retries = 10;
