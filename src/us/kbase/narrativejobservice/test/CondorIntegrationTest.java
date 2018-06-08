@@ -1732,7 +1732,12 @@ public class CondorIntegrationTest {
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
-        catalogWrapper = startupCatalogWrapper();
+
+        /**
+        if(authUrl.contains("localhost") || authUrl.contains("nginx")) {
+            catalogWrapper = startupCatalogWrapper();
+        }
+         **/
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();

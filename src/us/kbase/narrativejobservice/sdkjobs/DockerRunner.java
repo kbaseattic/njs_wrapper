@@ -102,9 +102,10 @@ public class DockerRunner {
             cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
             String miniKB = System.getenv("MINI_KB");
             if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-                cntCmd.withNetworkMode("minikb_default");
+                cntCmd.withNetworkMode("mini_kb_default");
             }
             final String cntId = cntCmd.exec().getId();
+
 
 
             //Create a log of all docker jobs

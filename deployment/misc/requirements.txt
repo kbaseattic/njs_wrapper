@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+MINI_KB=true
+
+JOBID=$1
+KBASE_ENDPOINT=$2
+BASE_DIR=$BASE_DIR/$JOBID
+KB_ADMIN_AUTH_TOKEN=62IYPZGS7O773DBLZZCSE542BP4C2E7G
+KB_AUTH_TOKEN=62IYPZGS7O773DBLZZCSE542BP4C2E7G
+mkdir -p $BASE_DIR && cd $BASE_DIR
+
+declare -a deps
+readarray -t deps < /kb/deployment/misc/requirements.txt
+dependencies_list=$(printf ":$cp/%s" "${deps[@]}")
+dependencies_list=${dependencies_list:1}
+
+java -cp "$dependencies_list" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr_logs.txt
