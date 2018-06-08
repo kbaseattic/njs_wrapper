@@ -99,7 +99,7 @@ public class DockerRunner {
 
             String miniKB = System.getenv("MINI_KB");
             if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-                cntCmd.withNetworkMode("minikb_default");
+                cntCmd.withNetworkMode("mini_kb_default");
             }
 
             CreateContainerResponse resp = cntCmd.exec();
