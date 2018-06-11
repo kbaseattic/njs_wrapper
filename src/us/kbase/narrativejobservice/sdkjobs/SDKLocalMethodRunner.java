@@ -166,6 +166,12 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(msg, false);
             }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
+
+            if (!mountExists(jobInput.getE2())) {
+                log.logNextLine("Cannot find mount point as defined in condor-submit-workdir",true);
+                throw new IOException("Cannot find mount point condor-submit-workdir");
+            }
+
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
             if (context == null)
@@ -549,6 +555,12 @@ public class SDKLocalMethodRunner {
             ret.mkdir();
         return ret;
     }
+
+    private static boolean mountExists(Map<String, String> config) {
+        File mountPath = new File(config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR));
+        return mountPath.exists() &&  mountPath.canWrite();
+    }
+
     
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
