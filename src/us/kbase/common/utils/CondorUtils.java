@@ -2,18 +2,13 @@ package us.kbase.common.utils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.util.Hash;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import us.kbase.auth.AuthToken;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Arrays;
+import java.util.*;
 
 public class CondorUtils {
 
@@ -22,12 +17,13 @@ public class CondorUtils {
 
     /**
      * Create a condor submit file for Submitted Jobs
-     * @param ujsJobId The UJS job id
-     * @param token The token of the user of the submitted job
-     * @param adminToken The admin token used for bind mounts, stored in configs
+     *
+     * @param ujsJobId                    The UJS job id
+     * @param token                       The token of the user of the submitted job
+     * @param adminToken                  The admin token used for bind mounts, stored in configs
      * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement
-     * @param kbaseEndpoint The URL of the NJS Server
-     * @param baseDir The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param kbaseEndpoint               The URL of the NJS Server
+     * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/JOBID
      * @return The generated condor submit file
      * @throws IOException
      */
@@ -41,9 +37,7 @@ public class CondorUtils {
                 "request_memory", reqs.getOrDefault("request_memory", "5MB"));
         String request_disk = String.format("%s = %s",
                 "request_disk", reqs.getOrDefault("request_disk", "1MB"));
-
-
-        kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
+        
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {ujsJobId, kbaseEndpoint};
         String arguments = String.join(" ", args);
@@ -66,7 +60,7 @@ public class CondorUtils {
         csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
-        if(optClassAds != null) {
+        if (optClassAds != null) {
             for (Map.Entry<String, String> pair : optClassAds.entrySet()) {
                 csf.add(String.format("+%s = \"%s\"", pair.getKey(), pair.getValue()));
             }
@@ -82,9 +76,10 @@ public class CondorUtils {
 
     /**
      * Run the condor command and return
+     *
      * @param condorCommand command to run
-     * @returnCondorResponse with STDIN and STDOUT
      * @throws IOException
+     * @returnCondorResponse with STDIN and STDOUT
      */
     public static CondorResponse runProcess(String[] condorCommand) throws IOException {
         //TODO DELETE PRINT STATEMENT
@@ -117,15 +112,16 @@ public class CondorUtils {
 
 
     /**
-     * Parse out requirements form client groups
+     * Parse out requirements frm client groups
+     *
      * @param clientGroupsAndRequirements
-     * @return
+     * @return a map of client_groups, resource_requirements, and classAds
      */
-    public static HashMap<String,String> clientGroupsAndRequirements(String clientGroupsAndRequirements) {
+    public static HashMap<String, String> clientGroupsAndRequirements(String clientGroupsAndRequirements) {
 
         String[] items = clientGroupsAndRequirements.split(",");
         String clientGroup = cleanCondorInputs(items[0]);
-        HashMap<String,String> reqs = new HashMap<String ,String >();
+        HashMap<String, String> reqs = new HashMap<String, String>();
 
         reqs.put("client_group", clientGroup);
 
@@ -133,18 +129,16 @@ public class CondorUtils {
         requirementsStatement.add(String.format("(CLIENTGROUP == \"%s\")", clientGroup));
 
 
-        for(int i = 1; i < items.length; i++){
+        for (int i = 1; i < items.length; i++) {
             String condorInput = cleanCondorInputs(items[i]);
-            if(condorInput.contains("=")){
+            if (condorInput.contains("=")) {
                 String[] keyValue = condorInput.split("=");
-                if(special_cases.contains(keyValue[0])){
-                    reqs.put(keyValue[0],keyValue[1]);
+                if (special_cases.contains(keyValue[0])) {
+                    reqs.put(keyValue[0], keyValue[1]);
+                } else {
+                    requirementsStatement.add(String.format("(%s == \"%s\")", keyValue[0], keyValue[1]));
                 }
-                else{
-                    requirementsStatement.add(String.format("(%s == \"%s\")", keyValue[0],keyValue[1]));
-                }
-            }
-            else{
+            } else {
                 requirementsStatement.add(String.format("(%s)", condorInput));
             }
         }
@@ -155,6 +149,7 @@ public class CondorUtils {
 
     /**
      * Remove spaces and maybe perform other logic
+     *
      * @param clientGroups to run the job with
      * @return String modified client groups
      */
@@ -169,25 +164,27 @@ public class CondorUtils {
 
     /**
      * Remove space, remove single quote, and remove double quotes.
+     *
      * @param input
      * @return cleaned string
      */
     public static String cleanCondorInputs(String input) {
-        return input.replaceAll("[^0-9A-Za-z=_]","");
+        return input.replaceAll("[^0-9A-Za-z=_]", "");
     }
 
     /**
      * Call condor_submit with the ujsJobId as batch job name
-     * @param ujsJobId The UJS job id
-     * @param token The token of the user of the submitted job
-     * @param clientGroups The AWE Client Group
+     *
+     * @param ujsJobId      The UJS job id
+     * @param token         The token of the user of the submitted job
+     * @param clientGroups  The AWE Client Group
      * @param kbaseEndpoint The URL of the NJS Server
-     * @param baseDir The Directory for the job to run in /mnt/awe/condor/username/JOBID
-     * @param adminToken The admin token used for bind mounts, stored in configs
+     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param adminToken    The admin token used for bind mounts, stored in configs
      * @return String condor job id Range
      * @throws Exception
      */
-    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String,String> optClassAds, AuthToken adminToken) throws Exception {
+    public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds, AuthToken adminToken) throws Exception {
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
         String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
@@ -206,7 +203,8 @@ public class CondorUtils {
 
     /**
      * Call condor_q with the ujsJobId a string target to filter condor_q
-     * @param ujsJobId to get job JobPrio for
+     *
+     * @param ujsJobId  to get job JobPrio for
      * @param attribute attribute to search condorQ for
      * @return String condor job attribute or NULL
      */
@@ -238,6 +236,7 @@ public class CondorUtils {
 
     /**
      * Get a list of jobs ids and job statuses for all jobs recorded in condor
+     *
      * @return A List of job IDS and their respective statuses.
      * @throws Exception
      */
@@ -251,24 +250,30 @@ public class CondorUtils {
         }
         return JobStates;
     }
+
     /**
      * Get job state from condor_q with the LastJobStatus param
+     *
      * @param ujsJobId ujsJobId to get job state for
      * @return String  condor job state or NULL
      */
     public static String getJobState(String ujsJobId) throws Exception {
         return condorQ(ujsJobId, "LastJobStatus");
     }
+
     /**
      * Get job priority from condor_q with the JobPrio param
+     *
      * @param ujsJobId ujsJobId to get job JobPrio for
      * @return String  condor job priority or NULL
      */
     public static String getJobPriority(String ujsJobId) throws Exception {
         return condorQ(ujsJobId, "JobPrio");
     }
+
     /**
      * Remove condor jobs with a given batch name
+     *
      * @param ujsJobID ujsJobId for the job batch name
      * @return Result of the condor_rm command
      */
