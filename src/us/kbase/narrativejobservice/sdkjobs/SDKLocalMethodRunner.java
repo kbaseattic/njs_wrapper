@@ -167,7 +167,7 @@ public class SDKLocalMethodRunner {
             }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
 
-            if (!mountExists(jobInput.getE2())) {
+            if (!mountExists()) {
                 log.logNextLine("Cannot find mount point as defined in condor-submit-workdir",true);
                 throw new IOException("Cannot find mount point condor-submit-workdir");
             }
@@ -556,8 +556,13 @@ public class SDKLocalMethodRunner {
         return ret;
     }
 
-    private static boolean mountExists(Map<String, String> config) {
-        File mountPath = new File(config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR));
+    /**
+     * Check to see if the basedir exists, which is in
+     * a format similar to /mnt/condor/<username>
+     * @return
+     */
+    private static boolean mountExists() {
+        File mountPath = new File(System.getenv("BASE_DIR"));
         return mountPath.exists() &&  mountPath.canWrite();
     }
 
