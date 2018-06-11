@@ -2,6 +2,7 @@ package us.kbase.common.utils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.util.Hash;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import us.kbase.auth.AuthToken;
@@ -12,24 +13,36 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Arrays;
 
 public class CondorUtils {
+
+
+    public static final List<String> special_cases = Arrays.asList("request_cpus", "request_disk", "request_memory");
 
     /**
      * Create a condor submit file for Submitted Jobs
      * @param ujsJobId The UJS job id
      * @param token The token of the user of the submitted job
      * @param adminToken The admin token used for bind mounts, stored in configs
-     * @param clientGroups The AWE Client Group
+     * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement
      * @param kbaseEndpoint The URL of the NJS Server
      * @param baseDir The Directory for the job to run in /mnt/awe/condor/username/JOBID
      * @return The generated condor submit file
      * @throws IOException
      */
-    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String,String> optClassAds) throws IOException {
+    private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroupsAndRequirements, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds) throws IOException {
+
+        HashMap<String, String> reqs = clientGroupsAndRequirements(clientGroupsAndRequirements);
+        String clientGroups = reqs.get("client_group");
+        String request_cpus = String.format("%s = %s",
+                "request_cpus", reqs.getOrDefault("request_cpus", "1"));
+        String request_memory = String.format("%s = %s",
+                "request_memory", reqs.getOrDefault("request_memory", "5MB"));
+        String request_disk = String.format("%s = %s",
+                "request_disk", reqs.getOrDefault("request_disk", "1MB"));
 
 
-        String clientGroupsNew = clientGroupsToRequirements(clientGroups);
         kbaseEndpoint = cleanCondorInputs(kbaseEndpoint);
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {ujsJobId, kbaseEndpoint};
@@ -42,26 +55,28 @@ public class CondorUtils {
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("request_cpus = 1");
-        csf.add("request_memory = 5MB");
-        csf.add("request_disk = 1MB");
+        csf.add(request_cpus);
+        csf.add(request_memory);
+        csf.add(request_disk);
         csf.add("log    = logfile.txt");
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
         csf.add("getenv = true");
-        csf.add("requirements = " + clientGroupsNew);
+        csf.add("requirements = " + reqs.get("requirements_statement"));
         csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
-        for (Map.Entry<String, String> pair: optClassAds.entrySet()) {
-            csf.add(String.format("+%s = \"%s\"", pair.getKey(), pair.getValue()));
+        if(optClassAds != null) {
+            for (Map.Entry<String, String> pair : optClassAds.entrySet()) {
+                csf.add(String.format("+%s = \"%s\"", pair.getKey(), pair.getValue()));
+            }
         }
         csf.add("queue 1");
 
+        System.out.println("ABOUT TO PRINT OUT" + String.format("%s.sub", ujsJobId));
         File submitFile = new File(String.format("%s.sub", ujsJobId));
         FileUtils.writeLines(submitFile, "UTF-8", csf);
         submitFile.setExecutable(true);
-
         return submitFile;
     }
 
@@ -100,6 +115,44 @@ public class CondorUtils {
         return new CondorResponse(stdOutMessage, stdErrMessage);
     }
 
+
+    /**
+     * Parse out requirements form client groups
+     * @param clientGroupsAndRequirements
+     * @return
+     */
+    public static HashMap<String,String> clientGroupsAndRequirements(String clientGroupsAndRequirements) {
+
+        String[] items = clientGroupsAndRequirements.split(",");
+        String clientGroup = cleanCondorInputs(items[0]);
+        HashMap<String,String> reqs = new HashMap<String ,String >();
+
+        reqs.put("client_group", clientGroup);
+
+        List<String> requirementsStatement = new ArrayList<String>();
+        requirementsStatement.add(String.format("(CLIENTGROUP == \"%s\")", clientGroup));
+
+
+        for(int i = 1; i < items.length; i++){
+            String condorInput = cleanCondorInputs(items[i]);
+            if(condorInput.contains("=")){
+                String[] keyValue = condorInput.split("=");
+                if(special_cases.contains(keyValue[0])){
+                    reqs.put(keyValue[0],keyValue[1]);
+                }
+                else{
+                    requirementsStatement.add(String.format("(%s == \"%s\")", keyValue[0],keyValue[1]));
+                }
+            }
+            else{
+                requirementsStatement.add(String.format("(%s)", condorInput));
+            }
+        }
+        reqs.put("requirements_statement", "(" + String.join(" && ", requirementsStatement) + ")");
+        return reqs;
+    }
+
+
     /**
      * Remove spaces and maybe perform other logic
      * @param clientGroups to run the job with
@@ -120,9 +173,7 @@ public class CondorUtils {
      * @return cleaned string
      */
     public static String cleanCondorInputs(String input) {
-        return input.replace(" ", "")
-                .replace("'", "")
-                .replace("\"", "");
+        return input.replaceAll("[^0-9A-Za-z=_]","");
     }
 
     /**
