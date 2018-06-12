@@ -158,6 +158,7 @@ public class CondorIntegrationTest {
 
 
 
+
     public static void requestOwnership(WorkspaceClient wc, String moduleName) throws  Exception{
         try {
             wc.requestModuleOwnership(moduleName);

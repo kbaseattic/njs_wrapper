@@ -37,7 +37,7 @@ public class CondorUtils {
                 "request_memory", reqs.getOrDefault("request_memory", "5MB"));
         String request_disk = String.format("%s = %s",
                 "request_disk", reqs.getOrDefault("request_disk", "1MB"));
-        
+
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {ujsJobId, kbaseEndpoint};
         String arguments = String.join(" ", args);
@@ -113,6 +113,14 @@ public class CondorUtils {
 
     /**
      * Parse out requirements frm client groups
+     * The format is clientGroup, and then a series of requirements
+     * The requirements can either be "Attribute=Value", or "Attribute", or a special case
+     * There are three special cases, "request_cpus", "request_disk", "request_memory"
+     * These cases are not part of the requirements statement, but condor can use them
+     *
+     * An example is "ClientGroupA,request_cpus=4,request_disk=1GB,request_memory=2048kb,color=blue,LowMemory"
+     * or
+     * "ClientGroupB,Fast,Budget,HighMemory,LuckyNumber=12"
      *
      * @param clientGroupsAndRequirements
      * @return a map of client_groups, resource_requirements, and classAds
@@ -197,7 +205,9 @@ public class CondorUtils {
         if (jobID == null) {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
-        condorSubmitFile.delete();
+        if(! optClassAds.containsKey("debugMode")) {
+            condorSubmitFile.delete();
+        }
         return jobID;
     }
 

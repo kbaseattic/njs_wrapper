@@ -70,7 +70,8 @@ public class CondorTest {
         String ujsJobId = "TestJobSubmitFile";
         String kbaseEndpoint = "http://nginx/services/njs";
         String basedir = "/njs_wrapper/newfolder";
-        HashMap<String,String> optClassAds = null;
+        HashMap<String,String> optClassAds = new HashMap<>();
+        optClassAds.put("debugMode","debugMode");
         String clientGroupsAndRequirements = "njs,request_memory=100kb,request_cpus=2,request_disk=5,golden,brown,weight=100lbs,height<20feet";
         String jobID = CondorUtils.submitToCondorCLI(ujsJobId,token,clientGroupsAndRequirements,kbaseEndpoint,basedir,optClassAds,token);
         System.out.println(jobID);
