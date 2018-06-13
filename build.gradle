@@ -62,10 +62,16 @@ compileJava   {
   targetCompatibility = '1.7'
 }
 
-/*
-* To Build
-* ./gradlew build
-* ./gradlew javadoc
-* ./gradlew jar
-* ./gradlew war
+/* GRADLE COMMANDS
+* gradle build
+* gradle javadoc
 */
+
+
+//TODO MAKE SURE WAR AND JARS are WORKING AND COMPILED INTO CORRECT DIRECTORY
+//TODO GET TESTS WORKING
+//TODO GET JAVADOC WORKING
+//TODO GET CLEAN WORKING
+//TODO GET SCRIPT_DOCKER WORKING
+//TODO GET DOCKER WORKING
+//TODO GET MAKEFILE WORKING WITH GRADLE
