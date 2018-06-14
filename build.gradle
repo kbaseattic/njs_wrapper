@@ -31,16 +31,15 @@ sourceSets {
     }
 }
 
-
-// Define the main class for the application
-mainClassName = 'App'
+//Attributes for Jar
 jar {
     manifest {
         attributes('Implementation-Title': project.name,
-                   'Implementation-Version': project.version)
+                   'Implementation-Version': project.version,
+                   'Main-Class': 'NJSWrapper')
     }
 }
-
+//Attributes for War
 war {
     //TODO FIX
     //from 'src/rootContent' // adds a file-set to the root of the archive
@@ -49,6 +48,37 @@ war {
     //classpath configurations.moreLibs // adds a configuration to the WEB-INF/lib dir.
     webXml = file('war/web.xml') // copies a file to WEB-INF/web.xml
 }
+
+//Copy .jar file to ./dist/
+task copyJarToDist(type: Copy) {
+    from jar
+    into 'dist'
+}
+//Copy .war file to ./dist/
+task copyWarToDist(type: Copy) {
+    from war
+    into 'dist'
+}
+//Clean Build directory
+task cleanBuildDir(type: Delete) {
+    delete buildDir
+}
+
+task buildJar(type: GradleBuild) {
+     tasks = ['cleanBuildDir', 'jar', 'copyJarToDist']
+}
+task buildWar(type: GradleBuild) {
+     tasks = ['cleanBuildDir', 'war', 'copyWarToDist']
+}
+task buildAll(type: GradleBuild) {
+     tasks = ['cleanBuildDir', 'jar','war', 'copyJarToDist','copyWarToDist']
+}
+
+// task buildJar (dependsOn: [cleanBuildDir, jar, copyJarToDist])  
+// task buildWar (dependsOn: [cleanBuildDir, war, copyWarToDist]) 
+// task buildNJS (dependsOn: [cleanBuildDir, jar, war, copyJarToDist, copyWarToDist]) 
+
+
 
 dependencies {
     // TODO: Change
