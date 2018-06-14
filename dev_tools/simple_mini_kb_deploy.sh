@@ -17,6 +17,6 @@ docker cp /njs_wrapper/njs_wrapper/dist/NJSWrapper.war $njs:/kb/deployment/jetty
 #docker cp /njs_wrapper/njs_wrapper/deployment/misc/sdklocalmethodrunner.sh $min:/kb/deployment/misc/
 #docker cp /njs_wrapper/njs_wrapper/deployment/misc/docker3dependencies $min:/kb/deployment/misc/
 
-Echo "Done"
+echo "Done copying jars/wars/(maybe other things) to /kb/deployment/lib for njs,condor_max,condor_min"
 
 
