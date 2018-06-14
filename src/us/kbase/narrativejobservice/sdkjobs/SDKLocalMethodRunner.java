@@ -166,6 +166,12 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(msg, false);
             }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
+
+            if (!mountExists()) {
+                log.logNextLine("Cannot find mount point as defined in condor-submit-workdir",true);
+                throw new IOException("Cannot find mount point condor-submit-workdir");
+            }
+
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
             if (context == null)
@@ -549,6 +555,17 @@ public class SDKLocalMethodRunner {
             ret.mkdir();
         return ret;
     }
+
+    /**
+     * Check to see if the basedir exists, which is in
+     * a format similar to /mnt/condor/<username>
+     * @return
+     */
+    private static boolean mountExists() {
+        File mountPath = new File(System.getenv("BASE_DIR"));
+        return mountPath.exists() &&  mountPath.canWrite();
+    }
+
     
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
