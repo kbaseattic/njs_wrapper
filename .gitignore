@@ -12,4 +12,4 @@
 .DS_STORE
 deploy.cfg
 test.cfg
-
+.gradle
