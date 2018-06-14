@@ -19,6 +19,9 @@ plugins {
     id 'war'
 }
 
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
+
 //Custom project layout
 sourceSets {
     main {
@@ -26,7 +29,12 @@ sourceSets {
             srcDirs = ['src/us/kbase/']
         }
         resources {
-            srcDirs = ['src/resources']
+            srcDirs = ['src/dist']
+        }
+    }
+    test {
+        java {
+            srcDirs = ["src/us/kbase/narrativejobservice/test"]  // Note @Peter's comment below
         }
     }
 }
@@ -59,33 +67,39 @@ task copyWarToDist(type: Copy) {
     from war
     into 'dist'
 }
-//Clean Build directory
-task cleanBuildDir(type: Delete) {
-    delete buildDir
+//Clean Build directory 
+task cleanup(type: Delete) {
+    delete buildDir,'dist'
 }
 
 task buildJar(type: GradleBuild) {
-     tasks = ['cleanBuildDir', 'jar', 'copyJarToDist']
+     tasks = ['cleanup', 'jar', 'copyJarToDist']
 }
 task buildWar(type: GradleBuild) {
-     tasks = ['cleanBuildDir', 'war', 'copyWarToDist']
+     tasks = ['cleanup', 'war', 'copyWarToDist']
 }
 task buildAll(type: GradleBuild) {
-     tasks = ['cleanBuildDir', 'jar','war', 'copyJarToDist','copyWarToDist']
+     tasks = ['cleanup', 'jar','war', 'copyJarToDist','copyWarToDist']
 }
 
 // task buildJar (dependsOn: [cleanBuildDir, jar, copyJarToDist])  
 // task buildWar (dependsOn: [cleanBuildDir, war, copyWarToDist]) 
 // task buildNJS (dependsOn: [cleanBuildDir, jar, war, copyJarToDist, copyWarToDist]) 
 
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.8'
+}
+
+task hotSwap(type:Exec){
+    commandLine "./dev_tools/simple_mini_kb_deploy.sh"
+}
 
 
 dependencies {
     // TODO: Change
     // Flattened requirements from kbasejars in an adjacent directory
     compile fileTree(dir: 'flatjars', include: ['*.jar'])
-    // Use JUnit test framework
-    testCompile 'junit:junit:4.12'
+
 }
 compileJava   {
   sourceCompatibility = '1.7'
