@@ -34,7 +34,7 @@ sourceSets {
     }
     test {
         java {
-            srcDirs = ["src/us/kbase/narrativejobservice/test"]  // Note @Peter's comment below
+            srcDirs = ["src/us/kbase/narrativejobservice/test"]
         }
     }
 }
@@ -94,7 +94,6 @@ task hotSwap(type:Exec){
     commandLine "./dev_tools/simple_mini_kb_deploy.sh"
 }
 
-
 dependencies {
     // TODO: Change
     // Flattened requirements from kbasejars in an adjacent directory
@@ -112,10 +111,7 @@ compileJava   {
 */
 
 
-//TODO MAKE SURE WAR AND JARS are WORKING AND COMPILED INTO CORRECT DIRECTORY
-//TODO GET TESTS WORKING
 //TODO GET JAVADOC WORKING
-//TODO GET CLEAN WORKING
 //TODO GET SCRIPT_DOCKER WORKING
 //TODO GET DOCKER WORKING
 //TODO GET MAKEFILE WORKING WITH GRADLE
