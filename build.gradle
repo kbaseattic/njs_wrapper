@@ -5,23 +5,129 @@
  * For more details take a look at the Java Quickstart chapter in the Gradle
  * user guide available at https://docs.gradle.org/4.8/userguide/tutorial_java_projects.html
  */
-
 plugins {
-    // Apply the java plugin to add support for Java
+    //Fat Jar support
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
+    // Apply the java plugin to add support for Java and
     id 'java'
-
     id 'java-library'
-
-    id 'application'
+    // id 'application'
     // The War plugin extends the Java plugin to add support for assembling web application WAR 
     // files. It disables the default JAR archive generation of the Java plugin 
     // and adds a default WAR archive task
     id 'war'
 }
-
 buildDir = "gradle_build_directory"
-mainClassName = "org.gradle.sample.Main"
+// mainClassName = "this.is.required.for.application"
+// version = '0.3.0'
+sourceCompatibility = 1.7
+targetCompatibility = 1.7
 
+compileJava   {
+  sourceCompatibility = project.sourceCompatibility
+  targetCompatibility = project.targetCompatibility
+}
+
+// Custom java project layout
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/us/kbase/']
+        }
+        resources {
+            srcDirs = ['src/dist']
+        }
+    }
+    test {
+        java {
+            srcDirs = ["src/us/kbase/narrativejobservice/test"]
+        }
+    }
+}
+// Create a fat jar with all dependencies
+shadowJar {
+   baseName = 'NJSWrapper'
+}
+
+
+//Attributes for War
+war {
+    //TODO FIX
+    //from 'src/rootContent' // adds a file-set to the root of the archive
+    //webInf { from 'src/additionalWebInf' } // adds a file-set to the WEB-INF dir.
+    //classpath fileTree('additionalLibs') // adds a file-set to the WEB-INF/lib dir.
+    //classpath configurations.moreLibs // adds a configuration to the WEB-INF/lib dir.
+    webXml = file('war/web.xml') // copies a file to WEB-INF/web.xml
+}
+
+//Copy .jar file to ./dist/
+task copyFatJarToDist(type: Copy) {
+    from shadowJar
+    into 'dist'
+    // rename ("NJSWrapper-${version}", "NJSWrapper")
+}
+//Copy .jar file to ./dist/
+task copyJarToDist(type: Copy) {
+    from jar
+    into 'dist'
+    // rename ("NJSWrapper-${version}", "NJSWrapper")
+}
+//Copy .war file to ./dist/
+task copyWarToDist(type: Copy) {
+    from war
+    into 'dist'
+    // rename ("NJSWrapper-${version}", "NJSWrapper")
+}
+//Clean Build directory 
+task cleanup(type: Delete) {
+    delete buildDir,'dist','deployment/lib'
+    println "Deleting dist and deployment/lib"
+}
+//Copy all files
+task copyAllToDeployment(type: Copy) {
+    from "dist"
+    into "deployment/lib"
+    println "Copying all files from dist to deployment/lib"
+}
+
+task deployJar(type: Copy){
+    into file("deployment/lib/")
+    from jar
+    from war
+    from shadowJar
+    rename("NJSWrapper-${version}","NJSWrapper")
+    println "Copying from dist/NJSWrapper-${version}.jar to deployment/lib/NJSWrapper.jar"
+}
+
+// task customTask{
+// //    copy(from:jar, into file("deployment/lib/"))
+// //    copy(from:war, into file("deployment/lib/"))
+// //    copy(from:shadowJar, into file("deployment/lib/"))
+//    copy(file:"$buildDir/libs/NJSWrapper-${version}.jar", tofile:"deployment/lib/NJSWrapper.jar")
+// }
+
+task buildJar(type: GradleBuild) {
+     tasks = ['cleanup', 'jar', 'copyJarToDist']
+}
+task buildWar(type: GradleBuild) {
+     tasks = ['cleanup', 'war', 'copyWarToDist']
+}
+//Create jar, war, and fat jar
+task buildAll(type: GradleBuild) {
+     tasks = ['cleanup', 'war','shadowJar','copyJarToDist','copyWarToDist','copyFatJarToDist','copyAllToDeployment']
+}
+
+//Create gradle wrapper scripts
+task wrapper(type: Wrapper) {
+    gradleVersion = '4.8'
+}
+
+//Swap out live
+task hotSwap(type:Exec){
+    commandLine "./dev_tools/simple_mini_kb_deploy.sh"
+}
+
+//Use KBase Artifactory
 repositories {
     maven {
         url 'http://ci.kbase.us:8081/artifactory/gradle-dev'
@@ -88,107 +194,3 @@ dependencies {
     api 'jongo:jongo:0.5-early-20130912-1506'
     api 'bson4jackson:bson4jackson:2.2.0-2.2.0'
 }
-
-sourceCompatibility = 1.7
-targetCompatibility = 1.7
-
-// Custom project layout
-sourceSets {
-    main {
-        java {
-            srcDirs = ['src/us/kbase/']
-        }
-        resources {
-            srcDirs = ['src/dist']
-        }
-    }
-    test {
-        java {
-            srcDirs = ["src/us/kbase/narrativejobservice/test"]
-        }
-    }
-}
-
-version = '0.3.0'
-
-// Attributes for Jar
-jar {
-    manifest {
-        attributes('Implementation-Title': project.name,
-                   'Implementation-Version': project.version,
-                   'Main-Class': 'NJSWrapper')
-    }
-}
-
-//Attributes for War
-war {
-    //TODO FIX
-    //from 'src/rootContent' // adds a file-set to the root of the archive
-    //webInf { from 'src/additionalWebInf' } // adds a file-set to the WEB-INF dir.
-    //classpath fileTree('additionalLibs') // adds a file-set to the WEB-INF/lib dir.
-    //classpath configurations.moreLibs // adds a configuration to the WEB-INF/lib dir.
-    webXml = file('war/web.xml') // copies a file to WEB-INF/web.xml
-}
-
-//Copy .jar file to ./dist/
-task copyJarToDist(type: Copy) {
-    from jar
-    into 'dist'
-}
-//Copy .war file to ./dist/
-task copyWarToDist(type: Copy) {
-    from war
-    into 'dist'
-}
-//Clean Build directory 
-task cleanup(type: Delete) {
-    delete buildDir,'dist','deployment/lib'
-}
-
-task deployDependencies(type: Copy){
-    into 'deployment/lib/'
-    from project.configurations.compile
-    from project.configurations.runtime
-    from configurations.runtime
-    from configurations.compile
-    print("Copying dependencies into deployment/lib\n")
-}
-
-task deployJar(type: Copy){
-    into file("deployment/lib/")
-    from jar
-    rename("NJSWrapper-${version}.jar","NJSWrapper.jar")
-    print("Copying from dist/NJSWrapper-${version}.jar to deployment/lib/NJSWrapper.jar\n")
-}
-
-task buildJar(type: GradleBuild) {
-     tasks = ['cleanup', 'jar', 'copyJarToDist']
-}
-task buildWar(type: GradleBuild) {
-     tasks = ['cleanup', 'war', 'copyWarToDist']
-}
-task buildAll(type: GradleBuild) {
-     tasks = ['cleanup', 'jar','war','copyJarToDist','copyWarToDist','deployDependencies','deployJar']
-}
-
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.8'
-}
-
-task hotSwap(type:Exec){
-    commandLine "./dev_tools/simple_mini_kb_deploy.sh"
-}
-
-compileJava   {
-  sourceCompatibility = '1.7'
-  targetCompatibility = '1.7'
-}
-
-/* GRADLE COMMANDS
-* gradle build
-* gradle javadoc
-*/
-
-
-//TODO GET JAVADOC WORKING
-
