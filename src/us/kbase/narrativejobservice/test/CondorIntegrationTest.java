@@ -374,6 +374,8 @@ public class CondorIntegrationTest {
 
         List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
         System.out.println("Asserting child jobs match sub jobs");
+        System.out.println(subjobs);
+        System.out.println(child_jobs);
         assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
     }
 
@@ -402,7 +404,7 @@ public class CondorIntegrationTest {
 
 
         long FinishState = 0;
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < 10; i++) {
             try {
                 Thread.sleep(2000);
                 ret = client.checkJob(jobId);
