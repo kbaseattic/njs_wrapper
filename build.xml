@@ -1,7 +1,7 @@
 <project name="NJS Wrapper Service" default="compile" basedir=".">
 
   <description>
-    Build war-file for the NJS Wrapper Service
+      Build war-file for the NJS Wrapper Service
   </description>
 
   <!-- set global properties for this build -->
@@ -97,10 +97,10 @@
     <exec executable="git" outputproperty="git.branch"><arg line="rev-parse --abbrev-ref HEAD"/></exec>
     <exec executable="git" outputproperty="git.commit"><arg line="rev-parse HEAD"/></exec>
     <echo file="${src}/us/kbase/narrativejobservice/git.properties">### PLEASE DO NOT CHANGE THIS FILE MANUALLY! ###
-      giturl=${git.url}
-      branch=${git.branch}
-      commit=${git.commit}</echo>
-    <!-- Compile class files-->
+giturl=${git.url}
+branch=${git.branch}
+commit=${git.commit}</echo>
+  	<!-- Compile class files-->
     <javac destdir="${classes}" includeantruntime="false" target="1.7" source="1.7" debug="true" classpathref="compile.classpath">
       <src path="${src}"/>
     </javac>
@@ -130,13 +130,13 @@
   </target>
 
   <target name="script" depends="compile" description="create AWE command-line script">
-    <copy file="${dist}/${jar.file}" todir="${jardir}"/>
+  	<copy file="${dist}/${jar.file}" todir="${jardir}"/>
     <property name="jar.absolute.path" location="${jardir}/${jar.file}"/>
     <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
-      export JAVA_HOME=${java.home}
-      export PATH=${java.home}/bin:$PATH
-      java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+export JAVA_HOME=${java.home}
+export PATH=${java.home}/bin:$PATH
+java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
@@ -151,10 +151,10 @@
       </resources>
     </copy>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
-      export JAVA_HOME=${java.home}
-      export PATH=${java.home}/bin:$PATH
-      java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
-      # java -cp ${image.classpath}/${jar.file}:${image.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+export JAVA_HOME=${java.home}
+export PATH=${java.home}/bin:$PATH
+java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+# java -cp ${image.classpath}/${jar.file}:${image.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
@@ -172,7 +172,7 @@
   <target name="shockmigscript" depends="compile" description="create script to run shock->mongo migration">
     <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
     <echo file="./migrate_shock_data_to_mongo.sh">#!/bin/sh
-      java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
+java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
     </echo>
     <chmod file="./migrate_shock_data_to_mongo.sh" perm="a+x"/>
   </target>
@@ -252,3 +252,4 @@
     <delete dir="${dist}"/>
   </target>
 </project>
+
