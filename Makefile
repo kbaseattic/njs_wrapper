@@ -107,8 +107,6 @@ docker_image_gradle: compileWithGradle
 	cp dist/NJSWrapper*.war deployment/jettybase/webapps/root.war
 	cp dist/* deployment/lib
 	./build/build_docker_image.sh
-	rm deployment/bin/run_async_srv_method.sh
-
 
 compileWithGradle:
 	gradle buildAll
