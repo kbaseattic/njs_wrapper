@@ -258,4 +258,3 @@
     <delete dir="${dist}"/>
   </target>
 </project>
-
