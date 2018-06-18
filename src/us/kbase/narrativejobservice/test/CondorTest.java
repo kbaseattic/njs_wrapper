@@ -50,6 +50,8 @@ import java.util.HashMap;
 
 public class CondorTest {
 
+    public static AuthToken token;
+
     @Test
     public void testFakeJobStatus() throws Exception{
         String ujsJobId = "5acd7057e4b057726bc40d7e";
@@ -63,17 +65,17 @@ public class CondorTest {
         System.out.println("getJobPriority for" + ujsJobId  + " = " + state);
     }
 
-//    @Test
-//    public void testFakeJobSub() throws Exception{
-//        String ujsJobId = "5acd7057e4b057726bc40d7e";
-//        AuthToken token = new AuthToken("62IYPZGS7O773DBLZZCSE542BP4C2E7G");
-//        String endpoint = "http://nginx/services/njs";
-//        String basedir = "/njs_wrapper/newfolder";
-//        String jobID = (CondorUtils.submitToCondorCLI(ujsJobId,token,"njs",endpoint,basedir));
-//        System.out.println(jobID);
-//    }
-//
-//
+    @Test
+    public void testFakeJobSub() throws Exception{
+        String ujsJobId = "TestJobSubmitFile";
+        String kbaseEndpoint = "http://nginx/services/njs";
+        String basedir = "/njs_wrapper/newfolder";
+        HashMap<String,String> optClassAds = new HashMap<>();
+        optClassAds.put("debugMode","debugMode");
+        String clientGroupsAndRequirements = "njs,request_memory=100kb,request_cpus=2,request_disk=5,golden,brown,weight=100lbs,height<20feet";
+        String jobID = CondorUtils.submitToCondorCLI(ujsJobId,token,clientGroupsAndRequirements,kbaseEndpoint,basedir,optClassAds,token);
+        System.out.println(jobID);
+    }
 
 
 
@@ -92,6 +94,12 @@ public class CondorTest {
         BufferedReader buffer = new BufferedReader(new InputStreamReader((p.getInputStream())));
         String userName = buffer.lines().collect(Collectors.joining("\n"));
         Assert.assertFalse("FAILURE: Do not run these tests as ROOT", userName.equals("root"));
+    }
+
+    @BeforeClass
+    public static void beforeClass() throws Exception {
+        Properties props = TesterUtils.props();
+        token = TesterUtils.token(props);
     }
 //
 //    @Test
