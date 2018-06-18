@@ -7,7 +7,6 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y ant-optional
   - sudo pip install sphinx
-  - sudo apt-get install -y gradle
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
     - secure: "GEbQy4zR5hhHDzjoThGyCHZVmpEWKduwR/sZ1sR8csOYrfYqQTHinhAMY+KAdUhjJfWGwR9l2v2xkhyokzdADhKOqZJo7jkkioPEtENdocTWMYq7Qedg6kUCzcAutURIBCcoJtW4vrpGZ+1YR4vB8BhA11KA62QUbsQY3ds/LTg="
