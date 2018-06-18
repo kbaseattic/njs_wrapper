@@ -12,12 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -418,10 +413,23 @@ public class SDKLocalMethodRunner {
                         "by the job runner. Local callbacks are disabled.",
                         true);
             }
+
+            Map<String,String> labels = new HashMap<>();
+            labels.put("job_id",""+jobId);
+            labels.put("image_name",imageName);
+            labels.put("app_name",job.getMethod().split(".")[0]);
+            labels.put("method_name",job.getMethod().split(".")[1]);
+            labels.put("parent_job_id",job.getParentJobId());
+            labels.put("image_version",imageVersion);
+            labels.put("wsid",""+job.getWsid());
+            labels.put("app_id",""+job.getAppId());
+            labels.put("user_name",token.getUserName());
+
+
             // Calling Docker run
             new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                     outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                    cancellationChecker, envVars);
+                    cancellationChecker, envVars, labels);
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);

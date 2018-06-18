@@ -377,6 +377,11 @@ public class CondorIntegrationTest {
         System.out.println(subjobs);
         System.out.println(child_jobs);
         assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
+
+        System.out.println("Cancelling jobs");
+        client.cancelJob(new CancelJobParams().withJobId(jobId));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child1));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child2));
     }
 
 
@@ -404,7 +409,7 @@ public class CondorIntegrationTest {
 
 
         long FinishState = 0;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 60; i++) {
             try {
                 Thread.sleep(2000);
                 ret = client.checkJob(jobId);

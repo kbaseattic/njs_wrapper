@@ -54,7 +54,8 @@ public class DockerRunner {
             final String jobId,
             final List<Bind> additionalBinds,
             final CancellationChecker cancellationChecker,
-            final Map<String, String> envVars)
+            final Map<String, String> envVars,
+            final Map<String, String> labels)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " +
@@ -104,6 +105,7 @@ public class DockerRunner {
             if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
                 cntCmd.withNetworkMode("mini_kb_default");
             }
+            cntCmd.withLabels(labels);
             final String cntId = cntCmd.exec().getId();
 
 
