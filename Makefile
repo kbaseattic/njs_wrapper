@@ -1,4 +1,4 @@
-build.gradleKB_TOP ?= /kb/dev_container
+KB_TOP ?= /kb/dev_container
 KB_RUNTIME ?= /kb/runtime
 DEPLOY_RUNTIME ?= $(KB_RUNTIME)
 TARGET ?= /kb/deployment
