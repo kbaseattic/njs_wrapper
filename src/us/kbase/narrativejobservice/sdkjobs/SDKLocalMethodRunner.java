@@ -101,7 +101,7 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
-        Runtime.getRuntime().addShutdownHook(new Thread()
+        Thread shutdownHook = new Thread()
         {
             @Override
             public void run()
@@ -113,7 +113,10 @@ public class SDKLocalMethodRunner {
                     e.printStackTrace();
                 }
             }
-        });
+        };
+
+
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
 
         String[] hostnameAndIP = getHostnameAndIP();
@@ -502,6 +505,7 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {

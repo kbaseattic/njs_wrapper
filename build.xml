@@ -1,7 +1,7 @@
 <project name="NJS Wrapper Service" default="compile" basedir=".">
 
   <description>
-      Build war-file for the NJS Wrapper Service
+    Build war-file for the NJS Wrapper Service
   </description>
 
   <!-- set global properties for this build -->
@@ -30,9 +30,7 @@
     <include name="syslog4j/syslog4j-0.9.46.jar"/>
     <include name="junit/junit-4.9.jar"/>
     <include name="kbase/auth/kbase-auth-0.4.4.jar"/>
-    <include name="jackson/jackson-annotations-2.2.3.jar"/>
-    <include name="jackson/jackson-core-2.2.3.jar"/>
-    <include name="jackson/jackson-databind-2.2.3.jar"/>
+
     <include name="kbase/common/kbase-common-0.0.23.jar"/>
     <include name="kbase/workspace/WorkspaceClient-0.6.0.jar"/>
     <include name="derby/derby-10.10.1.1.jar"/>
@@ -42,7 +40,14 @@
     <include name="apache_commons/http/httpcore-4.3.jar"/>
     <include name="apache_commons/http/httpmime-4.3.1.jar"/>
     <include name="bouncycastle/bcprov-jdk15on-1.51.jar"/>
-    <include name="dockerjava/docker-java-1.3.0.jar"/>
+
+    <include name="dockerjava/docker-java-3.0.14.jar"/>
+    <include name="jackson/jackson-annotations-2.2.3.jar"/>
+    <include name="jackson/jackson-core-2.2.3.jar"/>
+    <include name="jackson/jackson-databind-2.2.3.jar"/>
+    <include name="jackson/jackson-jaxrs-json-provider-2.1.2.jar"/>
+    <include name="jackson/jackson-module-jaxb-annotations-2.1.2.jar"/>
+
     <include name="jaxrs/javax.ws.rs-api-2.0.jar"/>
     <include name="jersey/jersey-client-2.11.jar"/>
     <include name="jersey/jersey-common-2.11.jar"/>
@@ -51,7 +56,7 @@
     <include name="jersey/jersey-guava-2.11.jar"/>
     <include name="jersey/jersey-apache-connector-2.11.jar"/>
     <include name="hk2/javax.inject-2.3.0-b05.jar"/>
-    <include name="jackson/jackson-jaxrs-json-provider-2.1.2.jar"/>
+
     <include name="hk2/aopalliance-repackaged-2.3.0-b05.jar"/>
     <include name="bouncycastle/bcpkix-jdk15on-1.51.jar"/>
     <include name="cglib/cglib-nodep-2.2.jar"/>
@@ -61,7 +66,7 @@
     <include name="hamcrest/hamcrest-library-1.3.jar"/>
     <include name="hk2/hk2-locator-2.3.0-b05.jar"/>
     <include name="hk2/hk2-utils-2.3.0-b05.jar"/>
-    <include name="jackson/jackson-module-jaxb-annotations-2.1.2.jar"/>
+
     <include name="annotation/javax.annotation-api-1.2.jar"/>
     <include name="testinfected/jpa-matchers-1.6.jar"/>
     <include name="lambdaj/lambdaj-2.3.3.jar"/>
@@ -70,7 +75,8 @@
     <include name="objenesis/objenesis-1.2.jar"/>
     <include name="hk2/osgi-resource-locator-1.0.1.jar"/>
     <include name="persistence/persistence-api-1.0.jar"/>
-    <include name="gesellix/unix-socket-factory-2015-01-27T15-02-14.jar"/>
+
+
     <include name="apache_commons/commons-codec-1.8.jar"/>
     <include name="google/guava-18.0.jar"/>
     <include name="apache_commons/commons-io-2.4.jar"/>
@@ -97,10 +103,10 @@
     <exec executable="git" outputproperty="git.branch"><arg line="rev-parse --abbrev-ref HEAD"/></exec>
     <exec executable="git" outputproperty="git.commit"><arg line="rev-parse HEAD"/></exec>
     <echo file="${src}/us/kbase/narrativejobservice/git.properties">### PLEASE DO NOT CHANGE THIS FILE MANUALLY! ###
-giturl=${git.url}
-branch=${git.branch}
-commit=${git.commit}</echo>
-  	<!-- Compile class files-->
+      giturl=${git.url}
+      branch=${git.branch}
+      commit=${git.commit}</echo>
+    <!-- Compile class files-->
     <javac destdir="${classes}" includeantruntime="false" target="1.7" source="1.7" debug="true" classpathref="compile.classpath">
       <src path="${src}"/>
     </javac>
@@ -130,13 +136,13 @@ commit=${git.commit}</echo>
   </target>
 
   <target name="script" depends="compile" description="create AWE command-line script">
-  	<copy file="${dist}/${jar.file}" todir="${jardir}"/>
+    <copy file="${dist}/${jar.file}" todir="${jardir}"/>
     <property name="jar.absolute.path" location="${jardir}/${jar.file}"/>
     <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
-export JAVA_HOME=${java.home}
-export PATH=${java.home}/bin:$PATH
-java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+      export JAVA_HOME=${java.home}
+      export PATH=${java.home}/bin:$PATH
+      java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
@@ -151,10 +157,10 @@ java -cp ${jar.absolute.path}:${lib.classpath} us.kbase.narrativejobservice.sdkj
       </resources>
     </copy>
     <echo file="${bindir}/${cmd.file}">#!/bin/sh
-export JAVA_HOME=${java.home}
-export PATH=${java.home}/bin:$PATH
-java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
-# java -cp ${image.classpath}/${jar.file}:${image.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+      export JAVA_HOME=${java.home}
+      export PATH=${java.home}/bin:$PATH
+      java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
+      # java -cp ${image.classpath}/${jar.file}:${image.classpath} us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $1 $2 $3 $4 >job_out.txt 2>job_err.txt
     </echo>
     <chmod file="${bindir}/${cmd.file}" perm="a+x"/>
   </target>
@@ -172,7 +178,7 @@ java -cp "${image.classpath}/*" us.kbase.narrativejobservice.sdkjobs.SDKLocalMet
   <target name="shockmigscript" depends="compile" description="create script to run shock->mongo migration">
     <pathconvert targetos="unix" property="lib.classpath" refid="compile.classpath"/>
     <echo file="./migrate_shock_data_to_mongo.sh">#!/bin/sh
-java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
+      java -cp ${dist}/${jar.file}:${lib.classpath} us.kbase.narrativejobservice.db.MigrateShockDataToMongo $1 $2 $3 $4
     </echo>
     <chmod file="./migrate_shock_data_to_mongo.sh" perm="a+x"/>
   </target>

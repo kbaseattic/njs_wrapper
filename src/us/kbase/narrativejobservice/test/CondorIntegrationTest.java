@@ -374,6 +374,8 @@ public class CondorIntegrationTest {
 
         List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
         System.out.println("Asserting child jobs match sub jobs");
+        System.out.println(subjobs);
+        System.out.println(child_jobs);
         assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
     }
 
@@ -402,7 +404,7 @@ public class CondorIntegrationTest {
 
 
         long FinishState = 0;
-        for (int i = 0; i < 60; i++) {
+        for (int i = 0; i < 10; i++) {
             try {
                 Thread.sleep(2000);
                 ret = client.checkJob(jobId);
@@ -1732,7 +1734,12 @@ public class CondorIntegrationTest {
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
-        catalogWrapper = startupCatalogWrapper();
+
+        /**
+        if(authUrl.contains("localhost") || authUrl.contains("nginx")) {
+            catalogWrapper = startupCatalogWrapper();
+        }
+         **/
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();
