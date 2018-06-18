@@ -376,6 +376,11 @@ public class CondorIntegrationTest {
         List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
         System.out.println("Asserting child jobs match sub jobs");
         assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
+        
+        System.out.println("Cancelling jobs");
+        client.cancelJob(new CancelJobParams().withJobId(jobId));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child1));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child2));
     }
 
 
