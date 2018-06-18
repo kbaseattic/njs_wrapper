@@ -109,4 +109,4 @@ docker_image_gradle: compileWithGradle
 	./build/build_docker_image.sh
 
 compileWithGradle:
-	gradle buildAll
+	./gradlew buildAll
