@@ -87,6 +87,22 @@ docker_image: compile
 	./build/build_docker_image.sh
 	rm deployment/bin/run_async_srv_method.sh
 
+docker_image_gradle: compileWithGradle
+	-mkdir deployment/lib
+	-mkdir -p deployment/jettybase/webapps
+	-mkdir -p deployment/jettybase/logs
+	-mkdir -p deployment/jettybase/start.d
+	cp dist/NJSWrapper*.war deployment/jettybase/webapps/root.war
+	./build/build_docker_image.sh
+	rm deployment/bin/run_async_srv_method.sh
+	gradle copyJarsTo
+
+
+compileWithGradle:
+	gradle buildAll
+
+
+
 deploy-scripts:
 	$(ANT) script -Djardir=$(TARGET)/lib/jars -Djarsdir=$(TARGET)/lib/jars -Dbindir=$(BIN) -Djava.home=$(JAVA_HOME)
 
