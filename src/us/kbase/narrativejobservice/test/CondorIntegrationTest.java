@@ -395,6 +395,7 @@ public class CondorIntegrationTest {
         meta.put("foo", "bar");
 
         execStats.clear();
+        String basenumber = "101";
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
@@ -438,6 +439,10 @@ public class CondorIntegrationTest {
             System.out.println(ret);
         }
         assertTrue(ret.getFinished() == 1L);
+
+        System.out.println("Asserting that the result is:" + basenumber);
+        UObject new_number = ret.getResult().asList().get(0).asMap().get("new_number");
+        assertTrue(new_number.toJsonString().contains("" + (Integer.parseInt(basenumber) + 100)));
 
     }
 

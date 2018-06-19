@@ -423,8 +423,17 @@ public class SDKLocalMethodRunner {
             Map<String,String> labels = new HashMap<>();
             labels.put("job_id",""+jobId);
             labels.put("image_name",imageName);
-            labels.put("app_name",job.getMethod().split(".")[0]);
-            labels.put("method_name",job.getMethod().split(".")[1]);
+
+            String method = job.getMethod();
+            String[] appNameMethodName = method.split("\\.");
+            if(appNameMethodName.length == 2){
+                labels.put("app_name",appNameMethodName[0]);
+                labels.put("method_name",appNameMethodName[1]);
+            }
+            else{
+                labels.put("app_name",method);
+                labels.put("method_name",method);
+            }
             labels.put("parent_job_id",job.getParentJobId());
             labels.put("image_version",imageVersion);
             labels.put("wsid",""+job.getWsid());
