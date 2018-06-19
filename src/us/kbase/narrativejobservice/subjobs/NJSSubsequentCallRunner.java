@@ -4,7 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.github.dockerjava.api.model.Bind;
@@ -62,11 +64,20 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                 moduleVersion.getDataVersion()
             ).toFile();
         }
+
+        Map<String,String> labels = new HashMap<>();
+        labels.put("job_id",""+jobId);
+        labels.put("image_name",imageName);
+        labels.put("module_name",moduleName);
+        labels.put("module_version",moduleVersion.getVersion());
+        labels.put("user_name",token.getUserName());
+
+
         new DockerRunner(config.getDockerURI()).run(
                 imageName, moduleName, inputFile.toFile(), token,
                 config.getLogger(), outputFile.toFile(), false, refDataDir,
                 sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString(), additionalBinds, cancellationChecker, null);
+                jobId.toString(), additionalBinds, cancellationChecker, null, labels);
         return outputFile;
     }
     

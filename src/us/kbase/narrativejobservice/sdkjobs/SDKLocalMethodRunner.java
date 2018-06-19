@@ -12,12 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -101,7 +96,7 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
-        Runtime.getRuntime().addShutdownHook(new Thread()
+        Thread shutdownHook = new Thread()
         {
             @Override
             public void run()
@@ -113,7 +108,10 @@ public class SDKLocalMethodRunner {
                     e.printStackTrace();
                 }
             }
-        });
+        };
+
+
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
 
         String[] hostnameAndIP = getHostnameAndIP();
@@ -421,10 +419,32 @@ public class SDKLocalMethodRunner {
                         "by the job runner. Local callbacks are disabled.",
                         true);
             }
+
+            Map<String,String> labels = new HashMap<>();
+            labels.put("job_id",""+jobId);
+            labels.put("image_name",imageName);
+
+            String method = job.getMethod();
+            String[] appNameMethodName = method.split("\\.");
+            if(appNameMethodName.length == 2){
+                labels.put("app_name",appNameMethodName[0]);
+                labels.put("method_name",appNameMethodName[1]);
+            }
+            else{
+                labels.put("app_name",method);
+                labels.put("method_name",method);
+            }
+            labels.put("parent_job_id",job.getParentJobId());
+            labels.put("image_version",imageVersion);
+            labels.put("wsid",""+job.getWsid());
+            labels.put("app_id",""+job.getAppId());
+            labels.put("user_name",token.getUserName());
+
+
             // Calling Docker run
             new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                     outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                    cancellationChecker, envVars);
+                    cancellationChecker, envVars, labels);
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
@@ -508,6 +528,7 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {
