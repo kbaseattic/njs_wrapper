@@ -145,7 +145,7 @@ public class SDKMethodRunner {
 			optClassAds.put("kb_function_name", modNameFuncName[0]);
 			optClassAds.put("kb_app_id", params.getAppId());
 
-			if( params.getWsid() != null){
+			if (params.getWsid() != null) {
 				optClassAds.put("kb_wsid", "" + params.getWsid());
 			}
 
