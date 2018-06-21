@@ -144,7 +144,10 @@ public class SDKMethodRunner {
 			optClassAds.put("kb_module_name", modNameFuncName[0]);
 			optClassAds.put("kb_function_name", modNameFuncName[0]);
 			optClassAds.put("kb_app_id", params.getAppId());
-			optClassAds.put("kb_wsid", "" + params.getWsid().toString());
+
+			if (params.getWsid() != null) {
+				optClassAds.put("kb_wsid", "" + params.getWsid());
+			}
 
 			String baseDir = String.format("%s/%s/", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
