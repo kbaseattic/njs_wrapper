@@ -279,7 +279,7 @@ public class SDKLocalMethodRunner {
 
             String miniKB = System.getenv("MINI_KB");
             boolean useVolumeMounts = true;
-            if (miniKB != null && !miniKB.isEmpty()){
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true") ){
                 useVolumeMounts = false;
             }
 
