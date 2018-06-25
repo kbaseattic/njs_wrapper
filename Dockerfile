@@ -9,7 +9,7 @@ RUN mkdir -p /kb/deployment/lib && \
     mkdir -p /kb/deployment/lib
 
 #RUN GRADLE BUILD
-RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll && cp /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war && /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
+RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll && cp /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war && cp /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/NJSWrapper-all.jar
 
 #COPY ROOT WAR AND FAT JAR
 #COPY /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
