@@ -118,15 +118,15 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
-		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+		//final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		final CreateJobParams cjp = new CreateJobParams()
 				.withMeta(params.getMeta());
 		if (params.getWsid() != null) {
 			cjp.withAuthstrat("kbaseworkspace")
 					.withAuthparam("" + params.getWsid());
 		}
-		String ujsJobId = ujsClient.createJob2(cjp);
-		// final String ujsJobId = ujsClient.createJob2(cjp);
+        String jobID = null;
+
 		String selfExternalUrl = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 		if (selfExternalUrl == null)
 			selfExternalUrl = kbaseEndpoint + "/njs_wrapper";
@@ -135,35 +135,30 @@ public class SDKMethodRunner {
 		if (aweClientGroups == null || aweClientGroups.equals("*"))
 			aweClientGroups = "";
 
-		// Config switch to switch to calling new Condor Utils method submitToCondor
-		if (config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE).equals("1")) {
-			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
-			HashMap<String, String> optClassAds = new HashMap<String, String>();
-			String[] modNameFuncName = params.getMethod().split(Pattern.quote("."));
-			optClassAds.put("kb_parent_job_id", params.getParentJobId());
-			optClassAds.put("kb_module_name", modNameFuncName[0]);
-			optClassAds.put("kb_function_name", modNameFuncName[0]);
-			optClassAds.put("kb_app_id", params.getAppId());
+        HashMap<String, String> optClassAds = new HashMap<String, String>();
+        String[] modNameFuncName = params.getMethod().split(Pattern.quote("."));
+        optClassAds.put("kb_parent_job_id", params.getParentJobId());
+        optClassAds.put("kb_module_name", modNameFuncName[0]);
+        optClassAds.put("kb_function_name", modNameFuncName[0]);
+        optClassAds.put("kb_app_id", params.getAppId());
 
-			if (params.getWsid() != null) {
-				optClassAds.put("kb_wsid", "" + params.getWsid());
-			}
+        if (params.getWsid() != null) {
+            optClassAds.put("kb_wsid", "" + params.getWsid());
+        }
 
-			String baseDir = String.format("%s/%s/", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
-			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String parentJobId = params.getParentJobId();
-			String schedulerType = "condor";
+        String baseDir = String.format("%s/%s/", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
+        String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
+        String parentJobId = params.getParentJobId();
+        String schedulerType = "condor";
 
-			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
-			saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType,parentJobId, config);
+		jobID = saveTaskNew(jobInput, appJobId, schedulerType, parentJobId, config);
 
-		} else {
-			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
-			if (appJobId != null && appJobId.isEmpty()) appJobId = ujsJobId;
-			addAweTaskDescription(ujsJobId, aweJobId, jobInput, appJobId, config);
-			//CALL THIS AND LOOK INSIDE OF THE DOCUMENT
-		}
-		return ujsJobId;
+        String condorId = CondorUtils.submitToCondorCLI(jobID, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
+
+        //saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType,parentJobId, config);
+
+
+		return jobID;
 	}
 
 	private static AuthToken getCatalogAdminAuth(Map<String, String> config)
@@ -284,10 +279,12 @@ public class SDKMethodRunner {
 		}
 	}
 
+
+
+
 	public static RunJobParams getJobInputParams(String ujsJobId, AuthToken auth,
 												 Map<String, String> config, Map<String, String> resultConfig) throws Exception {
-		UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-		ujsClient.getJobStatus(ujsJobId);
+
 		final RunJobParams input = getJobInput(ujsJobId, config);
 		if (resultConfig != null) {
 			String[] propsToSend = {
@@ -795,6 +792,24 @@ public class SDKMethodRunner {
 		return returnVal;
 	}
 
+	//TODO MAKE SURE TYPES ARE OK
+	//TODO MAKE SURE BOOLEANS ARE OK
+	public static Tuple7 njsJobStatus(String jobID, Map<String,String> config) throws Exception{
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask t = db.getExecTask(jobID);
+
+		Tuple7 jobStatus = new Tuple7();
+		jobStatus.setE1(t.getLastUpdate()); //(1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
+		jobStatus.setE2(t.getJobStage()); //(2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.),
+		jobStatus.setE3(t.getJobStatus()); //(3) parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.),
+		jobStatus.setE4(t.getJobProgress()); //	(4) parameter "progress" of original type "total_progress" (The total progress of a job.),
+		jobStatus.setE5(t.getJobEstimateCompletion()); //	(5) parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
+		jobStatus.setE6(t.getJobComplete()); //(6) parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.),
+		jobStatus.setE7(t.getJobError()); //(7) parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.)
+
+		return jobStatus;
+
+	}
 
 
 	@SuppressWarnings("unchecked")
@@ -802,13 +817,10 @@ public class SDKMethodRunner {
 										  Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(jobId);
+		Tuple7<String, String, String, Long, String, Long, Long> jobStatus = njsJobStatus(jobId,config);
 
 		String[] subJobs = getDb(config).getSubJobIds(jobId);
 		returnVal.getAdditionalProperties().put("sub_jobs", subJobs);
-
 
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
@@ -855,95 +867,6 @@ public class SDKMethodRunner {
 	}
 
 
-	@SuppressWarnings("unchecked")
-	public static JobState checkJobCondorOld(String jobId, AuthToken authPart,
-									Map<String, String> config) throws Exception {
-		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		String jobState = getJobState(jobId);
-		returnVal.getAdditionalProperties().put("condor_job_id", jobId);
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(jobId);
-		returnVal.setStatus(new UObject(jobStatus));
-		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
-		FinishJobParams params = null;
-		if (complete)
-			params = getJobOutput(jobId, authPart, config);
-
-		if (params == null) {
-			if (jobState == null) {
-				throw new IllegalStateException("Error checking CONDOR job (id=" + jobId + ") " +
-						"for ujs-id=" + jobId + " - state is null.  )");
-			}
-			if ((!jobState.equals("init")) && (!jobState.equals("queued")) &&
-					(!jobState.equals("in-progress"))) {
-				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
-				jobStatus = ujsClient.getJobStatus(jobId);
-				complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
-				if (complete) { // Yes, we are switching to "complete" scenario
-					returnVal.setStatus(new UObject(jobStatus));
-					params = getJobOutput(jobId, authPart, config);
-				} else {
-					if (jobState.equals("suspend")) {
-						throw new IllegalStateException("FATAL error in condor job (" + jobState +
-								" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-								" whereas job script wasn't started at all" : ""));
-					}
-					throw new IllegalStateException(String.format(
-							"Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
-							jobState, jobId, jobId));
-				}
-			}
-			if (!complete) {
-				returnVal.getAdditionalProperties().put("awe_job_state", jobState);
-				returnVal.setFinished(0L);
-				String stage = jobStatus.getE2();
-				if (stage != null && stage.equals("started")) {
-					returnVal.setJobState(APP_STATE_STARTED);
-				} else {
-					returnVal.setJobState(APP_STATE_QUEUED);
-					try {
-						String jobPosition = CondorUtils.getJobPriority(jobId);
-						if (jobPosition != null){
-							try{
-								returnVal.setPosition(Long.parseLong(jobPosition));
-							}
-							catch (Exception ignore){};
-						}
-
-					} catch (Exception ignore) {}
-				}
-			}
-		}
-		if (complete) {
-			boolean isCanceled = params.getIsCanceled() == null ? false :
-					(params.getIsCanceled() == 1L);
-			returnVal.setFinished(1L);
-			returnVal.setCanceled(isCanceled ? 1L : 0L);
-			// Next line is here for backward compatibility:
-			returnVal.setCancelled(isCanceled ? 1L : 0L);
-			returnVal.setResult(params.getResult());
-			returnVal.setError(params.getError());
-			if (params.getError() != null) {
-				returnVal.setJobState(APP_STATE_ERROR);
-			} else if (isCanceled) {
-				returnVal.setJobState(APP_STATE_CANCELLED);
-			} else {
-				returnVal.setJobState(APP_STATE_DONE);
-			}
-		}
-		Long[] execTimes = getTaskExecTimes(jobId, config);
-		if (execTimes != null) {
-			if (execTimes[0] != null)
-				returnVal.withCreationTime(execTimes[0]);
-			if (execTimes[1] != null)
-				returnVal.withExecStartTime(execTimes[1]);
-			if (execTimes[2] != null)
-				returnVal.withFinishTime(execTimes[2]);
-		}
-		return returnVal;
-	}
 
 
 	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
@@ -1071,6 +994,36 @@ public class SDKMethodRunner {
 		dbTask.setCreationTime(System.currentTimeMillis());
 		dbTask.setAppJobId(appJobId);
 		db.insertExecTask(dbTask);
+	}
+
+
+	/**
+	 * Saves state in mongodb to allow the job to communicate its status
+
+	 * @param jobInput (Runjob Params)
+	 * @param appJobId
+	 * @param schedulerType (Scheduler Type, such as Condor or Awe)
+	 * @param parentJobId (ID of Parent Job)
+	 * @param config (Configuration File)
+	 * @throws Exception
+	 */
+	private static String saveTaskNew(
+			final Map<String, Object> jobInput,
+			final String appJobId,
+			final String schedulerType,
+			final String parentJobId,
+			final Map<String, String> config) throws Exception {
+
+		SanitizeMongoObject.sanitize(jobInput);
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask dbTask = new ExecTask();
+
+		dbTask.setJobInput(jobInput);
+		dbTask.setCreationTime(System.currentTimeMillis());
+		dbTask.setAppJobId(appJobId);
+		dbTask.setSchedulerType(schedulerType);
+		dbTask.setParentJobId(parentJobId);
+		return (String)db.insertExecTask(dbTask).getUpsertedId();
 	}
 
 

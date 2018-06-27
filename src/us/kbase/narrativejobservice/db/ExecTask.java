@@ -31,9 +31,107 @@ public class ExecTask {
     private String taskId;
     @JsonProperty("last_job_state")
     private String lastJobState;
-
     @JsonProperty("parent_job_id")
     private String parentJobId;
+
+
+    //njsJobStatus
+    @JsonProperty("last_update")
+    private String lastUpdate;
+
+    @JsonProperty("last_update")
+    public String getLastUpdate() {
+        return lastUpdate;
+    }
+    @JsonProperty("last_update")
+    public void setLastUpdate(String lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
+
+    @JsonProperty("job_stage")
+    private String jobStage;
+
+    @JsonProperty("job_stage")
+    public String getJobStage() {
+        return jobStage;
+    }
+    @JsonProperty("job_stage")
+    public void setJobStage(String jobStage) {
+        this.jobStage = jobStage;
+    }
+
+    @JsonProperty("job_status")
+    private String jobStatus;
+
+    @JsonProperty("job_status")
+    public String getJobStatus() {
+        return jobStatus;
+    }
+    @JsonProperty("job_status")
+    public void setJobStatus(String jobStatus) {
+        this.jobStatus = jobStatus;
+    }
+
+    @JsonProperty("job_progress")
+    private long jobProgress;
+
+    @JsonProperty("job_progress")
+    public long getJobProgress() {
+        return jobProgress;
+    }
+    @JsonProperty("job_progress")
+    public void setJobProgress(long jobProgress) {
+        this.jobProgress = jobProgress;
+    }
+
+    @JsonProperty("job_estimated_completion")
+    private String jobEstimateCompletion;
+
+    @JsonProperty("job_estimated_completion")
+    public String getJobEstimateCompletion() {
+        return jobEstimateCompletion;
+    }
+
+    @JsonProperty("job_estimated_completion")
+    public void setJobEstimateCompletion(String jobEstimateCompletion) {
+        this.jobEstimateCompletion = jobEstimateCompletion;
+    }
+
+    @JsonProperty("job_complete")
+    private long jobComplete;
+
+    @JsonProperty("job_complete")
+    public long getJobComplete() {
+        return jobComplete;
+    }
+
+    @JsonProperty("job_complete")
+    public void setJobComplete(long jobComplete) {
+        this.jobComplete = jobComplete;
+    }
+
+    @JsonProperty("job_error")
+    private long jobError;
+
+    @JsonProperty("job_error")
+    public long getJobError() {
+        return jobError;
+    }
+
+    @JsonProperty("job_error")
+    public void setJobError(long jobError) {
+        this.jobError = jobError;
+    }
+
+
+
+
+
+
+
+
+
+
 
     @JsonProperty("ujs_job_id")
     public String getUjsJobId() {
@@ -141,7 +239,7 @@ public class ExecTask {
     }
 
     @JsonProperty("schedulerType")
-    public void setSchdulerType(String schedulerType) {
+    public void setSchedulerType(String schedulerType) {
         this.schedulerType = schedulerType;
     }
 

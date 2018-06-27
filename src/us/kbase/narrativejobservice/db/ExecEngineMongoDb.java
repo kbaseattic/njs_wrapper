@@ -11,6 +11,7 @@ import java.util.Iterator;
 
 import java.util.logging.Level;
 
+import com.mongodb.*;
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
 import org.slf4j.Logger;
@@ -21,12 +22,6 @@ import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.google.common.collect.Lists;
-import com.mongodb.DB;
-import com.mongodb.DuplicateKeyException;
-import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.MongoException;
-import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
 	private DB mongo;
@@ -130,8 +125,8 @@ public class ExecEngineMongoDb {
 				String.format("{%s:{$slice:[#,#]}}", "lines"), from, count).as(ExecLog.class).getLines();
 	}
 
-	public void insertExecTask(ExecTask execTask) throws Exception {
-		execTasks.insert(execTask);
+	public WriteResult insertExecTask(ExecTask execTask) throws Exception {
+		return execTasks.insert(execTask);
 	}
 
 	public void addExecTaskResult(
