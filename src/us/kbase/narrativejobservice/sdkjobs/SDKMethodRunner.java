@@ -118,6 +118,7 @@ public class SDKMethodRunner {
 						" is not defined in configuration");
 			kbaseEndpoint = wsUrl.replace("/ws", "");
 		}
+		//TODO ADD PARAMS META TO THE DATABASE
 		//final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		final CreateJobParams cjp = new CreateJobParams()
 				.withMeta(params.getMeta());
@@ -285,6 +286,7 @@ public class SDKMethodRunner {
 	public static RunJobParams getJobInputParams(String ujsJobId, AuthToken auth,
 												 Map<String, String> config, Map<String, String> resultConfig) throws Exception {
 
+		njsJobStatus(ujsJobId, config, auth);
 		final RunJobParams input = getJobInput(ujsJobId, config);
 		if (resultConfig != null) {
 			String[] propsToSend = {
@@ -340,39 +342,71 @@ public class SDKMethodRunner {
 		resultConfig.put(paramName, paramUrl);
 	}
 
+	//TODO ADD JOB OWNER FIELD
+	public static String getJobOwner(String ujsJobId, Map<String,String> config, AuthToken auth) throws  Exception{
+			return getTaskDescription(ujsJobId, config).getJobOwner();
+
+	}
+
+	public void updateJob(String jobID, Map<String,String> config, AuthToken token){
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask dbTask = db.getExecTask(jobID);
+
+		db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+	}
+
+
+
+	private static void njsStartJob(String ujsJobId, Map<String, String> config, AuthToken auth, String method) throws Exception {
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask dbTask = db.getExecTask(ujsJobId);
+		dbTask.setJobStatus("running");
+		dbTask.setJobDescription("Execution engine job for " + method);
+		dbTask.setJobProgress(new InitProgress().withPtype("none"));
+		dbTask.setJobEstimateCompletion(null);
+	}
+
+	//TODO START JOB
 	public static List<String> updateJob(UpdateJobParams params, AuthToken auth,
 										 Map<String, String> config) throws Exception {
-		String ujsJobId = params.getJobId();
-		UserAndJobStateClient ujsClient = getUjsClient(auth, config);
-		String jobOwner = ujsClient.getJobOwner(ujsJobId);
+		String jobId = params.getJobId();
+
+		String jobOwner = getJobOwner(jobId,config,auth);
 		if (auth == null || !jobOwner.equals(auth.getUserName()))
 			throw new IllegalStateException("Only owner of the job can update it");
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(ujsJobId);
+		Tuple7<String, String, String, Long, String, Long, Long> jobStatus = njsJobStatus(jobId,config, auth);
 		if (params.getIsStarted() == null || params.getIsStarted() != 1L)
 			throw new IllegalStateException("Method is currently supported only for " +
 					"switching jobs into stated state");
 		List<String> ret = new ArrayList<String>();
-		final RunJobParams input = getJobInput(ujsJobId, config);
+		final RunJobParams input = getJobInput(jobId, config);
 		final String jobstage = jobStatus.getE2();
 		if ("started".equals(jobstage)) {
 			ret.add(String.format(
 					"UJS Job %s is already in started state, continuing",
-					ujsJobId));
+					jobId));
 			return ret;
 		}
 		try {
-			ujsClient.startJob(ujsJobId, auth.getToken(), "running",
-					"Execution engine job for " + input.getMethod(),
-					new InitProgress().withPtype("none"), null);
+			njsStartJob(jobId,config,auth, input.getMethod());
+
 		} catch (ServerException se) {
 			throw new IllegalStateException(String.format(
 					"Job %s couldn't be started and is in state " +
 							"%s. Server stacktrace:\n%s",
-					ujsJobId, jobstage, se.getData()), se);
+					jobId, jobstage, se.getData()), se);
 		}
-		updateTaskExecTime(ujsJobId, config, false);
+		updateTaskExecTime(jobId, config, false);
 		return ret;
+	}
+
+	public static void cancelJob(String ujsJobId, Map<String,String> config, AuthToken auth) throws  Exception{
+		ExecEngineMongoDb db = getDb(config);
+		ExecTask dbTask = db.getExecTask(ujsJobId);
+		dbTask.setJobStatus("running");
+		dbTask.setJobDescription("Execution engine job for " + method);
+		dbTask.setJobProgress(new InitProgress().withPtype("none"));
+		dbTask.setJobEstimateCompletion(null);
 	}
 
 	public static void finishJob(
@@ -385,9 +419,8 @@ public class SDKMethodRunner {
 		if (params.getIsCanceled() == null && params.getIsCancelled() != null) {
 			params.setIsCanceled(params.getIsCancelled());
 		}
-		final UserAndJobStateClient ujsClient = getUjsClient(auth, config);
 		final Tuple7<String, String, String, Long, String, Long,
-				Long> jobStatus = ujsClient.getJobStatus(ujsJobId);
+				Long> jobStatus = njsJobStatus(ujsJobId, config, auth);
 
 		if (jobStatus.getE6() != null && jobStatus.getE6() == 1L) {
 			// Job was already done
@@ -408,12 +441,12 @@ public class SDKMethodRunner {
 		if (params.getIsCanceled() != null &&
 				params.getIsCanceled() == 1L) {
 			// will throw an error here if user doesn't have rights to cancel
-			ujsClient.cancelJob(ujsJobId, "canceled by user");
+			cancelJob(ujsJobId,config,auth);
 			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
 			updateTaskExecTime(ujsJobId, config, true);
 			return;
 		}
-		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
+		final String jobOwner = getJobOwner(ujsJobId,config,auth);
 		if (auth == null || !jobOwner.equals(auth.getUserName())) {
 			throw new IllegalStateException(
 					"Only the owner of a job can complete it");
@@ -424,10 +457,7 @@ public class SDKMethodRunner {
 			// job hasn't started yet. Need to put it in started state to
 			// complete it
 			try {
-				ujsClient.startJob(ujsJobId, auth.getToken(),
-						"starting job so that it can be finished",
-						"as state", new InitProgress().withPtype("none"),
-						null);
+				njsStartJob(ujsJobId, config, auth, "Starting_Job_To_Finish_it");
 			} catch (ServerException se) {
 				// ignore and continue if the job was just started
 			}
@@ -506,8 +536,8 @@ public class SDKMethodRunner {
 
 	public static int addJobLogs(String ujsJobId, List<LogLine> lines,
 								 AuthToken authPart, Map<String, String> config) throws Exception {
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		ujsClient.getJobStatus(ujsJobId);
+
+		njsJobStatus(ujsJobId,config);
 		ExecEngineMongoDb db = getDb(config);
 		ExecLog dbLog = db.getExecLog(ujsJobId);
 		if (dbLog == null) {
@@ -557,8 +587,7 @@ public class SDKMethodRunner {
 		boolean isAdmin = admins != null && admins.contains(authPart.getUserName());
 		if (!isAdmin) {
 			// If it's not admin then let's check if there is permission in UJS
-			UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-			ujsClient.getJobStatus(ujsJobId);
+			njsJobStatus(ujsJobId,config,authPart);
 		}
 		ExecEngineMongoDb db = getDb(config);
 		ExecLog dbLog = db.getExecLog(ujsJobId);
@@ -632,12 +661,12 @@ public class SDKMethodRunner {
 		if (jobId == null || jobId.trim().isEmpty()) {
 			throw new IllegalArgumentException("No job id supplied");
 		}
-		final UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+
 		final Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(jobId);
+				njsJobStatus(jobId,config,authPart);
 		return new CheckJobCanceledResult().withJobId(jobId).withUjsUrl(ujsUrl)
 				// null if job not started yet
-				.withFinished(jobStatus.getE6() == null ? 0 : jobStatus.getE6())
+				.withFinished(jobStatus.getE6() == null ? 0L : jobStatus.getE6())
 				.withCanceled(APP_STATE_CANCELED.equals(jobStatus.getE2()) ? 1L : 0L);
 	}
 
@@ -694,9 +723,9 @@ public class SDKMethodRunner {
 		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		String aweJobId = getAweTaskAweJobId(jobId, config);
 		returnVal.getAdditionalProperties().put("awe_job_id", aweJobId);
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(jobId);
+				njsJobStatus(jobId, config, authPart);
 		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 		FinishJobParams params = null;
@@ -728,7 +757,7 @@ public class SDKMethodRunner {
 			if ((!aweState.equals("init")) && (!aweState.equals("queued")) &&
 					(!aweState.equals("in-progress"))) {
 				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
-				jobStatus = ujsClient.getJobStatus(jobId);
+				jobStatus = njsJobStatus(jobId,config,authPart);
 				complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 				if (complete) { // Yes, we are switching to "complete" scenario
 					returnVal.setStatus(new UObject(jobStatus));
@@ -794,7 +823,7 @@ public class SDKMethodRunner {
 
 	//TODO MAKE SURE TYPES ARE OK
 	//TODO MAKE SURE BOOLEANS ARE OK
-	public static Tuple7 njsJobStatus(String jobID, Map<String,String> config) throws Exception{
+	public static Tuple7 njsJobStatus(String jobID, Map<String,String> config, AuthToken authPart) throws Exception{
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask t = db.getExecTask(jobID);
 

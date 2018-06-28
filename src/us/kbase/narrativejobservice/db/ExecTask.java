@@ -43,6 +43,7 @@ public class ExecTask {
     public String getLastUpdate() {
         return lastUpdate;
     }
+
     @JsonProperty("last_update")
     public void setLastUpdate(String lastUpdate) {
         this.lastUpdate = lastUpdate;
@@ -55,6 +56,7 @@ public class ExecTask {
     public String getJobStage() {
         return jobStage;
     }
+
     @JsonProperty("job_stage")
     public void setJobStage(String jobStage) {
         this.jobStage = jobStage;
@@ -67,6 +69,7 @@ public class ExecTask {
     public String getJobStatus() {
         return jobStatus;
     }
+
     @JsonProperty("job_status")
     public void setJobStatus(String jobStatus) {
         this.jobStatus = jobStatus;
@@ -79,6 +82,7 @@ public class ExecTask {
     public long getJobProgress() {
         return jobProgress;
     }
+
     @JsonProperty("job_progress")
     public void setJobProgress(long jobProgress) {
         this.jobProgress = jobProgress;
@@ -122,16 +126,6 @@ public class ExecTask {
     public void setJobError(long jobError) {
         this.jobError = jobError;
     }
-
-
-
-
-
-
-
-
-
-
 
     @JsonProperty("ujs_job_id")
     public String getUjsJobId() {
@@ -272,4 +266,18 @@ public class ExecTask {
     public void setParentJobId(String parentJobId) {
         this.parentJobId = parentJobId;
     }
+
+    @JsonProperty("job_owner")
+    private String jobOwner;
+
+    @JsonProperty("job_owner")
+    public String getJobOwner() {
+        return jobOwner;
+    }
+
+    @JsonProperty("job_owner")
+    public void setJobOwner(String jobOwner) {
+        this.jobOwner = jobOwner;
+    }
+
 }
