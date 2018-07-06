@@ -164,9 +164,7 @@ public class ShifterRunner {
             } else {
                 if (cancellationChecker != null && cancellationChecker.isJobCanceled())
                     return null;
-                int exitCode;
-                // TODO: Get exit code
-                exitCode = 0; //resp2.getState().getExitCode();
+                int exitCode = p.exitValue();
                 StringBuilder err = new StringBuilder();
                 String msg = "Output file is not found, exit code is " + exitCode;
                 if (err.length() > 0)

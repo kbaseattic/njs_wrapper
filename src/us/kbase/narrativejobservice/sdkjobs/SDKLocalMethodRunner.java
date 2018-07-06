@@ -152,6 +152,8 @@ public class SDKLocalMethodRunner {
             Map<String, String> config = jobInput.getE2();
             if (System.getenv("CALLBACK_INTERFACE")!=null)
                 config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
+            if (System.getenv("REFDATA_DIR")!=null)
+                config.put(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE, System.getenv("REFDATA_DIR"));
             ConfigurableAuthService auth = getAuth(config);
             // We couldn't validate token earlier because we didn't have auth service URL.
             AuthToken token = auth.validateToken(tokenStr);
