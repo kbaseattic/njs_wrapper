@@ -112,9 +112,7 @@ public class SDKLocalMethodRunner {
             }
         };
 
-
         Runtime.getRuntime().addShutdownHook(shutdownHook);
-
 
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];

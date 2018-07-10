@@ -303,8 +303,8 @@ public class DockerRunner {
             System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
             try {
                 cl.killContainerCmd(subjobid);
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception ignore) {
+                //e.printStackTrace();
             }
         }
     }
@@ -371,6 +371,13 @@ public class DockerRunner {
         }
     }
 
+    /**
+     * Impose cpu and memory limits into a hostconfig
+     *
+     * @param resourceRequirements request_cpus and request_memory to be translated into a cpu limit and a soft memory limit
+     * @param log logger
+     * @return a hostconfig with constrainted memory and or cpu
+     */
     public HostConfig setJobRequirements(Map<String, String> resourceRequirements, LineLogger log) {
         if (resourceRequirements == null || resourceRequirements.isEmpty()) {
             return null;

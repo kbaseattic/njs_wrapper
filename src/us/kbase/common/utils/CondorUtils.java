@@ -32,8 +32,6 @@ public class CondorUtils {
         String clientGroups = reqs.get("client_group");
 
         HashMap<String,String> envVariables = new HashMap<>();
-
-
         String request_cpus = "request_cpus = 1";
         String request_memory = "request_memory = 5MB";
         String request_disk = "request_disk = 1MB";
