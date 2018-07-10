@@ -28,10 +28,10 @@ elif [ "$1" = "run" ] ;then
   MODULE=$(echo "$2"|sed 's|.*/||'|sed 's/:/_/')
   KB_JOBID=$(echo "$@"|sed 's|/job_.*||'|sed 's|.*/||')
   debug "KBase JOBID: $KB_JOBID"
-  RW=$SCRATCH/writeable/${MODULE}-${DEPLOY}
+  RW=$SCRATCH/writeable/${MODULE}-${DEPLOY}-$$
   shifter --image=$IMAGE rsync -aqz /kb/module/ $RW
   [ -d $RW/work ] && rmdir $RW/work
-  ln -s /work $RW/work
+  ln -sf /work $RW/work
 
   # Get the working directory
   debug "VOLUME STRING: $5"
@@ -46,9 +46,10 @@ elif [ "$1" = "run" ] ;then
     --volume $RW:/kb/module \
     --volume $VOLM $0 inside
 
-  if [ $? -ne 0 ] ; then
-    error "Job failed"
-    exit $?
+  rval=$?
+  if [ $rval -ne 0 ] ; then
+    error "Job failed $rval"
+    exit $rval
   fi
   # If this is an HPC job.  Let's submit the batch script
   # wait, then run post
