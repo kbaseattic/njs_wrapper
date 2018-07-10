@@ -22,10 +22,7 @@ import us.kbase.common.utils.ProcessHelper;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 public class DockerRunner {
@@ -55,7 +52,8 @@ public class DockerRunner {
             final List<Bind> additionalBinds,
             final CancellationChecker cancellationChecker,
             final Map<String, String> envVars,
-            final Map<String, String> labels)
+            final Map<String, String> labels,
+            final Map<String, String> resourceRequirements)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " +
@@ -106,6 +104,14 @@ public class DockerRunner {
                 cntCmd.withNetworkMode("mini_kb_default");
             }
             cntCmd.withLabels(labels);
+
+            HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements,log);
+            if(cpuMemoryLimiter != null){
+                cntCmd.withHostConfig(cpuMemoryLimiter);
+            }
+
+
+
             final String cntId = cntCmd.exec().getId();
 
 
@@ -364,4 +370,32 @@ public class DockerRunner {
             return DockerClientBuilder.getInstance().build();
         }
     }
+
+    public HostConfig setJobRequirements(Map<String,String> resourceRequirements, LineLogger log) {
+         if(resourceRequirements == null || resourceRequirements.isEmpty()) {
+            return null;
+        }
+        log.logNextLine("Setting requirements",true);
+        HostConfig cpuMemoryLimiter = new HostConfig();
+        for(String resourceKey : resourceRequirements.keySet()) {
+            if(resourceKey.equals("request_cpus")) {
+                int inputCores = Integer.parseInt(resourceRequirements.get("request_cpus"));
+                log.logNextLine("Setting request_cpus Requirements to " + inputCores,true);
+                int DEFAULT_CPU_PERIOD = 100000;
+                int CPU_QUOTA_CONST = 100000;
+                int cpuQuota = (int) (inputCores * CPU_QUOTA_CONST);
+                cpuMemoryLimiter.withCpuQuota(cpuQuota);
+                cpuMemoryLimiter.withCpuPeriod(DEFAULT_CPU_PERIOD);
+            }
+            if(resourceKey.equals("request_memory")) {
+                String inputMemory = resourceRequirements.get("request_memory").replace("MB","");
+                log.logNextLine("Setting request_memory Requirements to " + inputMemory,true);
+                long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
+                cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
+                //cpuMemoryLimiter.withMemoryReservation(100000000L); //soft memory limit
+            }
+        }
+        return cpuMemoryLimiter;
+    }
+
 }
