@@ -97,11 +97,13 @@ public class ShifterRunner {
                 j++;
             }
             environment[j] = "SDK_CALLBACK_URL=" + callbackUrl;
-            List<String> vols = new ArrayList<>();
-            for (Bind temp : binds) {
-            			vols.add(temp.toString());
-          		}
-            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v", String.join(",",vols)},
+            String vols = "";
+            for (int i = 0; i < binds.size()-1; i++) {
+              vols += binds.get(i).toString();
+              vols += ',';
+            }
+            vols += binds.get(binds.size()-1);
+            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v", vols},
                                                   environment);
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};
