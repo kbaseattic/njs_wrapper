@@ -1,62 +1,26 @@
-[NarrativeJobService]
-port = 8200
-# server thread count - this determines the number of requests that can be
-# processed simultaneously.
-server-threads = 20
-# Minimum memory size in MB.
-min-memory = 1000
-# Maximum memory size in MB.
-max-memory = 1500
+#!/usr/bin/env bash
+njs=`docker ps | grep mini_kb_njs_1 | cut -f1 -d' '`
+docker cp /njs_wrapper/njs_wrapper/dist/NJSWrapper-all.jar $njs:/kb/deployment/lib/
+docker cp /njs_wrapper/njs_wrapper/dist/NJSWrapper.war $njs:/kb/deployment/jettybase/webapps/root.war
+docker cp /njs_wrapper/njs_wrapper/deployment/misc/sdklocalmethodrunner.sh $njs:/kb/deployment/misc/
 
-queue.db.dir=/tmp/njs/queue
-basedir=njs_wrapper
-scratch=/tmp
-ref.data.base=/kb/data
+#max=`docker ps | grep mini_kb_condor_worker_max | cut -f1 -d' ' | head -n1`
+#min=`docker ps | grep mini_kb_condor_worker_mini | cut -f1 -d' ' | head -n1`
 
 
-self.external.url=http://nginx/services/njs
-kbase.endpoint=http://nginx/services
-workspace.srv.url=http://nginx/services/ws
-jobstatus.srv.url=http://nginx/services/ujs
-shock.url=http://nginx/services/shock
-awe.srv.url=
-docker.registry.url=dockerhub-ci.kbase.us
-awe.client.docker.uri=unix:///var/run/docker.sock
-catalog.srv.url=https://ci.kbase.us/services/catalog
-handle.url=http://nginx/services/handle_service
-srv.wiz.url=http://nginx/services/service_wizard
-auth-service-url = http://nginx/services/auth/api/legacy/KBase/Sessions/Login
-auth-service-url-allow-insecure=true
+#docker cp /njs_wrapper/njs_wrapper/dist/ $max:/kb/deployment/lib/
+#docker cp /njs_wrapper/njs_wrapper/dist/ $min:/kb/deployment/lib/
 
-## This user can run list_running_apps method to get states
-## of all running apps (running internally on wrapper side).
-admin.user=
 
-# Following parameters define Catalog admin creds for pushing exec-stats:
-catalog.admin.token=
+#docker cp /njs_wrapper/njs_wrapper/deployment/misc/docker3dependencies $njs:/kb/deployment/misc/
 
-default.awe.client.groups=ci
-awe.readonly.admin.token=
-awe.client.callback.networks=docker0,eth0
-running.tasks.per.user=5
+#docker cp /njs_wrapper/njs_wrapper/deployment/misc/sdklocalmethodrunner.sh $max:/kb/deployment/misc/
+#docker cp /njs_wrapper/njs_wrapper/deployment/misc/docker3dependencies $max:/kb/deployment/misc/
 
-mongodb-host = ci-mongo:27017
-mongodb-database = exec_engine
-mongodb-user = mini_kb
-mongodb-pwd = mini_kb_password
+#docker cp /njs_wrapper/njs_wrapper/deployment/misc/sdklocalmethodrunner.sh $min:/kb/deployment/misc/
+#docker cp /njs_wrapper/njs_wrapper/deployment/misc/docker3dependencies $min:/kb/deployment/misc/
 
-ujs-mongodb-host = ci-mongo:27017
-ujs-mongodb-database = userjobstate
-ujs-mongodb-user = mini_kb
-ujs-mongodb-pwd = mini_kb_password
 
-narrative.proxy.sharing.user=narrativejoblistener
+Echo "Done"
 
-# This next flag really doesn't make sense to me as a startup option, but copying from CI config
-## Please change next flag before you reboot machine.
-## It will help keep tasks in queue and rerun them later.
-## Don't forget to revert this flag after reboot.
-reboot.mode=false
 
-condor.mode=1
-condor.submit.desc.file.path=../scripts/
