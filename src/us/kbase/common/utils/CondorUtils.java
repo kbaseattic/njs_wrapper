@@ -157,7 +157,7 @@ public class CondorUtils {
     public static HashMap<String, String> clientGroupsAndRequirements(String clientGroupsAndRequirements) {
 
         //Here is a working example of what might come in the clientGroupsAndRequirements
-        clientGroupsAndRequirements = "njs,request_memory=10,request_cpus=1,request_disk=10";
+        //clientGroupsAndRequirements = "njs,request_memory=500,request_cpus=1,request_disk=10";
 
         String[] items = clientGroupsAndRequirements.split(",");
         String clientGroup = cleanCondorInputs(items[0]);
