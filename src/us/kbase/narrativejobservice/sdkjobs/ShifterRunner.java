@@ -46,13 +46,15 @@ public class ShifterRunner {
             final AuthToken token,
             final LineLogger log,
             final File outputFile,
+            final boolean removeImage,
             final File refDataDir,
             final File optionalScratchDir,
             final URL callbackUrl,
             final String jobId,
             final List<Bind> additionalBinds,
             final CancellationChecker cancellationChecker,
-            final Map<String, String> envVars)
+            final Map<String, String> envVars,
+            final Map<String, String> labels)
             throws IOException, InterruptedException {
 
         if (!inputData.getName().equals("input.json"))
@@ -95,7 +97,11 @@ public class ShifterRunner {
                 j++;
             }
             environment[j] = "SDK_CALLBACK_URL=" + callbackUrl;
-            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v",Arrays.toString(binds.toArray())},
+            List<String> vols = new ArrayList<>();
+            for (Bind temp : binds) {
+            			vols.add(temp.toString());
+          		}
+            Process p = Runtime.getRuntime().exec(new String[] {"mydocker", "run", imageName, "async", "-v", String.join(",",vols)},
                                                   environment);
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[] {p.getInputStream(), p.getErrorStream()};

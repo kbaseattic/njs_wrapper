@@ -448,8 +448,8 @@ public class SDKLocalMethodRunner {
             // Calling Runner
             if (System.getenv("USE_SHIFTER")!=null)
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
-                        outputFile, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                        cancellationChecker, envVars);
+                        outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker, envVars, labels);
             else
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,

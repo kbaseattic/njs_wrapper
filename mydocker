@@ -18,13 +18,13 @@ error () {
 if [ "$1" = "pull" ] ;then
   echo $@ >> ~/mydocker.debug
   if [ $(shifterimg images|grep -c $2) -eq 0 ] ; then
-    shifterimg pull docker:$2|tail -10
+    shifterimg pull $2|tail -10
   fi
 elif [ "$1" = "run" ] ;then
   echo $@ >> ~/mydocker.debug
   # KBase expects /kb/module to be writeable for now.  So let's make a copy for
   # remounting rw.  This has to be on a per job basis since configs get overwritten
-  IMAGE=docker:$2
+  IMAGE=$2
   MODULE=$(echo "$2"|sed 's|.*/||'|sed 's/:/_/')
   KB_JOBID=$(echo "$@"|sed 's|/job_.*||'|sed 's|.*/||')
   debug "KBase JOBID: $KB_JOBID"
@@ -35,7 +35,7 @@ elif [ "$1" = "run" ] ;then
 
   # Get the working directory
   debug "VOLUME STRING: $5"
-  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//g'|sed 's|/kb/module/work|/work|'|sed 's|/kb/module/work/tmp|/worktmp|'|sed 's/,/ --volume/g')
+  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//g'|sed 's|/kb/module/work|/work|'|sed 's|/kb/module/work/tmp|/worktmp|'|sed 's/,/ --volume /g')
   debug "$VOLM"  
   WD=$(echo $VOLM|sed 's/:.*//')/tmp
   debug "Workdir:$WD"

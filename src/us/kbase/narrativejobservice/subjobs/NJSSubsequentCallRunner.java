@@ -76,25 +76,22 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         labels.put("user_name",token.getUserName());
 
 
-        if (System.getenv("USE_SHIFTER")!=null)
+        if (System.getenv("USE_SHIFTER")!=null){
+            // TODO: Add refdata
+            new ShifterRunner(config.getDockerURI()).run(
+                    imageName, moduleName, inputFile.toFile(), token,
+                    config.getLogger(), outputFile.toFile(), false, refDataDir,
+                    sharedScratchDir.toFile(), config.getCallbackURL(),
+                    jobId.toString(), additionalBinds,
+                    cancellationChecker, null, labels);
+        }
+        else {
             new DockerRunner(config.getDockerURI()).run(
                     imageName, moduleName, inputFile.toFile(), token,
                     config.getLogger(), outputFile.toFile(), false, refDataDir,
                     sharedScratchDir.toFile(), config.getCallbackURL(),
                     jobId.toString(), additionalBinds, cancellationChecker, null, labels);
-            new ShifterRunner(config.getDockerURI()).run(
-                    imageName, moduleName, inputFile.toFile(), token,
-                    config.getLogger(), outputFile.toFile(), null,
-                    sharedScratchDir.toFile(), config.getCallbackURL(),
-                    jobId.toString(), additionalBinds,
-                    cancellationChecker, null);
-        else
-            new DockerRunner(config.getDockerURI()).run(
-                    imageName, moduleName, inputFile.toFile(), token,
-                    config.getLogger(), outputFile.toFile(), false, null,
-                    sharedScratchDir.toFile(), config.getCallbackURL(),
-                    jobId.toString(), additionalBinds, cancellationChecker, null);
-              // Add refdata
+        }
         return outputFile;
     }
 
