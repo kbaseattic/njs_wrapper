@@ -19,11 +19,13 @@ import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServe
 import us.kbase.common.service.JsonClientException;
 import us.kbase.narrativejobservice.sdkjobs.CancellationChecker;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
+import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
+
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
     protected final List<Bind> additionalBinds;
     protected final CancellationChecker cancellationChecker;
-    
+
     public NJSSubsequentCallRunner(
             final AuthToken token,
             final CallbackServerConfig config,
@@ -55,6 +57,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         config.getLogger().logNextLine(
                 "Running docker container for image: " + imageName, false);
         final Path sharedScratchDir = getSharedScratchDir(config);
+
         // Create a refdata path in the format 'dataBase/dataFolder/dataVersion'
         File refDataDir = null;
         if (moduleVersion.getDataFolder() != null && moduleVersion.getDataVersion() != null) {
@@ -72,13 +75,23 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         labels.put("module_version",moduleVersion.getVersion());
         labels.put("user_name",token.getUserName());
 
-
-        new DockerRunner(config.getDockerURI()).run(
-                imageName, moduleName, inputFile.toFile(), token,
-                config.getLogger(), outputFile.toFile(), false, refDataDir,
-                sharedScratchDir.toFile(), config.getCallbackURL(),
-                jobId.toString(), additionalBinds, cancellationChecker, null, labels, null);
+        if (System.getenv("USE_SHIFTER")!=null){
+            // TODO: Add refdata
+            new ShifterRunner(config.getDockerURI()).run(
+                    imageName, moduleName, inputFile.toFile(), token,
+                    config.getLogger(), outputFile.toFile(), false, refDataDir,
+                    sharedScratchDir.toFile(), config.getCallbackURL(),
+                    jobId.toString(), additionalBinds,
+                    cancellationChecker, null, labels);
+        }
+        else {
+            new DockerRunner(config.getDockerURI()).run(
+                    imageName, moduleName, inputFile.toFile(), token,
+                    config.getLogger(), outputFile.toFile(), false, refDataDir,
+                    sharedScratchDir.toFile(), config.getCallbackURL(),
+                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null);
+        }
         return outputFile;
     }
-    
+
 }
