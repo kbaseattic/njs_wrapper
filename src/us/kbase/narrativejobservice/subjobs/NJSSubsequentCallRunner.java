@@ -75,7 +75,6 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         labels.put("module_version",moduleVersion.getVersion());
         labels.put("user_name",token.getUserName());
 
-
         if (System.getenv("USE_SHIFTER")!=null){
             // TODO: Add refdata
             new ShifterRunner(config.getDockerURI()).run(
@@ -90,7 +89,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                     imageName, moduleName, inputFile.toFile(), token,
                     config.getLogger(), outputFile.toFile(), false, refDataDir,
                     sharedScratchDir.toFile(), config.getCallbackURL(),
-                    jobId.toString(), additionalBinds, cancellationChecker, null, labels);
+                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null);
         }
         return outputFile;
     }

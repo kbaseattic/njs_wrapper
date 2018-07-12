@@ -28,15 +28,39 @@ public class CondorUtils {
      * @throws IOException
      */
     private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroupsAndRequirements, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds) throws IOException {
-
         HashMap<String, String> reqs = clientGroupsAndRequirements(clientGroupsAndRequirements);
         String clientGroups = reqs.get("client_group");
-        String request_cpus = String.format("%s = %s",
-                "request_cpus", reqs.getOrDefault("request_cpus", "1"));
-        String request_memory = String.format("%s = %s",
-                "request_memory", reqs.getOrDefault("request_memory", "5MB"));
-        String request_disk = String.format("%s = %s",
-                "request_disk", reqs.getOrDefault("request_disk", "1MB"));
+
+        HashMap<String,String> envVariables = new HashMap<>();
+        String request_cpus = "request_cpus = 1";
+        String request_memory = "request_memory = 5MB";
+        String request_disk = "request_disk = 1MB";
+
+        //Default at MB for now
+        String request_cpus_key = "request_cpus";
+        if (reqs.containsKey(request_cpus_key)) {
+            request_cpus = String.format("%s = %s", request_cpus_key, reqs.get(request_cpus_key));
+            envVariables.put(request_cpus_key, reqs.get(request_cpus_key));
+        }
+        String request_memory_key = "request_memory";
+        if (reqs.containsKey(request_memory_key)) {
+            request_memory = String.format("%s = %sMB", request_memory_key, reqs.get(request_memory_key));
+            envVariables.put(request_memory_key, reqs.get(request_memory_key));
+        }
+        String request_disk_key = "request_disk";
+        if (reqs.containsKey(request_disk_key)) {
+            request_disk = String.format("%s = %sMB", request_disk_key, reqs.get(request_disk_key));
+        }
+
+        envVariables.put("KB_AUTH_TOKEN",token.getToken());
+        envVariables.put("KB_ADMIN_AUTH_TOKEN",adminToken.getToken());
+        envVariables.put("AWE_CLIENTGROUP",clientGroups);
+        envVariables.put("BASE_DIR",baseDir);
+
+        List<String> environment = new ArrayList<String>();
+        for(String key : envVariables.keySet() ){
+            environment.add(String.format("%s=%s",key, envVariables.get(key)));
+        }
 
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
         String[] args = {ujsJobId, kbaseEndpoint};
@@ -49,15 +73,18 @@ public class CondorUtils {
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
+        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar");
         csf.add(request_cpus);
         csf.add(request_memory);
         csf.add(request_disk);
         csf.add("log    = logfile.txt");
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
-        csf.add("getenv = true");
+        csf.add("getenv = false");
         csf.add("requirements = " + reqs.get("requirements_statement"));
-        csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
+        csf.add(String.format("environment = \"%s\"",String.join(" ", environment)));
+
+        //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
         if (optClassAds != null) {
@@ -126,6 +153,9 @@ public class CondorUtils {
      * @return a map of client_groups, resource_requirements, and classAds
      */
     public static HashMap<String, String> clientGroupsAndRequirements(String clientGroupsAndRequirements) {
+
+        //Here is a working example of what might come in the clientGroupsAndRequirements
+        //clientGroupsAndRequirements = "njs,request_memory=500,request_cpus=1,request_disk=10";
 
         String[] items = clientGroupsAndRequirements.split(",");
         String clientGroup = cleanCondorInputs(items[0]);
@@ -206,7 +236,7 @@ public class CondorUtils {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
         if(! optClassAds.containsKey("debugMode")) {
-            condorSubmitFile.delete();
+            //condorSubmitFile.delete();
         }
         return jobID;
     }

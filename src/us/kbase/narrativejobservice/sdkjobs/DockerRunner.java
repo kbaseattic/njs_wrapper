@@ -22,10 +22,7 @@ import us.kbase.common.utils.ProcessHelper;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 public class DockerRunner {
@@ -55,7 +52,8 @@ public class DockerRunner {
             final List<Bind> additionalBinds,
             final CancellationChecker cancellationChecker,
             final Map<String, String> envVars,
-            final Map<String, String> labels)
+            final Map<String, String> labels,
+            final Map<String, String> resourceRequirements)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " +
@@ -106,9 +104,17 @@ public class DockerRunner {
                 cntCmd.withNetworkMode("mini_kb_default");
             }
             cntCmd.withLabels(labels);
+
+            HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements,log);
+            if(cpuMemoryLimiter != null){
+                //You have to reset binds and reset network unfortunately...
+                cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
+                if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
+                    cpuMemoryLimiter.withNetworkMode("mini_kb_default");
+                }
+                cntCmd.withHostConfig(cpuMemoryLimiter);
+            }
             final String cntId = cntCmd.exec().getId();
-
-
 
             //Create a log of all docker jobs
             new File(dockerJobIdLogsDir).mkdirs();
@@ -297,8 +303,8 @@ public class DockerRunner {
             System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
             try {
                 cl.killContainerCmd(subjobid);
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (Exception ignore) {
+                //e.printStackTrace();
             }
         }
     }
@@ -364,4 +370,45 @@ public class DockerRunner {
             return DockerClientBuilder.getInstance().build();
         }
     }
+
+    /**
+     * Impose cpu and memory limits into a hostconfig
+     *
+     * @param resourceRequirements request_cpus and request_memory to be translated into a cpu limit and a soft memory limit
+     * @param log logger
+     * @return a hostconfig with constrainted memory and or cpu
+     */
+    public HostConfig setJobRequirements(Map<String, String> resourceRequirements, LineLogger log) {
+        if (resourceRequirements == null || resourceRequirements.isEmpty()) {
+            return null;
+        }
+        log.logNextLine("Setting requirements", true);
+        HostConfig cpuMemoryLimiter = new HostConfig();
+        for (String resourceKey : resourceRequirements.keySet()) {
+            if (resourceKey.equals("request_cpus")) {
+                int inputCores = Integer.parseInt(resourceRequirements.get("request_cpus"));
+                int DEFAULT_CPU_PERIOD = 100000;
+                int CPU_QUOTA_CONST = 100000;
+                int cpuQuota = (int) (inputCores * CPU_QUOTA_CONST);
+                cpuMemoryLimiter.withCpuQuota(cpuQuota);
+                cpuMemoryLimiter.withCpuPeriod(DEFAULT_CPU_PERIOD);
+                log.logNextLine("Setting request_cpus Requirements to " + inputCores, true);
+                log.logNextLine("Setting cpuQuota  to " + cpuQuota, true);
+                log.logNextLine("Setting withCpuPeriod  to " + DEFAULT_CPU_PERIOD, true);
+            }
+            if (resourceKey.equals("request_memory")) {
+                String inputMemory = resourceRequirements.get("request_memory").replace("MB", "");
+                long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
+                //cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
+                cpuMemoryLimiter.withMemoryReservation(inputMemoryBytes); //soft memory limit
+                log.logNextLine("Setting request_memory Requirements to " + inputMemory, true);
+                log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, true);
+                if(Long.parseLong(inputMemory) <= 500){
+                    log.logNextLine("WARNING: withMemoryReservation MIGHT BE TOO LOW " , true);
+                }
+            }
+        }
+        return cpuMemoryLimiter;
+    }
+
 }

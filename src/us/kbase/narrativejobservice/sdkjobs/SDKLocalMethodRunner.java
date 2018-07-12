@@ -16,7 +16,9 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.mongodb.util.Hash;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -87,7 +89,7 @@ public class SDKLocalMethodRunner {
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting docker runner with args " +
+        System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
             StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
@@ -110,9 +112,7 @@ public class SDKLocalMethodRunner {
             }
         };
 
-
         Runtime.getRuntime().addShutdownHook(shutdownHook);
-
 
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
@@ -444,16 +444,36 @@ public class SDKLocalMethodRunner {
             labels.put("app_id",""+job.getAppId());
             labels.put("user_name",token.getUserName());
 
+            Map<String,String> resourceRequirements = new HashMap<String,String>();
+
+            String[] resourceStrings = {"request_cpus","request_memory","request_disk"};
+            for(String resourceKey : resourceStrings) {
+                String resourceValue  = System.getenv(resourceKey);
+                if(resourceValue != null && !resourceKey.isEmpty()) {
+                    resourceRequirements.put(resourceKey,resourceValue);
+                }
+            }
+            if(resourceRequirements.isEmpty()) {
+                resourceRequirements = null;
+                log.logNextLine("Resource Requirements are not specified.", true);
+            }
+            else{
+                log.logNextLine("Resource Requirements are:", true);
+                log.logNextLine(resourceRequirements.toString(), true);
+            }
 
             // Calling Runner
-            if (System.getenv("USE_SHIFTER")!=null)
+            if (System.getenv("USE_SHIFTER")!=null){
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
                         cancellationChecker, envVars, labels);
-            else
+            }
+            else{
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                        cancellationChecker, envVars, labels);
+                        cancellationChecker, envVars, labels, resourceRequirements);
+            }
+
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
