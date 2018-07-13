@@ -446,29 +446,27 @@ public class SDKLocalMethodRunner {
 
             Map<String,String> resourceRequirements = new HashMap<String,String>();
 
-            String[] resourceStrings = {"request_cpus","request_memory","request_disk"};
-            for(String resourceKey : resourceStrings) {
-                String resourceValue  = System.getenv(resourceKey);
-                if(resourceValue != null && !resourceKey.isEmpty()) {
-                    resourceRequirements.put(resourceKey,resourceValue);
+            String[] resourceStrings = {"request_cpus", "request_memory", "request_disk"};
+            for (String resourceKey : resourceStrings) {
+                String resourceValue = System.getenv(resourceKey);
+                if (resourceValue != null && !resourceKey.isEmpty()) {
+                    resourceRequirements.put(resourceKey, resourceValue);
                 }
             }
-            if(resourceRequirements.isEmpty()) {
+            if (resourceRequirements.isEmpty()) {
                 resourceRequirements = null;
-                log.logNextLine("Resource Requirements are not specified.", true);
-            }
-            else{
-                log.logNextLine("Resource Requirements are:", true);
-                log.logNextLine(resourceRequirements.toString(), true);
+                log.logNextLine("Resource Requirements are not specified.", false);
+            } else {
+                log.logNextLine("Resource Requirements are:", false);
+                log.logNextLine(resourceRequirements.toString(), false);
             }
 
             // Calling Runner
-            if (System.getenv("USE_SHIFTER")!=null){
+            if (System.getenv("USE_SHIFTER") != null) {
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
                         cancellationChecker, envVars, labels);
-            }
-            else{
+            } else {
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
                         cancellationChecker, envVars, labels, resourceRequirements);
