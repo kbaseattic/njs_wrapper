@@ -236,7 +236,7 @@ public class CondorUtils {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
         if(! optClassAds.containsKey("debugMode")) {
-            //condorSubmitFile.delete();
+            condorSubmitFile.delete();
         }
         return jobID;
     }
