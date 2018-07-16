@@ -4,6 +4,7 @@ if [ -e /etc/clustername ] ; then
     export USE_SHIFTER=1
     export REFDATA_DIR=/global/cscratch1/sd/kbaserun/refdata/ci/refdata/
     export CALLBACK_INTERFACE=ib0
+    export SCRATCH=/global/homes/b/bsadkhin/freedom/scratch
     echo `pwd` > /global/homes/b/bsadkhin/freedom/pwd
     echo `ls` > /global/homes/b/bsadkhin/freedom/ls
     NJSW_JAR=`readlink -f NJSWrapper-all.jar`
