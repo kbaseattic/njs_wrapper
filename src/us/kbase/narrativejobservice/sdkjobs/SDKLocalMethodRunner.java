@@ -12,16 +12,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.mongodb.util.Hash;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -72,7 +69,7 @@ import us.kbase.narrativejobservice.RunJobParams;
 import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
-
+import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
 
 public class SDKLocalMethodRunner {
 
@@ -84,15 +81,15 @@ public class SDKLocalMethodRunner {
     public static final String RELEASE = JobRunnerConstants.RELEASE;
     public static final Set<String> RELEASE_TAGS = JobRunnerConstants.RELEASE_TAGS;
     private static final long MAX_OUTPUT_SIZE = JobRunnerConstants.MAX_IO_BYTE_SIZE;
-    
+
     public static final String JOB_CONFIG_FILE = JobRunnerConstants.JOB_CONFIG_FILE;
     public static final String CFG_PROP_EE_SERVER_VERSION =
             JobRunnerConstants.CFG_PROP_EE_SERVER_VERSION;
-    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS = 
+    public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting docker runner with args " +
+        System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
             StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
@@ -101,7 +98,7 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
-        Runtime.getRuntime().addShutdownHook(new Thread()
+        Thread shutdownHook = new Thread()
         {
             @Override
             public void run()
@@ -113,8 +110,9 @@ public class SDKLocalMethodRunner {
                     e.printStackTrace();
                 }
             }
-        });
+        };
 
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
@@ -152,6 +150,10 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
+            if (System.getenv("CALLBACK_INTERFACE")!=null)
+                config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
+            if (System.getenv("REFDATA_DIR")!=null)
+                config.put(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE, System.getenv("REFDATA_DIR"));
             ConfigurableAuthService auth = getAuth(config);
             // We couldn't validate token earlier because we didn't have auth service URL.
             AuthToken token = auth.validateToken(tokenStr);
@@ -166,6 +168,12 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(msg, false);
             }
             File jobDir = getJobDir(jobInput.getE2(), jobId);
+
+            if (!mountExists()) {
+                log.logNextLine("Cannot find mount point as defined in condor-submit-workdir",true);
+                throw new IOException("Cannot find mount point condor-submit-workdir");
+            }
+
             final ModuleMethod modMeth = new ModuleMethod(job.getMethod());
             RpcContext context = job.getRpcContext();
             if (context == null)
@@ -236,7 +244,7 @@ public class SDKLocalMethodRunner {
             String refDataBase = config.get(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE);
             if (mv.getDataFolder() != null && mv.getDataVersion() != null) {
                 if (refDataBase == null)
-                    throw new IllegalStateException("Reference data parameters are defined for image but " + 
+                    throw new IllegalStateException("Reference data parameters are defined for image but " +
                             NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + " property isn't set in configuration");
                 refDataDir = new File(new File(refDataBase, mv.getDataFolder()), mv.getDataVersion());
                 if (!refDataDir.exists())
@@ -275,7 +283,7 @@ public class SDKLocalMethodRunner {
 
             String miniKB = System.getenv("MINI_KB");
             boolean useVolumeMounts = true;
-            if (miniKB != null && !miniKB.isEmpty()){
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true") ){
                 useVolumeMounts = false;
             }
 
@@ -298,11 +306,11 @@ public class SDKLocalMethodRunner {
                     additionalBinds = new ArrayList<Bind>();
                     for (VolumeMount vm : vmc.get(0).getVolumeMounts()) {
                         boolean isReadOnly = vm.getReadOnly() != null && vm.getReadOnly() != 0L;
-                        File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(), 
+                        File hostDir = new File(processHostPathForVolumeMount(vm.getHostDir(),
                                 token.getUserName()));
                         if (!hostDir.exists()) {
                             if (isReadOnly) {
-                                throw new IllegalStateException("Volume mount directory doesn't exist: " + 
+                                throw new IllegalStateException("Volume mount directory doesn't exist: " +
                             hostDir);
                             } else {
                                 hostDir.mkdirs();
@@ -319,11 +327,11 @@ public class SDKLocalMethodRunner {
                         .withVersion(mv.getGitCommitHash()).withLoadAllVersions(0L));
                 envVars = new TreeMap<String, String>();
                 for (SecureConfigParameter param : secureCfgParams) {
-                    envVars.put("KBASE_SECURE_CONFIG_PARAM_" + param.getParamName(), 
+                    envVars.put("KBASE_SECURE_CONFIG_PARAM_" + param.getParamName(),
                             param.getParamValue());
                 }
             }
-            
+
             PrintWriter pw = new PrintWriter(configFile);
             pw.println("[global]");
             if (kbaseEndpoint != null)
@@ -335,7 +343,7 @@ public class SDKLocalMethodRunner {
             pw.println("srv_wiz_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SRV_WIZ_URL));
             pw.println("njsw_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL));
             pw.println("auth_service_url = " + config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL));
-            pw.println("auth_service_url_allow_insecure = " + 
+            pw.println("auth_service_url_allow_insecure = " +
                     config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM));
             if (secureCfgParams != null) {
                 for (SecureConfigParameter param : secureCfgParams) {
@@ -343,7 +351,7 @@ public class SDKLocalMethodRunner {
                 }
             }
             pw.close();
-            
+
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
                 Boolean canceled = null;
@@ -368,7 +376,7 @@ public class SDKLocalMethodRunner {
                     } catch (Exception ex) {
                         log.logNextLine("Non-critical error checking for job cancelation - " +
                                 String.format("Will check again in %s seconds. ",
-                                        DockerRunner.CANCELLATION_CHECK_PERIOD_SEC) + 
+                                        DockerRunner.CANCELLATION_CHECK_PERIOD_SEC) +
                                 "Error reported by execution engine was: " +
                                 HtmlEscapers.htmlEscaper().escape(ex.getMessage()), true);
                     }
@@ -391,7 +399,7 @@ public class SDKLocalMethodRunner {
                         new URL(mv.getGitUrl()), modMeth,
                         mv.getGitCommitHash(), mv.getVersion(),
                         requestedRelease);
-                final CallbackServerConfig cbcfg = 
+                final CallbackServerConfig cbcfg =
                         new CallbackServerConfigBuilder(config, callbackUrl,
                                 jobDir.toPath(), Paths.get(refDataBase), log).build();
                 final JsonServerServlet callback = new NJSCallbackServer(
@@ -415,10 +423,55 @@ public class SDKLocalMethodRunner {
                         "by the job runner. Local callbacks are disabled.",
                         true);
             }
-            // Calling Docker run
-            new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
-                    outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                    cancellationChecker, envVars);
+
+            Map<String,String> labels = new HashMap<>();
+            labels.put("job_id",""+jobId);
+            labels.put("image_name",imageName);
+
+            String method = job.getMethod();
+            String[] appNameMethodName = method.split("\\.");
+            if(appNameMethodName.length == 2){
+                labels.put("app_name",appNameMethodName[0]);
+                labels.put("method_name",appNameMethodName[1]);
+            }
+            else{
+                labels.put("app_name",method);
+                labels.put("method_name",method);
+            }
+            labels.put("parent_job_id",job.getParentJobId());
+            labels.put("image_version",imageVersion);
+            labels.put("wsid",""+job.getWsid());
+            labels.put("app_id",""+job.getAppId());
+            labels.put("user_name",token.getUserName());
+
+            Map<String,String> resourceRequirements = new HashMap<String,String>();
+
+            String[] resourceStrings = {"request_cpus", "request_memory", "request_disk"};
+            for (String resourceKey : resourceStrings) {
+                String resourceValue = System.getenv(resourceKey);
+                if (resourceValue != null && !resourceKey.isEmpty()) {
+                    resourceRequirements.put(resourceKey, resourceValue);
+                }
+            }
+            if (resourceRequirements.isEmpty()) {
+                resourceRequirements = null;
+                log.logNextLine("Resource Requirements are not specified.", false);
+            } else {
+                log.logNextLine("Resource Requirements are:", false);
+                log.logNextLine(resourceRequirements.toString(), false);
+            }
+
+            // Calling Runner
+            if (System.getenv("USE_SHIFTER") != null) {
+                new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker, envVars, labels);
+            } else {
+                new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
+                        outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
+                        cancellationChecker, envVars, labels, resourceRequirements);
+            }
+
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
@@ -430,7 +483,7 @@ public class SDKLocalMethodRunner {
                 char[] chars = new char[1000];
                 r.read(chars);
                 r.close();
-                String error = "Method " + job.getMethod() + " returned value longer than " + MAX_OUTPUT_SIZE + 
+                String error = "Method " + job.getMethod() + " returned value longer than " + MAX_OUTPUT_SIZE +
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
@@ -502,12 +555,13 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
+        Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {
         return path.replace("${username}", username);
     }
-    
+
     private static boolean notNullOrEmpty(final String s) {
         return s != null && !s.isEmpty();
     }
@@ -521,7 +575,7 @@ public class SDKLocalMethodRunner {
             System.out.println(line.getLine());
         }
     }
-    
+
     private static synchronized void flushLog(NarrativeJobServiceClient jobSrvClient,
             String jobId, List<LogLine> logLines) {
         if (logLines.isEmpty())
@@ -538,7 +592,7 @@ public class SDKLocalMethodRunner {
         final Matcher m = Pattern.compile("([A-Z])").matcher(s.substring(1));
         return (s.substring(0, 1) + m.replaceAll("_$1")).toLowerCase();
     }
-    
+
     private static File getJobDir(Map<String, String> config, String jobId) {
         String rootDirPath = config.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_SCRATCH);
         File rootDir = new File(rootDirPath == null ? "." : rootDirPath);
@@ -549,7 +603,18 @@ public class SDKLocalMethodRunner {
             ret.mkdir();
         return ret;
     }
-    
+
+    /**
+     * Check to see if the basedir exists, which is in
+     * a format similar to /mnt/condor/<username>
+     * @return
+     */
+    private static boolean mountExists() {
+        File mountPath = new File(System.getenv("BASE_DIR"));
+        return mountPath.exists() &&  mountPath.canWrite();
+    }
+
+
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
             AuthToken token) throws UnauthorizedException, IOException,
             MalformedURLException {
@@ -558,8 +623,8 @@ public class SDKLocalMethodRunner {
         jobSrvClient.setIsInsecureHttpConnectionAllowed(true);
         return jobSrvClient;
     }
-    
-    private static ConfigurableAuthService getAuth(final Map<String, String> config) 
+
+    private static ConfigurableAuthService getAuth(final Map<String, String> config)
             throws Exception {
         String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
         if (authUrl == null) {
@@ -589,7 +654,7 @@ public class SDKLocalMethodRunner {
                     param + " = " + urlStr + "' is not a valid URL");
         }
     }
-    
+
     private static URI getURI(final Map<String, String> config,
             final String param, boolean allowAbsent) {
         final String urlStr = config.get(param);
@@ -607,7 +672,7 @@ public class SDKLocalMethodRunner {
                     param + " = " + urlStr + "' is not a valid URI");
         }
     }
-    
+
     public static String[] getHostnameAndIP() {
         String hostname = null;
         String ip = null;

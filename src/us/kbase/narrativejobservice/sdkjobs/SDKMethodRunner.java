@@ -6,14 +6,7 @@ import java.io.StringWriter;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -144,16 +137,25 @@ public class SDKMethodRunner {
 
 		// Config switch to switch to calling new Condor Utils method submitToCondor
 		if (config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_MODE).equals("1")) {
-			//TODO REMOVE
 			System.out.println("UJS JOB ID FOR SUBMITTED JOB IS:" + ujsJobId);
-			String baseDir = config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR);
-			baseDir = String.format("%s/%s/", baseDir, authPart.getUserName());
+			HashMap<String, String> optClassAds = new HashMap<String, String>();
+			String[] modNameFuncName = params.getMethod().split(Pattern.quote("."));
+			optClassAds.put("kb_parent_job_id", params.getParentJobId());
+			optClassAds.put("kb_module_name", modNameFuncName[0]);
+			optClassAds.put("kb_function_name", modNameFuncName[0]);
+			optClassAds.put("kb_app_id", params.getAppId());
+
+			if (params.getWsid() != null) {
+				optClassAds.put("kb_wsid", "" + params.getWsid());
+			}
+
+			String baseDir = String.format("%s/%s/", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
-			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, getCatalogAdminAuth(config));
-			String schedulerType = "condor";
-			String lastJobState = null;
 			String parentJobId = params.getParentJobId();
-			saveTask(ujsJobId, condorId, jobInput, appJobId, "condor", lastJobState, parentJobId, config);
+			String schedulerType = "condor";
+
+			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
+			saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType,parentJobId, config);
 
 		} else {
 			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
@@ -1079,7 +1081,6 @@ public class SDKMethodRunner {
 	 * @param jobInput (Runjob Params)
 	 * @param appJobId
 	 * @param schedulerType (Scheduler Type, such as Condor or Awe)
-	 * @param lastJobState (Last job state, such as queued)
 	 * @param parentJobId (ID of Parent Job)
 	 * @param config (Configuration File)
 	 * @throws Exception
@@ -1090,7 +1091,6 @@ public class SDKMethodRunner {
 			final Map<String, Object> jobInput,
 			final String appJobId,
 			final String schedulerType,
-			final String lastJobState,
 			final String parentJobId,
 			final Map<String, String> config) throws Exception {
 
@@ -1103,9 +1103,7 @@ public class SDKMethodRunner {
 		dbTask.setAppJobId(appJobId);
 		dbTask.setSchdulerType(schedulerType);
 		dbTask.setTaskId(jobId);
-		dbTask.setLastJobState(lastJobState);
 		dbTask.setParentJobId(parentJobId);
-
 		db.insertExecTask(dbTask);
 	}
 

@@ -11,14 +11,14 @@ env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
     - secure: "GEbQy4zR5hhHDzjoThGyCHZVmpEWKduwR/sZ1sR8csOYrfYqQTHinhAMY+KAdUhjJfWGwR9l2v2xkhyokzdADhKOqZJo7jkkioPEtENdocTWMYq7Qedg6kUCzcAutURIBCcoJtW4vrpGZ+1YR4vB8BhA11KA62QUbsQY3ds/LTg="
     - secure: "NbHt1OUyrTXmN+tYAFcGH3mxlxraDKJ6WQNTJTG+u+wTOzh2MU1bf59l+oanvqlydpd7ZzG7c2cUpje5hvBMEV9s9jwdWqTlGXHWpcU3a1wZdNOkkAPK0Cb3opabRLwIqjovaoAAouSJCq/jUADzhusjrZcn5JVA7sSpYyJT3uE="
-install:
-  - cd ..
-  - git clone https://github.com/kbase/jars
-  - cd -
+#install:
+##  - cd ..
+##  - git clone https://github.com/kbase/jars
+##  - cd -
 
 script:
   - docker pull kbase/kb_jre
-  - make docker_image
+  - make docker_image_gradle
 
 after_success:
   - IMAGE_NAME=kbase/kb_njs_wrapper ./build/push2dockerhub.sh
