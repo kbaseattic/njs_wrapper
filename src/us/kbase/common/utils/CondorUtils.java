@@ -73,7 +73,7 @@ public class CondorUtils {
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar");
+        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
         csf.add(request_cpus);
         csf.add(request_memory);
         csf.add(request_disk);
@@ -240,6 +240,8 @@ public class CondorUtils {
         }
         return jobID;
     }
+
+
 
     /**
      * Call condor_q with the ujsJobId a string target to filter condor_q
