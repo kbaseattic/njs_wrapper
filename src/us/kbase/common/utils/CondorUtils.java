@@ -56,13 +56,15 @@ public class CondorUtils {
         envVariables.put("KB_ADMIN_AUTH_TOKEN",adminToken.getToken());
         envVariables.put("AWE_CLIENTGROUP",clientGroups);
         envVariables.put("BASE_DIR",baseDir);
+        envVariables.put("USERNAME",token.getUserName());
+
 
         List<String> environment = new ArrayList<String>();
         for(String key : envVariables.keySet() ){
             environment.add(String.format("%s=%s",key, envVariables.get(key)));
         }
 
-        String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
+        String executable = "/kb/deployment/misc/sdklocalmethodrunner.py";
         String[] args = {ujsJobId, kbaseEndpoint};
         String arguments = String.join(" ", args);
         List<String> csf = new ArrayList<String>();
