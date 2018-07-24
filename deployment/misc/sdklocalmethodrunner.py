@@ -15,10 +15,9 @@ except:
 
 # ENV VARIABLES
 
-required_variables = ['KB_AUTH_TOKEN']
+
 optional_variables = ['CALLBACK_INTERFACE', 'REFDATA_DIR', 'AWE_CLIENTGROUP', 'MINI_KB', 'HOSTNAME']
 resource_variables = ['request_cpus', 'request_memory', 'request_disk']
-all_variables = required_variables + optional_variables + resource_variables
 
 
 class UnknownEnvironmentException(Exception):
@@ -59,20 +58,22 @@ def detect_profile_from_environment():
     raise UnknownEnvironmentException('Unknown Environment')
 
 
-def overwrite_env_with_config():
+def overwrite_env_with_config(config_location=None):
     """
-
+    Overwrite environmental variables with those from the config
     :return:
     """
-    default_config_location = 'config.ini'
 
-    if os.path.isfile(default_config_location):
+    # TODO Logic for automatically finding config location
+    if config_location is None:
+        pass
+
+    if os.path.isfile(config_location):
         parser = ConfigParser()
-        parser.read(default_config_location)
+        parser.read(config_location)
 
         for key, value in parser.items('config'):
             os.environ[key] = value
-
 
 
 def create_directory(directory):
@@ -82,22 +83,27 @@ def create_directory(directory):
         if e.errno is not 17:
             raise IOError("Couldn't create scratch directory:" + directory)
 
+
 def cori_setup(ujs_job_id, njs_endpoint):
     """
-
+    Setup for Cori involves determining the correct directory for refdath,
+    ensuring the "scratch/writeable" directory exists, and finally creating
+    the "base_dir"
     :param ujs_job_id:
     :param njs_endpoint:
     :return:
     """
-    cori_variables = ['USE_SHIFTER', 'KBASE_RUN_DIR', 'REFDATA_DIR', 'SCRATCH', 'USERNAME']
-    for item in cori_variables:
+    overwrite_env_with_config('config.ini')
+
+    cori_required_variables = ['USE_SHIFTER', 'KBASE_RUN_DIR', 'REFDATA_DIR', 'SCRATCH', 'USERNAME','CALLBACK_INTERFACE']
+    for item in cori_required_variables:
         if os.environ.get(item, None) is None:
             raise MissingRequiredEnvironmentalVariableException(item)
 
     # Add all transferred files to path
     os.environ['PATH'] += ':' + os.getcwd()
 
-    # Determine correct refdata oath
+    # Determine correct refdata path
     prefix = njs_endpoint.split('.')[0].split('//')[1]
     kbase_run_dir = os.environ['KBASE_RUN_DIR']
     os.environ['REFDATA_DIR'] = '{}/refdata/{}/refdata'.format(kbase_run_dir, prefix)
@@ -117,7 +123,7 @@ def cori_setup(ujs_job_id, njs_endpoint):
 
 def kbase_setup(ujs_job_id):
     """
-
+    Setup for running on kbase servers, just need to ensure base_dir exists
     :param ujs_job_id:
     :return:
     """
@@ -131,6 +137,22 @@ def kbase_setup(ujs_job_id):
     os.environ['BASE_DIR'] = base_dir
 
 
+def check_required_variables():
+    required_variables = ['KB_AUTH_TOKEN']
+    for item in required_variables:
+        env_var = os.environ.get(item, None)
+        if not env_var:
+            raise MissingRequiredEnvironmentalVariableException(item)
+
+
+def get_jar_abs_path():
+    jar = 'NJSWrapper-all.jar'
+    if (os.path.exists(jar)):
+        return os.path.abspath(jar)
+    else:
+        raise IOError("Can't find jar: " + jar)
+
+
 def launchjob(ujs_job_id, njs_endpoint):
     """
 
@@ -140,6 +162,8 @@ def launchjob(ujs_job_id, njs_endpoint):
     """
     host_type = os.environ.get('HOST_MACHINE_TYPE', None)
 
+    check_required_variables()
+
     if (host_type and host_type == 'cori'):
         cori_setup(ujs_job_id, njs_endpoint)
     elif (host_type and host_type == 'other'):
@@ -147,20 +171,13 @@ def launchjob(ujs_job_id, njs_endpoint):
     else:
         kbase_setup(ujs_job_id)
 
-    jar = 'NJSWrapper-all.jar'
-    if(os.path.exists(jar)):
-        jar_location = os.path.abspath(jar)
-    else:
-        raise IOError("Can't find jar: " + jar)
-
-    print(jar_location)
-
-    job_commands = ['java', '-cp', jar_location,
+    job_commands = ['java', '-cp', get_jar_abs_path(),
                     'us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner', ujs_job_id,
                     njs_endpoint, ]
 
     with open('sdk_lmr.out', 'w') as out, open('sdk_lmr.err', 'w') as err:
-        subprocess.call(job_commands,  stdout=out, stderr=err, shell=True, cwd=os.environ['BASE_DIR'])
+        subprocess.call(job_commands, stdout=out, stderr=err, shell=True,
+                        cwd=os.environ['BASE_DIR'])
 
 
 if __name__ == '__main__':
@@ -168,12 +185,4 @@ if __name__ == '__main__':
     parser.add_argument('ujs_job_id', help='ujs job id to run')
     parser.add_argument('njs_endpoint', help='njs endpoint')
     args = parser.parse_args()
-
-    for item in required_variables:
-        env_var = os.environ.get(item, None)
-        if not env_var:
-            raise MissingRequiredEnvironmentalVariableException(item)
-
-    overwrite_env_with_config()
-
     launchjob(args.ujs_job_id, args.njs_endpoint)
