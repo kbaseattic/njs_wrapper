@@ -3,6 +3,7 @@ import argparse
 import subprocess
 import os
 import shutil
+import time
 
 try:
     from ConfigParser import ConfigParser  # py2
@@ -146,16 +147,12 @@ def stage_required_files(destination=ENV['BASE_DIR']):
     shutil.move(mydocker_script, mydocker_destination)
     return jar_destination
 
+
 def cleanup(jar_destination):
-    jar = 'NJSWrapper-all.jar'
-    mydocker_script = 'mydocker'
-    os.unlink(jar)
-    os.unlink(mydocker_script)
-    os.unlink(jar_destination)
-
-
-
-
+    print("About to cleanup. PWD is" + os.getcwd())
+    for file in ['NJSWrapper-all.jar', 'mydocker', jar_destination]:
+        print("Deleting:" + file)
+        os.unlink(file)
 
 
 def get_kbase_env(njs_endpoint):
@@ -272,13 +269,14 @@ def launch_job(ujs_job_id, njs_endpoint):
     out_file = ENV['BASE_DIR'] + "/" + 'sdk_lmr.out'
     err_file = ENV['BASE_DIR'] + "/" + 'sdk_lmr.err'
 
+    start = time.time();
     print("Writing logs to: \n{}\n{} ".format(out_file, err_file))
-
     with open(out_file, 'w+') as out, open(err_file, 'w+') as err:
         subprocess.call(" ".join(job_commands), stdout=out, stderr=err, shell=True,
                         cwd=ENV['BASE_DIR'], executable='/bin/bash')
+    elapsed = str(time.time() - start)
+    print("Time elapsed:" + elapsed + "s")
 
-    #cleanup(jar_path)
 
 
 if __name__ == '__main__':
