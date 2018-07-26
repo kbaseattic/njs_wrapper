@@ -320,6 +320,8 @@ public class CondorIntegrationTest {
 //
 //    }
 
+
+
     @Test
     public void testDeleteJob() throws Exception{
         System.out.println("Test [testDeleteJob]");
@@ -420,6 +422,7 @@ public class CondorIntegrationTest {
                     continue;
                 }
                 else if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                    System.out.println(ret);
                     break;
                 }
                 else{
@@ -440,7 +443,7 @@ public class CondorIntegrationTest {
         }
         assertTrue(ret.getFinished() == 1L);
 
-        System.out.println("Asserting that the result is:" + basenumber);
+        System.out.println("Asserting that the result is:" + (basenumber + 100));
         UObject new_number = ret.getResult().asList().get(0).asMap().get("new_number");
         assertTrue(new_number.toJsonString().contains("" + (Integer.parseInt(basenumber) + 100)));
 

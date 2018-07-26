@@ -89,7 +89,7 @@ public class SDKLocalMethodRunner {
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
+        System.out.println("Starting docker runner with args " +
             StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
@@ -455,7 +455,7 @@ public class SDKLocalMethodRunner {
             }
             if (resourceRequirements.isEmpty()) {
                 resourceRequirements = null;
-                log.logNextLine("Resource Requirements are not specified.", false);
+                log.logNextLine("Resource Requirements are not yet specified.", false   );
             } else {
                 log.logNextLine("Resource Requirements are:", false);
                 log.logNextLine(resourceRequirements.toString(), false);
