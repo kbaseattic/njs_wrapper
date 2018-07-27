@@ -9,6 +9,7 @@ import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import org.apache.commons.io.FileUtils;
 import java.io.File;
@@ -23,11 +24,23 @@ public class ReaperServiceServlet implements ServletContextListener {
 
     private ReaperService getReaperService() throws Exception {
         Ini config = new Ini(new File(System.getenv("KB_DEPLOYMENT_CONFIG")));
-        String host = config.get("NarrativeJobService","ujs-mongodb-host");
-        String dbName = config.get("NarrativeJobService","ujs-mongodb-database");
-        String user = config.get("NarrativeJobService","ujs-mongodb-user");
-        String pwd = config.get("NarrativeJobService", "ujs-mongodb-pwd");
-        return new ReaperService(user, pwd, host, dbName);
+
+        HashMap<String,String> njs_config = new HashMap<String,String>();
+        njs_config.put("host",config.get("NarrativeJobService","ujs-mongodb-host"));
+        njs_config.put("dbName",config.get("NarrativeJobService","ujs-mongodb-database"));
+        njs_config.put("user",config.get("NarrativeJobService","ujs-mongodb-user"));
+        njs_config.put("pwd",config.get("NarrativeJobService","ujs-mongodb-pwd"));
+
+        HashMap<String,String> ujs_config = new HashMap<String,String>();
+        njs_config.put("host",config.get("NarrativeJobService","mongodb-host"));
+        njs_config.put("dbName",config.get("NarrativeJobService","mongodb-database"));
+        njs_config.put("user",config.get("NarrativeJobService","mongodb-user"));
+        njs_config.put("pwd",config.get("NarrativeJobService","mongodb-pwd"));
+
+
+
+
+        return new ReaperService(njs_config,ujs_config);
     }
 
     public void contextInitialized(ServletContextEvent sce) {
