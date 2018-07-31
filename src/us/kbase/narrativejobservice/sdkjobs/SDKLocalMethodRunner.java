@@ -1,11 +1,7 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Reader;
-import java.io.StringWriter;
+import java.io.*;
+import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -13,12 +9,23 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.Instant;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.util.Hash;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.io.FileUtils;
+import org.apache.http.HttpHeaders;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
@@ -88,6 +95,49 @@ public class SDKLocalMethodRunner {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
+
+    public static long miliSecondsToLive(String token, Map<String, String> config) throws Exception {
+        String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
+//        if (authUrl == null) {
+//            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+//                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
+//        }
+        authUrl = "http://auth:8080/api/V2/token";
+        //TODO
+//        String authAllowInsecure = config.get( NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+//        if ("true".equals(authAllowInsecure)) {
+//
+//        }
+
+
+        CloseableHttpClient httpclient = HttpClients.createDefault();
+
+        HttpGet request = new HttpGet(authUrl);
+        request.setHeader(HttpHeaders.AUTHORIZATION, token);
+        InputStream response = httpclient.execute(request).getEntity().getContent();
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
+        Object expire = jsonMap.getOrDefault("expires", null);
+        if (expire != null) {
+            System.out.println("TOKEN EXPIRATION IS:" + expire);
+            long expiration = 1533767010265L;
+            long current_time = Instant.now().toEpochMilli();
+            long seconds_to_expire = (expiration - current_time);
+            return seconds_to_expire;
+        }
+        throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
+    }
+
+
+    public static void canceljob(NarrativeJobServiceClient jobSrvClient, String jobId) throws  Exception{
+
+        jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
+
+    }
+
+
+
+
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
             StringUtils.join(args, ", "));
@@ -126,6 +176,9 @@ public class SDKLocalMethodRunner {
         final AuthToken tempToken = new AuthToken(tokenStr, "<unknown>");
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
                 jobSrvUrl, tempToken);
+
+
+
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
@@ -150,6 +203,10 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
+
+
+
+
             if (System.getenv("CALLBACK_INTERFACE")!=null)
                 config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
             if (System.getenv("REFDATA_DIR")!=null)
@@ -461,6 +518,39 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(resourceRequirements.toString(), false);
             }
 
+
+            final long msToLive = miliSecondsToLive(tokenStr,config);
+            Thread tokenExpirationHook = new Thread()
+            {
+                @Override
+                public void run()
+                {
+                    try {
+                        long tenMinutesBeforeExpiration = msToLive - 600000;
+
+                        tenMinutesBeforeExpiration=1000;
+
+                        if(tenMinutesBeforeExpiration > 0){
+                            Thread.sleep(tenMinutesBeforeExpiration);
+                            canceljob(jobSrvClient,jobId);
+                            log.logNextLine("Job was canceled due to token expiration", false);
+                        }
+                        else{
+                            canceljob(jobSrvClient,jobId);
+                            log.logNextLine("Job was canceled due to invalid token expiration state:" + tenMinutesBeforeExpiration, false);
+                        }
+                    }
+                    catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            tokenExpirationHook.start();
+
+
+
+
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
@@ -518,6 +608,8 @@ public class SDKLocalMethodRunner {
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
             logFlusher.interrupt();
+            //Turn off cancellation hook
+            tokenExpirationHook.interrupt();
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
@@ -556,6 +648,8 @@ public class SDKLocalMethodRunner {
                 }
         }
         Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
+
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {
