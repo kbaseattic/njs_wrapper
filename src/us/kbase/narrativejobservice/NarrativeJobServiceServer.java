@@ -102,8 +102,10 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
+
     public static final String CFG_PROP_AUTH_SERVICE_URL =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL;
+
     public static final String CFG_PROP_AUTH_SERVICE_URL_V2 =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL_V2;
 
