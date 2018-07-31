@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 import us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner;
 
 
+
 public class TokenReaperTest {
 
 
@@ -29,8 +30,9 @@ public class TokenReaperTest {
 
     @Test
     public void testSimple() throws Exception {
-
-        System.out.println(SDKLocalMethodRunner.miliSecondsToLive(token.getToken(),config));
+        long ms = SDKLocalMethodRunner.milliSecondsToLive(token.getToken(),config);
+        //Possibly Flaky test based on expiration with mini_kb
+        //Assert.assertEquals(Long.parseLong("8641506380012940"), ms );
     }
 
 
