@@ -317,7 +317,7 @@ public class CondorIntegrationTest {
 //
 //    }
 
-    @Test
+    @Ignore @Test
     public void testDeleteJob() throws Exception{
         System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
@@ -330,7 +330,7 @@ public class CondorIntegrationTest {
     }
 
 
-    @Test
+    @Ignore @Test
     public void testSimpleJobWithParent() throws Exception{
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
@@ -383,7 +383,7 @@ public class CondorIntegrationTest {
     }
 
 
-    @Test
+    @Ignore @Test
     public void testSimpleJobWithCancelJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
@@ -394,7 +394,8 @@ public class CondorIntegrationTest {
         execStats.clear();
         String basenumber = "101";
         String moduleName = "simpleapp";
-        String methodName = "simple_add";
+        //simple_add_with_sleep cuases a sleep job to be launched
+        String methodName = "simple_add_with_sleep";
         String serviceVer = lookupServiceVersion(moduleName);
         RunJobParams params = new RunJobParams().withMethod(
                 moduleName + "." + methodName).withServiceVer(serviceVer)
@@ -415,22 +416,24 @@ public class CondorIntegrationTest {
         File[] list = f.listFiles();
 
 
-        for(int i = 0; i < 15; i++){
+        for(int i = 0; i < 20; i++){
             Thread.sleep(4000);
             System.out.println("Examining:" + id_path);
             list = f.listFiles();
             System.out.println("Docker job ids are:");
-            for(File item : list){
-                System.out.println(item);
+            if(list != null) {
+                for (File item : list) {
+                    System.out.println(item);
+                }
             }
         }
 
-        System.out.println("Cancelling job");
-        client.cancelJob(new CancelJobParams().withJobId(jobId));
-
-        System.out.println("Checking to see if jobs have exited");
-
-        System.out.println(list);
+//        System.out.println("Cancelling job");
+//        client.cancelJob(new CancelJobParams().withJobId(jobId));
+//
+//        System.out.println("Checking to see if jobs have exited");
+//
+//        System.out.println(list);
 
 
 
@@ -438,7 +441,7 @@ public class CondorIntegrationTest {
 
 
 
-    @Test
+    @Ignore @Test
     public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");

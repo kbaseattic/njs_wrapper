@@ -2,10 +2,7 @@ package us.kbase.narrativejobservice.sdkjobs;
 
 import ch.qos.logback.classic.Level;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.CreateContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.LogContainerCmd;
+import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -304,7 +301,7 @@ public class DockerRunner {
             for (final String subjobid : subJobIds) {
                 System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
                 try {
-                    cl.killContainerCmd(subjobid);
+                    cl.killContainerCmd(subjobid).exec();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
