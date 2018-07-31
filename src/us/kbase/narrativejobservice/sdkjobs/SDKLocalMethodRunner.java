@@ -494,7 +494,7 @@ public class SDKLocalMethodRunner {
                     }
                 }
             };
-            
+
             tokenExpirationHook.start();
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
@@ -595,8 +595,6 @@ public class SDKLocalMethodRunner {
                 }
         }
         Runtime.getRuntime().removeShutdownHook(shutdownHook);
-
-
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {
