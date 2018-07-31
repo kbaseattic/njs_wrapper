@@ -1,28 +1,12 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.*;
-import java.math.BigInteger;
-import java.net.InetAddress;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.time.Instant;
-
-import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.util.Hash;
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
+import com.google.common.html.HtmlEscapers;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.io.FileUtils;
 import org.apache.http.HttpHeaders;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -32,51 +16,27 @@ import org.eclipse.jetty.servlet.ServletHolder;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-
-import com.github.dockerjava.api.model.AccessMode;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.Volume;
-import com.google.common.html.HtmlEscapers;
-
 import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.ConfigurableAuthService;
-import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetSecureConfigParamsInput;
-import us.kbase.catalog.ModuleVersion;
-import us.kbase.catalog.SecureConfigParameter;
-import us.kbase.catalog.SelectModuleVersion;
-import us.kbase.catalog.VolumeMount;
-import us.kbase.catalog.VolumeMountConfig;
-import us.kbase.catalog.VolumeMountFilter;
-import us.kbase.common.executionengine.CallbackServer;
-import us.kbase.common.executionengine.CallbackServerConfigBuilder;
-import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.executionengine.LineLogger;
-import us.kbase.common.executionengine.ModuleMethod;
-import us.kbase.common.executionengine.ModuleRunVersion;
+import us.kbase.catalog.*;
+import us.kbase.common.executionengine.*;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
-import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.ServerException;
-import us.kbase.common.service.Tuple2;
-import us.kbase.common.service.UObject;
-import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.service.*;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.narrativejobservice.CancelJobParams;
-import us.kbase.narrativejobservice.CheckJobCanceledResult;
-import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.*;
 import us.kbase.narrativejobservice.JobState;
-import us.kbase.narrativejobservice.JsonRpcError;
-import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.MethodCall;
-import us.kbase.narrativejobservice.NarrativeJobServiceClient;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RpcContext;
-import us.kbase.narrativejobservice.RunJobParams;
-import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
-import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
-import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
+
+import java.io.*;
+import java.net.*;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SDKLocalMethodRunner {
 
