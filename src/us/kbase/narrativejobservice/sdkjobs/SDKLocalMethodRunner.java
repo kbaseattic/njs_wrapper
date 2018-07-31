@@ -110,7 +110,7 @@ public class SDKLocalMethodRunner {
     }
 
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
+        System.out.println("Starting docker runner with args " +
                 StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
