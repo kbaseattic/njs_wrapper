@@ -109,6 +109,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_AUTH_SERVICE_URL_V2 =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL_V2;
 
+    public static final String CFG_PROP_TIME_BEFORE_EXPIRATION =
+            JobRunnerConstants.CFG_PROP_TIME_BEFORE_EXPIRATION;
+
     public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
 

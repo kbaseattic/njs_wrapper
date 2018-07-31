@@ -28,6 +28,7 @@ auth-service-url = {{ default .Env.auth_service_url "https://ci.kbase.us/service
 auth.service.url.v2 = {{ default .Env.auth_service_url_v2 "https://ci.kbase.us/services/auth/api/V2/token" }}
 auth-service-url-allow-insecure={{ default .Env.auth_service_url_allow_insecure "false" }}
 
+
 ## This user can run list_running_apps method to get states
 ## of all running apps (running internally on wrapper side). 
 admin.user={{default .Env.admin_user "" }}
@@ -52,13 +53,9 @@ ujs-mongodb-pwd = {{ default .Env.ujs_mongodb_pwd "" }}
 
 narrative.proxy.sharing.user={{ default .Env.narrative_proxy_sharing_user "narrativejoblistener" }}
 
-# This next flag really doesn't make sense to me as a startup option, but copying from CI config
-## Please change next flag before you reboot machine.                                                                
-## It will help keep tasks in queue and rerun them later.
-## Don't forget to revert this flag after reboot.
-reboot.mode={{ default .Env.reboot_mode "false" }}
-
 condor.mode={{ default .Env.condor_mode "1" }}
 condor.submit.desc.file.path={{ default .Env.condor_submit_desc_file_path "/kb/deployment/misc/" }}
 condor-submit-workdir={{ default .Env.condor_submit_workdir "/mnt/condor" }}
 
+## Formula = Token Expiration in ms - (Time_Before_Expiration / 60 ) * 1000
+time.before.expiration = {{ default .Env.time_before_expiration "10" }}

@@ -76,10 +76,19 @@ public class SDKLocalMethodRunner {
         Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
         Object expire = jsonMap.getOrDefault("expires", null);
         //Calculate ms till expiration
-        if (expire != null) {
-            return (Long.parseLong((String) expire) - Instant.now().toEpochMilli());
-        }
-        throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
+        if (expire == null)
+            throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
+
+        long ms = ( (long)expire - Instant.now().toEpochMilli());
+
+        //Time of token expiration - N time
+        String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
+        //10 Minute Default
+        if (time_before_expiration == null)
+            return ms - (10 * 60 * 1000);
+        //Number of minutes / 60 * 1000
+        return ms - (Long.parseLong(time_before_expiration) / 60) * 1000;
+
     }
 
 
@@ -465,21 +474,20 @@ public class SDKLocalMethodRunner {
             }
 
             //Get number of milliseconds to live for this token
-            //Set a timer before job is cancelled for having an expired token to the expiration time minus 10 minutes
-            //
+            //Set a timer before job is cancelled for having an expired token to
+            //the expiration time minus 10 minutes (default) or higher
             final long msToLive = milliSecondsToLive(tokenStr, config);
             Thread tokenExpirationHook = new Thread() {
                 @Override
                 public void run() {
                     try {
-                        long tenMinutesBeforeExpiration = msToLive - 600000;
-                        if (tenMinutesBeforeExpiration > 0) {
-                            Thread.sleep(tenMinutesBeforeExpiration);
+                        if (msToLive > 0) {
+                            Thread.sleep(msToLive);
                             canceljob(jobSrvClient, jobId);
                             log.logNextLine("Job was canceled due to token expiration", false);
                         } else {
                             canceljob(jobSrvClient, jobId);
-                            log.logNextLine("Job was canceled due to invalid token expiration state:" + tenMinutesBeforeExpiration, false);
+                            log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, false);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();

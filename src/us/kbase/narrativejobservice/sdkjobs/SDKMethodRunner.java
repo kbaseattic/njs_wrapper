@@ -300,7 +300,8 @@ public class SDKMethodRunner {
 					NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE,
 					NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS,
 					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
-					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2
+					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2,
+					NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION,
 			};
 			for (String key : propsToSend) {
 				String value = config.get(key);

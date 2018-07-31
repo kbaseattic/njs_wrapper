@@ -30,6 +30,7 @@ public class JobRunnerConstants {
     public static final String CFG_PROP_NJSW_URL = "self.external.url";
     public static final String CFG_PROP_AUTH_SERVICE_URL = "auth-service-url";
     public static final String CFG_PROP_AUTH_SERVICE_URL_V2 = "auth.service.url.v2";
+    public static final String CFG_PROP_TIME_BEFORE_EXPIRATION = "time.before.expiration";
     public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
             "auth-service-url-allow-insecure";
     public static final String CFG_PROP_CATALOG_SRV_URL = "catalog.srv.url";
