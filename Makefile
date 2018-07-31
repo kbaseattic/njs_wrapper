@@ -111,6 +111,5 @@ docker-image-gradle: compile-with-gradle
 compile-with-gradle:
 	./gradlew buildAll
 
-build-docker-image: compile-with-gradle
-	./gradlew buildAll
+build-docker-image:
 	./build/build_docker_image.sh
