@@ -1,4 +1,4 @@
-# A KBase user ID and password.
+# A KBase User ID and password.
 token=*****
 
 # URL of the server to test against, usually local or CI
