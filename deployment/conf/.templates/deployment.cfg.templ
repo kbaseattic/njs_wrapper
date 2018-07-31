@@ -25,7 +25,7 @@ catalog.srv.url={{ default .Env.catalog_srv_url "https://ci.kbase.us/services/ca
 handle.url={{ default .Env.handle_url "https://ci.kbase.us/services/handle_service" }}
 srv.wiz.url={{ default .Env.srv_wiz_url "https://ci.kbase.us/services/service_wizard" }}
 auth-service-url = {{ default .Env.auth_service_url "https://ci.kbase.us/services/auth/api/legacy/KBase/Sessions/Login" }}
-auth-service-url-v2 = {{ default .Env.auth_service_url_v2 "https://ci.kbase.us/services/auth/api/V2/token" }}
+auth.service.url.v2 = {{ default .Env.auth_service_url_v2 "https://ci.kbase.us/services/auth/api/V2/token" }}
 
 auth-service-url-allow-insecure={{ default .Env.auth_service_url_allow_insecure "false" }}
 
