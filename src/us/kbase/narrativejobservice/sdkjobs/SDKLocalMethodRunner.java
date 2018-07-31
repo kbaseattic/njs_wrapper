@@ -494,10 +494,8 @@ public class SDKLocalMethodRunner {
                     }
                 }
             };
-
+            
             tokenExpirationHook.start();
-
-
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
