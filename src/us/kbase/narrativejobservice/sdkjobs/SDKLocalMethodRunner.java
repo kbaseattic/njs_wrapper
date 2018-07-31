@@ -57,7 +57,8 @@ public class SDKLocalMethodRunner {
 
     /**
      * Get time for job to live based on token expiry date
-     * @param token User Token
+     *
+     * @param token  User Token
      * @param config Configuration Vars
      * @return time to live in milliseconds
      * @throws Exception
@@ -99,6 +100,7 @@ public class SDKLocalMethodRunner {
 
     /**
      * Submit a cancel job request to the NJS Client
+     *
      * @param jobSrvClient
      * @param jobId
      * @throws Exception
@@ -106,7 +108,6 @@ public class SDKLocalMethodRunner {
     public static void canceljob(NarrativeJobServiceClient jobSrvClient, String jobId) throws Exception {
         jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
     }
-
 
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
