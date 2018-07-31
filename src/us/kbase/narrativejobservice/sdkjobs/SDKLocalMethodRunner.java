@@ -96,34 +96,28 @@ public class SDKLocalMethodRunner {
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
 
-    public static long miliSecondsToLive(String token, Map<String, String> config) throws Exception {
+    public static long milliSecondsToLive(String token, Map<String, String> config) throws Exception {
         String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
-//        if (authUrl == null) {
-//            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
-//                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
-//        }
-        authUrl = "http://auth:8080/api/V2/token";
-        //TODO
-//        String authAllowInsecure = config.get( NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
-//        if ("true".equals(authAllowInsecure)) {
-//
-//        }
+        if (authUrl == null) {
+            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2) ;
+        }
 
-
+        //Check to see if http links are allowed
+        String authAllowInsecure = config.get( NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+        if (! "true".equals(authAllowInsecure) && ! authUrl.startsWith("https://")) {
+            throw new Exception("Only https links are allowed: " + authUrl);
+        }
         CloseableHttpClient httpclient = HttpClients.createDefault();
-
         HttpGet request = new HttpGet(authUrl);
         request.setHeader(HttpHeaders.AUTHORIZATION, token);
         InputStream response = httpclient.execute(request).getEntity().getContent();
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
         Object expire = jsonMap.getOrDefault("expires", null);
+        //Calculate ms till expiration
         if (expire != null) {
-            System.out.println("TOKEN EXPIRATION IS:" + expire);
-            long expiration = 1533767010265L;
-            long current_time = Instant.now().toEpochMilli();
-            long seconds_to_expire = (expiration - current_time);
-            return seconds_to_expire;
+            return (Long.parseLong((String) expire) - Instant.now().toEpochMilli());
         }
         throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
     }
@@ -518,8 +512,10 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(resourceRequirements.toString(), false);
             }
 
-
-            final long msToLive = miliSecondsToLive(tokenStr,config);
+            //Get number of milliseconds to live for this token
+            //Set a timer before job is cancelled for having an expired token to the expiration time minus 10 minutes
+            //
+            final long msToLive = milliSecondsToLive(tokenStr,config);
             Thread tokenExpirationHook = new Thread()
             {
                 @Override
@@ -527,10 +523,7 @@ public class SDKLocalMethodRunner {
                 {
                     try {
                         long tenMinutesBeforeExpiration = msToLive - 600000;
-
-                        tenMinutesBeforeExpiration=1000;
-
-                        if(tenMinutesBeforeExpiration > 0){
+                           if(tenMinutesBeforeExpiration > 0){
                             Thread.sleep(tenMinutesBeforeExpiration);
                             canceljob(jobSrvClient,jobId);
                             log.logNextLine("Job was canceled due to token expiration", false);
@@ -547,8 +540,6 @@ public class SDKLocalMethodRunner {
             };
 
             tokenExpirationHook.start();
-
-
 
 
             // Calling Runner
