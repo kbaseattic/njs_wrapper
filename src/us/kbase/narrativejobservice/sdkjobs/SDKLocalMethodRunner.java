@@ -79,7 +79,7 @@ public class SDKLocalMethodRunner {
         if (expire == null)
             throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
 
-        long ms = ( (long)expire - Instant.now().toEpochMilli());
+        long ms = ((long) expire - Instant.now().toEpochMilli());
 
         //Time of token expiration - N time
         String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
