@@ -55,7 +55,13 @@ public class SDKLocalMethodRunner {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
-
+    /**
+     * Get time for job to live based on token expiry date
+     * @param token User Token
+     * @param config Configuration Vars
+     * @return time to live in milliseconds
+     * @throws Exception
+     */
     public static long milliSecondsToLive(String token, Map<String, String> config) throws Exception {
         String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
         if (authUrl == null) {
@@ -91,11 +97,14 @@ public class SDKLocalMethodRunner {
 
     }
 
-
+    /**
+     * Submit a cancel job request to the NJS Client
+     * @param jobSrvClient
+     * @param jobId
+     * @throws Exception
+     */
     public static void canceljob(NarrativeJobServiceClient jobSrvClient, String jobId) throws Exception {
-
         jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
-
     }
 
 
