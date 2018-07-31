@@ -995,6 +995,7 @@ public class SDKMethodRunner {
 	    // Next line is here for backward compatibility:
 	    finishParams.setIsCancelled(1L);
 	    finishJob(params.getJobId(), finishParams, auth, null, config);
+	    CondorUtils.condorRemoveJobRangeAsync(params.getJobId());
 	}
 
 	private static UserAndJobStateClient getUjsClient(AuthToken auth,

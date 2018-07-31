@@ -5,6 +5,7 @@ import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.google.common.html.HtmlEscapers;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.HttpGet;
@@ -29,6 +30,8 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.MethodCall;
 import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
+
 
 import java.io.*;
 import java.net.*;
@@ -119,18 +122,6 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
-        Thread shutdownHook = new Thread() {
-            @Override
-            public void run() {
-                try {
-                    DockerRunner.killSubJobs();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
@@ -170,6 +161,10 @@ public class SDKLocalMethodRunner {
             }
             Tuple2<RunJobParams, Map<String, String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
+
+
+
+
 
 
             if (System.getenv("CALLBACK_INTERFACE") != null)
@@ -492,9 +487,11 @@ public class SDKLocalMethodRunner {
                 public void run() {
                     try {
                         if (msToLive > 0) {
-                            Thread.sleep(msToLive);
-                            canceljob(jobSrvClient, jobId);
-                            log.logNextLine("Job was canceled due to token expiration", false);
+                            try {
+                                Thread.sleep(msToLive);
+                                canceljob(jobSrvClient, jobId);
+                                log.logNextLine("Job was canceled due to token expiration", false);
+                            } catch (InterruptedException ex) { }
                         } else {
                             canceljob(jobSrvClient, jobId);
                             log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, false);
@@ -506,6 +503,23 @@ public class SDKLocalMethodRunner {
             };
 
             tokenExpirationHook.start();
+
+            Thread shutdownHook = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        new DockerRunner(dockerURI).killSubJobs();
+                        File logFile = new File("shutdownhook");
+                        FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
                 new ShifterRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
@@ -563,8 +577,11 @@ public class SDKLocalMethodRunner {
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
             logFlusher.interrupt();
-            //Turn off cancellation hook
+
+
             tokenExpirationHook.interrupt();
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
@@ -604,7 +621,7 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {

@@ -297,15 +297,20 @@ public class DockerRunner {
      *
      * @throws Exception
      */
-    public static void killSubJobs() throws Exception {
+    public void killSubJobs() throws Exception {
         List<String> subJobIds = getSubJobDockerIds();
-        for (final String subjobid : subJobIds) {
-            System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
-            try {
-                cl.killContainerCmd(subjobid);
-            } catch (Exception ignore) {
-                //e.printStackTrace();
+
+        if (subJobIds != null) {
+            for (final String subjobid : subJobIds) {
+                System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
+                try {
+                    cl.killContainerCmd(subjobid);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
+        } else {
+            System.out.println("No subjobs to kill");
         }
     }
 

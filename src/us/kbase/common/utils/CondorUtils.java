@@ -320,12 +320,20 @@ public class CondorUtils {
      * @return Result of the condor_rm command
      */
     public static String condorRemoveJobRange(String ujsJobID) throws Exception {
-
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
         String processResult = runProcess(cmdScript).stdout.get(0);
         return processResult;
-
-        //TODO : CALL NJS and CANCEL THE JOB
-
     }
+
+    /**
+     * Send a condor_rm "BatchName" and don't check to see it's result
+     *
+     * @param ujsJobID ujsJobId for the job batch name
+     * @return Result of the condor_rm command
+     */
+    public static void condorRemoveJobRangeAsync(String ujsJobID) throws Exception {
+        Runtime.getRuntime().exec(new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID});
+    }
+
+
 } // class CondorUtils
