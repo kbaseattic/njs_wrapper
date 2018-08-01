@@ -94,6 +94,8 @@ module NarrativeJobService {
         wsid - a workspace id to associate with the job. This is passed to the
             UJS service, which will share the job based on the permissions of
             the workspace rather than UJS ACLs.
+        parent_job_id - UJS id of the parent of a batch job. Sub jobs will add
+        this id to the NJS database under the field "parent_job_id"
     */
     typedef structure {
         string method;
@@ -105,6 +107,7 @@ module NarrativeJobService {
         string app_id;
         mapping<string, string> meta;
         int wsid;
+        string parent_job_id;
     } RunJobParams;
 
     /* 

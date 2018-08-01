@@ -1,0 +1,87 @@
+#!/bin/sh
+#
+# This is a wrapper script to enable Shifter to be used as a substitate for docker
+# for KBase jobs
+
+# Save the commands for debugging
+
+debug () {
+  if [ ! -z "$DEBUG_MYDOCK" ] ; then
+    echo "MYDOCK DEBUG: $@"
+  fi
+}
+
+error () {
+  echo "ERROR: $@" 1>&2
+}
+
+if [ "$1" = "pull" ] ;then
+  echo $@ >> ~/mydocker.debug
+  if [ $(shifterimg images|grep -c $2) -eq 0 ] ; then
+    shifterimg pull $2|tail -10
+  fi
+elif [ "$1" = "run" ] ;then
+  echo $@ >> ~/mydocker.debug
+  # KBase expects /kb/module to be writeable for now.  So let's make a copy for
+  # remounting rw.  This has to be on a per job basis since configs get overwritten
+  IMAGE=$2
+  MODULE=$(echo "$2"|sed 's|.*/||'|sed 's/:/_/')
+  KB_JOBID=$(echo "$@"|sed 's|/job_.*||'|sed 's|.*/||')
+  debug "KBase JOBID: $KB_JOBID"
+  RW=$SCRATCH/writeable/${MODULE}-${DEPLOY}-$$
+  shifter --image=$IMAGE rsync -aqz /kb/module/ $RW
+  [ -d $RW/work ] && rmdir $RW/work
+  ln -sf /work $RW/work
+
+  # Get the working directory
+  debug "VOLUME STRING: $5"
+  VOLM=$(echo $5|sed 's|\[||'|sed 's|]||'|sed 's/:rw//g'|sed 's|/kb/module/work|/work|'|sed 's|/kb/module/work/tmp|/worktmp|'|sed 's/,/ --volume /g')
+  debug "$VOLM"  
+  WD=$(echo $VOLM|sed 's/:.*//')/tmp
+  debug "Workdir:$WD"
+  debug "RW:$RW"
+  # Run the job with basically no modifications
+  debug "shifter --image=$IMAGE  --volume $RW:/kb/module  --volume $VOLM $0 inside"
+  shifter --image=$IMAGE \
+    --volume $RW:/kb/module \
+    --volume $VOLM $0 inside
+
+  rval=$?
+  if [ $rval -ne 0 ] ; then
+    error "Job failed $rval"
+    exit $rval
+  fi
+  # If this is an HPC job.  Let's submit the batch script
+  # wait, then run post
+  if [ -e $WD/slurm.submit ] ; then
+    echo "INFO: Submit script detected: Submitting job"
+    export POST=1
+    cd $WD
+    export RUNDIR=$WD
+    JOBID=$(sbatch -C haswell slurm.submit|sed 's/.* //')
+    if [ $? -ne 0 ] ;then
+      error "Submit Failed"
+      exit 1
+    fi
+    echo "INFO: Slurm Job ID: $JOBID"
+    squeue --job $JOBID
+    echo "Waiting for job to complete"
+    STATUS=$(squeue --job $JOBID -o '%t' -h)
+    while [ ! -z "$STATUS" ] || [ "$STATUS" = 'PD' ] || [ "$STATUS" = "R" ] ; do
+      sleep 30
+      STATUS=$(squeue --job $JOBID -o '%t' -h)
+    done
+    exec shifter --image=$IMAGE \
+      --volume $RW:/kb/module \
+      --volume $VOLM $0 inside
+  fi
+elif [ "$1" = "inside" ] ;then
+  # This is needed because Shifter doesn't handle some docker metadata just yet (cwd)
+  debug "Inside Shifter wraper"
+  cd /kb/module
+  if [ -e /worktmp ] ; then
+    [ -e /kb/module/work/tmp ] && mv /kb/module/work/tmp /kb/module/work/tmp.prev
+    ln -s /worktmp /kb/module/work/tmp
+  fi
+  ./scripts/entrypoint.sh async
+fi

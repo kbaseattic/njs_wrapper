@@ -1,10 +1,7 @@
 package us.kbase.narrativejobservice.test;
 
 import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -49,6 +46,7 @@ import org.junit.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+
 
 import us.kbase.auth.AuthToken;
 import us.kbase.catalog.CatalogClient;
@@ -114,6 +112,8 @@ import us.kbase.workspace.GrantModuleOwnershipParams;
 import com.fasterxml.jackson.core.JsonParseException;
 import us.kbase.common.service.JsonTokenStream;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 
 
 @SuppressWarnings("unchecked")
@@ -153,6 +153,7 @@ public class CondorIntegrationTest {
                     .appendOptional(DateTimeFormat.forPattern(".SSS").getParser())
                     .append(DateTimeFormat.forPattern("Z"))
                     .toFormatter();
+
 
 
 
@@ -321,12 +322,67 @@ public class CondorIntegrationTest {
 
     @Test
     public void testDeleteJob() throws Exception{
+        System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
         String jobID = runApp(moduleName,methodName,serviceVer,"{\"base_number\":\"101\"}");
-        System.out.println("ABOUT TO CANCEL" + jobID);
+        System.out.println("ABOUT TO CANCEL: " + jobID);
+        Thread.sleep(10000);
         client.cancelJob(new CancelJobParams().withJobId(jobID));
+    }
+
+
+    @Test
+    public void testSimpleJobWithParent() throws Exception{
+        Properties props = TesterUtils.props();
+        String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testSimpleJobWithParent]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
+
+        //ParentJob
+        String moduleName = "simpleapp";
+        String methodName = "simple_add";
+        String serviceVer = lookupServiceVersion(moduleName);
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+        String jobId = client.runJob(params);
+        assertNotNull(jobId);
+
+        //ChildJob
+        RunJobParams params2 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child1 = client.runJob(params2);
+        assertNotNull(jobId_child1);
+
+        //ChildJob
+        RunJobParams params3 = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}"))).withParentJobId(jobId);
+        String jobId_child2 = client.runJob(params3);
+        assertNotNull(jobId_child2);
+
+       JobState ret = client.checkJob(jobId);
+        List<String> child_jobs = new ArrayList<String>();
+        child_jobs.add(jobId_child1);
+        child_jobs.add(jobId_child2);
+
+        List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
+        System.out.println("Asserting child jobs match sub jobs");
+        System.out.println(subjobs);
+        System.out.println(child_jobs);
+        assertTrue(child_jobs.containsAll(subjobs) && subjobs.containsAll(child_jobs));
+
+        System.out.println("Cancelling jobs");
+        client.cancelJob(new CancelJobParams().withJobId(jobId));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child1));
+        client.cancelJob(new CancelJobParams().withJobId(jobId_child2));
     }
 
 
@@ -334,11 +390,12 @@ public class CondorIntegrationTest {
     public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
-        System.out.println("Test [testSimpleJob]");
+        System.out.println("Test [testSimpleJob + get job status]");
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
 
         execStats.clear();
+        String basenumber = "101";
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
@@ -382,6 +439,10 @@ public class CondorIntegrationTest {
             System.out.println(ret);
         }
         assertTrue(ret.getFinished() == 1L);
+
+        System.out.println("Asserting that the result is:" + basenumber);
+        UObject new_number = ret.getResult().asList().get(0).asMap().get("new_number");
+        assertTrue(new_number.toJsonString().contains("" + (Integer.parseInt(basenumber) + 100)));
 
     }
 
@@ -1684,7 +1745,12 @@ public class CondorIntegrationTest {
         njsServiceDir = new File(workDir, "njs_service");
         File binDir = new File(njsServiceDir, "bin");
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
-        catalogWrapper = startupCatalogWrapper();
+
+        /**
+        if(authUrl.contains("localhost") || authUrl.contains("nginx")) {
+            catalogWrapper = startupCatalogWrapper();
+        }
+         **/
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
         long suf = System.currentTimeMillis();

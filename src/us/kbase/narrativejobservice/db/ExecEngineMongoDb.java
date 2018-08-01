@@ -2,10 +2,13 @@ package us.kbase.narrativejobservice.db;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Iterator;
+
 import java.util.logging.Level;
 
 import org.jongo.Jongo;
@@ -34,7 +37,7 @@ public class ExecEngineMongoDb {
 	private MongoCollection execLogs;
 	private MongoCollection srvProps;
 
-	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = 
+	private static final Map<String, MongoClient> HOSTS_TO_CLIENT =
 			new HashMap<String, MongoClient>();
 
 	public static final String COL_TASK_QUEUE = "task_queue";
@@ -54,8 +57,8 @@ public class ExecEngineMongoDb {
 	public static final String DB_VERSION = "1.0";
 
 	public ExecEngineMongoDb(String hosts, String db, String user, String pwd,
-			Integer mongoReconnectRetry) throws Exception {
-		mongo = getDB(hosts, db, user, pwd, 
+							 Integer mongoReconnectRetry) throws Exception {
+		mongo = getDB(hosts, db, user, pwd,
 				mongoReconnectRetry == null ? 0 : mongoReconnectRetry, 10);
 		jongo = new Jongo(mongo);
 		taskQueue = jongo.getCollection(COL_TASK_QUEUE);
@@ -70,7 +73,7 @@ public class ExecEngineMongoDb {
 		execApps.ensureIndex(String.format("{%s:1}", FLD_EXEC_APPS_APP_JOB_STATE), "{unique:false}");
 		execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
 		srvProps.ensureIndex(String.format("{%s:1}", PK_SRV_PROPS), "{unique:true}");
-		
+
 		try {
 			srvProps.insert(String.format("{%s: #, %s: #}",
 					PK_SRV_PROPS, SRV_PROPS_VALUE),
@@ -79,6 +82,18 @@ public class ExecEngineMongoDb {
 			//version is already there so do nothing
 		}
 	}
+
+	public String[] getSubJobIds(String ujsJobId) throws Exception{
+		Iterator<us.kbase.narrativejobservice.db.ExecTask> ids = execTasks.find(String.format("{parent_job_id: '%s'}", ujsJobId)).
+				projection("{ujs_job_id: 1}").as(us.kbase.narrativejobservice.db.ExecTask.class).iterator();
+
+		List<String> idList = new ArrayList<String>();
+		while (ids.hasNext()) {
+			idList.add(ids.next().getUjsJobId());
+		}
+		return idList.toArray(new String[idList.size()]);
+	}
+
 
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
 		List<ExecLog> ret = Lists.newArrayList(execLogs.find(
@@ -97,12 +112,12 @@ public class ExecEngineMongoDb {
 		execLogs.insert(execLogArray);
 	}
 
-	public void updateExecLogLines(String ujsJobId, int newLineCount, 
-			List<ExecLogLine> newLines) throws Exception {
+	public void updateExecLogLines(String ujsJobId, int newLineCount,
+								   List<ExecLogLine> newLines) throws Exception {
 		execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
-				String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}", 
-						"original_line_count", "stored_line_count", "lines"), 
-						newLineCount, newLineCount, newLines);
+				String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}",
+						"original_line_count", "stored_line_count", "lines"),
+				newLineCount, newLineCount, newLines);
 	}
 
 	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
@@ -118,12 +133,12 @@ public class ExecEngineMongoDb {
 	public void insertExecTask(ExecTask execTask) throws Exception {
 		execTasks.insert(execTask);
 	}
-	
+
 	public void addExecTaskResult(
 			final String ujsJobId,
 			final Map<String, Object> result) {
 		execTasks.update(String.format("{%s: #}", PK_EXEC_TASKS), ujsJobId)
-			.with(String.format("{$set: {%s: #}}", "job_output"), result);
+				.with(String.format("{$set: {%s: #}}", "job_output"), result);
 	}
 
 	public ExecTask getExecTask(String ujsJobId) throws Exception {
@@ -158,10 +173,10 @@ public class ExecEngineMongoDb {
 		if (!HOSTS_TO_CLIENT.containsKey(hosts)) {
 			// Don't print to stderr
 			java.util.logging.Logger.getLogger("com.mongodb")
-			.setLevel(Level.OFF);
+					.setLevel(Level.OFF);
 			@SuppressWarnings("deprecation")
 			final MongoClientOptions opts = MongoClientOptions.builder()
-			.autoConnectRetry(true).build();
+					.autoConnectRetry(true).build();
 			try {
 				List<ServerAddress> addr = new ArrayList<ServerAddress>();
 				for (String s: hosts.split(","))
@@ -180,11 +195,11 @@ public class ExecEngineMongoDb {
 	}
 
 	@SuppressWarnings("deprecation")
-	private static DB getDB(final String hosts, final String database,
-			final String user, final String pwd,
-			final int retryCount, final int logIntervalCount)
-					throws UnknownHostException, InvalidHostException, IOException,
-					MongoAuthException, InterruptedException {
+	public static DB getDB(final String hosts, final String database,
+							final String user, final String pwd,
+							final int retryCount, final int logIntervalCount)
+			throws UnknownHostException, InvalidHostException, IOException,
+			MongoAuthException, InterruptedException {
 		if (database == null || database.isEmpty()) {
 			throw new IllegalArgumentException(
 					"database may not be null or the empty string");
