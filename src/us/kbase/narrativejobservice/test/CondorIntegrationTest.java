@@ -437,12 +437,7 @@ public class CondorIntegrationTest {
                 System.out.println(item);
             }
         }
-
-
-
     }
-
-
 
     @Ignore @Test
     public void testSimpleJob() throws Exception {
