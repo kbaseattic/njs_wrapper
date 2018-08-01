@@ -383,8 +383,8 @@ public class CondorIntegrationTest {
     }
 
 
-    @Ignore @Test
-    public void testSimpleJobWithCancelJob() throws Exception {
+    @Test
+    public void testSimpleJobWithSleep() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
         System.out.println("Test [testSimpleJob + get job status]");
@@ -415,10 +415,9 @@ public class CondorIntegrationTest {
         File f = new File(id_path);
         File[] list = f.listFiles();
 
-
-        for(int i = 0; i < 20; i++){
-            Thread.sleep(4000);
-            System.out.println("Examining:" + id_path);
+        System.out.println("Examining:" + id_path);
+        for(int i = 0; i < 45; i++){
+            Thread.sleep(2000);
             list = f.listFiles();
             System.out.println("Docker job ids are:");
             if(list != null) {
@@ -428,18 +427,17 @@ public class CondorIntegrationTest {
             }
         }
 
-//        System.out.println("Cancelling job");
-//        client.cancelJob(new CancelJobParams().withJobId(jobId));
-//
-//        System.out.println("Checking to see if jobs have exited");
-//
-//        System.out.println(list);
+        System.out.println("Cancelling job");
+        client.cancelJob(new CancelJobParams().withJobId(jobId));
 
+        System.out.println("Checking to see if jobs have exited");
 
-
+        if(list != null) {
+            for (File item : list) {
+                System.out.println(item);
+            }
+        }
     }
-
-
 
     @Ignore @Test
     public void testSimpleJob() throws Exception {
