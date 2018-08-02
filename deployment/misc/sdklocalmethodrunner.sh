@@ -15,7 +15,7 @@ if [ -e /etc/clustername ] ; then
     mkdir -p $BASE_DIR && cd $BASE_DIR
     exec java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
 else
-    export MINI_KB=true
+#     export MINI_KB=true
     NJSW_JAR=`readlink -f NJSWrapper-all.jar`
     JOBID=$1
     KBASE_ENDPOINT=$2
