@@ -18,7 +18,7 @@ env:
 
 script:
   - docker pull kbase/kb_jre
-  - make docker_image_gradle
+  - make build-docker-image
 
 after_success:
   - IMAGE_NAME=kbase/kb_njs_wrapper ./build/push2dockerhub.sh
