@@ -1,9 +1,17 @@
-FROM kbase/kb_jre
+FROM kbase/kb_jre AS build
+# Multistage Build Setup
+RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
+RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll 
 
+FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
 ARG BRANCH=develop
+
+#COPY ROOT WAR AND FAT JAR
+COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
+COPY --from=build /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
 # The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
 # noninteractive in order to prevent that
@@ -41,7 +49,7 @@ USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
-RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
+#RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
