@@ -99,7 +99,7 @@ deploy-docs:
 clean:
 	$(ANT) clean
 
-docker-image-gradle: compile-with-gradle
+docker_image_gradle: compileWithGradle
 	-mkdir -p deployment/lib
 	-mkdir -p deployment/jettybase/webapps
 	-mkdir -p deployment/jettybase/logs
@@ -108,8 +108,5 @@ docker-image-gradle: compile-with-gradle
 	cp dist/* deployment/lib
 	./build/build_docker_image.sh
 
-compile-with-gradle:
+compileWithGradle:
 	./gradlew buildAll
-
-build-docker-image:
-	./build/build_docker_image.sh
