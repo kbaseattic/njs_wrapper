@@ -99,14 +99,5 @@ deploy-docs:
 clean:
 	$(ANT) clean
 
-docker_image_gradle: compileWithGradle
-	-mkdir -p deployment/lib
-	-mkdir -p deployment/jettybase/webapps
-	-mkdir -p deployment/jettybase/logs
-	-mkdir -p deployment/jettybase/start.d
-	cp dist/NJSWrapper*.war deployment/jettybase/webapps/root.war
-	cp dist/* deployment/lib
+build-docker-image:	
 	./build/build_docker_image.sh
-
-compileWithGradle:
-	./gradlew buildAll
