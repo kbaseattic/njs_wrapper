@@ -1,3 +1,21 @@
+FROM kbase/kb_jre as build
+RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
+
+#SETUP DIRECTORIES
+RUN mkdir -p /kb/deployment/lib && \
+    mkdir -p /kb/deployment/jettybase/webapps && \
+    mkdir -p /kb/deployment/jettybase/logs && \
+    mkdir -p /kb/deployment/jettybase/start.d && \
+    mkdir -p /kb/deployment/lib
+
+#RUN GRADLE BUILD
+RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll && cp /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war && cp /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/NJSWrapper-all.jar
+
+#COPY ROOT WAR AND FAT JAR
+#COPY /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
+#COPY /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
+
+
 FROM kbase/kb_jre
 
 # These ARGs values are passed in via the docker build command
@@ -41,7 +59,7 @@ USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
-RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
+#RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
