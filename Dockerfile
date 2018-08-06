@@ -1,13 +1,6 @@
 FROM kbase/kb_jre AS build
+# Multistage Build Setup
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-
-#SETUP DIRECTORIES
-RUN mkdir -p /kb/deployment/lib && \
-    mkdir -p /kb/deployment/jettybase/webapps && \
-    mkdir -p /kb/deployment/jettybase/logs && \
-    mkdir -p /kb/deployment/jettybase/start.d && \
-    mkdir -p /kb/deployment/lib
-#RUN GRADLE BUILD
 RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll 
 
 FROM kbase/kb_jre
