@@ -1,18 +1,15 @@
 package us.kbase.narrativejobservice;
 
 import com.mongodb.BulkWriteResult;
+import org.apache.commons.io.FileUtils;
 import org.ini4j.Ini;
-import us.kbase.narrativejobservice.test.TesterUtils;
-import us.kbase.narrativejobservice.ReaperService;
 
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
-import org.apache.commons.io.FileUtils;
-import java.io.File;
-
 
 
 public class ReaperServiceServlet implements ServletContextListener {
@@ -23,9 +20,9 @@ public class ReaperServiceServlet implements ServletContextListener {
 
     private ReaperService getReaperService() throws Exception {
         Ini config = new Ini(new File(System.getenv("KB_DEPLOYMENT_CONFIG")));
-        String host = config.get("NarrativeJobService","ujs-mongodb-host");
-        String dbName = config.get("NarrativeJobService","ujs-mongodb-database");
-        String user = config.get("NarrativeJobService","ujs-mongodb-user");
+        String host = config.get("NarrativeJobService", "ujs-mongodb-host");
+        String dbName = config.get("NarrativeJobService", "ujs-mongodb-database");
+        String user = config.get("NarrativeJobService", "ujs-mongodb-user");
         String pwd = config.get("NarrativeJobService", "ujs-mongodb-pwd");
         return new ReaperService(user, pwd, host, dbName);
     }
@@ -34,6 +31,7 @@ public class ReaperServiceServlet implements ServletContextListener {
 
         if ((myThread == null) || (!myThread.isAlive())) {
             final File file = new File("reaper.log");
+            final File error_file = new File("reaper.error");
             Thread myThread = new Thread(new Runnable() {
                 public void run() {
                     try {
@@ -41,12 +39,13 @@ public class ReaperServiceServlet implements ServletContextListener {
 
                         while (true) {
                             String time = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()) + "\n";
-                            FileUtils.writeStringToFile(file, "RUNNING REAPER at " + time,true);
+                            FileUtils.writeStringToFile(file, "RUNNING REAPER at " + time, true);
                             BulkWriteResult result = r.purgeGhostJobs();
-                            if (result != null)
+                            if (result != null) {
+                                FileUtils.writeStringToFile(file, result.toString(), true);
                                 System.out.println(result);
-                            else {
-                                System.out.println("No Jobs To Purge.");
+                            } else {
+                                FileUtils.writeStringToFile(file, "No Jobs To Purge.", true);
                             }
                             //30 Minutes Before Each Run
                             Thread.sleep(1000 * 60 * 30);
@@ -54,13 +53,17 @@ public class ReaperServiceServlet implements ServletContextListener {
 
                     } catch (Exception e) {
                         e.printStackTrace();
+                        try {
+                            FileUtils.writeStringToFile(error_file, e.toString(), true);
+                            FileUtils.writeStringToFile(error_file, e.getStackTrace().toString(), true);
+                        } catch (Exception ignore) {
+                        }
                     }
                 }
             });
             myThread.isDaemon();
-          myThread.start();
-        }
-        else{
+            myThread.start();
+        } else {
             System.out.println("FAILED TO RUN REAPER");
         }
     }
@@ -72,5 +75,3 @@ public class ReaperServiceServlet implements ServletContextListener {
         }
     }
 }
-
-
