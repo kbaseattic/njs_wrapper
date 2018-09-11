@@ -1,10 +1,6 @@
 package us.kbase.common.executionengine;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
+import java.io.*;
 import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URL;
@@ -25,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
 import org.joda.time.DateTime;
@@ -241,9 +238,14 @@ public abstract class CallbackServer extends JsonServerServlet {
         final ModuleMethod modmeth = new ModuleMethod(
                 rpcCallData.getMethod());
         final Map<String, Object> jsonRpcResponse;
-        
+
+
         if (modmeth.isCheck()) {
-            jsonRpcResponse = runCheck(rpcCallData);
+                final File log = new File(System.currentTimeMillis() / 1000.0 + ".isCheck.log");
+                FileUtils.writeStringToFile(log, "RUNNING ISCHECK ", true);
+                jsonRpcResponse = runCheck(rpcCallData);
+                FileUtils.writeStringToFile(log, jsonRpcResponse.toString(), true);
+
         } else {
             final UUID jobId = UUID.randomUUID();
             cbLog(String.format("Subjob method: %s JobID: %s",
