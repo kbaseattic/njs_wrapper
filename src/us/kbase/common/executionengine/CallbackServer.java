@@ -248,19 +248,16 @@ public abstract class CallbackServer extends JsonServerServlet {
             String time = System.currentTimeMillis() + "";
             String id = rpcCallData.getId().toString();
 
-            String logString = String.format("%s|%s|context|:%s\n", time, id, rpcCallData.getContext().toString());
+            String logString = String.format("%s|id:%s|context|:%s\n", time, id, rpcCallData.getContext().toString());
             FileUtils.writeStringToFile(this.log, logString, true);
 
-            logString = String.format("%s|%s|context|:%s\n", time, id, rpcCallData.getMethod().toString());
+            logString = String.format("%s|id:%s|method|:%s\n", time, id, rpcCallData.getMethod().toString());
             FileUtils.writeStringToFile(this.log, logString, true);
 
-            logString = String.format("%s|%s|params|:%s\n", time, id, rpcCallData.getParams().toString());
+            logString = String.format("%s|id:%s|params|:%s\n", time, id, rpcCallData.getParams().toString());
             FileUtils.writeStringToFile(this.log, logString, true);
 
-            logString = String.format("%s|%s|params|:%s\n", time, id, rpcCallData.getParams().toString());
-            FileUtils.writeStringToFile(this.log, logString, true);
-
-            logString = String.format("%s|%s|response:%s\n", time, id, jsonRpcResponse.toString().toString());
+            logString = String.format("%s|id:%s|response:%s\n", time, id, jsonRpcResponse.toString().toString());
             FileUtils.writeStringToFile(this.log, logString, true);
         } else {
             final UUID jobId = UUID.randomUUID();
