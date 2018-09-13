@@ -39,10 +39,7 @@ import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
-import org.junit.After;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
@@ -320,7 +317,7 @@ public class CondorIntegrationTest {
 //
 //    }
 
-    @Test
+    @Ignore @Test
     public void testDeleteJob() throws Exception{
         System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
@@ -333,7 +330,7 @@ public class CondorIntegrationTest {
     }
 
 
-    @Test
+    @Ignore @Test
     public void testSimpleJobWithParent() throws Exception{
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
@@ -387,6 +384,62 @@ public class CondorIntegrationTest {
 
 
     @Test
+    public void testSimpleJobWithSleep() throws Exception {
+        Properties props = TesterUtils.props();
+        String njs_url = props.getProperty("njs_server_url");
+        System.out.println("Test [testSimpleJob + get job status]");
+        Map<String, String> meta = new HashMap<String, String>();
+        meta.put("foo", "bar");
+
+        execStats.clear();
+        String basenumber = "101";
+        String moduleName = "simpleapp";
+        //simple_add_with_sleep cuases a sleep job to be launched
+        String methodName = "simple_add_with_sleep";
+        String serviceVer = lookupServiceVersion(moduleName);
+        RunJobParams params = new RunJobParams().withMethod(
+                moduleName + "." + methodName).withServiceVer(serviceVer)
+                .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
+                .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+        String jobId = client.runJob(params);
+        assertNotNull(jobId);
+        System.out.println("Submitted job and got: " + jobId);
+        JobState ret = null;
+
+        System.out.println("Sleeping");
+
+        //Sleep until the job starts up a 120 second sleep thread
+
+        String id_path = "/mnt/condor/wsadmin/" + jobId + "/docker_job_ids/";
+
+        File f = new File(id_path);
+        File[] list = f.listFiles();
+
+        System.out.println("Examining:" + id_path);
+        for(int i = 0; i < 45; i++){
+            Thread.sleep(2000);
+            list = f.listFiles();
+            System.out.println("Docker job ids are:");
+            if(list != null) {
+                for (File item : list) {
+                    System.out.println(item);
+                }
+            }
+        }
+
+        System.out.println("Cancelling job");
+        client.cancelJob(new CancelJobParams().withJobId(jobId));
+
+        System.out.println("Checking to see if jobs have exited");
+
+        if(list != null) {
+            for (File item : list) {
+                System.out.println(item);
+            }
+        }
+    }
+
+    @Ignore @Test
     public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");

@@ -4,6 +4,23 @@ The Execution Engine provides an API for execution of Narrative Methods and Apps
 as well as asynchronous SDK jobs in docker container on AWE workers (it also 
 wraps Narrative Job Service API).
 
+Version: 1.0.0
+--------------
+NEW FEATURES:
+- Replaced AWE with HTCondor
+- Added ability to specify resource requirements in the client_groups section of the catalog
+- Added ability to check for job specific mount points in the job
+- Added parent job field to subjobs in Mongo
+- Added docker labels and condor_q classads for jobs to show fields like Username, UJS ID, Parent Job ID, app and function name, workspace id
+- Added support for killing subjobs and capturing sigterm signal from HTCondor
+- Created job reaper to kill idle jobs that are no longer in HTCondor
+- Added timer to kill jobs before token expires
+- Added functionality for running HPC jobs on Cori at nersc
+UPDATED FEATURES:
+- Upgraded docker-java library to version 3
+- Changed docker build to multistage build
+- Changed ant build to gradle and artifactory
+
 
 VERSION: 0.2.3 (Released 02/24/16)
 --------------------------------------

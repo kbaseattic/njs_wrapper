@@ -92,6 +92,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_MONGO_DBNAME = "mongodb-database";
     public static final String CFG_PROP_MONGO_USER = "mongodb-user";
     public static final String CFG_PROP_MONGO_PWD = "mongodb-pwd";
+
     public static final String CFG_PROP_MONGO_HOSTS_UJS = "ujs-mongodb-host";
     public static final String CFG_PROP_MONGO_DBNAME_UJS = "ujs-mongodb-database";
     public static final String CFG_PROP_MONGO_USER_UJS = "ujs-mongodb-user";
@@ -101,8 +102,16 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
+
     public static final String CFG_PROP_AUTH_SERVICE_URL =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL;
+
+    public static final String CFG_PROP_AUTH_SERVICE_URL_V2 =
+            JobRunnerConstants.CFG_PROP_AUTH_SERVICE_URL_V2;
+
+    public static final String CFG_PROP_TIME_BEFORE_EXPIRATION =
+            JobRunnerConstants.CFG_PROP_TIME_BEFORE_EXPIRATION;
+
     public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
 

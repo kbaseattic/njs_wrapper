@@ -299,7 +299,9 @@ public class SDKMethodRunner {
 					NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL,
 					NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE,
 					NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS,
-					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL
+					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
+					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2,
+					NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION,
 			};
 			for (String key : propsToSend) {
 				String value = config.get(key);
@@ -993,6 +995,7 @@ public class SDKMethodRunner {
 	    // Next line is here for backward compatibility:
 	    finishParams.setIsCancelled(1L);
 	    finishJob(params.getJobId(), finishParams, auth, null, config);
+	    CondorUtils.condorRemoveJobRangeAsync(params.getJobId());
 	}
 
 	private static UserAndJobStateClient getUjsClient(AuthToken auth,

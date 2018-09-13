@@ -1,75 +1,45 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.net.InetAddress;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import com.mongodb.util.Hash;
-import org.apache.commons.lang3.StringUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dockerjava.api.model.AccessMode;
+import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.Volume;
+import com.google.common.html.HtmlEscapers;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.HttpHeaders;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.joda.time.DateTime;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-
-import com.github.dockerjava.api.model.AccessMode;
-import com.github.dockerjava.api.model.Bind;
-import com.github.dockerjava.api.model.Volume;
-import com.google.common.html.HtmlEscapers;
-
 import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.ConfigurableAuthService;
-import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.GetSecureConfigParamsInput;
-import us.kbase.catalog.ModuleVersion;
-import us.kbase.catalog.SecureConfigParameter;
-import us.kbase.catalog.SelectModuleVersion;
-import us.kbase.catalog.VolumeMount;
-import us.kbase.catalog.VolumeMountConfig;
-import us.kbase.catalog.VolumeMountFilter;
-import us.kbase.common.executionengine.CallbackServer;
-import us.kbase.common.executionengine.CallbackServerConfigBuilder;
-import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.executionengine.LineLogger;
-import us.kbase.common.executionengine.ModuleMethod;
-import us.kbase.common.executionengine.ModuleRunVersion;
+import us.kbase.catalog.*;
+import us.kbase.common.executionengine.*;
 import us.kbase.common.executionengine.CallbackServerConfigBuilder.CallbackServerConfig;
-import us.kbase.common.service.JsonServerServlet;
-import us.kbase.common.service.ServerException;
-import us.kbase.common.service.Tuple2;
-import us.kbase.common.service.UObject;
-import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.service.*;
 import us.kbase.common.utils.NetUtils;
-import us.kbase.narrativejobservice.CancelJobParams;
-import us.kbase.narrativejobservice.CheckJobCanceledResult;
-import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.*;
 import us.kbase.narrativejobservice.JobState;
-import us.kbase.narrativejobservice.JsonRpcError;
-import us.kbase.narrativejobservice.LogLine;
 import us.kbase.narrativejobservice.MethodCall;
-import us.kbase.narrativejobservice.NarrativeJobServiceClient;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 import us.kbase.narrativejobservice.RpcContext;
-import us.kbase.narrativejobservice.RunJobParams;
-import us.kbase.narrativejobservice.UpdateJobParams;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
-import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
+
+
+import java.io.*;
+import java.net.*;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class SDKLocalMethodRunner {
 
@@ -88,9 +58,63 @@ public class SDKLocalMethodRunner {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
+    /**
+     * Get time for job to live based on token expiry date
+     *
+     * @param token  User Token
+     * @param config Configuration Vars
+     * @return time to live in milliseconds
+     * @throws Exception
+     */
+    public static long milliSecondsToLive(String token, Map<String, String> config) throws Exception {
+        String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
+        if (authUrl == null) {
+            throw new IllegalStateException("Deployment configuration parameter is not defined: " +
+                    NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
+        }
+
+        //Check to see if http links are allowed
+        String authAllowInsecure = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM);
+        if (!"true".equals(authAllowInsecure) && !authUrl.startsWith("https://")) {
+            throw new Exception("Only https links are allowed: " + authUrl);
+        }
+        CloseableHttpClient httpclient = HttpClients.createDefault();
+        HttpGet request = new HttpGet(authUrl);
+        request.setHeader(HttpHeaders.AUTHORIZATION, token);
+        InputStream response = httpclient.execute(request).getEntity().getContent();
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
+        Object expire = jsonMap.getOrDefault("expires", null);
+        //Calculate ms till expiration
+        if (expire == null)
+            throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
+
+        long ms = ((long) expire - Instant.now().toEpochMilli());
+
+        //Time of token expiration - N time
+        String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
+        //10 Minute Default
+        if (time_before_expiration == null)
+            return ms - (10 * 60 * 1000);
+        //Number of minutes / 60 * 1000
+        return ms - (Long.parseLong(time_before_expiration) / 60) * 1000;
+
+    }
+
+    /**
+     * Submit a cancel job request to the NJS Client
+     *
+     * @param jobSrvClient
+     * @param jobId
+     * @throws Exception
+     */
+    public static void canceljob(NarrativeJobServiceClient jobSrvClient, String jobId) throws Exception {
+        jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
+    }
+
     public static void main(String[] args) throws Exception {
-        System.out.println("Starting docker runner EDIT EDIT EDIT with args " +
-            StringUtils.join(args, ", "));
+        System.out.println("Starting docker runner with args " +
+                StringUtils.join(args, ", "));
         if (args.length != 2) {
             System.err.println("Usage: <program> <job_id> <job_service_url>");
             for (int i = 0; i < args.length; i++)
@@ -98,21 +122,6 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
-        Thread shutdownHook = new Thread()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    DockerRunner.killSubJobs();
-                }
-                catch (Exception e){
-                    e.printStackTrace();
-                }
-            }
-        };
-
-        Runtime.getRuntime().addShutdownHook(shutdownHook);
 
         String[] hostnameAndIP = getHostnameAndIP();
         final String jobId = args[0];
@@ -126,6 +135,8 @@ public class SDKLocalMethodRunner {
         final AuthToken tempToken = new AuthToken(tokenStr, "<unknown>");
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
                 jobSrvUrl, tempToken);
+
+
         Thread logFlusher = null;
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
@@ -133,7 +144,7 @@ public class SDKLocalMethodRunner {
             public void logNextLine(String line, boolean isError) {
                 addLogLine(jobSrvClient, jobId, logLines,
                         new LogLine().withLine(line)
-                            .withIsError(isError ? 1L : 0L));
+                                .withIsError(isError ? 1L : 0L));
             }
         };
         Server callbackServer = null;
@@ -148,11 +159,17 @@ public class SDKLocalMethodRunner {
                 flushLog(jobSrvClient, jobId, logLines);
                 return;
             }
-            Tuple2<RunJobParams, Map<String,String>> jobInput = jobSrvClient.getJobParams(jobId);
+            Tuple2<RunJobParams, Map<String, String>> jobInput = jobSrvClient.getJobParams(jobId);
             Map<String, String> config = jobInput.getE2();
-            if (System.getenv("CALLBACK_INTERFACE")!=null)
+
+
+
+
+
+
+            if (System.getenv("CALLBACK_INTERFACE") != null)
                 config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
-            if (System.getenv("REFDATA_DIR")!=null)
+            if (System.getenv("REFDATA_DIR") != null)
                 config.put(NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE, System.getenv("REFDATA_DIR"));
             ConfigurableAuthService auth = getAuth(config);
             // We couldn't validate token earlier because we didn't have auth service URL.
@@ -170,7 +187,7 @@ public class SDKLocalMethodRunner {
             File jobDir = getJobDir(jobInput.getE2(), jobId);
 
             if (!mountExists()) {
-                log.logNextLine("Cannot find mount point as defined in condor-submit-workdir",true);
+                log.logNextLine("Cannot find mount point as defined in condor-submit-workdir", true);
                 throw new IOException("Cannot find mount point condor-submit-workdir");
             }
 
@@ -231,8 +248,8 @@ public class SDKLocalMethodRunner {
             final ModuleVersion mv;
             try {
                 mv = catClient.getModuleVersion(new SelectModuleVersion()
-                    .withModuleName(modMeth.getModule())
-                    .withVersion(imageVersion));
+                        .withModuleName(modMeth.getModule())
+                        .withVersion(imageVersion));
             } catch (ServerException se) {
                 throw new IllegalArgumentException(String.format(
                         "Error looking up module %s with version %s: %s",
@@ -283,7 +300,7 @@ public class SDKLocalMethodRunner {
 
             String miniKB = System.getenv("MINI_KB");
             boolean useVolumeMounts = true;
-            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true") ){
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
                 useVolumeMounts = false;
             }
 
@@ -311,7 +328,7 @@ public class SDKLocalMethodRunner {
                         if (!hostDir.exists()) {
                             if (isReadOnly) {
                                 throw new IllegalStateException("Volume mount directory doesn't exist: " +
-                            hostDir);
+                                        hostDir);
                             } else {
                                 hostDir.mkdirs();
                             }
@@ -324,7 +341,7 @@ public class SDKLocalMethodRunner {
                 }
                 secureCfgParams = adminCatClient.getSecureConfigParams(
                         new GetSecureConfigParamsInput().withModuleName(modMeth.getModule())
-                        .withVersion(mv.getGitCommitHash()).withLoadAllVersions(0L));
+                                .withVersion(mv.getGitCommitHash()).withLoadAllVersions(0L));
                 envVars = new TreeMap<String, String>();
                 for (SecureConfigParameter param : secureCfgParams) {
                     envVars.put("KBASE_SECURE_CONFIG_PARAM_" + param.getParamName(),
@@ -355,6 +372,7 @@ public class SDKLocalMethodRunner {
             // Cancellation checker
             CancellationChecker cancellationChecker = new CancellationChecker() {
                 Boolean canceled = null;
+
                 @Override
                 public boolean isJobCanceled() {
                     if (canceled != null)
@@ -411,7 +429,7 @@ public class SDKLocalMethodRunner {
                                 ServletContextHandler.SESSIONS);
                 srvContext.setContextPath("/");
                 callbackServer.setHandler(srvContext);
-                srvContext.addServlet(new ServletHolder(callback),"/*");
+                srvContext.addServlet(new ServletHolder(callback), "/*");
                 callbackServer.start();
             } else {
                 if (callbackNetworks != null && callbackNetworks.length > 0) {
@@ -420,31 +438,30 @@ public class SDKLocalMethodRunner {
                             "execution engine configuration");
                 }
                 log.logNextLine("WARNING: No callback URL was recieved " +
-                        "by the job runner. Local callbacks are disabled.",
+                                "by the job runner. Local callbacks are disabled.",
                         true);
             }
 
-            Map<String,String> labels = new HashMap<>();
-            labels.put("job_id",""+jobId);
-            labels.put("image_name",imageName);
+            Map<String, String> labels = new HashMap<>();
+            labels.put("job_id", "" + jobId);
+            labels.put("image_name", imageName);
 
             String method = job.getMethod();
             String[] appNameMethodName = method.split("\\.");
-            if(appNameMethodName.length == 2){
-                labels.put("app_name",appNameMethodName[0]);
-                labels.put("method_name",appNameMethodName[1]);
+            if (appNameMethodName.length == 2) {
+                labels.put("app_name", appNameMethodName[0]);
+                labels.put("method_name", appNameMethodName[1]);
+            } else {
+                labels.put("app_name", method);
+                labels.put("method_name", method);
             }
-            else{
-                labels.put("app_name",method);
-                labels.put("method_name",method);
-            }
-            labels.put("parent_job_id",job.getParentJobId());
-            labels.put("image_version",imageVersion);
-            labels.put("wsid",""+job.getWsid());
-            labels.put("app_id",""+job.getAppId());
-            labels.put("user_name",token.getUserName());
+            labels.put("parent_job_id", job.getParentJobId());
+            labels.put("image_version", imageVersion);
+            labels.put("wsid", "" + job.getWsid());
+            labels.put("app_id", "" + job.getAppId());
+            labels.put("user_name", token.getUserName());
 
-            Map<String,String> resourceRequirements = new HashMap<String,String>();
+            Map<String, String> resourceRequirements = new HashMap<String, String>();
 
             String[] resourceStrings = {"request_cpus", "request_memory", "request_disk"};
             for (String resourceKey : resourceStrings) {
@@ -460,6 +477,48 @@ public class SDKLocalMethodRunner {
                 log.logNextLine("Resource Requirements are:", false);
                 log.logNextLine(resourceRequirements.toString(), false);
             }
+
+            //Get number of milliseconds to live for this token
+            //Set a timer before job is cancelled for having an expired token to
+            //the expiration time minus 10 minutes (default) or higher
+            final long msToLive = milliSecondsToLive(tokenStr, config);
+            Thread tokenExpirationHook = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        if (msToLive > 0) {
+                            try {
+                                Thread.sleep(msToLive);
+                                canceljob(jobSrvClient, jobId);
+                                log.logNextLine("Job was canceled due to token expiration", false);
+                            } catch (InterruptedException ex) { }
+                        } else {
+                            canceljob(jobSrvClient, jobId);
+                            log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, false);
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            tokenExpirationHook.start();
+
+            Thread shutdownHook = new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        new DockerRunner(dockerURI).killSubJobs();
+                        File logFile = new File("shutdownhook");
+                        FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
+
 
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
@@ -518,11 +577,17 @@ public class SDKLocalMethodRunner {
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
             logFlusher.interrupt();
+
+
+            tokenExpirationHook.interrupt();
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
                 flushLog(jobSrvClient, jobId, logLines);
-            } catch (Exception ignore) {}
+            } catch (Exception ignore) {
+            }
             StringWriter sw = new StringWriter();
             PrintWriter pw = new PrintWriter(sw);
             ex.printStackTrace(pw);
@@ -530,18 +595,19 @@ public class SDKLocalMethodRunner {
             String err = "Fatal error: " + sw.toString();
             if (ex instanceof ServerException) {
                 err += "\nServer exception:\n" +
-                        ((ServerException)ex).getData();
+                        ((ServerException) ex).getData();
             }
             try {
                 log.logNextLine(err, true);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
-            } catch (Exception ignore) {}
+            } catch (Exception ignore) {
+            }
             try {
                 FinishJobParams result = new FinishJobParams().withError(
                         new JsonRpcError().withCode(-1L).withName("JSONRPCError")
-                        .withMessage("Job service side error: " + ex.getMessage())
-                        .withError(err));
+                                .withMessage("Job service side error: " + ex.getMessage())
+                                .withError(err));
                 jobSrvClient.finishJob(jobId, result);
             } catch (Exception ex2) {
                 ex2.printStackTrace();
@@ -555,7 +621,7 @@ public class SDKLocalMethodRunner {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
         }
-        Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
     }
 
     public static String processHostPathForVolumeMount(String path, String username) {
@@ -567,7 +633,7 @@ public class SDKLocalMethodRunner {
     }
 
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
-            String jobId, List<LogLine> logLines, LogLine line) {
+                                                String jobId, List<LogLine> logLines, LogLine line) {
         logLines.add(line);
         if (line.getIsError() != null && line.getIsError() == 1L) {
             System.err.println(line.getLine());
@@ -577,7 +643,7 @@ public class SDKLocalMethodRunner {
     }
 
     private static synchronized void flushLog(NarrativeJobServiceClient jobSrvClient,
-            String jobId, List<LogLine> logLines) {
+                                              String jobId, List<LogLine> logLines) {
         if (logLines.isEmpty())
             return;
         try {
@@ -607,16 +673,17 @@ public class SDKLocalMethodRunner {
     /**
      * Check to see if the basedir exists, which is in
      * a format similar to /mnt/condor/<username>
+     *
      * @return
      */
     private static boolean mountExists() {
         File mountPath = new File(System.getenv("BASE_DIR"));
-        return mountPath.exists() &&  mountPath.canWrite();
+        return mountPath.exists() && mountPath.canWrite();
     }
 
 
     public static NarrativeJobServiceClient getJobClient(String jobSrvUrl,
-            AuthToken token) throws UnauthorizedException, IOException,
+                                                         AuthToken token) throws UnauthorizedException, IOException,
             MalformedURLException {
         final NarrativeJobServiceClient jobSrvClient =
                 new NarrativeJobServiceClient(new URL(jobSrvUrl), token);
@@ -641,7 +708,7 @@ public class SDKLocalMethodRunner {
     }
 
     private static URL getURL(final Map<String, String> config,
-            final String param) {
+                              final String param) {
         final String urlStr = config.get(param);
         if (urlStr == null || urlStr.isEmpty()) {
             throw new IllegalStateException("Parameter '" + param +
@@ -656,7 +723,7 @@ public class SDKLocalMethodRunner {
     }
 
     private static URI getURI(final Map<String, String> config,
-            final String param, boolean allowAbsent) {
+                              final String param, boolean allowAbsent) {
         final String urlStr = config.get(param);
         if (urlStr == null || urlStr.isEmpty()) {
             if (allowAbsent) {
@@ -680,20 +747,23 @@ public class SDKLocalMethodRunner {
             InetAddress ia = InetAddress.getLocalHost();
             ip = ia.getHostAddress();
             hostname = ia.getHostName();
-        } catch (Throwable ignore) {}
+        } catch (Throwable ignore) {
+        }
         if (hostname == null) {
             try {
                 hostname = System.getenv("HOSTNAME");
                 if (hostname != null && hostname.isEmpty())
                     hostname = null;
-            } catch (Throwable ignore) {}
+            } catch (Throwable ignore) {
+            }
         }
         if (ip == null && hostname != null) {
             try {
                 ip = InetAddress.getByName(hostname).getHostAddress();
-            } catch (Throwable ignore) {}
+            } catch (Throwable ignore) {
+            }
         }
-        return new String[] {hostname == null ? "unknown" : hostname,
+        return new String[]{hostname == null ? "unknown" : hostname,
                 ip == null ? "unknown" : ip};
     }
 }

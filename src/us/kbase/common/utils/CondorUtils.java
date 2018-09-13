@@ -73,7 +73,7 @@ public class CondorUtils {
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar");
+        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
         csf.add(request_cpus);
         csf.add(request_memory);
         csf.add(request_disk);
@@ -241,6 +241,8 @@ public class CondorUtils {
         return jobID;
     }
 
+
+
     /**
      * Call condor_q with the ujsJobId a string target to filter condor_q
      *
@@ -318,12 +320,20 @@ public class CondorUtils {
      * @return Result of the condor_rm command
      */
     public static String condorRemoveJobRange(String ujsJobID) throws Exception {
-
         String[] cmdScript = new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID};
         String processResult = runProcess(cmdScript).stdout.get(0);
         return processResult;
-
-        //TODO : CALL NJS and CANCEL THE JOB
-
     }
+
+    /**
+     * Send a condor_rm "BatchName" and don't check to see it's result
+     *
+     * @param ujsJobID ujsJobId for the job batch name
+     * @return Result of the condor_rm command
+     */
+    public static void condorRemoveJobRangeAsync(String ujsJobID) throws Exception {
+        Runtime.getRuntime().exec(new String[]{"/kb/deployment/misc/condor_rm.sh", ujsJobID});
+    }
+
+
 } // class CondorUtils
