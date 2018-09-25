@@ -511,6 +511,7 @@ public class SDKLocalMethodRunner {
                         new DockerRunner(dockerURI).killSubJobs();
                         File logFile = new File("shutdownhook");
                         FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                        canceljob(jobSrvClient, jobId);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
