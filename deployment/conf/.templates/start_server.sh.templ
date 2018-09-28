@@ -7,6 +7,8 @@ if [ "$POOL_PASSWORD" ] ; then
     /usr/sbin/condor_store_cred -p "$POOL_PASSWORD" -f `condor_config_val SEC_PASSWORD_FILE`
 fi
 
+chown kbase `condor_config_val SEC_PASSWORD_FILE`
+
 JAVA_OPTS="-Djava.awt.headless=true -server \
                -Xms{{ default .Env.min_memory "1000" }}m -Xmx{{ default .Env.max_memory "3000" }}m \
                -XX:+UseG1GC"
