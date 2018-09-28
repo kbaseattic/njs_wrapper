@@ -1,87 +1,57 @@
-FROM centos:7 AS build
+FROM kbase/kb_jre AS build
 # Multistage Build Setup
-RUN yum update -y && \
-yum install -y wget git which && \
-yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel && \
-yum clean all
-
+RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
 RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll
 
-FROM centos:7
-ENV container docker
-
-# Add kbase user and set up directories
-RUN useradd -c "KBase user" -rd /kb/deployment/ -u 998 -s /bin/bash kbase && \
-    mkdir -p /kb/deployment/bin && \
-    mkdir -p /kb/deployment/jettybase/logs/ && \
-    touch /kb/deployment/jettybase/logs/request.log && \
-    chown -R kbase /kb/deployment
-
-# Get commonly used utilities
-RUN yum -y update && yum -y install -y wget which git deltarpm
-
-# Install Condor
-RUN cd /etc/yum.repos.d && \
-wget http://research.cs.wisc.edu/htcondor/yum/repo.d/htcondor-development-rhel7.repo && \
-wget http://research.cs.wisc.edu/htcondor/yum/repo.d/htcondor-stable-rhel6.repo && \
-wget http://research.cs.wisc.edu/htcondor/yum/RPM-GPG-KEY-HTCondor && \
-rpm --import RPM-GPG-KEY-HTCondor && \
-yum -y install condor.x86_64
-
-# Install java
-RUN yum install -y java-1.8.0-openjdk java-1.8.0-openjdk-devel 
-
-# Add Jetty User
-RUN groupadd -r jetty && useradd -r -g jetty jetty
-ENV JETTY_VERSION 9.4.12.v20180830
-
-# Install Jetty
-RUN curl http://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/${JETTY_VERSION}/jetty-distribution-${JETTY_VERSION}.tar.gz -o /tmp/jetty.tar.gz \
- && cd /opt && tar zxvf /tmp/jetty.tar.gz \
- && ln -s /opt/jetty-distribution-${JETTY_VERSION} /opt/jetty \
- && chown -R jetty /opt/jetty /opt/jetty-distribution-${JETTY_VERSION} \
- && usermod -g root -G jetty jetty \
- && chmod -R "g+rwX" /opt/jetty /opt/jetty-distribution-${JETTY_VERSION} \
- && rm /tmp/jetty.tar.gz
-
-ENV JETTY_HOME /opt/jetty
-ENV PATH $PATH:$JETTY_HOME/bin
-
-# Mount for cgroups
-VOLUME [ "/sys/fs/cgroup" ]
-
+FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
 ARG BRANCH=develop
 
-
-#INSTALL DOCKERIZE
-RUN wget -N https://github.com/kbase/dockerize/raw/master/dockerize-linux-amd64-v0.6.1.tar.gz && tar xvzf dockerize-linux-amd64-v0.6.1.tar.gz && cp dockerize /kb/deployment/bin && rm dockerize*
-
 #COPY ROOT WAR AND FAT JAR
 COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
 COPY --from=build /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
-# Install docker binaries (setsebool:  SELinux is disabled. libsemanage.semanage_commit_sandbox: Error while renaming /etc/selinux/targeted/active to /etc/selinux/targeted/previous. (Invalid cross-device link).)
-RUN yum install -y yum-utils device-mapper-persistent-data lvm2 && yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo && yum install -y docker-ce
-# Also add the user to the groups that map to "docker" on Linux and "daemon" on Mac
-RUN usermod -a -G 0 kbase && usermod -a -G 999 kbase
-
-# Maybe you want: rm -rf /var/cache/yum, to also free up space taken by orphaned data from disabled or removed repos
-# RUN rm -rf /var/cache/yum
 
 USER root
+# The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
+# noninteractive in order to prevent that
+RUN apt-get update && \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install -y htcondor zile vim libgomp1 && \
+    chown -R kbase:kbase /etc/condor && \
+    mkdir /scratch && \
+    cd /tmp && \
+    wget http://submit-3.batlab.org/nmi-runs/condorauto/2018/03/condorauto_submit-3.batlab.org_1520871025_1539075/userdir/nmi:x86_64_Debian9/results.tar.gz && \
+    tar xvzf results.tar.gz && \
+    cd public && \
+    tar xvzf condor-8.6.10-x86_64_Debian9-stripped.tar.gz && \
+    cd condor-8.6.10-x86_64_Debian9-stripped && \
+    ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --overwrite && \
+    cd /tmp && \
+    rm -rf results.tar.gz public && \
+    mkdir /var/run/condor
 
+#    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
+#    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
 
-#ADD DIRS
-RUN mkdir -p /var/run/condor && mkdir -p /var/log/condor && mkdir -p /var/lock/condor && mkdir -p /var/lib/condor/execute
-#RUN touch /var/log/condor/StartLog /var/log/condor/ProcLog && chmod 775 /var/log/condor/* 
-#RUN chown -R kbase:kbase /etc/condor /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/StartLog /var/log/condor/ProcLog
+# Install docker binaries based on
+# https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
+# Also add the user to the groups that map to "docker" on Linux and "daemon" on
+# MacOS
+RUN apt-get install -y apt-transport-https software-properties-common && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y docker-ce=18.03.0~ce-0~debian && \
+    usermod -a -G 0 kbase && \
+    usermod -a -G 999 kbase
 
-#USER kbase:999
+USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
+USER root
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
@@ -105,3 +75,9 @@ CMD [ "-template", "/kb/deployment/conf/.templates/deployment.cfg.templ:/kb/depl
       "/kb/deployment/bin/start_server.sh" ]
 
 WORKDIR /kb/deployment/jettybase
+
+# for a NJS worker node use the following CMD in the docker-compose file
+#CMD [ "-template", "/kb/deployment/conf/.templates/condor_config.templ:/etc/condor/condor_config.local", \
+#      "-stdout", "/var/log/condor/ProcLog", \
+#      "-stdout", "/var/log/condor/StartLog", \
+#      "/kb/deployment/bin/start-condor.sh" ]
