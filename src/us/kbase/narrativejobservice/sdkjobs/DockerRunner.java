@@ -50,7 +50,8 @@ public class DockerRunner {
             final CancellationChecker cancellationChecker,
             final Map<String, String> envVars,
             final Map<String, String> labels,
-            final Map<String, String> resourceRequirements)
+            final Map<String, String> resourceRequirements,
+            final String parentCgroup)
             throws IOException, InterruptedException {
         if (!inputData.getName().equals("input.json"))
             throw new IllegalStateException("Input file has wrong name: " +
@@ -111,6 +112,12 @@ public class DockerRunner {
                 }
                 cntCmd.withHostConfig(cpuMemoryLimiter);
             }
+
+            if(parentCgroup != null){
+                System.out.println("About to set cgroup" + parentCgroup);
+                cntCmd.withCgroupParent(parentCgroup);
+            }
+
             final String cntId = cntCmd.exec().getId();
 
             //Create a log of all docker jobs

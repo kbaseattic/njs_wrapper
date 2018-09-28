@@ -1,7 +1,7 @@
 FROM kbase/kb_jre AS build
 # Multistage Build Setup
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll 
+RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll
 
 FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
@@ -13,6 +13,8 @@ ARG BRANCH=develop
 COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
 COPY --from=build /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
+
+USER root
 # The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
 # noninteractive in order to prevent that
 RUN apt-get update && \
@@ -26,12 +28,13 @@ RUN apt-get update && \
     cd public && \
     tar xvzf condor-8.6.10-x86_64_Debian9-stripped.tar.gz && \
     cd condor-8.6.10-x86_64_Debian9-stripped && \
-    ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --owner=kbase --overwrite && \
+    ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --overwrite && \
     cd /tmp && \
     rm -rf results.tar.gz public && \
-    mkdir /var/run/condor && \
-    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
-    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
+    mkdir /var/run/condor
+
+#    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
+#    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
 
 # Install docker binaries based on
 # https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
@@ -48,8 +51,7 @@ RUN apt-get install -y apt-transport-https software-properties-common && \
 USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
-# Extra all of the jars for NJS so that the scripts can use them in classpath
-#RUN cd /kb/deployment/lib && unzip /kb/deployment/jettybase/webapps/root.war
+USER root
 
 ENV KB_DEPLOYMENT_CONFIG /kb/deployment/conf/deployment.cfg
 
