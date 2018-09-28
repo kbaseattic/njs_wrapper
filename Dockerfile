@@ -29,9 +29,11 @@ RUN apt-get update && \
     ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --owner=kbase --overwrite && \
     cd /tmp && \
     rm -rf results.tar.gz public && \
-    mkdir /var/run/condor && \
-    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
-    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
+    mkdir /var/run/condor
+
+
+#    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
+#    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
 
 # Install docker binaries based on
 # https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
@@ -45,7 +47,7 @@ RUN apt-get install -y apt-transport-https software-properties-common && \
     usermod -a -G 0 kbase && \
     usermod -a -G 999 kbase
 
-USER kbase:999
+#USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
