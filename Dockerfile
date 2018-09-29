@@ -47,7 +47,7 @@ RUN cd /tmp/public/condor-8.6.10-x86_64_Debian9-stripped && ./condor_install --p
 
 # #Very important 
 # RUN touch /var/log/condor/StartLog /var/log/condor/ProcLog && chmod 777 /var/log/condor/ /var/log/condor/*
-
+USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Extra all of the jars for NJS so that the scripts can use them in classpath
