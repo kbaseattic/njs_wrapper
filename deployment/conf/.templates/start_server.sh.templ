@@ -15,4 +15,5 @@ JAVA_OPTS="-Djava.awt.headless=true -server \
 
 # This script assumes that the docker base image includes a runnable JETTY environment
 # that provides $JETTY_HOME. Currently the base image is built on library/jetty:jre8
-su --preserve-environment kbase -c "exec java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"
+# su --preserve-environment kbase -c "exec java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"
+exec java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar
