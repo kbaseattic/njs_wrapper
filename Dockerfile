@@ -27,8 +27,7 @@ RUN apt-get install -y apt-transport-https software-properties-common && \
     apt-get update && \
     apt-get install -y docker-ce=18.03.0~ce-0~debian && \
     usermod -a -G 0 kbase && \
-    usermod -a -G 999 kbase && \
-    usermod -a -G 999 -u 999 -o kbase
+    usermod -a -G 999 kbase
 
 # The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
 # noninteractive in order to prevent that
