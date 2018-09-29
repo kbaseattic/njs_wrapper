@@ -4,8 +4,6 @@ RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
 RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll 
 
 FROM kbase/kb_jre
-USER root
-
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
@@ -15,7 +13,25 @@ ARG BRANCH=develop
 COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
 COPY --from=build /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
-RUN apt-get update
+# The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
+# noninteractive in order to prevent that
+RUN apt-get update && \
+    export DEBIAN_FRONTEND=noninteractive && \
+    apt-get install -y htcondor zile vim libgomp1 && \
+    chown -R kbase:kbase /etc/condor && \
+    mkdir /scratch && \
+    cd /tmp && \
+    wget http://submit-3.batlab.org/nmi-runs/condorauto/2018/03/condorauto_submit-3.batlab.org_1520871025_1539075/userdir/nmi:x86_64_Debian9/results.tar.gz && \
+    tar xvzf results.tar.gz && \
+    cd public && \
+    tar xvzf condor-8.6.10-x86_64_Debian9-stripped.tar.gz && \
+    cd condor-8.6.10-x86_64_Debian9-stripped && \
+    ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --owner=kbase --overwrite && \
+    cd /tmp && \
+    rm -rf results.tar.gz public && \
+    mkdir /var/run/condor && \
+    touch /var/log/condor/StartLog /var/log/condor/ProcLog && \
+    chown kbase /run/condor /var/lock/condor /var/log/condor /var/lib/condor/execute /var/log/condor/*
 
 # Install docker binaries based on
 # https://docs.docker.com/install/linux/docker-ce/debian/#install-docker-ce
@@ -29,23 +45,6 @@ RUN apt-get install -y apt-transport-https software-properties-common && \
     usermod -a -G 0 kbase && \
     usermod -a -G 999 kbase
 
-# The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
-# noninteractive in order to prevent that
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    apt-get install -y htcondor zile vim libgomp1 && \
-    mkdir /scratch && \
-    cd /tmp && \
-    wget http://submit-3.batlab.org/nmi-runs/condorauto/2018/03/condorauto_submit-3.batlab.org_1520871025_1539075/userdir/nmi:x86_64_Debian9/results.tar.gz && \
-    tar xvzf results.tar.gz && \
-    cd public && \
-    tar xvzf condor-8.6.10-x86_64_Debian9-stripped.tar.gz
-    
-RUN cd /tmp/public/condor-8.6.10-x86_64_Debian9-stripped && ./condor_install --prefix=/usr --type=submit --local-dir=/scratch/condor --overwrite && \
-    cd /tmp && \
-    rm -rf results.tar.gz public
-
-# #Very important 
-# RUN touch /var/log/condor/StartLog /var/log/condor/ProcLog && chmod 777 /var/log/condor/ /var/log/condor/*
 USER kbase:999
 COPY --chown=kbase deployment/ /kb/deployment/
 
