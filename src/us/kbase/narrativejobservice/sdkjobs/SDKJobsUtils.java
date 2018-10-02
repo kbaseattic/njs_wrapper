@@ -28,7 +28,7 @@ public class SDKJobsUtils {
             }
         }
         if (parentCgroup == null) {
-            throw new Exception("Couldn't extract valid cgroups from" + parentCgroup.toString());
+            throw new Exception("Couldn't extract valid cgroups from: " + cgroupsPath);
         }
         return parentCgroup;
     }
