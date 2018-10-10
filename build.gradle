@@ -108,6 +108,25 @@ task deployJar(type: Copy){
 //    copy(file:"$buildDir/libs/NJSWrapper-${version}.jar", tofile:"deployment/lib/NJSWrapper.jar")
 // }
 
+//Output git info to build directory to be included as a resource
+task git{
+    def cmd_url = "git config --get remote.origin.url"
+    def cmd_branch = "git rev-parse --abbrev-ref HEAD"
+    def cmd_commit = "git rev-parse HEAD"
+
+    def cmd_url_result = cmd_url.execute().text.trim()
+    def cmd_branch_result = cmd_branch.execute().text.trim()
+    def cmd_commit_result = cmd_commit.execute().text.trim()
+
+    new File("build/git.properties").text =
+"""url="$cmd_url_result"
+branch="$cmd_branch_result"
+commit="$cmd_commit_result"
+"""
+}
+
+
+
 task buildJar(type: GradleBuild) {
      tasks = ['cleanup', 'jar', 'copyJarToDist']
 }
@@ -116,7 +135,7 @@ task buildWar(type: GradleBuild) {
 }
 //Create jar, war, and fat jar
 task buildAll(type: GradleBuild) {
-     tasks = ['cleanup', 'war','shadowJar','copyJarToDist','copyWarToDist','copyFatJarToDist','copyAllToDeployment']
+     tasks = ['cleanup', 'git', 'war','shadowJar','copyJarToDist','copyWarToDist','copyFatJarToDist','copyAllToDeployment']
 }
 
 //Create gradle wrapper scripts
