@@ -17,7 +17,7 @@ plugins {
     // and adds a default WAR archive task
     id 'war'
 
-    id 'com.jfrog.artifactory'  version "4.7.4"
+    id 'com.jfrog.artifactory' version "4.7.4"
 }
 buildDir = "gradle_build_directory"
 // mainClassName = "this.is.required.for.application"
@@ -25,9 +25,9 @@ buildDir = "gradle_build_directory"
 sourceCompatibility = 1.7
 targetCompatibility = 1.7
 
-compileJava   {
-  sourceCompatibility = project.sourceCompatibility
-  targetCompatibility = project.targetCompatibility
+compileJava {
+    sourceCompatibility = project.sourceCompatibility
+    targetCompatibility = project.targetCompatibility
 }
 
 // Custom java project layout
@@ -48,9 +48,8 @@ sourceSets {
 }
 // Create a fat jar with all dependencies
 shadowJar {
-   baseName = 'NJSWrapper'
+    baseName = 'NJSWrapper'
 }
-
 
 //Attributes for War
 war {
@@ -87,7 +86,7 @@ task copyWarToDist(type: Copy) {
 }
 //Clean Build directory 
 task cleanup(type: Delete) {
-    delete buildDir,'dist','deployment/lib'
+    delete buildDir, 'dist', 'deployment/lib'
     println "Deleting dist and deployment/lib"
 }
 //Copy all files
@@ -97,12 +96,12 @@ task copyAllToDeployment(type: Copy) {
     println "Copying all files from dist to deployment/lib"
 }
 
-task deployJar(type: Copy){
+task deployJar(type: Copy) {
     into file("deployment/lib/")
     from jar
     from war
     from shadowJar
-    rename("NJSWrapper-${version}","NJSWrapper")
+    rename("NJSWrapper-${version}", "NJSWrapper")
     println "Copying from dist/NJSWrapper-${version}.jar to deployment/lib/NJSWrapper.jar"
 }
 
@@ -114,7 +113,7 @@ task deployJar(type: Copy){
 // }
 
 //Output git info to build directory to be included as a resource
-task git{
+task git {
     def cmd_url = "git config --get remote.origin.url"
     def cmd_branch = "git rev-parse --abbrev-ref HEAD"
     def cmd_commit = "git rev-parse HEAD"
@@ -124,7 +123,7 @@ task git{
     def cmd_commit_result = cmd_commit.execute().text.trim()
 
     new File("build/git.properties").text =
-"""url="$cmd_url_result"
+            """url="$cmd_url_result"
 branch="$cmd_branch_result"
 commit="$cmd_commit_result"
 """
@@ -133,14 +132,14 @@ commit="$cmd_commit_result"
 
 
 task buildJar(type: GradleBuild) {
-     tasks = ['cleanup', 'jar', 'copyJarToDist']
+    tasks = ['cleanup', 'jar', 'copyJarToDist']
 }
 task buildWar(type: GradleBuild) {
-     tasks = ['cleanup', 'war', 'copyWarToDist']
+    tasks = ['cleanup', 'war', 'copyWarToDist']
 }
 //Create jar, war, and fat jar
 task buildAll(type: GradleBuild) {
-     tasks = ['cleanup', 'git', 'war','shadowJar','copyJarToDist','copyWarToDist','copyFatJarToDist','copyAllToDeployment']
+    tasks = ['cleanup', 'git', 'war', 'shadowJar', 'copyJarToDist', 'copyWarToDist', 'copyFatJarToDist', 'copyAllToDeployment']
 }
 
 //Create gradle wrapper scripts
@@ -149,7 +148,7 @@ task wrapper(type: Wrapper) {
 }
 
 //Swap out live
-task hotSwap(type:Exec){
+task hotSwap(type: Exec) {
     commandLine "./dev_tools/simple_mini_kb_deploy.sh"
 }
 
