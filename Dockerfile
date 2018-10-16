@@ -3,6 +3,7 @@ FROM kbase/kb_jre AS build
 ARG BRANCH=NoBranchSet
 
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
+COPY . .
 RUN echo "About to build $BRANCH" && ./gradlew buildAll 
 
 FROM kbase/kb_jre
