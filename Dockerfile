@@ -1,11 +1,9 @@
 FROM kbase/kb_jre AS build
 # Multistage Build Setup
-ARG BUILD_DATE
-ARG VCS_REF
-ARG BRANCH
+ARG BRANCH=NoBranchSet
 
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-RUN echo "About to build $BRANCH" && cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && git checkout $BRANCH && ./gradlew buildAll 
+RUN echo "About to build $BRANCH" && ./gradlew buildAll 
 
 FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
