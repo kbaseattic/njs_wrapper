@@ -123,9 +123,9 @@ task git {
     def cmd_commit_result = cmd_commit.execute().text.trim()
 
     new File("build/git.properties").text =
-            """url="$cmd_url_result"
-branch="$cmd_branch_result"
-commit="$cmd_commit_result"
+            """url=$cmd_url_result
+branch=$cmd_branch_result
+commit=$cmd_commit_result
 """
 }
 
