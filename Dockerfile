@@ -1,21 +1,19 @@
 FROM kbase/kb_jre AS build
 # Multistage Build Setup
-ARG BUILD_DATE
-ARG VCS_REF
-ARG BRANCH
-
+ARG BRANCH=NoBranchSet
+COPY . /njs/
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-RUN echo "About to build $BRANCH" && cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && git checkout $BRANCH && ./gradlew buildAll 
+RUN echo "About to build $BRANCH" &&  cd /njs && ./gradlew buildAll
 
 FROM kbase/kb_jre
-# These ARGs values are passed in via the docker build command
+# These ARGs values are passed in via build_docker_image.sh
 ARG BUILD_DATE
 ARG VCS_REF
-ARG BRANCH
+ARG BRANCH=NoBranchSet
 
-#COPY ROOT WAR AND FAT JAR
-COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
-COPY --from=build /njs_wrapper/dist/NJSWrapper-all.jar /kb/deployment/lib/
+# Copy War and Fat Jar into root.war and for distribution to the worker nodes in /kb/deployment/lib
+COPY --from=build /njs/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
+COPY --from=build /njs/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
 # The htcondor package tries an interactive config, set DEBIAN_FRONTEND to
 # noninteractive in order to prevent that
