@@ -3,7 +3,7 @@ FROM kbase/kb_jre AS build
 ARG BRANCH=NoBranchSet
 COPY . /njs/
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-RUN echo "About to build $BRANCH" &&  cd /njs && ./gradlew buildAll && echo "`ls -lhtr njs`" 
+RUN echo "About to build $BRANCH" &&  cd /njs && ./gradlew buildAll
 
 FROM kbase/kb_jre
 # These ARGs values are passed in via build_docker_image.sh
