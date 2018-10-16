@@ -1,13 +1,17 @@
 FROM kbase/kb_jre AS build
 # Multistage Build Setup
+ARG BUILD_DATE
+ARG VCS_REF
+ARG BRANCH
+
 RUN apt-get -y update && apt-get -y install ant git openjdk-8-jdk make
-RUN cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && ./gradlew buildAll 
+RUN echo "About to build $BRANCH" && cd / && git clone https://github.com/kbase/njs_wrapper && cd /njs_wrapper/ && git checkout $BRANCH && ./gradlew buildAll 
 
 FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
-ARG BRANCH=develop
+ARG BRANCH
 
 #COPY ROOT WAR AND FAT JAR
 COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
