@@ -9,7 +9,7 @@ FROM kbase/kb_jre
 # These ARGs values are passed in via the docker build command
 ARG BUILD_DATE
 ARG VCS_REF
-ARG BRANCH
+ARG BRANCH=NoBranchSet
 
 #COPY ROOT WAR AND FAT JAR
 COPY --from=build /njs_wrapper/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
