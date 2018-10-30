@@ -39,13 +39,13 @@ public class ReaperServiceServlet implements ServletContextListener {
 
                         while (true) {
                             String time = new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()) + "\n";
-                            FileUtils.writeStringToFile(file, "RUNNING REAPER at " + time, true);
+                            FileUtils.writeStringToFile(file, "Running Job Reaper at " + time, true);
                             BulkWriteResult result = r.purgeGhostJobs();
                             if (result != null) {
                                 FileUtils.writeStringToFile(file, result.toString(), true);
                                 System.out.println(result);
                             } else {
-                                FileUtils.writeStringToFile(file, "No Jobs To Purge.", true);
+                                FileUtils.writeStringToFile(file, "No Jobs To Purge. \n", true);
                             }
                             //5 Minutes Before Each Run
                             Thread.sleep(1000 * 60 * 5);
