@@ -47,8 +47,8 @@ public class ReaperServiceServlet implements ServletContextListener {
                             } else {
                                 FileUtils.writeStringToFile(file, "No Jobs To Purge.", true);
                             }
-                            //30 Minutes Before Each Run
-                            Thread.sleep(1000 * 60 * 30);
+                            //5 Minutes Before Each Run
+                            Thread.sleep(1000 * 60 * 5);
                         }
 
                     } catch (Exception e) {
