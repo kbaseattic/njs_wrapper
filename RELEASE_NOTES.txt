@@ -4,6 +4,19 @@ The Execution Engine provides an API for execution of Narrative Methods and Apps
 as well as asynchronous SDK jobs in docker container on AWE workers (it also 
 wraps Narrative Job Service API).
 
+Version: 1.0.1
+--------------
+NEW FEATURES and UPDATES:
+- Support to detect cgroups and send them to launched docker containers.
+- Fixed Mulistage Build
+
+UPDATED REQUIREMENTS:
+- Running condor daemons as root for Execute Containers and mounting /sys/fs/cgroup
+- Enabling CGROUPS in CONDOR SCHED container (default of htcondor)
+
+
+
+
 Version: 1.0.0
 --------------
 NEW FEATURES:

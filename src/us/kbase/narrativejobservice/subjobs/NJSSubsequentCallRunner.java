@@ -11,6 +11,9 @@ import java.util.UUID;
 
 import com.github.dockerjava.api.model.Bind;
 
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+import org.apache.commons.io.FileUtils;
 import us.kbase.auth.AuthToken;
 import us.kbase.common.executionengine.ModuleMethod;
 import us.kbase.catalog.ModuleVersion;
@@ -20,11 +23,24 @@ import us.kbase.common.service.JsonClientException;
 import us.kbase.narrativejobservice.sdkjobs.CancellationChecker;
 import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
 import us.kbase.narrativejobservice.sdkjobs.ShifterRunner;
+import us.kbase.narrativejobservice.sdkjobs.SDKJobsUtils;
 
 
 public class NJSSubsequentCallRunner extends SubsequentCallRunner {
     protected final List<Bind> additionalBinds;
     protected final CancellationChecker cancellationChecker;
+
+
+
+    /**
+     * Used for getting PID
+     */
+    private interface CLibrary extends Library {
+        CLibrary INSTANCE = (CLibrary) Native.loadLibrary("c", CLibrary.class);
+        int getpid ();
+    }
+
+
 
     public NJSSubsequentCallRunner(
             final AuthToken token,
@@ -75,8 +91,18 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         labels.put("module_version",moduleVersion.getVersion());
         labels.put("user_name",token.getUserName());
 
+        String cgroupParent = null;
+        try{
+            cgroupParent = new SDKJobsUtils().lookupParentCgroup(CLibrary.INSTANCE.getpid());
+        }
+        catch (Exception e){
+            System.out.println("Couldn't retrieve cgroupParent for pid.");
+        }
+
+
         if (System.getenv("USE_SHIFTER")!=null){
             // TODO: Add refdata
+            // TODO: Add cgroups
             new ShifterRunner(config.getDockerURI()).run(
                     imageName, moduleName, inputFile.toFile(), token,
                     config.getLogger(), outputFile.toFile(), false, refDataDir,
@@ -89,7 +115,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                     imageName, moduleName, inputFile.toFile(), token,
                     config.getLogger(), outputFile.toFile(), false, refDataDir,
                     sharedScratchDir.toFile(), config.getCallbackURL(),
-                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null);
+                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null, cgroupParent);
         }
         return outputFile;
     }

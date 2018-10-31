@@ -5,6 +5,8 @@ import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
 import com.google.common.html.HtmlEscapers;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpHeaders;
@@ -30,7 +32,8 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.MethodCall;
 import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
-import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
+import us.kbase.narrativejobservice.sdkjobs.SDKJobsUtils;
+
 
 
 import java.io.*;
@@ -112,6 +115,16 @@ public class SDKLocalMethodRunner {
         jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
     }
 
+
+    /**
+     * Used for getting PID
+     */
+    private interface CLibrary extends Library {
+        CLibrary INSTANCE = (CLibrary) Native.loadLibrary("c", CLibrary.class);
+        int getpid ();
+    }
+
+
     public static void main(String[] args) throws Exception {
         System.out.println("Starting docker runner with args " +
                 StringUtils.join(args, ", "));
@@ -121,6 +134,12 @@ public class SDKLocalMethodRunner {
                 System.err.println("\tArgument[" + i + "]: " + args[i]);
             System.exit(1);
         }
+
+        int pid = CLibrary.INSTANCE.getpid();
+
+        System.out.println("Looking up cgroup for " + pid);
+        String parentCgroup = new SDKJobsUtils().lookupParentCgroup(pid);
+        System.out.println(parentCgroup);
 
 
         String[] hostnameAndIP = getHostnameAndIP();
@@ -511,6 +530,7 @@ public class SDKLocalMethodRunner {
                         new DockerRunner(dockerURI).killSubJobs();
                         File logFile = new File("shutdownhook");
                         FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                        canceljob(jobSrvClient, jobId);
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
@@ -528,7 +548,7 @@ public class SDKLocalMethodRunner {
             } else {
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                        cancellationChecker, envVars, labels, resourceRequirements);
+                        cancellationChecker, envVars, labels, resourceRequirements, parentCgroup);
             }
 
             if (cancellationChecker.isJobCanceled()) {
