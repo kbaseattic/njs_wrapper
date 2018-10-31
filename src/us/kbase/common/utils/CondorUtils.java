@@ -9,6 +9,7 @@ import us.kbase.auth.AuthToken;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class CondorUtils {
 
@@ -102,7 +103,7 @@ public class CondorUtils {
     }
 
     /**
-     * Run the condor command and return
+     * Run the condor command and return the results, minding the TimeOut .
      *
      * @param condorCommand command to run
      * @throws IOException
@@ -113,11 +114,12 @@ public class CondorUtils {
         System.out.println("Running command: [" + String.join(" ", condorCommand) + "]");
         final Process process = Runtime.getRuntime().exec(condorCommand);
         try {
-            process.waitFor();
+            process.waitFor(30, TimeUnit.SECONDS);
 
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
+
 
         List<String> stdOutMessage = IOUtils.readLines(process.getInputStream(), "UTF-8");
         List<String> stdErrMessage = IOUtils.readLines(process.getErrorStream(), "UTF-8");
