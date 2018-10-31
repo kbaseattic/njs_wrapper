@@ -112,8 +112,9 @@ public class ReaperService {
                 builder.find(new BasicDBObject("_id", new ObjectId(jobID))).update(setQuery);
             }
             result = builder.execute();
+            return result;
         } else {
-            System.err.println("No ghost jobs to purge. " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+            System.err.println("\nNo ghost jobs to purge. " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
         }
         return null;
     }
