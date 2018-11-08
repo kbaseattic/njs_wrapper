@@ -36,6 +36,7 @@ import us.kbase.narrativejobservice.sdkjobs.SDKJobsUtils;
 
 
 
+
 import java.io.*;
 import java.net.*;
 import java.nio.file.Paths;
@@ -96,6 +97,9 @@ public class SDKLocalMethodRunner {
 
         //Time of token expiration - N time
         String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
+
+
+
         //10 Minute Default
         if (time_before_expiration == null)
             return ms - (10 * 60 * 1000);
@@ -522,6 +526,31 @@ public class SDKLocalMethodRunner {
             };
 
             tokenExpirationHook.start();
+
+
+            Thread timedJobShutdown = new Thread() {
+                @Override
+                public void run() {
+                    try {
+
+                        String time_before_shutdown_minutes = config.get(NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES);
+                        String time_before_shutdown_seconds = (Integer.parseInt(time_before_shutdown_minutes) * 60000) + "";
+
+
+                        String message = String.format("Job was cancelled as it ran  over the max alloted time (%s) seconds (%s) minutes ", time_before_shutdown_seconds, time_before_shutdown_minutes);
+                        log.logNextLine(message, true);
+
+                        Thread.sleep(msToLive);
+                        canceljob(jobSrvClient, jobId);
+
+
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            };
+
+
 
             Thread shutdownHook = new Thread() {
                 @Override

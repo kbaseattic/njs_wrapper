@@ -112,6 +112,15 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     public static final String CFG_PROP_TIME_BEFORE_EXPIRATION =
             JobRunnerConstants.CFG_PROP_TIME_BEFORE_EXPIRATION;
 
+    public static final String CFG_PROP_JOB_TIMEOUT_MINUTES =
+            JobRunnerConstants.CFG_PROP_JOB_TIMEOUT_MINUTES;
+
+    public static final String CFG_PROP_DOCKER_JOB_TIMEOUT_SECONDS =
+            JobRunnerConstants.CFG_PROP_DOCKER_JOB_TIMEOUT_SECONDS;
+
+    public static final String CFG_PROP_CONDOR_QUEUE_DESCRIPTION_INI= "condor.queue.description.file.path";
+
+
     public static final String CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM =
             JobRunnerConstants.CFG_PROP_AUTH_SERVICE_ALLOW_INSECURE_URL_PARAM;
 
