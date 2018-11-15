@@ -286,7 +286,7 @@ public class DockerRunner {
 
             for (Thread t : workers)
                 t.join();
-            log.logNextLine("ABOUT TO SET TIMEOUT" + timeout, true);
+            log.logNextLine("Job will automatically timeout in " + timeout + " seconds" , false);
             p.waitFor(Long.parseLong(timeout), TimeUnit.SECONDS);
 
             int containerExitCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
@@ -484,19 +484,19 @@ public class DockerRunner {
                 int cpuQuota = (int) (inputCores * CPU_QUOTA_CONST);
                 cpuMemoryLimiter.withCpuQuota(cpuQuota);
                 cpuMemoryLimiter.withCpuPeriod(DEFAULT_CPU_PERIOD);
-                log.logNextLine("Setting request_cpus Requirements to " + inputCores, true);
-                log.logNextLine("Setting cpuQuota  to " + cpuQuota, true);
-                log.logNextLine("Setting withCpuPeriod  to " + DEFAULT_CPU_PERIOD, true);
+                log.logNextLine("Setting request_cpus Requirements to " + inputCores, false);
+                log.logNextLine("Setting cpuQuota  to " + cpuQuota, false);
+                log.logNextLine("Setting withCpuPeriod  to " + DEFAULT_CPU_PERIOD, false);
             }
             if (resourceKey.equals("request_memory")) {
                 String inputMemory = resourceRequirements.get("request_memory").replace("MB", "");
                 long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
                 //cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
                 cpuMemoryLimiter.withMemoryReservation(inputMemoryBytes); //soft memory limit
-                log.logNextLine("Setting request_memory Requirements to " + inputMemory, true);
-                log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, true);
+                log.logNextLine("Setting request_memory Requirements to " + inputMemory, false);
+                log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, false);
                 if (Long.parseLong(inputMemory) <= 500) {
-                    log.logNextLine("WARNING: withMemoryReservation MIGHT BE TOO LOW ", true);
+                    log.logNextLine("WARNING: withMemoryReservation MIGHT BE TOO LOW ", false);
                 }
             }
         }
