@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit;
 public class CondorUtils {
 
 
-    public static final List<String> special_cases = Arrays.asList("request_cpus", "request_disk", "request_memory");
+    public static final List<String> special_cases = Arrays.asList("request_cpus", "request_disk", "request_memory", "docker_job_timeout");
 
     /**
      * Create a condor submit file for Submitted Jobs
@@ -22,7 +22,7 @@ public class CondorUtils {
      * @param ujsJobId                    The UJS job id
      * @param token                       The token of the user of the submitted job
      * @param adminToken                  The admin token used for bind mounts, stored in configs
-     * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement
+     * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement, csv format
      * @param kbaseEndpoint               The URL of the NJS Server
      * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/JOBID
      * @return The generated condor submit file
@@ -32,35 +32,37 @@ public class CondorUtils {
         HashMap<String, String> reqs = clientGroupsAndRequirements(clientGroupsAndRequirements);
         String clientGroups = reqs.get("client_group");
 
-        HashMap<String,String> envVariables = new HashMap<>();
-        String request_cpus = "request_cpus = 1";
-        String request_memory = "request_memory = 5MB";
-        String request_disk = "request_disk = 1MB";
+        HashMap<String, String> envVariables = new HashMap<>();
+        String requestCpus = "request_cpus = 1";
+        String requestMemory = "request_memory = 5MB";
+        String requestDisk = "request_disk = 1MB";
 
         //Default at MB for now
-        String request_cpus_key = "request_cpus";
-        if (reqs.containsKey(request_cpus_key)) {
-            request_cpus = String.format("%s = %s", request_cpus_key, reqs.get(request_cpus_key));
-            envVariables.put(request_cpus_key, reqs.get(request_cpus_key));
+        String requestCpusKey = "request_cpus";
+        if (reqs.containsKey(requestCpusKey)) {
+            requestCpus = String.format("%s = %s", requestCpusKey, reqs.get(requestCpusKey));
+            envVariables.put(requestCpusKey, reqs.get(requestCpusKey));
         }
-        String request_memory_key = "request_memory";
-        if (reqs.containsKey(request_memory_key)) {
-            request_memory = String.format("%s = %sMB", request_memory_key, reqs.get(request_memory_key));
-            envVariables.put(request_memory_key, reqs.get(request_memory_key));
+        String requestMemoryKey = "request_memory";
+        if (reqs.containsKey(requestMemoryKey)) {
+            requestMemory = String.format("%s = %sMB", requestMemoryKey, reqs.get(requestMemoryKey));
+            envVariables.put(requestMemoryKey, reqs.get(requestMemoryKey));
         }
-        String request_disk_key = "request_disk";
-        if (reqs.containsKey(request_disk_key)) {
-            request_disk = String.format("%s = %sMB", request_disk_key, reqs.get(request_disk_key));
+        String requestDiskKey = "request_disk";
+        if (reqs.containsKey(requestDiskKey)) {
+            requestDisk = String.format("%s = %sMB", requestDiskKey, reqs.get(requestDiskKey));
         }
+        String dockerJobTimeout = "docker_job_timeout";
+        envVariables.put("DOCKER_JOB_TIMEOUT", reqs.getOrDefault(dockerJobTimeout,"604800"));  //7 Days
 
-        envVariables.put("KB_AUTH_TOKEN",token.getToken());
-        envVariables.put("KB_ADMIN_AUTH_TOKEN",adminToken.getToken());
-        envVariables.put("AWE_CLIENTGROUP",clientGroups);
-        envVariables.put("BASE_DIR",baseDir);
+        envVariables.put("KB_AUTH_TOKEN", token.getToken());
+        envVariables.put("KB_ADMIN_AUTH_TOKEN", adminToken.getToken());
+        envVariables.put("AWE_CLIENTGROUP", clientGroups);
+        envVariables.put("BASE_DIR", baseDir);
 
         List<String> environment = new ArrayList<String>();
-        for(String key : envVariables.keySet() ){
-            environment.add(String.format("%s=%s",key, envVariables.get(key)));
+        for (String key : envVariables.keySet()) {
+            environment.add(String.format("%s=%s", key, envVariables.get(key)));
         }
 
         String executable = "/kb/deployment/misc/sdklocalmethodrunner.sh";
@@ -75,15 +77,15 @@ public class CondorUtils {
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
         csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
-        csf.add(request_cpus);
-        csf.add(request_memory);
-        csf.add(request_disk);
+        csf.add(requestCpus);
+        csf.add(requestMemory);
+        csf.add(requestDisk);
         csf.add("log    = logfile.txt");
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
         csf.add("getenv = false");
         csf.add("requirements = " + reqs.get("requirements_statement"));
-        csf.add(String.format("environment = \"%s\"",String.join(" ", environment)));
+        csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
 
         //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
@@ -146,7 +148,7 @@ public class CondorUtils {
      * The requirements can either be "Attribute=Value", or "Attribute", or a special case
      * There are three special cases, "request_cpus", "request_disk", "request_memory"
      * These cases are not part of the requirements statement, but condor can use them
-     *
+     * <p>
      * An example is "ClientGroupA,request_cpus=4,request_disk=1GB,request_memory=2048kb,color=blue,LowMemory"
      * or
      * "ClientGroupB,Fast,Budget,HighMemory,LuckyNumber=12"
@@ -237,12 +239,11 @@ public class CondorUtils {
         if (jobID == null) {
             throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
         }
-        if(! optClassAds.containsKey("debugMode")) {
+        //if (!optClassAds.containsKey("debugMode")) {
             condorSubmitFile.delete();
-        }
+        //}
         return jobID;
     }
-
 
 
     /**

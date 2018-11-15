@@ -61,10 +61,10 @@ condor-submit-workdir={{ default .Env.condor_submit_workdir "/mnt/condor" }}
 time.before.expiration = {{ default .Env.time_before_expiration "10" }}
 
 # 86400 seconds * 7days = 604800 Setting for docker jobs to end
-condor.docker.job.timeout.seconds = {{ default condor.docker.job.timeout.seconds "604800" }}
+condor.docker.job.timeout.seconds = {{ default .Env.condor.docker.job.timeout.seconds "604800" }}
 
 # 1440 minutes * 7days = 10080 Shutdown before a canceljob is issued
-condor.job.shutdown.minutes = {{ default condor.job.shutdown.minutes "10080" }}
+condor.job.shutdown.minutes = {{ default .Env.condor.job.shutdown.minutes "10080" }}
 
 # Path to configuration file for queues
 condor.queue.description.file.path={{ default .Env.condor.queue.description.file.path "/kb/deployment/config/condor_queue_config.ini" }}

@@ -36,6 +36,10 @@ import us.kbase.narrativejobservice.sdkjobs.SDKJobsUtils;
 
 
 
+import us.kbase.common.executionengine.JobRunnerConstants;
+
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.*;
 
 import java.io.*;
 import java.net.*;
@@ -97,8 +101,6 @@ public class SDKLocalMethodRunner {
 
         //Time of token expiration - N time
         String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
-
-
 
         //10 Minute Default
         if (time_before_expiration == null)
@@ -505,7 +507,7 @@ public class SDKLocalMethodRunner {
             //Set a timer before job is cancelled for having an expired token to
             //the expiration time minus 10 minutes (default) or higher
             final long msToLive = milliSecondsToLive(tokenStr, config);
-            Thread tokenExpirationHook = new Thread() {
+            Thread tokenExpiration = new Thread() {
                 @Override
                 public void run() {
                     try {
@@ -513,11 +515,11 @@ public class SDKLocalMethodRunner {
                             try {
                                 Thread.sleep(msToLive);
                                 canceljob(jobSrvClient, jobId);
-                                log.logNextLine("Job was canceled due to token expiration", false);
+                                log.logNextLine("Job was canceled due to token expiration", true);
                             } catch (InterruptedException ex) { }
                         } else {
                             canceljob(jobSrvClient, jobId);
-                            log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, false);
+                            log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, true);
                         }
                     } catch (Exception e) {
                         e.printStackTrace();
@@ -525,30 +527,25 @@ public class SDKLocalMethodRunner {
                 }
             };
 
-            tokenExpirationHook.start();
+            tokenExpiration.start();
 
-
+            //Maximum RunTime For Jobs
             Thread timedJobShutdown = new Thread() {
                 @Override
                 public void run() {
                     try {
-
                         String time_before_shutdown_minutes = config.get(NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES);
-                        String time_before_shutdown_seconds = (Integer.parseInt(time_before_shutdown_minutes) * 60000) + "";
-
-
-                        String message = String.format("Job was cancelled as it ran  over the max alloted time (%s) seconds (%s) minutes ", time_before_shutdown_seconds, time_before_shutdown_minutes);
+                        int time_before_shutdown_seconds = (Integer.parseInt(time_before_shutdown_minutes) * 60000) ;
+                        String message = String.format("Job was cancelled as it ran  over the max alloted time (%s) seconds (%s) minutes ", time_before_shutdown_seconds, time_before_shutdown_minutes + "");
                         log.logNextLine(message, true);
-
-                        Thread.sleep(msToLive);
+                        Thread.sleep(time_before_shutdown_seconds);
                         canceljob(jobSrvClient, jobId);
-
-
                     } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }
             };
+            timedJobShutdown.start();
 
 
 
@@ -566,8 +563,8 @@ public class SDKLocalMethodRunner {
                 }
             };
 
-            Runtime.getRuntime().addShutdownHook(shutdownHook);
 
+            Runtime.getRuntime().addShutdownHook(shutdownHook);
 
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
@@ -575,9 +572,11 @@ public class SDKLocalMethodRunner {
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
                         cancellationChecker, envVars, labels);
             } else {
+                // Default is 7 days
+                String timeout = System.getenv("DOCKER_JOB_TIMEOUT");
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                        cancellationChecker, envVars, labels, resourceRequirements, parentCgroup);
+                        cancellationChecker, envVars, labels, resourceRequirements, parentCgroup, timeout);
             }
 
             if (cancellationChecker.isJobCanceled()) {
@@ -628,7 +627,7 @@ public class SDKLocalMethodRunner {
             logFlusher.interrupt();
 
 
-            tokenExpirationHook.interrupt();
+            tokenExpiration.interrupt();
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
 
         } catch (Exception ex) {
