@@ -148,7 +148,7 @@ public class CondorUtils {
      * The requirements can either be "Attribute=Value", or "Attribute", or a special case
      * There are three special cases, "request_cpus", "request_disk", "request_memory"
      * These cases are not part of the requirements statement, but condor can use them
-     * <p>
+     *
      * An example is "ClientGroupA,request_cpus=4,request_disk=1GB,request_memory=2048kb,color=blue,LowMemory"
      * or
      * "ClientGroupB,Fast,Budget,HighMemory,LuckyNumber=12"
