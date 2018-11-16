@@ -2,9 +2,7 @@ package us.kbase.narrativejobservice.sdkjobs;
 
 import ch.qos.logback.classic.Level;
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.CreateContainerCmd;
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.LogContainerCmd;
+import com.github.dockerjava.api.command.*;
 import com.github.dockerjava.api.model.*;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
@@ -21,11 +19,7 @@ import us.kbase.common.utils.ProcessHelper;
 import java.io.*;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
+import java.util.*;
 
 
 public class DockerRunner {
@@ -35,186 +29,10 @@ public class DockerRunner {
     public static DockerClient cl;
 
     private final URI dockerURI;
-    private File tokenFile;
-    private File workDir;
 
     public DockerRunner(final URI dockerURI) {
         this.dockerURI = dockerURI;
     }
-
-    private List<Bind> getBinds(File workDir, File refDataDir, File optionalScratchDir, List<Bind> additionalBinds) {
-        List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(),
-                new Volume("/kb/module/work"))));
-        if (refDataDir != null)
-            binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
-        if (optionalScratchDir != null)
-            binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
-        if (additionalBinds != null)
-            binds.addAll(additionalBinds);
-        return binds;
-    }
-
-    private List<String> getEnvVars(URL callbackUrl, Map<String, String> envVars) {
-        List<String> envVarList = new ArrayList<String>();
-        if (callbackUrl != null) {
-            envVarList.add("SDK_CALLBACK_URL=" + callbackUrl);
-        }
-        if (envVars != null) {
-            for (String envVarKey : envVars.keySet()) {
-                envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
-            }
-        }
-        return envVarList;
-    }
-
-    private void checkInputData(File inputData) throws IOException {
-        workDir = inputData.getCanonicalFile().getParentFile();
-        if (!inputData.getName().equals("input.json"))
-            throw new IllegalStateException("Input file has wrong name: " +
-                    inputData.getName() + "(it should be named input.json)");
-    }
-
-    private void setupJobToken(AuthToken token) throws IOException {
-        tokenFile = new File(workDir, "token");
-        FileWriter fw = new FileWriter(tokenFile);
-        fw.write(token.getToken());
-        fw.close();
-    }
-
-    private void setupForJob(File inputData, AuthToken token, File outputFile) throws IOException {
-        checkInputData(inputData);
-        setupJobToken(token);
-
-        if (outputFile.exists())
-            outputFile.delete();
-
-    }
-
-    private String generateContainerName(String moduleName, String jobId) {
-        long suffix = System.currentTimeMillis();
-        String cntName = null;
-        while (true) {
-            cntName = moduleName.toLowerCase() + "_" + jobId.replace('-', '_') + "_" + suffix;
-            if (findContainerByNameOrIdPrefix(cl, cntName) == null)
-                break;
-            suffix++;
-        }
-        return cntName;
-    }
-
-    private CreateContainerCmd createContainerCommand(String imageName, String cntName,
-                                                      List<Bind> binds, List<String> envVarList, Map<String, String> labels,
-                                                      Map<String, String> resourceRequirements,
-                                                      String parentCgroup,
-                                                      LineLogger log) {
-
-
-        CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
-                .withName(cntName).withTty(true).withCmd("async").withBinds(
-                        binds.toArray(new Bind[binds.size()]));
-        cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
-
-        String miniKB = System.getenv("MINI_KB");
-        if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-            cntCmd.withNetworkMode("mini_kb_default");
-        }
-        cntCmd.withLabels(labels);
-
-        HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements, log);
-        if (cpuMemoryLimiter != null) {
-            //You have to reset binds and reset network unfortunately...
-            cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
-            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-                cpuMemoryLimiter.withNetworkMode("mini_kb_default");
-            }
-            cntCmd.withHostConfig(cpuMemoryLimiter);
-        }
-
-
-        if (parentCgroup != null) {
-            System.out.println("About to set cgroup" + parentCgroup);
-            cntCmd.withCgroupParent(parentCgroup);
-        }
-
-        return cntCmd;
-
-    }
-
-
-    private void logContainerNameId(String cntId, String cntName) throws IOException {
-        //Create a log of all docker jobs
-        new File(dockerJobIdLogsDir).mkdirs();
-        File logFile = new File(dockerJobIdLogsDir + "/" + cntName);
-        FileUtils.writeStringToFile(logFile, cntId);
-    }
-
-
-    private Thread createCancellationChecking(CancellationChecker cancellationChecker, String cntId, String moduleName, LineLogger log) {
-        Thread cancellationCheckingThread = null;
-        if (cancellationChecker != null) {
-            cancellationCheckingThread = new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    while (!Thread.interrupted()) {
-                        try {
-                            Thread.sleep(CANCELLATION_CHECK_PERIOD_SEC * 1000);
-                            if (cancellationChecker.isJobCanceled()) {
-                                // Stop the container
-                                try {
-                                    cl.stopContainerCmd(cntId).exec();
-
-                                    log.logNextLine("Docker container for module [" + moduleName + "]" +
-                                            " was successfully stopped during job cancellation", false);
-                                } catch (Exception ex) {
-                                    ex.printStackTrace();
-                                    log.logNextLine("Error stopping docker container for module [" +
-                                                    moduleName + "] during job cancellation: " + ex.getMessage(),
-                                            true);
-                                }
-                                try {
-                                    log.logNextLine("Attemping to kill subjobs.", false);
-                                    killSubJobs();
-                                } catch (Exception ex) {
-                                    ex.printStackTrace();
-                                }
-                                break;
-                            }
-                        } catch (InterruptedException ex) {
-                            break;
-                        }
-                    }
-                }
-            });
-        }
-        return cancellationCheckingThread;
-    }
-
-    private void cleanupAfterJob(String cntName, boolean removeImage, String imageName) {
-        if (cntName != null) {
-            Container cnt = findContainerByNameOrIdPrefix(cl, cntName);
-            if (cnt != null) {
-                try {
-                    cl.removeContainerCmd(cnt.getId()).withRemoveVolumes(true).exec();
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                }
-            }
-        }
-        if (removeImage) {
-            try {
-                Image img = findImageId(cl, imageName);
-                cl.removeImageCmd(img.getId()).exec();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
-        }
-        if (tokenFile.exists())
-            try {
-                tokenFile.delete();
-            } catch (Exception ignore) {
-            }
-    }
-
 
     public File run(
             String imageName,
@@ -233,25 +51,79 @@ public class DockerRunner {
             final Map<String, String> envVars,
             final Map<String, String> labels,
             final Map<String, String> resourceRequirements,
-            final String parentCgroup,
-            final String timeout)
+            final String parentCgroup)
             throws IOException, InterruptedException {
-
+        if (!inputData.getName().equals("input.json"))
+            throw new IllegalStateException("Input file has wrong name: " +
+                    inputData.getName() + "(it should be named input.json)");
+        File workDir = inputData.getCanonicalFile().getParentFile();
+        File tokenFile = new File(workDir, "token");
+        cl = createDockerClient();
+        imageName = checkImagePulled(cl, imageName, log);
         String cntName = null;
-        String cntId = null;
 
         try {
-            cl = createDockerClient();
-            setupForJob(inputData, token, outputFile);
-            imageName = checkImagePulled(cl, imageName, log);
-            cntName = generateContainerName(moduleName, jobId);
-            List<Bind> binds = getBinds(workDir, refDataDir, optionalScratchDir, additionalBinds);
-            List<String> envVarList = getEnvVars(callbackUrl, envVars);
-            CreateContainerCmd cntCmd = createContainerCommand(imageName, cntName, binds, envVarList, labels, resourceRequirements, parentCgroup, log);
-            cntId = cntCmd.exec().getId();
-            logContainerNameId(cntId, cntName);
+            FileWriter fw = new FileWriter(tokenFile);
+            fw.write(token.getToken());
+            fw.close();
+            if (outputFile.exists())
+                outputFile.delete();
+            long suffix = System.currentTimeMillis();
+            while (true) {
+                cntName = moduleName.toLowerCase() + "_" + jobId.replace('-', '_') + "_" + suffix;
+                if (findContainerByNameOrIdPrefix(cl, cntName) == null)
+                    break;
+                suffix++;
+            }
+            List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(workDir.getAbsolutePath(),
+                    new Volume("/kb/module/work"))));
+            if (refDataDir != null)
+                binds.add(new Bind(refDataDir.getAbsolutePath(), new Volume("/data"), AccessMode.ro));
+            if (optionalScratchDir != null)
+                binds.add(new Bind(optionalScratchDir.getAbsolutePath(), new Volume("/kb/module/work/tmp")));
+            if (additionalBinds != null)
+                binds.addAll(additionalBinds);
+            CreateContainerCmd cntCmd = cl.createContainerCmd(imageName)
+                    .withName(cntName).withTty(true).withCmd("async").withBinds(
+                            binds.toArray(new Bind[binds.size()]));
+            List<String> envVarList = new ArrayList<String>();
+            if (callbackUrl != null) {
+                envVarList.add("SDK_CALLBACK_URL=" + callbackUrl);
+            }
+            if (envVars != null) {
+                for (String envVarKey : envVars.keySet()) {
+                    envVarList.add(envVarKey + "=" + envVars.get(envVarKey));
+                }
+            }
 
+            cntCmd = cntCmd.withEnv(envVarList.toArray(new String[envVarList.size()]));
+            String miniKB = System.getenv("MINI_KB");
+            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
+                cntCmd.withNetworkMode("mini_kb_default");
+            }
+            cntCmd.withLabels(labels);
 
+            HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements,log);
+            if(cpuMemoryLimiter != null){
+                //You have to reset binds and reset network unfortunately...
+                cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
+                if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
+                    cpuMemoryLimiter.withNetworkMode("mini_kb_default");
+                }
+                cntCmd.withHostConfig(cpuMemoryLimiter);
+            }
+
+            if(parentCgroup != null){
+                System.out.println("About to set cgroup" + parentCgroup);
+                cntCmd.withCgroupParent(parentCgroup);
+            }
+
+            final String cntId = cntCmd.exec().getId();
+
+            //Create a log of all docker jobs
+            new File(dockerJobIdLogsDir).mkdirs();
+            File logFile = new File(dockerJobIdLogsDir + "/" + cntName);
+            FileUtils.writeStringToFile(logFile, cntId);
             Process p = Runtime.getRuntime().exec(new String[]{"docker", "start", "-a", cntId});
             List<Thread> workers = new ArrayList<Thread>();
             InputStream[] inputStreams = new InputStream[]{p.getInputStream(), p.getErrorStream()};
@@ -279,21 +151,52 @@ public class DockerRunner {
                 workers.add(ret);
             }
 
-            Thread cancellationCheckingThread = createCancellationChecking(cancellationChecker, cntId, moduleName, log);
-            if (cancellationCheckingThread != null)
+            Thread cancellationCheckingThread = null;
+            if (cancellationChecker != null) {
+                cancellationCheckingThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        while (!Thread.interrupted()) {
+                            try {
+                                Thread.sleep(CANCELLATION_CHECK_PERIOD_SEC * 1000);
+                                if (cancellationChecker.isJobCanceled()) {
+                                    // Stop the container
+                                    try {
+                                        cl.stopContainerCmd(cntId).exec();
+
+                                        log.logNextLine("Docker container for module [" + moduleName + "]" +
+                                                " was successfully stopped during job cancellation", false);
+                                    } catch (Exception ex) {
+                                        ex.printStackTrace();
+                                        log.logNextLine("Error stopping docker container for module [" +
+                                                        moduleName + "] during job cancellation: " + ex.getMessage(),
+                                                true);
+                                    }
+                                    try {
+                                        log.logNextLine("Attemping to kill subjobs.", false);
+                                        killSubJobs();
+                                    } catch (Exception ex) {
+                                        ex.printStackTrace();
+                                    }
+                                    break;
+                                }
+                            } catch (InterruptedException ex) {
+                                break;
+                            }
+                        }
+                    }
+                });
                 cancellationCheckingThread.start();
-
-
+            }
             for (Thread t : workers)
                 t.join();
-            log.logNextLine("Job will automatically timeout in " + timeout + " seconds" , false);
-            p.waitFor(Long.parseLong(timeout), TimeUnit.SECONDS);
+            p.waitFor();
 
             int containerExitCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
-            if (containerExitCode == 125 || containerExitCode == 126 || containerExitCode == 128) {
-                log.logNextLine("STATUS CODE=" + containerExitCode, true);
+            if(containerExitCode == 125 || containerExitCode == 126 || containerExitCode == 128){
+                log.logNextLine("STATUS CODE=" + containerExitCode ,true);
                 InspectContainerResponse icr = cl.inspectContainerCmd(cntId).exec();
-                log.logNextLine(icr.toString(), true);
+                log.logNextLine(icr.toString(),true);
             }
 
             if (cancellationCheckingThread != null)
@@ -307,54 +210,68 @@ public class DockerRunner {
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
-                log.logNextLine("Container was still running after timeout!", true);
+                throw new IllegalStateException("Container was still running");
             }
 
+            LogContainerCmd logContainerCmd = cl.logContainerCmd(cntId).withStdOut(true).withStdErr(true).withTimestamps(true);
 
+            final List<String> logs = new ArrayList<>();
+            final List<String> err_logs = new ArrayList<>();
+
+            try {
+                logContainerCmd.exec(new LogContainerResultCallback() {
+                    @Override
+                    public void onNext(Frame item) {
+                        logs.add(item.toString());
+                        if (item.getStreamType().equals(StreamType.STDERR)) {
+                            err_logs.add(item.toString());
+                        }
+                    }
+                }).awaitCompletion();
+            } catch (InterruptedException ex) {
+                ex.printStackTrace();
+            }
+
+            FileWriter writer = new FileWriter(new File(workDir, "docker.log"));
+            for (String str : logs) {
+                writer.write(str);
+            }
+            writer.close();
             if (outputFile.exists()) {
                 return outputFile;
+            } else {
+                if (cancellationChecker != null && cancellationChecker.isJobCanceled())
+                    return null;
+                int exitCode = resp2.getState().getExitCode();
+                String msg = "Output file is not found, exit code is " + exitCode;
+                throw new IllegalStateException(msg + err_logs);
             }
-            if (cancellationChecker != null && cancellationChecker.isJobCanceled())
-                return null;
-
-            int exitCode = resp2.getState().getExitCode();
-            String msg = "Output file is not found, exit code is " + exitCode;
-            throw new IllegalStateException(msg);
-
-
         } finally {
-            cleanupAfterJob(cntName, removeImage, imageName);
-        }
-    }
-
-    //TODO UNUSED FOR NOW
-    private void getLogs(String cntId, String workDir) throws Exception {
-        LogContainerCmd logContainerCmd = cl.logContainerCmd(cntId).withStdOut(true).withStdErr(true).withTimestamps(true);
-
-        final List<String> logs = new ArrayList<>();
-        final List<String> err_logs = new ArrayList<>();
-
-        try {
-            logContainerCmd.exec(new LogContainerResultCallback() {
-                @Override
-                public void onNext(Frame item) {
-                    logs.add(item.toString());
-                    if (item.getStreamType().equals(StreamType.STDERR)) {
-                        err_logs.add(item.toString());
+            if (cntName != null) {
+                Container cnt = findContainerByNameOrIdPrefix(cl, cntName);
+                if (cnt != null) {
+                    try {
+                        cl.removeContainerCmd(cnt.getId()).withRemoveVolumes(true).exec();
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
                     }
                 }
-            }).awaitCompletion(30, TimeUnit.SECONDS);
-        } catch (InterruptedException ex) {
-            ex.printStackTrace();
+            }
+            if (removeImage) {
+                try {
+                    Image img = findImageId(cl, imageName);
+                    cl.removeImageCmd(img.getId()).exec();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+            if (tokenFile.exists())
+                try {
+                    tokenFile.delete();
+                } catch (Exception ignore) {
+                }
         }
-
-        FileWriter writer = new FileWriter(new File(workDir, "docker.log"));
-        for (String str : logs) {
-            writer.write(str);
-        }
-        writer.close();
     }
-
 
     /**
      * Get a list of subjob docker ids from the dockerJobIdLogsDir
@@ -467,7 +384,7 @@ public class DockerRunner {
      * Impose cpu and memory limits into a hostconfig
      *
      * @param resourceRequirements request_cpus and request_memory to be translated into a cpu limit and a soft memory limit
-     * @param log                  logger
+     * @param log logger
      * @return a hostconfig with constrainted memory and or cpu
      */
     public HostConfig setJobRequirements(Map<String, String> resourceRequirements, LineLogger log) {
@@ -484,19 +401,19 @@ public class DockerRunner {
                 int cpuQuota = (int) (inputCores * CPU_QUOTA_CONST);
                 cpuMemoryLimiter.withCpuQuota(cpuQuota);
                 cpuMemoryLimiter.withCpuPeriod(DEFAULT_CPU_PERIOD);
-                log.logNextLine("Setting request_cpus Requirements to " + inputCores, false);
-                log.logNextLine("Setting cpuQuota  to " + cpuQuota, false);
-                log.logNextLine("Setting withCpuPeriod  to " + DEFAULT_CPU_PERIOD, false);
+                log.logNextLine("Setting request_cpus Requirements to " + inputCores, true);
+                log.logNextLine("Setting cpuQuota  to " + cpuQuota, true);
+                log.logNextLine("Setting withCpuPeriod  to " + DEFAULT_CPU_PERIOD, true);
             }
             if (resourceKey.equals("request_memory")) {
                 String inputMemory = resourceRequirements.get("request_memory").replace("MB", "");
                 long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
                 //cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
                 cpuMemoryLimiter.withMemoryReservation(inputMemoryBytes); //soft memory limit
-                log.logNextLine("Setting request_memory Requirements to " + inputMemory, false);
-                log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, false);
-                if (Long.parseLong(inputMemory) <= 500) {
-                    log.logNextLine("WARNING: withMemoryReservation MIGHT BE TOO LOW ", false);
+                log.logNextLine("Setting request_memory Requirements to " + inputMemory, true);
+                log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, true);
+                if(Long.parseLong(inputMemory) <= 500){
+                    log.logNextLine("WARNING: withMemoryReservation MIGHT BE TOO LOW " , true);
                 }
             }
         }
