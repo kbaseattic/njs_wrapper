@@ -1,28 +1,5 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.WriteConcernException;
-import us.kbase.auth.AuthConfig;
-import us.kbase.auth.AuthException;
-import us.kbase.auth.AuthToken;
-import us.kbase.auth.ConfigurableAuthService;
-import us.kbase.catalog.*;
-import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.service.*;
-import us.kbase.common.utils.AweUtils;
-import us.kbase.common.utils.CondorUtils;
-import us.kbase.common.utils.CountingOutputStream;
-import us.kbase.narrativejobservice.*;
-import us.kbase.narrativejobservice.JobState;
-import us.kbase.narrativejobservice.db.*;
-import us.kbase.userandjobstate.CreateJobParams;
-import us.kbase.userandjobstate.InitProgress;
-import us.kbase.userandjobstate.Results;
-import us.kbase.userandjobstate.UserAndJobStateClient;
-import us.kbase.workspace.GetObjectInfoNewParams;
-import us.kbase.workspace.ObjectSpecification;
-import us.kbase.workspace.WorkspaceClient;
-
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -31,6 +8,54 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.*;
 import java.util.regex.Pattern;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mongodb.WriteConcernException;
+
+import us.kbase.auth.AuthConfig;
+import us.kbase.auth.AuthException;
+import us.kbase.auth.AuthToken;
+import us.kbase.auth.ConfigurableAuthService;
+import us.kbase.catalog.CatalogClient;
+import us.kbase.catalog.ClientGroupConfig;
+import us.kbase.catalog.ClientGroupFilter;
+import us.kbase.catalog.LogExecStatsParams;
+import us.kbase.catalog.ModuleVersion;
+import us.kbase.catalog.SelectModuleVersion;
+import us.kbase.common.executionengine.JobRunnerConstants;
+import us.kbase.common.service.JsonClientException;
+import us.kbase.common.service.ServerException;
+import us.kbase.common.service.Tuple11;
+import us.kbase.common.service.Tuple7;
+import us.kbase.common.service.UObject;
+import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.utils.AweUtils;
+import us.kbase.common.utils.CondorUtils;
+import us.kbase.common.utils.CountingOutputStream;
+import us.kbase.narrativejobservice.CancelJobParams;
+import us.kbase.narrativejobservice.CheckJobCanceledResult;
+import us.kbase.narrativejobservice.CheckJobsParams;
+import us.kbase.narrativejobservice.CheckJobsResults;
+import us.kbase.narrativejobservice.FinishJobParams;
+import us.kbase.narrativejobservice.GetJobLogsResults;
+import us.kbase.narrativejobservice.JobState;
+import us.kbase.narrativejobservice.JsonRpcError;
+import us.kbase.narrativejobservice.LogLine;
+import us.kbase.narrativejobservice.NarrativeJobServiceServer;
+import us.kbase.narrativejobservice.RunJobParams;
+import us.kbase.narrativejobservice.UpdateJobParams;
+import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
+import us.kbase.narrativejobservice.db.ExecLog;
+import us.kbase.narrativejobservice.db.ExecLogLine;
+import us.kbase.narrativejobservice.db.ExecTask;
+import us.kbase.narrativejobservice.db.SanitizeMongoObject;
+import us.kbase.userandjobstate.CreateJobParams;
+import us.kbase.userandjobstate.InitProgress;
+import us.kbase.userandjobstate.Results;
+import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.workspace.GetObjectInfoNewParams;
+import us.kbase.workspace.ObjectSpecification;
+import us.kbase.workspace.WorkspaceClient;
 
 public class SDKMethodRunner {
 	public static final String APP_STATE_QUEUED = "queued";
@@ -130,7 +155,7 @@ public class SDKMethodRunner {
 			String schedulerType = "condor";
 
 			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
-			saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType, parentJobId, config);
+			saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType,parentJobId, config);
 
 		} else {
 			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));
@@ -154,7 +179,7 @@ public class SDKMethodRunner {
 				adminToken = null;
 			}
 			if (adminToken == null && adminUser == null) {
-				throw new IllegalStateException("Catalog admin credentials are not defined in " +
+				throw new IllegalStateException("Catalog admin creadentials are not defined in " +
 						"configuration");
 			}
 			if (adminToken == null) {
@@ -277,8 +302,6 @@ public class SDKMethodRunner {
 					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
 					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2,
 					NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION,
-					NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES,
-					NarrativeJobServiceServer.CFG_PROP_DOCKER_JOB_TIMEOUT_SECONDS,
 			};
 			for (String key : propsToSend) {
 				String value = config.get(key);

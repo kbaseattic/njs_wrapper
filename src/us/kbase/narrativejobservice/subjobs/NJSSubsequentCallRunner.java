@@ -111,13 +111,11 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
                     cancellationChecker, null, labels);
         }
         else {
-            // Default is 7 days
-            String timeout = System.getenv("DOCKER_JOB_TIMEOUT");
             new DockerRunner(config.getDockerURI()).run(
                     imageName, moduleName, inputFile.toFile(), token,
                     config.getLogger(), outputFile.toFile(), false, refDataDir,
                     sharedScratchDir.toFile(), config.getCallbackURL(),
-                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null, cgroupParent,timeout);
+                    jobId.toString(), additionalBinds, cancellationChecker, null, labels, null, cgroupParent);
         }
         return outputFile;
     }

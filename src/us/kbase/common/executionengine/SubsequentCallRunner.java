@@ -22,7 +22,6 @@ import us.kbase.common.service.ServerException;
 import us.kbase.common.service.UObject;
 import us.kbase.common.service.JsonServerServlet.RpcCallData;
 
-
 public abstract class SubsequentCallRunner {
     
     //TODO NJS_SDK move to common repo
