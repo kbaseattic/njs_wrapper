@@ -179,7 +179,7 @@ public class SDKMethodRunner {
 				adminToken = null;
 			}
 			if (adminToken == null && adminUser == null) {
-				throw new IllegalStateException("Catalog admin creadentials are not defined in " +
+				throw new IllegalStateException("Catalog admin credentials are not defined in " +
 						"configuration");
 			}
 			if (adminToken == null) {
@@ -302,6 +302,8 @@ public class SDKMethodRunner {
 					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL,
 					NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2,
 					NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION,
+					NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES,
+					NarrativeJobServiceServer.CFG_PROP_DOCKER_JOB_TIMEOUT_SECONDS,
 			};
 			for (String key : propsToSend) {
 				String value = config.get(key);
