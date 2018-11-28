@@ -156,6 +156,11 @@ public class SDKLocalMethodRunner {
 
 
         Thread logFlusher = null;
+        Thread tokenExpiration = null;
+        Thread timedJobShutdown = null;
+        Thread shutdownHook = null;
+
+
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
             @Override
@@ -413,6 +418,7 @@ public class SDKLocalMethodRunner {
                     return false;
                 }
             };
+
             // Starting up callback server
             String[] callbackNetworks = null;
             String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
@@ -496,7 +502,7 @@ public class SDKLocalMethodRunner {
             final long msToLive = milliSecondsToLive(tokenStr, config);
             log.logNextLine(String.format("Job token will expire in %s ms", msToLive), false);
 
-            Thread tokenExpiration = new Thread() {
+            tokenExpiration = new Thread() {
                 @Override
                 public void run() {
                     try {
@@ -518,7 +524,7 @@ public class SDKLocalMethodRunner {
             tokenExpiration.start();
 
             //Maximum RunTime For Jobs
-            Thread timedJobShutdown = new Thread() {
+            timedJobShutdown = new Thread() {
                 @Override
                 public void run() {
                     try {
@@ -535,7 +541,7 @@ public class SDKLocalMethodRunner {
             };
             timedJobShutdown.start();
 
-            Thread shutdownHook = new Thread() {
+            shutdownHook = new Thread() {
                 @Override
                 public void run() {
                     try {
@@ -567,6 +573,9 @@ public class SDKLocalMethodRunner {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
+                tokenExpiration.interrupt();
+                timedJobShutdown.interrupt();
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 return;
             }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
@@ -578,6 +587,9 @@ public class SDKLocalMethodRunner {
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
+                tokenExpiration.interrupt();
+                timedJobShutdown.interrupt();
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
@@ -609,8 +621,6 @@ public class SDKLocalMethodRunner {
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
             logFlusher.interrupt();
-
-
             tokenExpiration.interrupt();
             timedJobShutdown.interrupt();
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
@@ -645,6 +655,11 @@ public class SDKLocalMethodRunner {
             } catch (Exception ex2) {
                 ex2.printStackTrace();
             }
+            logFlusher.interrupt();
+            tokenExpiration.interrupt();
+            timedJobShutdown.interrupt();
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
         } finally {
             if (callbackServer != null)
                 try {
@@ -653,6 +668,10 @@ public class SDKLocalMethodRunner {
                 } catch (Exception ignore) {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
+            logFlusher.interrupt();
+            tokenExpiration.interrupt();
+            timedJobShutdown.interrupt();
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
         }
 
     }
