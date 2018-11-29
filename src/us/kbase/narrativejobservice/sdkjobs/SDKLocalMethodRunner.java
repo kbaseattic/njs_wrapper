@@ -332,7 +332,7 @@ public class SDKLocalMethodRunner {
                             modMeth.getModule()).withClientGroup(clientGroup)
                             .withFunctionName(modMeth.getMethod()));
                 } catch (Exception ex) {
-                    log.logNextLine("Error requesing volume mounts from Catalog: " + ex.getMessage(), true);
+                    log.logNextLine("Error requesting volume mounts from Catalog: " + ex.getMessage(), true);
                 }
                 if (vmc != null && vmc.size() > 0) {
                     if (vmc.size() > 1)
@@ -521,6 +521,7 @@ public class SDKLocalMethodRunner {
                     }
                 }
             };
+            tokenExpiration.setDaemon(true);
             tokenExpiration.start();
 
             //Maximum RunTime For Jobs
@@ -539,6 +540,7 @@ public class SDKLocalMethodRunner {
                     }
                 }
             };
+            timedJobShutdown.setDaemon(true);
             timedJobShutdown.start();
 
             shutdownHook = new Thread() {
@@ -573,9 +575,6 @@ public class SDKLocalMethodRunner {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
-                tokenExpiration.interrupt();
-                timedJobShutdown.interrupt();
-                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 return;
             }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
@@ -587,9 +586,7 @@ public class SDKLocalMethodRunner {
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
-                tokenExpiration.interrupt();
-                timedJobShutdown.interrupt();
-                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
@@ -621,10 +618,6 @@ public class SDKLocalMethodRunner {
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
             logFlusher.interrupt();
-            tokenExpiration.interrupt();
-            timedJobShutdown.interrupt();
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
@@ -655,11 +648,6 @@ public class SDKLocalMethodRunner {
             } catch (Exception ex2) {
                 ex2.printStackTrace();
             }
-            logFlusher.interrupt();
-            tokenExpiration.interrupt();
-            timedJobShutdown.interrupt();
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-
         } finally {
             if (callbackServer != null)
                 try {
