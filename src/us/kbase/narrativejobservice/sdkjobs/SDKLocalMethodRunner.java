@@ -158,7 +158,6 @@ public class SDKLocalMethodRunner {
         //Get expiration ms from epoch
         if (expire == null)
             throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
-
         return (long)expire;
     }
 
@@ -213,12 +212,10 @@ public class SDKLocalMethodRunner {
         final NarrativeJobServiceClient jobSrvClient = getJobClient(
                 jobSrvUrl, tempToken);
 
-
         Thread logFlusher = null;
         Thread shutdownHook = null;
         Thread tokenExpiry = null;
         Map<String, String> config = null;
-
 
         final List<LogLine> logLines = new ArrayList<LogLine>();
         final LineLogger log = new LineLogger() {
@@ -242,6 +239,7 @@ public class SDKLocalMethodRunner {
                 return;
             }
             Tuple2<RunJobParams, Map<String, String>> jobInput = jobSrvClient.getJobParams(jobId);
+
             config = jobInput.getE2();
 
             if (System.getenv("CALLBACK_INTERFACE") != null)
@@ -478,6 +476,7 @@ public class SDKLocalMethodRunner {
                     return false;
                 }
             };
+
             // Starting up callback server
             String[] callbackNetworks = null;
             String callbackNetworksText = config.get(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
@@ -555,11 +554,10 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(resourceRequirements.toString(), false);
             }
 
-
             tokenExpiry = checkForExpiredToken(token.getToken(), config, log, jobSrvClient, jobId, dockerURI);
             tokenExpiry.setDaemon(true);
             tokenExpiry.start();
-
+          
             shutdownHook = new Thread() {
                 @Override
                 public void run() {
@@ -572,9 +570,7 @@ public class SDKLocalMethodRunner {
                     }
                 }
             };
-
             Runtime.getRuntime().addShutdownHook(shutdownHook);
-
 
             // Calling Runner
             if (System.getenv("USE_SHIFTER") != null) {
@@ -582,15 +578,20 @@ public class SDKLocalMethodRunner {
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
                         cancellationChecker, envVars, labels);
             } else {
+                // Default is 7 days
+                String timeout = System.getenv("DOCKER_JOB_TIMEOUT");
                 new DockerRunner(dockerURI).run(imageName, modMeth.getModule(), inputFile, token, log,
                         outputFile, false, refDataDir, null, callbackUrl, jobId, additionalBinds,
-                        cancellationChecker, envVars, labels, resourceRequirements, parentCgroup);
+                        cancellationChecker, envVars, labels, resourceRequirements, parentCgroup, timeout);
             }
 
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled.", false);
                 flushLog(jobSrvClient, jobId, logLines);
                 logFlusher.interrupt();
+                tokenExpiration.interrupt();
+                timedJobShutdown.interrupt();
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 return;
             }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
@@ -602,6 +603,9 @@ public class SDKLocalMethodRunner {
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
+                tokenExpiration.interrupt();
+                timedJobShutdown.interrupt();
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 throw new IllegalStateException(error);
             }
             FinishJobParams result = UObject.getMapper().readValue(outputFile, FinishJobParams.class);
@@ -632,7 +636,6 @@ public class SDKLocalMethodRunner {
             flushLog(jobSrvClient, jobId, logLines);
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
-
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
@@ -663,6 +666,11 @@ public class SDKLocalMethodRunner {
             } catch (Exception ex2) {
                 ex2.printStackTrace();
             }
+            logFlusher.interrupt();
+            tokenExpiration.interrupt();
+            timedJobShutdown.interrupt();
+            Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
         } finally {
             if (callbackServer != null)
                 try {
@@ -671,6 +679,7 @@ public class SDKLocalMethodRunner {
                 } catch (Exception ignore) {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
+
                 try{
                     final URI dockerURI = getURI(config,
                             NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
