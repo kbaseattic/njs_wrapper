@@ -21,7 +21,7 @@ public class TokenReaperTest {
 
     @Test
     public void testSimple() throws Exception {
-        long ms = SDKLocalMethodRunner.milliSecondsToLive(token.getToken(), config);
+        long ms = SDKLocalMethodRunner.tokenExpiry(token.getToken(), config);
         //Possibly Flaky test based on expiration with mini_kb
         //Assert.assertEquals(Long.parseLong("8641506380012940"), ms );
     }
