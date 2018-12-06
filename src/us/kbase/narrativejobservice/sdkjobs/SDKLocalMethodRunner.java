@@ -169,7 +169,7 @@ public class SDKLocalMethodRunner {
                 try {
                     String time_before_shutdown_minutes = config.get(NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES);
                     int time_before_shutdown_ms = (Integer.parseInt(time_before_shutdown_minutes) * 60000);
-                    String message = String.format("Max alloted time (%s) millseconds (%s) minutes ", time_before_shutdown_ms, time_before_shutdown_minutes) ;
+                    String message = String.format("Max alloted time (%s) milliseconds (%s) minutes ", time_before_shutdown_ms, time_before_shutdown_minutes) ;
                     log.logNextLine(message,false);
                     String error = String.format("Job was cancelled as it ran over" + message);
                     Thread.sleep(time_before_shutdown_ms);
