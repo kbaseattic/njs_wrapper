@@ -259,7 +259,7 @@ public class SDKLocalMethodRunner {
 
 
         Thread logFlusher = null;
-        Thread tokenExpiry = null;
+        Thread tokenExpiryChecker = null;
         Thread timedJobShutdown = null;
         Thread shutdownHook = null;
         Map<String, String> config = null;
@@ -600,9 +600,9 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(resourceRequirements.toString(), false);
             }
 
-            tokenExpiry = checkForExpiredToken(config, dockerURI, jobId, jobSrvClient, log, token.getToken());
-            tokenExpiry.setDaemon(true);
-            tokenExpiry.start();
+            tokenExpiryChecker = checkForExpiredToken(config, dockerURI, jobId, jobSrvClient, log, token.getToken());
+            tokenExpiryChecker.setDaemon(true);
+            tokenExpiryChecker.start();
 
             timedJobShutdown = jobShutdownTimer(config, dockerURI, jobId, jobSrvClient, log);
             timedJobShutdown.setDaemon(true);
@@ -639,7 +639,7 @@ public class SDKLocalMethodRunner {
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
-                tokenExpiry.interrupt();
+                tokenExpiryChecker.interrupt();
                 timedJobShutdown.interrupt();
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 throw new IllegalStateException(error);
@@ -720,7 +720,7 @@ public class SDKLocalMethodRunner {
             }
 
             logFlusher.interrupt();
-            tokenExpiry.interrupt();
+            tokenExpiryChecker.interrupt();
             timedJobShutdown.interrupt();
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
         }
