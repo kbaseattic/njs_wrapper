@@ -32,7 +32,6 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.MethodCall;
 import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
-import us.kbase.narrativejobservice.NarrativeJobServiceServer;
 
 import java.io.*;
 import java.net.*;
@@ -59,6 +58,7 @@ public class SDKLocalMethodRunner {
     public static final String CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS =
             JobRunnerConstants.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS;
 
+
     /**
      * Get time for job to live based on token expiry date
      *
@@ -67,7 +67,7 @@ public class SDKLocalMethodRunner {
      * @return time to live in milliseconds
      * @throws Exception
      */
-    public static long milliSecondsToLive(String token, Map<String, String> config) throws Exception {
+    public static long tokenExpiry(String token, Map<String, String> config) throws Exception {
         String authUrl = config.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL_V2);
         if (authUrl == null) {
             throw new IllegalStateException("Deployment configuration parameter is not defined: " +
@@ -86,22 +86,123 @@ public class SDKLocalMethodRunner {
         ObjectMapper mapper = new ObjectMapper();
         Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
         Object expire = jsonMap.getOrDefault("expires", null);
-        //Calculate ms till expiration
+        //Get expiration ms from epoch
         if (expire == null)
             throw new Exception("Unable to get expiry date of token, we should cancel it now" + jsonMap.toString());
-
-        long ms = ((long) expire - Instant.now().toEpochMilli());
-
-        //Time of token expiration - N time
-        String time_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
-
-        //10 Minute Default
-        if (time_before_expiration == null)
-            return ms - (10 * 60 * 1000);
-        //Number of minutes / 60 * 1000
-        return ms - (Long.parseLong(time_before_expiration) / 60) * 1000;
-
+        return (long) expire;
     }
+
+
+    /**
+     * Create a thread that checks for an expired token and ends the job
+     *
+     * @param token        User Token
+     * @param config       User Job Config
+     * @param log          Log to the narrative
+     * @param jobSrvClient Connect to NJS
+     * @param jobId        The job ID
+     * @param dockerURI    The URI to connect to Docker
+     * @return a thread that automatically completes the job and kills all docker subjobs
+     * @throws Exception
+     */
+    public static Thread checkForExpiredToken(final Map<String, String> config, final URI dockerURI, final String jobId, final NarrativeJobServiceClient jobSrvClient, final LineLogger log, String token) throws Exception {
+        final long expire = tokenExpiry(token, config);
+        final long now = Instant.now().toEpochMilli();
+        final String expirationDate = DATE_FORMATTER.print(expire);
+        long timeToLive = expire - now;
+        //10 minutes before token expires is the default
+        String minutes_before_expiration = config.get(NarrativeJobServiceServer.CFG_PROP_TIME_BEFORE_EXPIRATION);
+        if (minutes_before_expiration == null)
+            timeToLive -= 60000 * 10;
+        else
+            timeToLive -= Long.parseLong(minutes_before_expiration) * 60000;
+        String message = String.format("Now (%s) Token (expiry %s) ExpireDate(%s) TimeToLive (%s)", now, expire, expirationDate, timeToLive);
+        log.logNextLine(message, false);
+        final long msToLive = timeToLive;
+        Thread tokenExpiration = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    if (msToLive > 0) {
+                        try {
+                            Thread.sleep(msToLive);
+                            final String now = DATE_FORMATTER.print(Instant.now().toEpochMilli());
+                            String error = String.format("Job was canceled due to token expiration. Please resubmit the job (Expiry=%s) (Now=%s)", expirationDate, now);
+                            finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
+                        } catch (InterruptedException ex) {
+                        }
+                    } else {
+                        String error = "Job was canceled due to invalid token expiration state:";
+                        finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        return tokenExpiration;
+    }
+
+    /***
+     * Helper for threads to shutdown jobs
+     */
+    public static void finishJobPrematurely(final String error, final String jobId, final LineLogger log, final URI dockerURI, final NarrativeJobServiceClient jobSrvClient) throws Exception {
+
+        FinishJobParams result = new FinishJobParams().withError(
+                new JsonRpcError().withCode(-1L).withName("JSONRPCError")
+                        .withMessage(error)
+                        .withError(error));
+        jobSrvClient.finishJob(jobId, result);
+        log.logNextLine(error, true);
+        new DockerRunner(dockerURI).killSubJobs();
+    }
+
+    /***
+     * Get job shutdown timer thread
+     */
+    public static Thread jobShutdownTimer(final Map<String, String> config, final URI dockerURI, final String jobId, final NarrativeJobServiceClient jobSrvClient, final LineLogger log) {
+        //Maximum RunTime For Jobs
+
+        return new Thread() {
+            @Override
+            public void run() {
+                try {
+                    String time_before_shutdown_minutes = config.get(NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES);
+                    int time_before_shutdown_ms = (Integer.parseInt(time_before_shutdown_minutes) * 60000);
+                    String message = String.format("Max alloted time (%s) millseconds (%s) minutes ", time_before_shutdown_ms, time_before_shutdown_minutes) ;
+                    log.logNextLine(message,false);
+                    String error = String.format("Job was cancelled as it ran over" + message);
+                    Thread.sleep(time_before_shutdown_ms);
+                    finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+    }
+
+
+    /***
+     * Create jobShutdownHook for catching shutdown signals
+     */
+    public static Thread jobShutdownHook(final URI dockerURI) {
+        return new Thread() {
+                    @Override
+                    public void run() {
+                        try {
+                            new DockerRunner(dockerURI).killSubJobs();
+                            File logFile = new File("shutdownhook");
+                            FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                };
+    }
+
+
+
+
 
     /**
      * Submit a cancel job request to the NJS Client
@@ -113,6 +214,8 @@ public class SDKLocalMethodRunner {
     public static void canceljob(NarrativeJobServiceClient jobSrvClient, String jobId) throws Exception {
         jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
     }
+
+
 
 
     /**
@@ -156,9 +259,10 @@ public class SDKLocalMethodRunner {
 
 
         Thread logFlusher = null;
-        Thread tokenExpiration = null;
+        Thread tokenExpiry = null;
         Thread timedJobShutdown = null;
         Thread shutdownHook = null;
+        Map<String, String> config = null;
 
 
         final List<LogLine> logLines = new ArrayList<LogLine>();
@@ -183,7 +287,7 @@ public class SDKLocalMethodRunner {
                 return;
             }
             Tuple2<RunJobParams, Map<String, String>> jobInput = jobSrvClient.getJobParams(jobId);
-            Map<String, String> config = jobInput.getE2();
+            config = jobInput.getE2();
             if (System.getenv("CALLBACK_INTERFACE") != null)
                 config.put(CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS, System.getenv("CALLBACK_INTERFACE"));
             if (System.getenv("REFDATA_DIR") != null)
@@ -496,64 +600,15 @@ public class SDKLocalMethodRunner {
                 log.logNextLine(resourceRequirements.toString(), false);
             }
 
-            //Get number of milliseconds to live for this token
-            //Set a timer before job is cancelled for having an expired token to
-            //the expiration time minus 10 minutes (default) or higher
-            final long msToLive = milliSecondsToLive(tokenStr, config);
-            log.logNextLine(String.format("Job token will expire in %s ms", msToLive), false);
+            tokenExpiry = checkForExpiredToken(config, dockerURI, jobId, jobSrvClient, log, token.getToken());
+            tokenExpiry.setDaemon(true);
+            tokenExpiry.start();
 
-            tokenExpiration = new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        if (msToLive > 0) {
-                            try {
-                                Thread.sleep(msToLive);
-                                canceljob(jobSrvClient, jobId);
-                                log.logNextLine("Job was canceled due to token expiration", true);
-                            } catch (InterruptedException ex) { }
-                        } else {
-                            canceljob(jobSrvClient, jobId);
-                            log.logNextLine("Job was canceled due to invalid token expiration state:" + msToLive, true);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
-            tokenExpiration.start();
-
-            //Maximum RunTime For Jobs
-            timedJobShutdown = new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        String time_before_shutdown_minutes = config.get(NarrativeJobServiceServer.CFG_PROP_JOB_TIMEOUT_MINUTES);
-                        int time_before_shutdown_seconds = (Integer.parseInt(time_before_shutdown_minutes) * 60000) ;
-                        String message = String.format("Job was cancelled as it ran over the max alloted time (%s) seconds (%s) minutes ", time_before_shutdown_seconds, time_before_shutdown_minutes );
-                        Thread.sleep(time_before_shutdown_seconds);
-                        log.logNextLine(message, true);
-                        canceljob(jobSrvClient, jobId);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
+            timedJobShutdown = jobShutdownTimer(config, dockerURI, jobId, jobSrvClient, log);
+            timedJobShutdown.setDaemon(true);
             timedJobShutdown.start();
 
-            shutdownHook = new Thread() {
-                @Override
-                public void run() {
-                    try {
-                        new DockerRunner(dockerURI).killSubJobs();
-                        File logFile = new File("shutdownhook");
-                        FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
-                        canceljob(jobSrvClient, jobId);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
+            shutdownHook = jobShutdownHook(dockerURI);
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
             // Calling Runner
@@ -572,10 +627,7 @@ public class SDKLocalMethodRunner {
             if (cancellationChecker.isJobCanceled()) {
                 log.logNextLine("Job was canceled", false);
                 flushLog(jobSrvClient, jobId, logLines);
-                logFlusher.interrupt();
-                tokenExpiration.interrupt();
-                timedJobShutdown.interrupt();
-                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+
                 return;
             }
             if (outputFile.length() > MAX_OUTPUT_SIZE) {
@@ -587,7 +639,7 @@ public class SDKLocalMethodRunner {
                         " bytes. This may happen as a result of returning actual data instead of saving it to " +
                         "kbase data stores (Workspace, Shock, ...) and returning reference to it. Returned " +
                         "value starts with \"" + new String(chars) + "...\"";
-                tokenExpiration.interrupt();
+                tokenExpiry.interrupt();
                 timedJobShutdown.interrupt();
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
                 throw new IllegalStateException(error);
@@ -620,11 +672,6 @@ public class SDKLocalMethodRunner {
             flushLog(jobSrvClient, jobId, logLines);
             // push results to execution engine
             jobSrvClient.finishJob(jobId, result);
-            logFlusher.interrupt();
-            tokenExpiration.interrupt();
-            timedJobShutdown.interrupt();
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-
         } catch (Exception ex) {
             ex.printStackTrace();
             try {
@@ -655,11 +702,6 @@ public class SDKLocalMethodRunner {
             } catch (Exception ex2) {
                 ex2.printStackTrace();
             }
-            logFlusher.interrupt();
-            tokenExpiration.interrupt();
-            timedJobShutdown.interrupt();
-            Runtime.getRuntime().removeShutdownHook(shutdownHook);
-
         } finally {
             if (callbackServer != null)
                 try {
@@ -668,8 +710,17 @@ public class SDKLocalMethodRunner {
                 } catch (Exception ignore) {
                     System.err.println("Error shutting down callback server: " + ignore.getMessage());
                 }
+            try{
+                final URI dockerURI = getURI(config,
+                        NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI,
+                        true);
+                new DockerRunner(dockerURI).killSubJobs();
+            }catch (Exception e){
+                log.logNextLine("Couldn't run kill subjobs", true);
+            }
+
             logFlusher.interrupt();
-            tokenExpiration.interrupt();
+            tokenExpiry.interrupt();
             timedJobShutdown.interrupt();
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
         }
