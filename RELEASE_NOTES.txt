@@ -4,6 +4,17 @@ The Execution Engine provides an API for execution of Narrative Methods and Apps
 as well as asynchronous SDK jobs in docker container on AWE workers (it also 
 wraps Narrative Job Service API).
 
+Version: 1.0.2
+--------------
+NEW FEATURES and UPDATES:
+- Added support to add docker_job_timeout to CLIENTGROUP Field (Which can be entered in the catalog)
+- Refactored Docker Runner
+- Updated Cancellation Checking Thread, Job Shutdown Thread, and Docker Runner Thread, and Job ShutDownHook thread to not send a condor_rm, so we can keep info about the job in Condor
+
+UPDATED REQUIREMENTS:
+Added new deployment variables for various job shutdown timers
+
+
 Version: 1.0.1
 --------------
 NEW FEATURES and UPDATES:
