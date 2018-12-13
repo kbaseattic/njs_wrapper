@@ -241,7 +241,12 @@ public class SDKLocalMethodRunner {
 
         System.out.println("Looking up cgroup for " + pid);
         String parentCgroup = new SDKJobsUtils().lookupParentCgroup(pid);
-        System.out.println(parentCgroup);
+        if(parentCgroup == null){
+            System.out.println("PARENT CGROUP IS NULL");
+        }
+        else {
+            System.out.println(parentCgroup);
+        }
 
 
         String[] hostnameAndIP = getHostnameAndIP();
