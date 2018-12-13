@@ -115,6 +115,12 @@ public class CondorUtils {
         //TODO DELETE PRINT STATEMENT
         System.out.println("Running command: [" + String.join(" ", condorCommand) + "]");
         final Process process = Runtime.getRuntime().exec(condorCommand);
+
+
+        List<String> stdOutMessage = IOUtils.readLines(process.getInputStream(), "UTF-8");
+        List<String> stdErrMessage = IOUtils.readLines(process.getErrorStream(), "UTF-8");
+
+
         try {
             process.waitFor(30, TimeUnit.SECONDS);
 
@@ -122,9 +128,10 @@ public class CondorUtils {
             e.printStackTrace();
         }
 
-
-        List<String> stdOutMessage = IOUtils.readLines(process.getInputStream(), "UTF-8");
-        List<String> stdErrMessage = IOUtils.readLines(process.getErrorStream(), "UTF-8");
+        if(process.isAlive()){
+            System.out.println("Error: Command didn't finish" + String.join(" ", condorCommand) + "]");
+            return null;
+        }
 
         if (process.exitValue() != 0) {
             System.err.println("STDOUT:");
@@ -286,7 +293,7 @@ public class CondorUtils {
      * @throws Exception
      */
     public static HashMap<String, String> getAllJobStates() throws Exception {
-        String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "LastJobStatus"};
+        String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "JobStatus"};
         List<String> processResult = runProcess(cmdScript).stdout;
         HashMap<String, String> JobStates = new HashMap<>();
         for (String line : processResult) {
