@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
+import com.github.dockerjava.shaded.org.apache.log4j.helpers.LogLog;
 import com.google.common.html.HtmlEscapers;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
@@ -32,6 +33,8 @@ import us.kbase.narrativejobservice.JobState;
 import us.kbase.narrativejobservice.MethodCall;
 import us.kbase.narrativejobservice.RpcContext;
 import us.kbase.narrativejobservice.subjobs.NJSCallbackServer;
+
+import us.kbase.narrativejobservice.sdkjobs.DockerRunner;
 
 import java.io.*;
 import java.net.*;
@@ -237,11 +240,17 @@ public class SDKLocalMethodRunner {
             System.exit(1);
         }
 
+
         int pid = CLibrary.INSTANCE.getpid();
 
         System.out.println("Looking up cgroup for " + pid);
         String parentCgroup = new SDKJobsUtils().lookupParentCgroup(pid);
-        System.out.println(parentCgroup);
+        if(parentCgroup == null){
+            System.out.println("PARENT CGROUP IS NULL");
+        }
+        else {
+            System.out.println(parentCgroup);
+        }
 
 
         String[] hostnameAndIP = getHostnameAndIP();
@@ -718,11 +727,10 @@ public class SDKLocalMethodRunner {
             }catch (Exception e){
                 log.logNextLine("Couldn't run kill subjobs", true);
             }
-
-            logFlusher.interrupt();
             tokenExpiryChecker.interrupt();
             timedJobShutdown.interrupt();
             Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            logFlusher.interrupt();
         }
 
     }

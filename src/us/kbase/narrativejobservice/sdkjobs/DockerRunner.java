@@ -19,8 +19,10 @@ import us.kbase.common.executionengine.LineLogger;
 import us.kbase.common.utils.ProcessHelper;
 
 import java.io.*;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -216,6 +218,22 @@ public class DockerRunner {
     }
 
 
+    public static synchronized long getPidOfProcess(Process p) {
+        long pid = -1;
+        try {
+            if (p.getClass().getName().equals("java.lang.UNIXProcess")) {
+                Field f = p.getClass().getDeclaredField("pid");
+                f.setAccessible(true);
+                pid = f.getLong(p);
+                f.setAccessible(false);
+            }
+        } catch (Exception e) {
+            pid = -1;
+        }
+        return pid;
+    }
+
+
     public File run(
             String imageName,
             final String moduleName,
@@ -283,7 +301,6 @@ public class DockerRunner {
             if (cancellationCheckingThread != null)
                 cancellationCheckingThread.start();
 
-
             for (Thread t : workers)
                 t.join();
             log.logNextLine("Job will automatically timeout in " + timeout + " seconds" , false);
@@ -310,7 +327,6 @@ public class DockerRunner {
                 log.logNextLine("Container was still running after timeout!", true);
             }
 
-
             if (outputFile.exists()) {
                 return outputFile;
             }
@@ -320,8 +336,6 @@ public class DockerRunner {
             int exitCode = resp2.getState().getExitCode();
             String msg = "Output file is not found, exit code is " + exitCode;
             throw new IllegalStateException(msg);
-
-
         } finally {
             cleanupAfterJob(cntName, removeImage, imageName);
         }
