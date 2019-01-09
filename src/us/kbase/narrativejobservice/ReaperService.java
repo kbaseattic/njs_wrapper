@@ -118,6 +118,40 @@ public class ReaperService {
         }
         return null;
     }
+
+
+
+    /**
+     * Purge a list of jobs
+     *
+     * @param ghostJobs The Jobs To Purge
+     * @param message The Status to Update them With
+     * @return
+     * @throws Exception
+     */
+    public BulkWriteResult purgeListOfJobs( List<String> ghostJobs, String message) throws Exception {
+
+        BulkWriteResult result;
+        if (ghostJobs.size() > 0) {
+            BulkWriteOperation builder = coll.initializeOrderedBulkOperation();
+            for (String jobID : ghostJobs) {
+
+                BasicDBObject updateFields = new BasicDBObject();
+                updateFields.append("complete", true);
+                updateFields.append("error", true);
+                updateFields.append("status", message);
+                updateFields.append("errormsg", message);
+                BasicDBObject setQuery = new BasicDBObject();
+                setQuery.append("$set", updateFields);
+                builder.find(new BasicDBObject("_id", new ObjectId(jobID))).update(setQuery);
+            }
+            result = builder.execute();
+            return result;
+        } else {
+            System.err.println("\nNo ghost jobs to purge. " + new SimpleDateFormat("yyyy.MM.dd.HH.mm.ss").format(new Date()));
+        }
+        return null;
+    }
 }
 
 

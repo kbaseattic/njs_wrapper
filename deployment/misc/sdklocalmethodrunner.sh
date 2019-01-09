@@ -22,5 +22,8 @@ else
     BASE_DIR=$BASE_DIR/$JOBID
     mkdir -p $BASE_DIR && cd $BASE_DIR
     echo "Jar Location = $NJSW_JAR" > jar
-    exec java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
+    java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
+    SDKLMR_EXITCODE=$?
+    java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+    exit $SDKLMR_EXITCODE
 fi
