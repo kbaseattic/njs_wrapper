@@ -1,18 +1,23 @@
-#Checkout mini_kb at https://github.com/kbase/mini_kb/. Copy this script into that directory
+#!/usr/bin/env bash
 
-#You will need to add this directory to the list of bind mounts in docker. 
-#Add /mnt/condor in the "File Sharing tab"
+# You will need to add the /mnt/condor directory to the list of bind mounts in docker. 
+# Add /mnt/condor in the "File Sharing tab"
 mkdir -p /mnt/condor && chmod 777 /mnt/condor
 
-#Add the following to your /etc/hosts file
-#127.0.0.1 nginx
-#127.0.0.1 ci-mongo
+echo "
+# Add the following to your /etc/hosts file
+# 127.0.0.1 nginx
+# 127.0.0.1 ci-mongo
+"
 
+#Get the latest fresh copies and restart
 docker-compose -f execution-engine.yml down
 docker-compose -f execution-engine.yml pull
 docker-compose -f execution-engine.yml up -d
-docker-compose -f execution-engine.yml exec -u 0 njs bash
+# docker-compose -f execution-engine.yml exec -u 0 njs bash
 
-#You may need to run these manually on MacOSX by with docker exec
-#docker-compose -f execution-engine.yml exec -u 0 condor_worker_mini "chmod 777 /run/docker.sock"
-#docker-compose -f execution-engine.yml exec -u 0 condor_worker_max "chmod 777 /run/docker.sock"
+echo "
+#You may need to run these manually on MacOSX by with docker-compose in the mini_kb directory
+#docker-compose -f execution-engine.yml exec -u 0 condor_worker_mini sh -c "chmod 777 /run/docker.sock"
+#docker-compose -f execution-engine.yml exec -u 0 condor_worker_max sh -c "chmod 777 /run/docker.sock"
+"
