@@ -36,7 +36,7 @@ admin.user={{default .Env.admin_user "" }}
 # Following parameters define Catalog admin creds for pushing exec-stats:
 catalog.admin.token={{ default .Env.catalog_token "" }}
 
-default.awe.client.groups={{ default .Env.default_awe_client_groups "ci" }}
+default.awe.client.groups={{ default .Env.default_awe_client_groups "njs" }}
 awe.readonly.admin.token={{ default .Env.awe_token "" }}
 awe.client.callback.networks={{ default .Env.awe_client_callback_networks "docker0,eth0" }}
 running.tasks.per.user={{ default .Env.running_tasks_per_user "5" }}
