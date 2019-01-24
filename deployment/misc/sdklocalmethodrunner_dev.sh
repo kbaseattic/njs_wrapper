@@ -13,7 +13,7 @@ if [ -e /etc/clustername ] ; then
     KBASE_ENDPOINT=$2
     BASE_DIR=$KBASE_RUN_DIR/jobs/$JOBID
     mkdir -p $BASE_DIR && cd $BASE_DIR
-    java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
+    exec java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
 else
     export MINI_KB=true
     NJSW_JAR=`readlink -f NJSWrapper-all.jar`
@@ -23,4 +23,7 @@ else
     mkdir -p $BASE_DIR && cd $BASE_DIR
     echo "Jar Location = $NJSW_JAR" > jar
     java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
+    SDKLMR_EXITCODE=$?
+    java -cp $NJSW_JAR us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+    exit $SDKLMR_EXITCODE
 fi

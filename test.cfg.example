@@ -1,4 +1,5 @@
-# A KBase user ID and password.
+# A KBase token 
+# For mini_kb, use the token from https://github.com/kbase/mini_kb/blob/master/deployment/conf/njs-wrapper-minikb.ini#L18
 token=*****
 
 # URL of the server to test against, usually local or CI
