@@ -1,3 +1,5 @@
+#Checkout mini_kb at https://github.com/kbase/mini_kb/. Copy this script into that directory
+
 #You will need to add this directory to the list of bind mounts in docker. 
 #Add /mnt/condor in the "File Sharing tab"
 mkdir -p /mnt/condor && chmod 777 /mnt/condor
