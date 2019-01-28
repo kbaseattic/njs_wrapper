@@ -10,6 +10,7 @@ NEW FEATURES and UPDATES:
 - Added a post job cleanup script 
 - Added a script to manually reap jobs
 - Added a script to mark a list of jobs as error in UJS
+- Removed notifications from post job script
 
 
 Version: 1.0.2
