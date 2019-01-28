@@ -124,13 +124,8 @@ public class SDKLocalMethodRunnerCleanup {
 
 
         JobState jobState = jobSrvClient.checkJob(jobId);
+        //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-            if (jobState.getCanceled() != null && jobState.getCanceled() == 1L) {
-                log.logNextLine("Job was canceled", false);
-            } else {
-                log.logNextLine("Job was already done before", true);
-            }
-            flushLog(jobSrvClient, jobId, logLines);
             return;
         }
 
