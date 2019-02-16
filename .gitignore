@@ -13,3 +13,5 @@
 deploy.cfg
 test.cfg
 
+/gradle_build_directory/
+/.gradle/

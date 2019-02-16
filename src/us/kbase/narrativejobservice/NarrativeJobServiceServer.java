@@ -202,7 +202,7 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             if (dbname == null)
                 throw new IllegalStateException("Parameter " + CFG_PROP_MONGO_DBNAME + " is not defined in configuration");
             db = new ExecEngineMongoDb(hosts, dbname, config.get(CFG_PROP_MONGO_USER),
-                    config.get(CFG_PROP_MONGO_PWD), null);
+                    config.get(CFG_PROP_MONGO_PWD));
         }
         return db;
     }

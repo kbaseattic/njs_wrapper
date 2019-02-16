@@ -31,20 +31,12 @@ import com.mongodb.ServerAddress;
 public class ExecEngineMongoDb {
 	private DB mongo;
 	private Jongo jongo;
-	private MongoCollection taskQueue;
-	private MongoCollection execApps;
 	private MongoCollection execTasks;
 	private MongoCollection execLogs;
 	private MongoCollection srvProps;
 
-	private static final Map<String, MongoClient> HOSTS_TO_CLIENT =
-			new HashMap<String, MongoClient>();
+	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
 
-	public static final String COL_TASK_QUEUE = "task_queue";
-	public static final String PK_TASK_QUEUE = "jobid";
-	public static final String COL_EXEC_APPS = "exec_apps";
-	public static final String PK_EXEC_APPS = "app_job_id";
-	public static final String FLD_EXEC_APPS_APP_JOB_STATE = "app_job_state";
 	public static final String COL_EXEC_TASKS = "exec_tasks";
 	public static final String PK_EXEC_TASKS = "ujs_job_id";
 	public static final String COL_EXEC_LOGS = "exec_logs";
@@ -56,21 +48,19 @@ public class ExecEngineMongoDb {
 
 	public static final String DB_VERSION = "1.0";
 
-	public ExecEngineMongoDb(String hosts, String db, String user, String pwd,
-							 Integer mongoReconnectRetry) throws Exception {
-		mongo = getDB(hosts, db, user, pwd,
-				mongoReconnectRetry == null ? 0 : mongoReconnectRetry, 10);
+	public ExecEngineMongoDb(
+			final String hosts,
+			final String db,
+			final String user,
+			final String pwd)
+			throws Exception {
+		mongo = getDB(hosts, db, user, pwd, 0, 10);
 		jongo = new Jongo(mongo);
-		taskQueue = jongo.getCollection(COL_TASK_QUEUE);
-		execApps = jongo.getCollection(COL_EXEC_APPS);
 		execTasks = jongo.getCollection(COL_EXEC_TASKS);
 		execLogs = jongo.getCollection(COL_EXEC_LOGS);
 		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
-		taskQueue.ensureIndex(String.format("{%s:1}", PK_TASK_QUEUE), "{unique:true}");
 		execTasks.ensureIndex(String.format("{%s:1}", PK_EXEC_TASKS), "{unique:true}");
-		execApps.ensureIndex(String.format("{%s:1}", PK_EXEC_APPS), "{unique:true}");
-		execApps.ensureIndex(String.format("{%s:1}", FLD_EXEC_APPS_APP_JOB_STATE), "{unique:false}");
 		execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
 		srvProps.ensureIndex(String.format("{%s:1}", PK_SRV_PROPS), "{unique:true}");
 
@@ -195,7 +185,7 @@ public class ExecEngineMongoDb {
 	}
 
 	@SuppressWarnings("deprecation")
-	public static DB getDB(final String hosts, final String database,
+	private static DB getDB(final String hosts, final String database,
 							final String user, final String pwd,
 							final int retryCount, final int logIntervalCount)
 			throws UnknownHostException, InvalidHostException, IOException,
