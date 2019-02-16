@@ -6,11 +6,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.mongodb.MongoClient;
 import com.mongodb.WriteConcernException;
 
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -22,6 +24,7 @@ import us.kbase.narrativejobservice.db.ExecTask;
 public class ExecEngineMongoDbTest {
     private static MongoController mongo;
     private static ExecEngineMongoDb db = null;
+    private static String DB_NAME = "exec_engine";
     
     @BeforeClass
     public static void startup() throws Exception {
@@ -32,17 +35,24 @@ public class ExecEngineMongoDbTest {
         String mongoExepath = TesterUtils.getMongoExePath(props);
         System.out.print("Starting MongoDB executable at " + mongoExepath +
                 "... ");
-        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        final boolean useWiredTiger = false; // TODO add to test configuration
+        mongo = new MongoController(mongoExepath, mongoDir.toPath(), useWiredTiger);
         System.out.println("Done. Port " + mongo.getServerPort());
         
         db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
-                "exec_engine", null, null);
+                DB_NAME, null, null);
     }
 
     @AfterClass
     public static void shutdown() throws Exception {
         if (mongo != null)
             mongo.destroy(false);
+    }
+    
+    @After
+    public void after() throws Exception {
+        final MongoClient mc = new MongoClient("localhost:" + mongo.getServerPort());
+        TesterUtils.destroyDB(mc.getDB(DB_NAME));
     }
     
     @Test

@@ -17,6 +17,9 @@ import org.apache.commons.io.IOUtils;
 import org.ini4j.Ini;
 import org.ini4j.InvalidFileFormatException;
 
+import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+
 import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthToken;
 import us.kbase.auth.ConfigurableAuthService;
@@ -68,6 +71,15 @@ public class TesterUtils {
         props.load(is);
         is.close();
         return props;
+    }
+    
+    public static void destroyDB(final DB db) {
+        for (String name: db.getCollectionNames()) {
+            if (!name.startsWith("system.")) {
+                // dropping collection also drops indexes
+                db.getCollection(name).remove(new BasicDBObject());
+            }
+        }
     }
     
     public static String getMongoExePath(Properties props)
