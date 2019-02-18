@@ -21,7 +21,9 @@ import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.google.common.collect.Lists;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
+import com.mongodb.DBCollection;
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -29,45 +31,52 @@ import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
-	private DB mongo;
 	private Jongo jongo;
+	private DBCollection taskCol;
+	private DBCollection logCol;
+	private DBCollection propCol;
 	private MongoCollection execTasks;
 	private MongoCollection execLogs;
 	private MongoCollection srvProps;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
 
-	public static final String COL_EXEC_TASKS = "exec_tasks";
-	public static final String PK_EXEC_TASKS = "ujs_job_id";
-	public static final String COL_EXEC_LOGS = "exec_logs";
-	public static final String PK_EXEC_LOGS = "ujs_job_id";
-	public static final String COL_SRV_PROPS = "srv_props";
-	public static final String PK_SRV_PROPS = "prop_id";
+	private static final String COL_EXEC_TASKS = "exec_tasks";
+	private static final String PK_EXEC_TASKS = "ujs_job_id";
+	private static final String COL_EXEC_LOGS = "exec_logs";
+	private static final String PK_EXEC_LOGS = "ujs_job_id";
+	private static final String COL_SRV_PROPS = "srv_props";
+	private static final String PK_SRV_PROPS = "prop_id";
 	private static final String SRV_PROPS_VALUE = "value";
-	public static final String SRV_PROP_DB_VERSION = "db_version";
+	private static final String SRV_PROP_DB_VERSION = "db_version";
 
-	public static final String DB_VERSION = "1.0";
+	private static final String DB_VERSION = "1.0";
 
+	// should really inject the DB, but worry about that later.
 	public ExecEngineMongoDb(
 			final String hosts,
 			final String db,
 			final String user,
 			final String pwd)
 			throws Exception {
-		mongo = getDB(hosts, db, user, pwd, 0, 10);
+		final DB mongo = getDB(hosts, db, user, pwd, 0, 10);
+		taskCol = mongo.getCollection(COL_EXEC_TASKS);
+		logCol = mongo.getCollection(COL_EXEC_LOGS);
+		propCol = mongo.getCollection(COL_SRV_PROPS);
 		jongo = new Jongo(mongo);
 		execTasks = jongo.getCollection(COL_EXEC_TASKS);
 		execLogs = jongo.getCollection(COL_EXEC_LOGS);
 		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
-		execTasks.ensureIndex(String.format("{%s:1}", PK_EXEC_TASKS), "{unique:true}");
-		execLogs.ensureIndex(String.format("{%s:1}", PK_EXEC_LOGS), "{unique:true}");
-		srvProps.ensureIndex(String.format("{%s:1}", PK_SRV_PROPS), "{unique:true}");
+		final BasicDBObject unique = new BasicDBObject("unique", true);
+		taskCol.createIndex(new BasicDBObject(PK_EXEC_TASKS, 1), unique);
+		logCol.createIndex(new BasicDBObject(PK_EXEC_LOGS, 1), unique);
+		propCol.createIndex(new BasicDBObject(PK_SRV_PROPS, 1), unique);
 
 		try {
-			srvProps.insert(String.format("{%s: #, %s: #}",
-					PK_SRV_PROPS, SRV_PROPS_VALUE),
-					SRV_PROP_DB_VERSION, DB_VERSION);
+			// at some point check that the db ver = sw ver
+			propCol.insert(new BasicDBObject(PK_SRV_PROPS, SRV_PROP_DB_VERSION)
+					.append(SRV_PROPS_VALUE, DB_VERSION));
 		} catch (DuplicateKeyException e) {
 			//version is already there so do nothing
 		}
