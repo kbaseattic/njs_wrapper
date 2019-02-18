@@ -36,7 +36,7 @@ public class ExecEngineMongoDbTest {
         System.out.println("Done. Port " + mongo.getServerPort());
         
         db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
-                "exec_engine", null, null, null);
+                "exec_engine", null, null);
     }
 
     @AfterClass
@@ -60,7 +60,7 @@ public class ExecEngineMongoDbTest {
         String val2 = "val2";
         db.setServiceProperty(key2, val2);
         Assert.assertEquals(val1, db.getServiceProperty(key1));
-        Assert.assertEquals(val2, db.getServiceProperty(key2));        
+        Assert.assertEquals(val2, db.getServiceProperty(key2));
     }
     
     @Test
