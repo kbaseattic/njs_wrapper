@@ -1,4 +1,4 @@
-package kbase.narrativejobservice.test;
+package us.kbase.narrativejobservice.test;
 
 import org.junit.BeforeClass;
 import org.junit.Test;

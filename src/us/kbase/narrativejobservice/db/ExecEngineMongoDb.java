@@ -83,6 +83,7 @@ public class ExecEngineMongoDb {
 	}
 
 	public String[] getSubJobIds(String ujsJobId) throws Exception{
+		// there should be a null/empty check for the ujs id here
 		Iterator<us.kbase.narrativejobservice.db.ExecTask> ids = execTasks.find(String.format("{parent_job_id: '%s'}", ujsJobId)).
 				projection("{ujs_job_id: 1}").as(us.kbase.narrativejobservice.db.ExecTask.class).iterator();
 
