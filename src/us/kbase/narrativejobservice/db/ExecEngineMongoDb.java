@@ -97,11 +97,23 @@ public class ExecEngineMongoDb {
 
 
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
-		List<ExecLog> ret = Lists.newArrayList(execLogs.find(
-				String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId)
-				.projection(String.format("{%s:1,%s:1,%s:1}", PK_EXEC_LOGS,
-						"original_line_count", "stored_line_count")).as(ExecLog.class));
-		return ret.size() > 0 ? ret.get(0) : null;
+		// there should be a null/empty check for the ujs id here
+		// should make these strings constants
+		final DBObject log = logCol.findOne(
+				new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
+				new BasicDBObject(PK_EXEC_LOGS, 1)
+						.append("original_line_count", 1)
+						.append("stored_line_count", 1));
+		final ExecLog ret;
+		if (log == null) {
+			ret = null;
+		} else {
+			ret = new ExecLog();
+			ret.setOriginalLineCount((Integer) log.get("original_line_count"));
+			ret.setStoredLineCount((Integer) log.get("stored_line_count"));
+			ret.setUjsJobId((String) log.get(PK_EXEC_LOGS));
+		}
+		return ret;
 	}
 
 	public void insertExecLog(ExecLog execLog) throws Exception {
