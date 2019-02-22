@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Iterator;
 
 import java.util.logging.Level;
 
@@ -24,6 +23,8 @@ import com.google.common.collect.Lists;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -84,12 +85,12 @@ public class ExecEngineMongoDb {
 
 	public String[] getSubJobIds(String ujsJobId) throws Exception{
 		// there should be a null/empty check for the ujs id here
-		Iterator<us.kbase.narrativejobservice.db.ExecTask> ids = execTasks.find(String.format("{parent_job_id: '%s'}", ujsJobId)).
-				projection("{ujs_job_id: 1}").as(us.kbase.narrativejobservice.db.ExecTask.class).iterator();
-
+		final DBCursor dbc = taskCol.find(
+				new BasicDBObject("parent_job_id", ujsJobId),
+				new BasicDBObject("ujs_job_id", 1));
 		List<String> idList = new ArrayList<String>();
-		while (ids.hasNext()) {
-			idList.add(ids.next().getUjsJobId());
+		for (final DBObject dbo: dbc) {
+			idList.add((String) dbo.get("ujs_job_id"));
 		}
 		return idList.toArray(new String[idList.size()]);
 	}
