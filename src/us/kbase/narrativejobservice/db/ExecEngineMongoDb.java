@@ -151,9 +151,10 @@ public class ExecEngineMongoDb {
 										.collect(Collectors.toList())))));
 	}
 
-	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
-		execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
-				String.format("{$set:{%s:#}}", "original_line_count"), newLineCount);
+	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount)
+			throws Exception {
+		logCol.update(new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
+				new BasicDBObject("$set", new BasicDBObject("original_line_count", newLineCount)));
 	}
 
 	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count) throws Exception {
