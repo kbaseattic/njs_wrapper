@@ -16,8 +16,6 @@ import java.util.stream.Collectors;
 import org.bson.BSONObject;
 import org.bson.LazyBSONList;
 import org.bson.types.BasicBSONList;
-import org.jongo.Jongo;
-import org.jongo.MongoCollection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +37,9 @@ import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
-	private Jongo jongo;
 	private DBCollection taskCol;
 	private DBCollection logCol;
 	private DBCollection propCol;
-	private MongoCollection srvProps;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
 
@@ -71,8 +67,6 @@ public class ExecEngineMongoDb {
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
 		propCol = mongo.getCollection(COL_SRV_PROPS);
-		jongo = new Jongo(mongo);
-		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
 		final BasicDBObject unique = new BasicDBObject("unique", true);
 		taskCol.createIndex(new BasicDBObject(PK_EXEC_TASKS, 1), unique);
@@ -258,8 +252,11 @@ public class ExecEngineMongoDb {
 	}
 
 	public void setServiceProperty(String propId, String value) throws Exception {
-		srvProps.update(String.format("{%s:#}", PK_SRV_PROPS), propId).upsert().with(
-				String.format("{$set:{%s:#}}", SRV_PROPS_VALUE), value);
+		propCol.update(
+				new BasicDBObject(PK_SRV_PROPS, propId),
+				new BasicDBObject("$set", new BasicDBObject(SRV_PROPS_VALUE, value)),
+				true,
+				false);
 	}
 
 	private synchronized static MongoClient getMongoClient(final String hosts)
