@@ -27,7 +27,6 @@ import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
@@ -252,12 +251,10 @@ public class ExecEngineMongoDb {
 	}
 
 	public String getServiceProperty(String propId) throws Exception {
-		@SuppressWarnings("rawtypes")
-		List<Map> ret = Lists.newArrayList(srvProps.find(String.format("{%s:#}", PK_SRV_PROPS), propId)
-				.projection(String.format("{%s:1}", SRV_PROPS_VALUE)).as(Map.class));
-		if (ret.size() == 0)
-			return null;
-		return (String)ret.get(0).get(SRV_PROPS_VALUE);
+		// check input
+		final DBObject dbo = propCol.findOne(new BasicDBObject(PK_SRV_PROPS, propId),
+				new BasicDBObject(SRV_PROPS_VALUE, 1));
+		return dbo == null ? null : (String) dbo.get(SRV_PROPS_VALUE);
 	}
 
 	public void setServiceProperty(String propId, String value) throws Exception {
