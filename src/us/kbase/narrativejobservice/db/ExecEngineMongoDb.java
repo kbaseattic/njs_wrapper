@@ -41,7 +41,6 @@ public class ExecEngineMongoDb {
 	private DBCollection logCol;
 	private DBCollection propCol;
 	private MongoCollection execTasks;
-	private MongoCollection execLogs;
 	private MongoCollection srvProps;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
@@ -72,7 +71,6 @@ public class ExecEngineMongoDb {
 		propCol = mongo.getCollection(COL_SRV_PROPS);
 		jongo = new Jongo(mongo);
 		execTasks = jongo.getCollection(COL_EXEC_TASKS);
-		execLogs = jongo.getCollection(COL_EXEC_LOGS);
 		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
 		final BasicDBObject unique = new BasicDBObject("unique", true);
@@ -153,13 +151,25 @@ public class ExecEngineMongoDb {
 
 	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount)
 			throws Exception {
+		//input checking
 		logCol.update(new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
 				new BasicDBObject("$set", new BasicDBObject("original_line_count", newLineCount)));
 	}
 
 	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count) throws Exception {
-		return execLogs.findOne(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).projection(
-				String.format("{%s:{$slice:[#,#]}}", "lines"), from, count).as(ExecLog.class).getLines();
+		//input checking
+		@SuppressWarnings("unchecked")
+		final List<DBObject> lines = (List<DBObject>) logCol.findOne(
+				new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
+				new BasicDBObject("lines", new BasicDBObject("$slice",
+						Arrays.asList(from, count)))).get("lines");
+		return lines.stream().map(dbo -> {
+			final ExecLogLine line = new ExecLogLine();
+			line.setIsError((Boolean) dbo.get("is_error"));
+			line.setLine((String) dbo.get("line"));
+			line.setLinePos((Integer) dbo.get("line_pos"));
+			return line;
+		}).collect(Collectors.toList());
 	}
 
 	public void insertExecTask(ExecTask execTask) throws Exception {
