@@ -4,11 +4,13 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
@@ -19,6 +21,8 @@ import us.kbase.common.mongo.GetMongoDB;
 import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
@@ -53,6 +57,8 @@ public class ExecEngineMongoDb {
 
 	private static final String DB_VERSION = "1.0";
 
+	private static final ObjectMapper MAPPER = new ObjectMapper();
+	
 	// should really inject the DB, but worry about that later.
 	public ExecEngineMongoDb(
 			final String hosts,
@@ -82,6 +88,13 @@ public class ExecEngineMongoDb {
 			//version is already there so do nothing
 		}
 	}
+	   private Map<String, Object> toMap(final Object obj) {
+			return MAPPER.convertValue(obj, new TypeReference<Map<String, Object>>() {});
+		}
+		
+		private DBObject toDBObj(final Object obj) {
+			return new BasicDBObject(toMap(obj));
+		}
 
 	public String[] getSubJobIds(String ujsJobId) throws Exception{
 		// there should be a null/empty check for the ujs id here
@@ -117,12 +130,13 @@ public class ExecEngineMongoDb {
 	}
 
 	public void insertExecLog(ExecLog execLog) throws Exception {
-		execLogs.insert(execLog);
+		// should be a null check here
+		insertExecLogs(Arrays.asList(execLog));
 	}
 
 	public void insertExecLogs(List<ExecLog> execLogList) throws Exception {
-		Object[] execLogArray = execLogList.toArray(new Object[execLogList.size()]);
-		execLogs.insert(execLogArray);
+		// should be a null collection contents check here
+		logCol.insert(execLogList.stream().map(l -> toDBObj(l)).collect(Collectors.toList()));
 	}
 
 	public void updateExecLogLines(String ujsJobId, int newLineCount,
