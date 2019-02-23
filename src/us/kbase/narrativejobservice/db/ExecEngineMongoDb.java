@@ -43,7 +43,6 @@ public class ExecEngineMongoDb {
 	private DBCollection taskCol;
 	private DBCollection logCol;
 	private DBCollection propCol;
-	private MongoCollection execTasks;
 	private MongoCollection srvProps;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
@@ -73,7 +72,6 @@ public class ExecEngineMongoDb {
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
 		propCol = mongo.getCollection(COL_SRV_PROPS);
 		jongo = new Jongo(mongo);
-		execTasks = jongo.getCollection(COL_EXEC_TASKS);
 		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
 		final BasicDBObject unique = new BasicDBObject("unique", true);
@@ -199,7 +197,8 @@ public class ExecEngineMongoDb {
 				new BasicDBObject("$set", new BasicDBObject("original_line_count", newLineCount)));
 	}
 
-	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count) throws Exception {
+	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count)
+			throws Exception {
 		//input checking
 		@SuppressWarnings("unchecked")
 		final List<DBObject> lines = (List<DBObject>) logCol.findOne(
@@ -236,9 +235,12 @@ public class ExecEngineMongoDb {
 		return toObj(taskCol.findOne(new BasicDBObject(PK_EXEC_TASKS, ujsJobId)), ExecTask.class);
 	}
 
-	public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time) throws Exception {
-		execTasks.update(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
-				String.format("{$set:{%s:#}}", finishTime ? "finish_time" : "exec_start_time"), time);
+	public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time)
+			throws Exception {
+		//inputs
+		taskCol.update(new BasicDBObject(PK_EXEC_TASKS, ujsJobId),
+				new BasicDBObject("$set",
+						new BasicDBObject(finishTime ? "finish_time" : "exec_start_time", time)));
 	}
 
 	public String getServiceProperty(String propId) throws Exception {
