@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 
 import org.bson.BSONObject;
 import org.bson.LazyBSONList;
+import org.bson.types.BasicBSONList;
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
 import org.slf4j.Logger;
@@ -114,6 +115,7 @@ public class ExecEngineMongoDb {
 	// can't call convertValue() on dbo since it has a 'size' field outside of the internal map
 	// and just weird shit happens when you do anyway
 	private Object cleanObject(final Object dbo) {
+		// sometimes it's lazy, sometimes it's basic. Not sure when or why.
 		if (dbo instanceof LazyBSONList) {
 			final List<Object> ret = new LinkedList<>();
 			// don't stream, sometimes has issues with nulls
@@ -121,6 +123,12 @@ public class ExecEngineMongoDb {
 				ret.add(cleanObject(obj));
 			}
 			return ret;
+		} else if (dbo instanceof BasicBSONList) {
+			final List<Object> ret = new LinkedList<>();
+			// don't stream, sometimes has issues with nulls
+			for (final Object obj: (BasicBSONList) dbo) {
+				ret.add(cleanObject(obj));
+			}
 		} else if (dbo instanceof BSONObject) {
 			// can't stream because streams don't like null values at HashMap.merge()
 			final BSONObject m = (BSONObject) dbo;
