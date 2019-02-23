@@ -124,6 +124,9 @@ public class ExecEngineMongoDbTest {
         Assert.assertEquals(2L, (long)task3.getCreationTime());
         Assert.assertEquals(3L, (long)task3.getExecStartTime());
         Assert.assertEquals(4L, (long)task3.getFinishTime());
+        
+        // test getting a non-existent task
+        assertThat("incorrect task", db.getExecTask("task_3"), nullValue());
     }
     
     @Test
