@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -251,6 +252,24 @@ public class ExecEngineMongoDbTest {
         // check no output
         assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid"))),
                 is(set()));
+    }
+    
+    @Test
+    public void updateExecOriginalLineCount() throws Exception {
+        final ExecLog el = new ExecLog();
+        el.setLines(Collections.emptyList());
+        el.setOriginalLineCount(34);
+        el.setStoredLineCount(51);
+        el.setUjsJobId("jobid");
+        db.insertExecLog(el);
         
+        db.updateExecLogOriginalLineCount("jobid", 72);
+        
+        final ExecLog got = db.getExecLog("jobid");
+        
+        assertThat("incorrect jobid", got.getUjsJobId(), is("jobid"));
+        assertThat("incorrect line", got.getLines(), nullValue()); // fn doesn't include lines
+        assertThat("incorrect original line count", got.getOriginalLineCount(), is(72));
+        assertThat("incorrect stored line count", got.getStoredLineCount(), is(51));
     }
 }
