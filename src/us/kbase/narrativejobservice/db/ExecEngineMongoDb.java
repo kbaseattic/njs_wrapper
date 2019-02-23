@@ -173,7 +173,8 @@ public class ExecEngineMongoDb {
 	}
 
 	public void insertExecTask(ExecTask execTask) throws Exception {
-		execTasks.insert(execTask);
+		// needs input checking
+		taskCol.insert(toDBObj(execTask));
 	}
 
 	public void addExecTaskResult(
