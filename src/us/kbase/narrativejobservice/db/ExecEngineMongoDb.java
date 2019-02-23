@@ -177,13 +177,17 @@ public class ExecEngineMongoDb {
 		taskCol.insert(toDBObj(execTask));
 	}
 
-	public void addExecTaskResult(
-			final String ujsJobId,
-			final Map<String, Object> result) {
-		execTasks.update(String.format("{%s: #}", PK_EXEC_TASKS), ujsJobId)
-				.with(String.format("{$set: {%s: #}}", "job_output"), result);
+	// note that result must be sanitized before storing in mongo. See {@link SanitizeMongoObject}.
+	// the sanitization should really happen here.
+	public void addExecTaskResult(final String ujsJobId, final Map<String, Object> result) {
+		// input checking
+		taskCol.update(new BasicDBObject(PK_EXEC_TASKS, ujsJobId),
+				new BasicDBObject("$set", new BasicDBObject("job_output", result)));
 	}
 
+	// note that job inputs and outputs must be un-sanitized before use.
+	// See {@link SanitizeMongoObject}.
+	// the un-santization should really happen here.
 	public ExecTask getExecTask(String ujsJobId) throws Exception {
 		List<ExecTask> ret = Lists.newArrayList(execTasks.find(
 				String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).as(ExecTask.class));
