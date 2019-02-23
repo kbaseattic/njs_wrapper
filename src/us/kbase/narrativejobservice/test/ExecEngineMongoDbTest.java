@@ -20,6 +20,7 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.WriteConcernException;
 
@@ -271,5 +272,25 @@ public class ExecEngineMongoDbTest {
         assertThat("incorrect line", got.getLines(), nullValue()); // fn doesn't include lines
         assertThat("incorrect original line count", got.getOriginalLineCount(), is(72));
         assertThat("incorrect stored line count", got.getStoredLineCount(), is(51));
+    }
+    
+    @Test
+    public void addExecTaskResult() throws Exception {
+        final ExecTask t1 = new ExecTask();
+        t1.setUjsJobId("ujsid1");
+        
+        db.insertExecTask(t1);
+        db.addExecTaskResult("ujsid1", ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo"))));
+        
+        final ExecTask got = db.getExecTask("ujsid1");
+        
+        assertThat("incorrect id", got.getUjsJobId(), is("ujsid1"));
+        assertThat("incorrect result", got.getJobOutput(), is(ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo")))));
     }
 }
