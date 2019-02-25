@@ -8,6 +8,7 @@ import static org.junit.Assert.fail;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
@@ -19,6 +20,7 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
 import com.mongodb.MongoClient;
 import com.mongodb.WriteConcernException;
 
@@ -251,6 +253,44 @@ public class ExecEngineMongoDbTest {
         // check no output
         assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid"))),
                 is(set()));
+    }
+    
+    @Test
+    public void updateExecOriginalLineCount() throws Exception {
+        final ExecLog el = new ExecLog();
+        el.setLines(Collections.emptyList());
+        el.setOriginalLineCount(34);
+        el.setStoredLineCount(51);
+        el.setUjsJobId("jobid");
+        db.insertExecLog(el);
         
+        db.updateExecLogOriginalLineCount("jobid", 72);
+        
+        final ExecLog got = db.getExecLog("jobid");
+        
+        assertThat("incorrect jobid", got.getUjsJobId(), is("jobid"));
+        assertThat("incorrect line", got.getLines(), nullValue()); // fn doesn't include lines
+        assertThat("incorrect original line count", got.getOriginalLineCount(), is(72));
+        assertThat("incorrect stored line count", got.getStoredLineCount(), is(51));
+    }
+    
+    @Test
+    public void addExecTaskResult() throws Exception {
+        final ExecTask t1 = new ExecTask();
+        t1.setUjsJobId("ujsid1");
+        
+        db.insertExecTask(t1);
+        db.addExecTaskResult("ujsid1", ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo"))));
+        
+        final ExecTask got = db.getExecTask("ujsid1");
+        
+        assertThat("incorrect id", got.getUjsJobId(), is("ujsid1"));
+        assertThat("incorrect result", got.getJobOutput(), is(ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo")))));
     }
 }
