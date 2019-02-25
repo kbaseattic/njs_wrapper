@@ -128,11 +128,11 @@ public class CondorUtils {
             e.printStackTrace();
         }
 
+        CondorResponse failure = new CondorResponse(stdOutMessage, stdErrMessage, false);
         if(process.isAlive()){
             System.out.println("Error: Command didn't finish" + String.join(" ", condorCommand) + "]");
-            return null;
+            return failure;
         }
-
         if (process.exitValue() != 0) {
             System.err.println("STDOUT:");
             for (String s : stdOutMessage) {
@@ -142,10 +142,9 @@ public class CondorUtils {
             for (String s : stdOutMessage) {
                 System.err.println(stdErrMessage);
             }
-            return null;
-            //throw new IOException("Error running condorCommand:" + String.join(" ", condorCommand));
+            return failure;
         }
-        return new CondorResponse(stdOutMessage, stdErrMessage);
+        return new CondorResponse(stdOutMessage, stdErrMessage, true);
     }
 
 
@@ -239,12 +238,17 @@ public class CondorUtils {
         String jobID = null;
         int retries = 10;
 
+        String stderr = null;
         while (jobID == null && retries > 0) {
-            jobID = runProcess(cmdScript).stdout.get(0);
+            CondorResponse r = runProcess(cmdScript);
+            if(r.success)
+                jobID = r.stdout.get(0);
+
+            stderr = String.join(", ", r.stderr);
             retries--;
         }
         if (jobID == null) {
-            throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
+            throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n"  + stderr + "\n");
         }
         if (!optClassAds.containsKey("debugMode")) {
         condorSubmitFile.delete();
