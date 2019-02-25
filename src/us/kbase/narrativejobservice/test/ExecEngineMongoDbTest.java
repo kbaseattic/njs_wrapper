@@ -1,10 +1,17 @@
 package us.kbase.narrativejobservice.test;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -25,6 +32,8 @@ public class ExecEngineMongoDbTest {
     private static MongoController mongo;
     private static ExecEngineMongoDb db = null;
     private static String DB_NAME = "exec_engine";
+    
+    // so the test class uses spaces. The implementation class uses tabs. Kill me.
     
     @BeforeClass
     public static void startup() throws Exception {
@@ -53,6 +62,11 @@ public class ExecEngineMongoDbTest {
     public void after() throws Exception {
         final MongoClient mc = new MongoClient("localhost:" + mongo.getServerPort());
         TesterUtils.destroyDB(mc.getDB(DB_NAME));
+    }
+    
+    @SafeVarargs
+    public static <T> Set<T> set(T... objects) {
+        return new HashSet<T>(Arrays.asList(objects));
     }
     
     @Test
@@ -140,6 +154,9 @@ public class ExecEngineMongoDbTest {
             Assert.assertEquals("" + (char)('a' + i), ell.getLine());
             Assert.assertEquals(i % 2, ell.getIsError() ? 1 : 0);
         }
+        
+        // check no logs returns null
+        assertThat("incorrect logs", db.getExecLog("logs_2"), nullValue());
     }
 
     @Test
@@ -202,5 +219,38 @@ public class ExecEngineMongoDbTest {
         }
         t2 = System.currentTimeMillis() - t2;
         System.out.println("testSpeedAndSize: t2=" + t2 + " (" + (t2 / (double)count) + " per insert)");
+    }
+    
+    @Test
+    public void getSubjobIDs() throws Exception {
+        // i would kill for a fluent builder here
+        final ExecTask t1 = new ExecTask();
+        t1.setParentJobId("pid1");
+        t1.setUjsJobId("ujsid1");
+        
+        final ExecTask t2 = new ExecTask();
+        t2.setParentJobId("pid1");
+        t2.setUjsJobId("ujsid2");
+        
+        // ujs job ids must be unique, and tasks cannot have the same ujs id
+        final ExecTask t3 = new ExecTask();
+        t3.setParentJobId("pid2");
+        t3.setUjsJobId("ujsid3");
+        
+        final ExecTask t4 = new ExecTask();
+        t4.setUjsJobId("ujsid4");
+        
+        db.insertExecTask(t1);
+        db.insertExecTask(t2);
+        db.insertExecTask(t3);
+        db.insertExecTask(t4);
+        
+        assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid1"))),
+                is(set("ujsid1", "ujsid2")));
+        
+        // check no output
+        assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid"))),
+                is(set()));
+        
     }
 }

@@ -4,12 +4,13 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Iterator;
 
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
@@ -20,10 +21,14 @@ import us.kbase.common.mongo.GetMongoDB;
 import us.kbase.common.mongo.exceptions.InvalidHostException;
 import us.kbase.common.mongo.exceptions.MongoAuthException;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
@@ -52,6 +57,8 @@ public class ExecEngineMongoDb {
 
 	private static final String DB_VERSION = "1.0";
 
+	private static final ObjectMapper MAPPER = new ObjectMapper();
+	
 	// should really inject the DB, but worry about that later.
 	public ExecEngineMongoDb(
 			final String hosts,
@@ -81,42 +88,67 @@ public class ExecEngineMongoDb {
 			//version is already there so do nothing
 		}
 	}
+	   private Map<String, Object> toMap(final Object obj) {
+			return MAPPER.convertValue(obj, new TypeReference<Map<String, Object>>() {});
+		}
+		
+		private DBObject toDBObj(final Object obj) {
+			return new BasicDBObject(toMap(obj));
+		}
 
 	public String[] getSubJobIds(String ujsJobId) throws Exception{
-		Iterator<us.kbase.narrativejobservice.db.ExecTask> ids = execTasks.find(String.format("{parent_job_id: '%s'}", ujsJobId)).
-				projection("{ujs_job_id: 1}").as(us.kbase.narrativejobservice.db.ExecTask.class).iterator();
-
+		// there should be a null/empty check for the ujs id here
+		final DBCursor dbc = taskCol.find(
+				new BasicDBObject("parent_job_id", ujsJobId),
+				new BasicDBObject("ujs_job_id", 1));
 		List<String> idList = new ArrayList<String>();
-		while (ids.hasNext()) {
-			idList.add(ids.next().getUjsJobId());
+		for (final DBObject dbo: dbc) {
+			idList.add((String) dbo.get("ujs_job_id"));
 		}
 		return idList.toArray(new String[idList.size()]);
 	}
 
 
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
-		List<ExecLog> ret = Lists.newArrayList(execLogs.find(
-				String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId)
-				.projection(String.format("{%s:1,%s:1,%s:1}", PK_EXEC_LOGS,
-						"original_line_count", "stored_line_count")).as(ExecLog.class));
-		return ret.size() > 0 ? ret.get(0) : null;
+		// there should be a null/empty check for the ujs id here
+		// should make these strings constants
+		final DBObject log = logCol.findOne(
+				new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
+				new BasicDBObject(PK_EXEC_LOGS, 1)
+						.append("original_line_count", 1)
+						.append("stored_line_count", 1));
+		final ExecLog ret;
+		if (log == null) {
+			ret = null;
+		} else {
+			ret = new ExecLog();
+			ret.setOriginalLineCount((Integer) log.get("original_line_count"));
+			ret.setStoredLineCount((Integer) log.get("stored_line_count"));
+			ret.setUjsJobId((String) log.get(PK_EXEC_LOGS));
+		}
+		return ret;
 	}
 
 	public void insertExecLog(ExecLog execLog) throws Exception {
-		execLogs.insert(execLog);
+		// should be a null check here
+		insertExecLogs(Arrays.asList(execLog));
 	}
 
 	public void insertExecLogs(List<ExecLog> execLogList) throws Exception {
-		Object[] execLogArray = execLogList.toArray(new Object[execLogList.size()]);
-		execLogs.insert(execLogArray);
+		// should be a null collection contents check here
+		logCol.insert(execLogList.stream().map(l -> toDBObj(l)).collect(Collectors.toList()));
 	}
 
 	public void updateExecLogLines(String ujsJobId, int newLineCount,
 								   List<ExecLogLine> newLines) throws Exception {
-		execLogs.update(String.format("{%s:#}", PK_EXEC_LOGS), ujsJobId).with(
-				String.format("{$set:{%s:#,%s:#},$push:{%s:{$each:#}}}",
-						"original_line_count", "stored_line_count", "lines"),
-				newLineCount, newLineCount, newLines);
+		// needs input checking
+		logCol.update(new BasicDBObject(PK_EXEC_LOGS, ujsJobId),
+				new BasicDBObject("$set",
+						new BasicDBObject("original_line_count", newLineCount)
+								.append("stored_line_count", newLineCount))
+						.append("$push", new BasicDBObject("lines", new BasicDBObject("$each",
+								newLines.stream().map(l -> toDBObj(l))
+										.collect(Collectors.toList())))));
 	}
 
 	public void updateExecLogOriginalLineCount(String ujsJobId, int newLineCount) throws Exception {
