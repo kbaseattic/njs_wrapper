@@ -53,7 +53,7 @@ public class CondorUtils {
             requestDisk = String.format("%s = %sMB", requestDiskKey, reqs.get(requestDiskKey));
         }
         String dockerJobTimeout = "docker_job_timeout";
-        envVariables.put("DOCKER_JOB_TIMEOUT", reqs.getOrDefault(dockerJobTimeout,"604800"));  //7 Days
+        envVariables.put("DOCKER_JOB_TIMEOUT", reqs.getOrDefault(dockerJobTimeout, "604800"));  //7 Days
 
         envVariables.put("KB_AUTH_TOKEN", token.getToken());
         envVariables.put("KB_ADMIN_AUTH_TOKEN", adminToken.getToken());
@@ -128,11 +128,11 @@ public class CondorUtils {
             e.printStackTrace();
         }
 
-        if(process.isAlive()){
+        CondorResponse failure = new CondorResponse(stdOutMessage, stdErrMessage, false);
+        if (process.isAlive()) {
             System.out.println("Error: Command didn't finish" + String.join(" ", condorCommand) + "]");
-            return null;
+            return failure;
         }
-
         if (process.exitValue() != 0) {
             System.err.println("STDOUT:");
             for (String s : stdOutMessage) {
@@ -142,10 +142,9 @@ public class CondorUtils {
             for (String s : stdOutMessage) {
                 System.err.println(stdErrMessage);
             }
-            return null;
-            //throw new IOException("Error running condorCommand:" + String.join(" ", condorCommand));
+            return failure;
         }
-        return new CondorResponse(stdOutMessage, stdErrMessage);
+        return new CondorResponse(stdOutMessage, stdErrMessage, true);
     }
 
 
@@ -155,7 +154,7 @@ public class CondorUtils {
      * The requirements can either be "Attribute=Value", or "Attribute", or a special case
      * There are three special cases, "request_cpus", "request_disk", "request_memory"
      * These cases are not part of the requirements statement, but condor can use them
-     *
+     * <p>
      * An example is "ClientGroupA,request_cpus=4,request_disk=1GB,request_memory=2048kb,color=blue,LowMemory"
      * or
      * "ClientGroupB,Fast,Budget,HighMemory,LuckyNumber=12"
@@ -239,15 +238,20 @@ public class CondorUtils {
         String jobID = null;
         int retries = 10;
 
+        String stderr = null;
         while (jobID == null && retries > 0) {
-            jobID = runProcess(cmdScript).stdout.get(0);
+            CondorResponse r = runProcess(cmdScript);
+            if (r.success)
+                jobID = r.stdout.get(0);
+
+            stderr = String.join(", ", r.stderr);
             retries--;
         }
         if (jobID == null) {
-            throw new IOException("Error running condorCommand:" + String.join(" ", cmdScript));
+            throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
         }
         if (!optClassAds.containsKey("debugMode")) {
-        condorSubmitFile.delete();
+            condorSubmitFile.delete();
         }
         return jobID;
     }
