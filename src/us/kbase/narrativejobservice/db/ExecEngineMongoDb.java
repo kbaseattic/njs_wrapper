@@ -6,14 +6,16 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
-import org.jongo.Jongo;
-import org.jongo.MongoCollection;
+import org.bson.BSONObject;
+import org.bson.LazyBSONList;
+import org.bson.types.BasicBSONList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +25,6 @@ import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
@@ -36,12 +37,9 @@ import com.mongodb.MongoException;
 import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
-	private Jongo jongo;
 	private DBCollection taskCol;
 	private DBCollection logCol;
 	private DBCollection propCol;
-	private MongoCollection execTasks;
-	private MongoCollection srvProps;
 
 	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
 
@@ -69,9 +67,6 @@ public class ExecEngineMongoDb {
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
 		propCol = mongo.getCollection(COL_SRV_PROPS);
-		jongo = new Jongo(mongo);
-		execTasks = jongo.getCollection(COL_EXEC_TASKS);
-		srvProps = jongo.getCollection(COL_SRV_PROPS);
 		// Indexing
 		final BasicDBObject unique = new BasicDBObject("unique", true);
 		taskCol.createIndex(new BasicDBObject(PK_EXEC_TASKS, 1), unique);
@@ -86,13 +81,61 @@ public class ExecEngineMongoDb {
 			//version is already there so do nothing
 		}
 	}
-	   private Map<String, Object> toMap(final Object obj) {
-			return MAPPER.convertValue(obj, new TypeReference<Map<String, Object>>() {});
-		}
+	
+	private Map<String, Object> toMap(final Object obj) {
+		return MAPPER.convertValue(obj, new TypeReference<Map<String, Object>>() {});
+	}
 		
-		private DBObject toDBObj(final Object obj) {
-			return new BasicDBObject(toMap(obj));
+	private DBObject toDBObj(final Object obj) {
+		return new BasicDBObject(toMap(obj));
+	}
+	
+	private <T> T toObj(final DBObject dbo, final Class<T> clazz) {
+		return dbo == null ? null : MAPPER.convertValue(toMapRec(dbo), clazz);
+	}
+
+	private Map<String, Object> toMapRec(final BSONObject dbo) {
+		@SuppressWarnings("unchecked")
+		final Map<String, Object> ret = (Map<String, Object>) cleanObject(dbo);
+		return ret;
+	}
+	
+	// this assumes there aren't BSONObjects embedded in standard object, which should
+	// be the case for stuff returned from mongo
+	
+	// Unimplemented error for dbo.toMap()
+	// dbo is read only
+	// can't call convertValue() on dbo since it has a 'size' field outside of the internal map
+	// and just weird shit happens when you do anyway
+	private Object cleanObject(final Object dbo) {
+		// sometimes it's lazy, sometimes it's basic. Not sure when or why.
+		if (dbo instanceof LazyBSONList) {
+			final List<Object> ret = new LinkedList<>();
+			// don't stream, sometimes has issues with nulls
+			for (final Object obj: (LazyBSONList) dbo) {
+				ret.add(cleanObject(obj));
+			}
+			return ret;
+		} else if (dbo instanceof BasicBSONList) {
+			final List<Object> ret = new LinkedList<>();
+			// don't stream, sometimes has issues with nulls
+			for (final Object obj: (BasicBSONList) dbo) {
+				ret.add(cleanObject(obj));
+			}
+		} else if (dbo instanceof BSONObject) {
+			// can't stream because streams don't like null values at HashMap.merge()
+			final BSONObject m = (BSONObject) dbo;
+			final Map<String, Object> ret = new HashMap<>();
+			for (final String k: m.keySet()) {
+				if (!k.equals("_id")) {
+					final Object v = m.get(k);
+					ret.put(k, cleanObject(v));
+				}
+			}
+			return ret;
 		}
+		return dbo;
+	}
 
 	public String[] getSubJobIds(String ujsJobId) throws Exception{
 		// there should be a null/empty check for the ujs id here
@@ -105,7 +148,6 @@ public class ExecEngineMongoDb {
 		}
 		return idList.toArray(new String[idList.size()]);
 	}
-
 
 	public ExecLog getExecLog(String ujsJobId) throws Exception {
 		// there should be a null/empty check for the ujs id here
@@ -156,7 +198,8 @@ public class ExecEngineMongoDb {
 				new BasicDBObject("$set", new BasicDBObject("original_line_count", newLineCount)));
 	}
 
-	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count) throws Exception {
+	public List<ExecLogLine> getExecLogLines(String ujsJobId, int from, int count)
+			throws Exception {
 		//input checking
 		@SuppressWarnings("unchecked")
 		final List<DBObject> lines = (List<DBObject>) logCol.findOne(
@@ -189,28 +232,31 @@ public class ExecEngineMongoDb {
 	// See {@link SanitizeMongoObject}.
 	// the un-santization should really happen here.
 	public ExecTask getExecTask(String ujsJobId) throws Exception {
-		List<ExecTask> ret = Lists.newArrayList(execTasks.find(
-				String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).as(ExecTask.class));
-		return ret.size() > 0 ? ret.get(0) : null;
+		// input checking
+		return toObj(taskCol.findOne(new BasicDBObject(PK_EXEC_TASKS, ujsJobId)), ExecTask.class);
 	}
 
-	public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time) throws Exception {
-		execTasks.update(String.format("{%s:#}", PK_EXEC_TASKS), ujsJobId).with(
-				String.format("{$set:{%s:#}}", finishTime ? "finish_time" : "exec_start_time"), time);
+	public void updateExecTaskTime(String ujsJobId, boolean finishTime, long time)
+			throws Exception {
+		//inputs
+		taskCol.update(new BasicDBObject(PK_EXEC_TASKS, ujsJobId),
+				new BasicDBObject("$set",
+						new BasicDBObject(finishTime ? "finish_time" : "exec_start_time", time)));
 	}
 
 	public String getServiceProperty(String propId) throws Exception {
-		@SuppressWarnings("rawtypes")
-		List<Map> ret = Lists.newArrayList(srvProps.find(String.format("{%s:#}", PK_SRV_PROPS), propId)
-				.projection(String.format("{%s:1}", SRV_PROPS_VALUE)).as(Map.class));
-		if (ret.size() == 0)
-			return null;
-		return (String)ret.get(0).get(SRV_PROPS_VALUE);
+		// check input
+		final DBObject dbo = propCol.findOne(new BasicDBObject(PK_SRV_PROPS, propId),
+				new BasicDBObject(SRV_PROPS_VALUE, 1));
+		return dbo == null ? null : (String) dbo.get(SRV_PROPS_VALUE);
 	}
 
 	public void setServiceProperty(String propId, String value) throws Exception {
-		srvProps.update(String.format("{%s:#}", PK_SRV_PROPS), propId).upsert().with(
-				String.format("{$set:{%s:#}}", SRV_PROPS_VALUE), value);
+		propCol.update(
+				new BasicDBObject(PK_SRV_PROPS, propId),
+				new BasicDBObject("$set", new BasicDBObject(SRV_PROPS_VALUE, value)),
+				true,
+				false);
 	}
 
 	private synchronized static MongoClient getMongoClient(final String hosts)

@@ -3,7 +3,6 @@ package us.kbase.narrativejobservice.test;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -124,6 +123,9 @@ public class ExecEngineMongoDbTest {
         Assert.assertEquals(2L, (long)task3.getCreationTime());
         Assert.assertEquals(3L, (long)task3.getExecStartTime());
         Assert.assertEquals(4L, (long)task3.getFinishTime());
+        
+        // test getting a non-existent task
+        assertThat("incorrect task", db.getExecTask("task_3"), nullValue());
     }
     
     @Test
