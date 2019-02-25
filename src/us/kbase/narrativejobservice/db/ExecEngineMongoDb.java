@@ -1,8 +1,5 @@
 package us.kbase.narrativejobservice.db;
 
-import java.io.IOException;
-import java.net.UnknownHostException;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,18 +7,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-import java.util.logging.Level;
 import java.util.stream.Collectors;
 
 import org.bson.BSONObject;
 import org.bson.LazyBSONList;
 import org.bson.types.BasicBSONList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import us.kbase.common.mongo.GetMongoDB;
-import us.kbase.common.mongo.exceptions.InvalidHostException;
-import us.kbase.common.mongo.exceptions.MongoAuthException;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,15 +23,13 @@ import com.mongodb.DBObject;
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoClientOptions;
-import com.mongodb.MongoException;
+import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
 public class ExecEngineMongoDb {
 	private DBCollection taskCol;
 	private DBCollection logCol;
 	private DBCollection propCol;
-
-	private static final Map<String, MongoClient> HOSTS_TO_CLIENT = new HashMap<>();
 
 	private static final String COL_EXEC_TASKS = "exec_tasks";
 	private static final String PK_EXEC_TASKS = "ujs_job_id";
@@ -63,7 +51,7 @@ public class ExecEngineMongoDb {
 			final String user,
 			final String pwd)
 			throws Exception {
-		final DB mongo = getDB(hosts, db, user, pwd, 0, 10);
+		final DB mongo = buildMongo(hosts, db, user, pwd).getDB(db);
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
 		propCol = mongo.getCollection(COL_SRV_PROPS);
@@ -259,75 +247,22 @@ public class ExecEngineMongoDb {
 				false);
 	}
 
-	private synchronized static MongoClient getMongoClient(final String hosts)
-			throws UnknownHostException, InvalidHostException {
-		//Only make one instance of MongoClient per JVM per mongo docs
-		final MongoClient client;
-		if (!HOSTS_TO_CLIENT.containsKey(hosts)) {
-			// Don't print to stderr
-			java.util.logging.Logger.getLogger("com.mongodb")
-					.setLevel(Level.OFF);
-			@SuppressWarnings("deprecation")
-			final MongoClientOptions opts = MongoClientOptions.builder()
-					.autoConnectRetry(true).build();
-			try {
-				List<ServerAddress> addr = new ArrayList<ServerAddress>();
-				for (String s: hosts.split(","))
-					addr.add(new ServerAddress(s));
-				client = new MongoClient(addr, opts);
-			} catch (NumberFormatException nfe) {
-				//throw a better exception if 10gen ever fixes this
-				throw new InvalidHostException(hosts
-						+ " is not a valid mongodb host");
-			}
-			HOSTS_TO_CLIENT.put(hosts, client);
+	private static MongoClient buildMongo(
+			final String host,
+			final String db,
+			final String user,
+			final String pwd) {
+		//TODO ZLATER MONGO handle shards & replica sets
+		if (user != null) {
+			final MongoCredential creds = MongoCredential.createCredential(
+					user, db, pwd.toCharArray());
+			// unclear if and when it's safe to clear the password
+			return new MongoClient(new ServerAddress(host), creds,
+					MongoClientOptions.builder().build());
 		} else {
-			client = HOSTS_TO_CLIENT.get(hosts);
+			return new MongoClient(new ServerAddress(host));
 		}
-		return client;
-	}
-
-	@SuppressWarnings("deprecation")
-	private static DB getDB(final String hosts, final String database,
-							final String user, final String pwd,
-							final int retryCount, final int logIntervalCount)
-			throws UnknownHostException, InvalidHostException, IOException,
-			MongoAuthException, InterruptedException {
-		if (database == null || database.isEmpty()) {
-			throw new IllegalArgumentException(
-					"database may not be null or the empty string");
-		}
-		final DB db = getMongoClient(hosts).getDB(database);
-		if (user != null && pwd != null) {
-			int retries = 0;
-			while (true) {
-				try {
-					db.authenticate(user, pwd.toCharArray());
-					break;
-				} catch (MongoException.Network men) {
-					if (retries >= retryCount) {
-						throw (IOException) men.getCause();
-					}
-					if (retries % logIntervalCount == 0) {
-						getLogger().info(
-								"Retrying MongoDB connection {}/{}, attempt {}/{}",
-								hosts, database, retries, retryCount);
-					}
-					Thread.sleep(1000);
-				}
-				retries++;
-			}
-		}
-		try {
-			db.getCollectionNames();
-		} catch (MongoException me) {
-			throw new MongoAuthException("Not authorized for database "
-					+ database, me);
-		}
-		return db;
-	}
-
-	private static Logger getLogger() {
-		return LoggerFactory.getLogger(GetMongoDB.class);
+		// normally I'd catch exceptions here and wrap them but it seems that's
+		// not the way this codebase rolls
 	}
 }

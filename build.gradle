@@ -217,7 +217,7 @@ dependencies {
     implementation 'apache_commons:commons-logging:1.1.1'
     implementation 'apache_commons:commons-lang:2.4'
     implementation 'apache_commons:commons-lang3:3.1'
-    implementation 'mongo:mongo-java-driver:2.13.3'
+    implementation 'mongo:mongo-java-driver:3.10.1'
     implementation 'bson4jackson:bson4jackson:2.2.0-2.2.0'
     implementation 'com.aries:docker-java-shaded:3.0.14'
 }
