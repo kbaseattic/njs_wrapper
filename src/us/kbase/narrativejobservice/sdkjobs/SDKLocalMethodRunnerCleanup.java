@@ -154,11 +154,7 @@ public class SDKLocalMethodRunnerCleanup {
         flushLog(jobSrvClient, jobId, logLines);
 
     }
-
-
     
-
-
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
                                                 String jobId, List<LogLine> logLines, LogLine line) {
         logLines.add(line);
