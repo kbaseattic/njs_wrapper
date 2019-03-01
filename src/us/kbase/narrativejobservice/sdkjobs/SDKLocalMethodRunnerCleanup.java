@@ -126,6 +126,7 @@ public class SDKLocalMethodRunnerCleanup {
         JobState jobState = jobSrvClient.checkJob(jobId);
         //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+            jobDir.delete();
             return;
         }
 
@@ -148,7 +149,6 @@ public class SDKLocalMethodRunnerCleanup {
             log.logNextLine("Post Job Cleanup Detected Job Didn't Properly Finish", false);
             SDKLocalMethodRunner.finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
         }
-
         flushLog(jobSrvClient, jobId, logLines);
 
     }
