@@ -1,6 +1,7 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
 
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -126,7 +127,8 @@ public class SDKLocalMethodRunnerCleanup {
         JobState jobState = jobSrvClient.checkJob(jobId);
         //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-            jobDir.delete();
+            log.logNextLine("Cleaning up " + jobDir.toPath().toString(), false);
+            FileUtils.forceDelete(jobDir);
             return;
         }
 
@@ -152,6 +154,9 @@ public class SDKLocalMethodRunnerCleanup {
         flushLog(jobSrvClient, jobId, logLines);
 
     }
+
+
+    
 
 
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
