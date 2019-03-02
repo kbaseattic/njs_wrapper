@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice.sdkjobs;
 import ch.qos.logback.classic.Level;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.LogContainerCmd;
 import com.github.dockerjava.api.model.*;
@@ -22,7 +23,6 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -233,6 +233,25 @@ public class DockerRunner {
         return pid;
     }
 
+    public void runAlpineCleaner(File jobdir) {
+        cl = createDockerClient();
+
+        String path = "/kb/module/work";
+
+        List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(jobdir.getAbsolutePath(),
+                new Volume(path))));
+
+
+        CreateContainerResponse container
+                = cl.createContainerCmd("alpine")
+                .withCmd(String.format("rm -rf %s", path))
+                .withBinds(binds).exec();
+
+
+        cl.startContainerCmd(container.getId()).exec();
+        cl.removeContainerCmd(container.getId()).withRemoveVolumes(true).exec();
+    }
+
 
     public File run(
             String imageName,
@@ -303,7 +322,7 @@ public class DockerRunner {
 
             for (Thread t : workers)
                 t.join();
-            log.logNextLine("Job will automatically timeout in " + timeout + " seconds" , false);
+            log.logNextLine("Job will automatically timeout in " + timeout + " seconds", false);
             p.waitFor(Long.parseLong(timeout), TimeUnit.SECONDS);
 
             int containerExitCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
