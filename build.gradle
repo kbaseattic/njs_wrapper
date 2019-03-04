@@ -16,7 +16,9 @@ plugins {
     // files. It disables the default JAR archive generation of the Java plugin 
     // and adds a default WAR archive task
     id 'war'
-
+    //Coverage testing
+    id 'jacoco'
+    //Talk to our artificatory instance
     id 'com.jfrog.artifactory' version "4.7.4"
 }
 buildDir = "gradle_build_directory"
