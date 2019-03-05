@@ -29,11 +29,10 @@ public class TestAlpineDeleteRunner {
         String testDir = baseDir + "/" + "test_dir";
         String testFilePath = testDir + "/" + "test_file";
 
-
         Files.createDirectories(Paths.get(testDir));
         Files.createFile(Paths.get(testFilePath));
 
-        URI dockerURI = new URI("unix:///var/run/docker.sock");
+        URI dockerURI = new URI(config.get("awe.client.docker.uri"));
         new DockerRunner(dockerURI).runAlpineCleaner(new File(testDir));
         boolean fileExists = new File(testFilePath).exists();
         Assert.assertFalse(String.format("File %s still exists", testFilePath), fileExists);
