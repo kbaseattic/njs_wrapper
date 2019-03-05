@@ -430,6 +430,10 @@ public class DockerRunner {
                 System.out.println("Attempting to kill job due to cancellation or sig-kill:" + subjobid);
                 try {
                     cl.killContainerCmd(subjobid).exec();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                try {
                     cl.removeContainerCmd(subjobid).withRemoveVolumes(true).exec();
                 } catch (Exception e) {
                     e.printStackTrace();
