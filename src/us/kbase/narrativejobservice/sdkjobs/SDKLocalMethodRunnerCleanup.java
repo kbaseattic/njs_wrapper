@@ -132,10 +132,7 @@ public class SDKLocalMethodRunnerCleanup {
         //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
             log.logNextLine("Cleaning up " + jobDir.toPath().toString(), false);
-
-             new DockerRunner(dockerURI).runAlpineCleaner(jobDir);
-
-
+            new DockerRunner(dockerURI).runAlpineCleaner(jobDir);
             FileUtils.forceDelete(jobDir);
             return;
         }

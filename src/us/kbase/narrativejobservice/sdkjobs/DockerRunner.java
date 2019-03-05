@@ -11,6 +11,7 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.core.command.WaitContainerResultCallback;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -233,22 +234,26 @@ public class DockerRunner {
         return pid;
     }
 
-    public void runAlpineCleaner(File jobdir) {
+    public void runAlpineCleaner(File jobdir) throws Exception {
         cl = createDockerClient();
 
-        String path = "/kb/module/work";
+        String workdir = "/kb/module/work/*";
+        String alpineImageName = "alpine";
 
-        List<Bind> binds = new ArrayList<Bind>(Arrays.asList(new Bind(jobdir.getAbsolutePath(),
-                new Volume(path))));
-
+        cl.pullImageCmd(alpineImageName)
+                .withTag("latest")
+                .exec(new PullImageResultCallback())
+                .awaitCompletion(30, TimeUnit.SECONDS);
 
         CreateContainerResponse container
-                = cl.createContainerCmd("alpine")
-                .withCmd(String.format("rm -rf %s", path))
-                .withBinds(binds).exec();
+                = cl.createContainerCmd(alpineImageName)
+                .withCmd("rm" ,"-rf", workdir)
+                .withBinds(Bind.parse(String.format("%s:%s", jobdir.getAbsolutePath(), workdir)))
+                .exec();
 
-
-        cl.startContainerCmd(container.getId()).exec();
+        String containerId = container.getId();
+        cl.startContainerCmd(containerId).exec();
+        int containerExitCode = cl.waitContainerCmd(containerId).exec(new WaitContainerResultCallback()).awaitStatusCode();
         cl.removeContainerCmd(container.getId()).withRemoveVolumes(true).exec();
     }
 
