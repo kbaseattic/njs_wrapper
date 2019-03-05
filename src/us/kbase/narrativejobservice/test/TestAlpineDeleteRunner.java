@@ -8,20 +8,15 @@ import us.kbase.narrativejobservice.test.TesterUtils;
 import java.io.File;
 import java.net.URI;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 import java.util.Properties;
 
-
 public class TestAlpineDeleteRunner {
-
-
     static AuthToken token;
     static String jobStatusURL;
     static Properties props;
     static Map<String, String> config;
-
 
     @Test
     public void testAlpineCleaner() throws Exception {
@@ -44,5 +39,4 @@ public class TestAlpineDeleteRunner {
         config = TesterUtils.loadConfig();
 
     }
-
 }
