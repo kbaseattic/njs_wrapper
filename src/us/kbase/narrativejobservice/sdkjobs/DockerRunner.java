@@ -123,15 +123,15 @@ public class DockerRunner {
         }
         cntCmd.withLabels(labels);
 
-        HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements, log);
-        if (cpuMemoryLimiter != null) {
-            //You have to reset binds and reset network unfortunately...
-            cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
-            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-                cpuMemoryLimiter.withNetworkMode("mini_kb_default");
-            }
-            cntCmd.withHostConfig(cpuMemoryLimiter);
-        }
+//        HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements, log);
+//        if (cpuMemoryLimiter != null) {
+//            //You have to reset binds and reset network unfortunately...
+//            cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
+//            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
+//                cpuMemoryLimiter.withNetworkMode("mini_kb_default");
+//            }
+//            cntCmd.withHostConfig(cpuMemoryLimiter);
+//        }
 
 
         if (parentCgroup != null) {
@@ -536,6 +536,7 @@ public class DockerRunner {
                 long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
                 //cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
                 cpuMemoryLimiter.withMemoryReservation(inputMemoryBytes); //soft memory limit
+
                 log.logNextLine("Setting request_memory Requirements to " + inputMemory, false);
                 log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, false);
                 if (Long.parseLong(inputMemory) <= 500) {
