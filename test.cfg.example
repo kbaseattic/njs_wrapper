@@ -8,6 +8,9 @@ njs_server_url=http://localhost:8080
 # Temporary folder for tests
 temp.dir=temp_files
 
+# Default condor dir
+condor.dir=/mnt/condor
+
 # Path to the MongoDB executable. Omit to use mongod found on the path.
 #test-mongod-exe=/kb/runtime/bin/mongod
 

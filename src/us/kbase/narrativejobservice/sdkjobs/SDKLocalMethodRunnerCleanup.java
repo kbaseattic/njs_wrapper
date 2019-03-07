@@ -1,6 +1,11 @@
 package us.kbase.narrativejobservice.sdkjobs;
 
 
+import com.github.dockerjava.api.DockerClient;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
+import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.DockerClientConfig;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -126,6 +131,9 @@ public class SDKLocalMethodRunnerCleanup {
         JobState jobState = jobSrvClient.checkJob(jobId);
         //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+            log.logNextLine("Cleaning up " + jobDir.toPath().toString(), false);
+            new DockerRunner(dockerURI).runAlpineCleaner(jobDir);
+            FileUtils.forceDelete(jobDir);
             return;
         }
 
@@ -148,11 +156,9 @@ public class SDKLocalMethodRunnerCleanup {
             log.logNextLine("Post Job Cleanup Detected Job Didn't Properly Finish", false);
             SDKLocalMethodRunner.finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
         }
-
         flushLog(jobSrvClient, jobId, logLines);
 
     }
-
 
     private static synchronized void addLogLine(NarrativeJobServiceClient jobSrvClient,
                                                 String jobId, List<LogLine> logLines, LogLine line) {

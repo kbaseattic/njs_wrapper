@@ -34,8 +34,8 @@ public class CondorUtils {
 
         HashMap<String, String> envVariables = new HashMap<>();
         String requestCpus = "request_cpus = 1";
-        String requestMemory = "request_memory = 5MB";
-        String requestDisk = "request_disk = 1MB";
+        String requestMemory = "request_memory = 1024MB";
+        String requestDisk = "request_disk = 50GB";
 
         //Default at MB for now
         String requestCpusKey = "request_cpus";
