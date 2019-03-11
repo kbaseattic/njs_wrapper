@@ -575,6 +575,7 @@ public class SDKLocalMethodRunner {
 
             Map<String, String> labels = new HashMap<>();
             labels.put("job_id", "" + jobId);
+            labels.put("condor_id",""+ System.getenv("CONDOR_ID"));
             labels.put("image_name", imageName);
 
             String method = job.getMethod();
