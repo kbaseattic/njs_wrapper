@@ -112,10 +112,8 @@ public class CallbackServerTest {
             }
         };
         final int callbackPort = ControllerCommon.findFreePort();
-
         String [] networkInterfaces = new String[] {"docker0", "vboxnet0", "vboxnet1",
                 "VirtualBox Host-Only Ethernet Adapter", "en0", "en1","en8"};
-
         final URL callbackUrl = CallbackServer.getCallbackUrl(callbackPort, networkInterfaces);
         final Path temp = Files.createTempDirectory(TEST_DIR, "cbt");
         final CallbackServerConfig cbcfg =
