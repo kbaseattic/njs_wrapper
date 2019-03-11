@@ -143,7 +143,7 @@ public class AweClientDockerJobScriptTest {
                 .append(DateTimeFormat.forPattern("Z"))
                 .toFormatter();
 
-    @Test
+//    //@Test
     public void testOneJob() throws Exception {
         System.out.println("Test [testOneJob]");
         Map<String, String> meta = new HashMap<String, String>();
@@ -240,7 +240,7 @@ public class AweClientDockerJobScriptTest {
         return outer;
     }
     
-    @Test
+    //@Test
     public void testInsanitaryParams() throws Exception {
         System.out.println("Test [testInsanitaryParams]");
         Map<String, Object> outer = buildInsanitaryObject();
@@ -254,7 +254,7 @@ public class AweClientDockerJobScriptTest {
         assertThat("incorrect params", got, is(outer));
     }
     
-    @Test
+    //@Test
     public void testInsanitaryReturns() throws Exception {
         System.out.println("Test [testInsanitaryReturns]");
         Map<String, Object> ret = buildInsanitaryObject();
@@ -287,7 +287,7 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
     
-    @Test
+    //@Test
     public void testLargeParams() throws Exception {
         //note the SDKLocalMethodRunner limits returns to 1m
         System.out.println("Test [testLargeParams]");
@@ -334,7 +334,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    @Test
+    //@Test
     public void testNestedAsync() throws Exception {
         System.out.println("Test [testNestedAsync]");
         execStats.clear();
@@ -469,7 +469,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBasicProvenance() throws Exception {
         System.out.println("Test [testBasicProvenance]");
         execStats.clear();
@@ -509,7 +509,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
     }
     
-    @Test
+    //@Test
     public void testMultiCallProvenance() throws Exception {
         // TODO: run
         System.out.println("Test [testMultiCallProvenance]");
@@ -568,7 +568,7 @@ public class AweClientDockerJobScriptTest {
         checkLoggingComplete(res);
     }
 
-    @Test
+    //@Test
     public void testBadWSIDs() throws Exception {
         System.out.println("Test [testBadWSIDs]");
         List<String> ws = new ArrayList<String>(Arrays.asList(
@@ -582,7 +582,7 @@ public class AweClientDockerJobScriptTest {
                 ws, token.getUserName()));
     }
     
-    @Test
+    //@Test
     public void testWorkspaceError() throws Exception {
         System.out.println("Test [testWorkspaceError]");
         // test a workspace error.
@@ -594,7 +594,7 @@ public class AweClientDockerJobScriptTest {
                 testWsName + "/objectdoesntexist/badver to an integer"));
     }
     
-    @Test
+    //@Test
     public void testBadRelease() throws Exception {
         System.out.println("Test [testBadRelease]");
         // note that dev and beta releases can only have one version each,
@@ -625,7 +625,7 @@ public class AweClientDockerJobScriptTest {
                 "No module version found that matches your criteria!");
     }
     
-    @Test
+    //@Test
     public void testfailJobMultiCallBadRelease() throws Exception {
         System.out.println("Test [testfailJobMultiCallBadRelease]");
         
@@ -660,7 +660,7 @@ public class AweClientDockerJobScriptTest {
                 "No module version found that matches your criteria!");
     }
     
-    @Test
+    //@Test
     public void testfailJobBadMethod() throws Exception {
         System.out.println("Test [testfailJobBadMethod]");
         failJob("njs_sdk_test_1run", "foo",
@@ -669,7 +669,7 @@ public class AweClientDockerJobScriptTest {
                 "Illegal method name: njs_sdk_test_1.r.un");
     }
     
-    @Test
+    //@Test
     public void testfailJobMultiCallBadMethod() throws Exception {
         System.out.println("Test [testfailJobMultiCallBadMethod]");
         failJobMultiCall(
@@ -683,7 +683,7 @@ public class AweClientDockerJobScriptTest {
         
     }
 
-    @Test
+    //@Test
     public void testErrorInSubjob() throws Exception {
         System.out.println("Test [testErrorInSubjob]");
         execStats.clear();
@@ -959,7 +959,7 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
     
-    @Test
+    //@Test
     public void testLogging() throws Exception {
         System.out.println("Test [testLogging]");
         try {
@@ -1026,7 +1026,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testJobCancellation() throws Exception {
         // TODO: add tests with several users having and not having read access to UJS job
         // TODO: add tests with several users for updateJob and finishJob as well
@@ -1130,7 +1130,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
     
-    @Test
+    //@Test
     public void testCheckJobCanceledWithBadInput() throws Exception {
         failCheckJobCanceled(null, "No parameters supplied to method");
         failCheckJobCanceled(new CancelJobParams().withJobId(null), "No job id supplied");
@@ -1147,7 +1147,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testError() throws Exception {
         System.out.println("Test [testError]");
         try {
@@ -1198,7 +1198,7 @@ public class AweClientDockerJobScriptTest {
         return ret;
     }
 
-    @Test
+    //@Test
     public void testConfig() throws Exception {
         System.out.println("Test [testConfig]");
         try {
@@ -1219,7 +1219,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testPythonWrongType() throws Exception {
         System.out.println("Test [testPythonWrongType]");
         try {
@@ -1233,7 +1233,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testRefData() throws Exception {
         System.out.println("Test [testRefData]");
         String refDataFileName = "test.txt";
@@ -1252,7 +1252,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testCustomData() throws Exception {
         // CatalogWrapper is configured that it returns non-empty list of volume mappings only if 
         // <work-dir>/<userid> folder exists in host file system. This
@@ -1287,7 +1287,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testAsyncClient() throws Exception {
         System.out.println("Test [testAsyncClient]");
         String refDataFileName = "test.txt";
@@ -1300,7 +1300,7 @@ public class AweClientDockerJobScriptTest {
         Assert.assertTrue(new TreeSet<String>(ret).contains(refDataFileName));
     }
     
-    @Test
+    //@Test
     public void testWrongMethod() throws Exception {
         System.out.println("Test [testWrongMethod]");
         try {
@@ -1317,7 +1317,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testLocalSdkCallback() throws Exception {
         System.out.println("Test [testLocalSdkCallback]");
         try {
@@ -1335,7 +1335,7 @@ public class AweClientDockerJobScriptTest {
         }
     }
 
-    @Test
+    //@Test
     public void testBulkCheckJobs() throws Exception {
         System.out.println("Test [testBulkCheckJobs]");
         try {
