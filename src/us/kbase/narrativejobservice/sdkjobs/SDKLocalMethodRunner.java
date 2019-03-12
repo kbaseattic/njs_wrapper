@@ -522,10 +522,10 @@ public class SDKLocalMethodRunner {
                             return true;
                         }
                     } catch (Exception ex) {
-                        log.logNextLine("Non-critical error checking for job cancelation - " +
+                        log.logNextLine("ineffective attempt checking for job cancelation - " +
                                 String.format("Will check again in %s seconds. ",
                                         DockerRunner.CANCELLATION_CHECK_PERIOD_SEC) +
-                                "Error reported by execution engine was: " +
+                                "ineffective report details from execution engine are: " +
                                 HtmlEscapers.htmlEscaper().escape(ex.getMessage()), true);
                     }
                     return false;
