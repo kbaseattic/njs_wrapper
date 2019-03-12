@@ -59,6 +59,8 @@ public class CondorUtils {
         envVariables.put("KB_ADMIN_AUTH_TOKEN", adminToken.getToken());
         envVariables.put("AWE_CLIENTGROUP", clientGroups);
         envVariables.put("BASE_DIR", baseDir);
+        envVariables.put("UJS_JOB_ID", ujsJobId);
+        envVariables.put("CONDOR_ID", "$(Cluster).$(Process)");
 
         List<String> environment = new ArrayList<String>();
         for (String key : envVariables.keySet()) {
