@@ -1,4 +1,4 @@
-package kbase.narrativejobservice.test;
+package us.kbase.narrativejobservice.test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import junit.framework.Assert;

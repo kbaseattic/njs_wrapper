@@ -153,9 +153,12 @@ public class SDKMethodRunner {
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 			String parentJobId = params.getParentJobId();
 			String schedulerType = "condor";
-
-			String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
-			saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType,parentJobId, config);
+			try {
+				String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
+				saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType, parentJobId, config);
+			} catch (Exception e) {
+				throw new IllegalStateException("Couldn't submit condor job: " + e);
+			}
 
 		} else {
 			String aweJobId = AweUtils.runTask(getAweServerURL(config), "ExecutionEngine", params.getMethod(), ujsJobId + " " + selfExternalUrl, NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME, authPart, aweClientGroups, getCatalogAdminAuth(config));

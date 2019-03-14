@@ -84,12 +84,14 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
             ).toFile();
         }
 
-        Map<String,String> labels = new HashMap<>();
-        labels.put("job_id",""+jobId);
-        labels.put("image_name",imageName);
-        labels.put("module_name",moduleName);
-        labels.put("module_version",moduleVersion.getVersion());
-        labels.put("user_name",token.getUserName());
+        Map<String, String> labels = new HashMap<>();
+        labels.put("runner_job_id", "" + jobId);
+        labels.put("job_id", "" + System.getenv("UJS_JOB_ID"));
+        labels.put("condor_id", "" + System.getenv("CONDOR_ID"));
+        labels.put("image_name", imageName);
+        labels.put("module_name", moduleName);
+        labels.put("module_version", moduleVersion.getVersion());
+        labels.put("user_name", token.getUserName());
 
         String cgroupParent = null;
         try{

@@ -16,7 +16,9 @@ plugins {
     // files. It disables the default JAR archive generation of the Java plugin 
     // and adds a default WAR archive task
     id 'war'
-
+    //Coverage testing
+    id 'jacoco'
+    //Talk to our artificatory instance
     id 'com.jfrog.artifactory' version "4.7.4"
 }
 buildDir = "gradle_build_directory"
@@ -217,8 +219,7 @@ dependencies {
     implementation 'apache_commons:commons-logging:1.1.1'
     implementation 'apache_commons:commons-lang:2.4'
     implementation 'apache_commons:commons-lang3:3.1'
-    implementation 'mongo:mongo-java-driver:2.13.3'
-    implementation 'jongo:jongo:0.5-early-20130912-1506'
+    implementation 'mongo:mongo-java-driver:3.10.1'
     implementation 'bson4jackson:bson4jackson:2.2.0-2.2.0'
     implementation 'com.aries:docker-java-shaded:3.0.14'
 }

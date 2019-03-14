@@ -1,16 +1,26 @@
 package us.kbase.narrativejobservice.test;
 
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.junit.Assert.assertThat;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.collect.ImmutableMap;
+import com.mongodb.MongoClient;
 import com.mongodb.WriteConcernException;
 
 import us.kbase.common.test.controllers.mongo.MongoController;
@@ -22,6 +32,9 @@ import us.kbase.narrativejobservice.db.ExecTask;
 public class ExecEngineMongoDbTest {
     private static MongoController mongo;
     private static ExecEngineMongoDb db = null;
+    private static String DB_NAME = "exec_engine";
+    
+    // so the test class uses spaces. The implementation class uses tabs. Kill me.
     
     @BeforeClass
     public static void startup() throws Exception {
@@ -32,17 +45,29 @@ public class ExecEngineMongoDbTest {
         String mongoExepath = TesterUtils.getMongoExePath(props);
         System.out.print("Starting MongoDB executable at " + mongoExepath +
                 "... ");
-        mongo = new MongoController(mongoExepath, mongoDir.toPath());
+        final boolean useWiredTiger = false; // TODO add to test configuration
+        mongo = new MongoController(mongoExepath, mongoDir.toPath(), useWiredTiger);
         System.out.println("Done. Port " + mongo.getServerPort());
         
         db = new ExecEngineMongoDb("localhost:" + mongo.getServerPort(),
-                "exec_engine", null, null, null);
+                DB_NAME, null, null);
     }
 
     @AfterClass
     public static void shutdown() throws Exception {
         if (mongo != null)
             mongo.destroy(false);
+    }
+    
+    @After
+    public void after() throws Exception {
+        final MongoClient mc = new MongoClient("localhost:" + mongo.getServerPort());
+        TesterUtils.destroyDB(mc.getDB(DB_NAME));
+    }
+    
+    @SafeVarargs
+    public static <T> Set<T> set(T... objects) {
+        return new HashSet<T>(Arrays.asList(objects));
     }
     
     @Test
@@ -60,7 +85,7 @@ public class ExecEngineMongoDbTest {
         String val2 = "val2";
         db.setServiceProperty(key2, val2);
         Assert.assertEquals(val1, db.getServiceProperty(key1));
-        Assert.assertEquals(val2, db.getServiceProperty(key2));        
+        Assert.assertEquals(val2, db.getServiceProperty(key2));
     }
     
     @Test
@@ -98,6 +123,9 @@ public class ExecEngineMongoDbTest {
         Assert.assertEquals(2L, (long)task3.getCreationTime());
         Assert.assertEquals(3L, (long)task3.getExecStartTime());
         Assert.assertEquals(4L, (long)task3.getFinishTime());
+        
+        // test getting a non-existent task
+        assertThat("incorrect task", db.getExecTask("task_3"), nullValue());
     }
     
     @Test
@@ -130,6 +158,9 @@ public class ExecEngineMongoDbTest {
             Assert.assertEquals("" + (char)('a' + i), ell.getLine());
             Assert.assertEquals(i % 2, ell.getIsError() ? 1 : 0);
         }
+        
+        // check no logs returns null
+        assertThat("incorrect logs", db.getExecLog("logs_2"), nullValue());
     }
 
     @Test
@@ -192,5 +223,76 @@ public class ExecEngineMongoDbTest {
         }
         t2 = System.currentTimeMillis() - t2;
         System.out.println("testSpeedAndSize: t2=" + t2 + " (" + (t2 / (double)count) + " per insert)");
+    }
+    
+    @Test
+    public void getSubjobIDs() throws Exception {
+        // i would kill for a fluent builder here
+        final ExecTask t1 = new ExecTask();
+        t1.setParentJobId("pid1");
+        t1.setUjsJobId("ujsid1");
+        
+        final ExecTask t2 = new ExecTask();
+        t2.setParentJobId("pid1");
+        t2.setUjsJobId("ujsid2");
+        
+        // ujs job ids must be unique, and tasks cannot have the same ujs id
+        final ExecTask t3 = new ExecTask();
+        t3.setParentJobId("pid2");
+        t3.setUjsJobId("ujsid3");
+        
+        final ExecTask t4 = new ExecTask();
+        t4.setUjsJobId("ujsid4");
+        
+        db.insertExecTask(t1);
+        db.insertExecTask(t2);
+        db.insertExecTask(t3);
+        db.insertExecTask(t4);
+        
+        assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid1"))),
+                is(set("ujsid1", "ujsid2")));
+        
+        // check no output
+        assertThat("incorrect subjob ids", new HashSet<>(Arrays.asList(db.getSubJobIds("pid"))),
+                is(set()));
+    }
+    
+    @Test
+    public void updateExecOriginalLineCount() throws Exception {
+        final ExecLog el = new ExecLog();
+        el.setLines(Collections.emptyList());
+        el.setOriginalLineCount(34);
+        el.setStoredLineCount(51);
+        el.setUjsJobId("jobid");
+        db.insertExecLog(el);
+        
+        db.updateExecLogOriginalLineCount("jobid", 72);
+        
+        final ExecLog got = db.getExecLog("jobid");
+        
+        assertThat("incorrect jobid", got.getUjsJobId(), is("jobid"));
+        assertThat("incorrect line", got.getLines(), nullValue()); // fn doesn't include lines
+        assertThat("incorrect original line count", got.getOriginalLineCount(), is(72));
+        assertThat("incorrect stored line count", got.getStoredLineCount(), is(51));
+    }
+    
+    @Test
+    public void addExecTaskResult() throws Exception {
+        final ExecTask t1 = new ExecTask();
+        t1.setUjsJobId("ujsid1");
+        
+        db.insertExecTask(t1);
+        db.addExecTaskResult("ujsid1", ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo"))));
+        
+        final ExecTask got = db.getExecTask("ujsid1");
+        
+        assertThat("incorrect id", got.getUjsJobId(), is("ujsid1"));
+        assertThat("incorrect result", got.getJobOutput(), is(ImmutableMap.of(
+                "foo", "bar",
+                "baz", 1,
+                "bat", Arrays.asList("foo", 1, ImmutableMap.of("whee", "whoo")))));
     }
 }

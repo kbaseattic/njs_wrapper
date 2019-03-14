@@ -3,6 +3,7 @@ package us.kbase.narrativejobservice.sdkjobs;
 import ch.qos.logback.classic.Level;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.command.LogContainerCmd;
 import com.github.dockerjava.api.model.*;
@@ -10,6 +11,7 @@ import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.command.LogContainerResultCallback;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.core.command.WaitContainerResultCallback;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -22,7 +24,6 @@ import java.io.*;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URL;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -122,15 +123,15 @@ public class DockerRunner {
         }
         cntCmd.withLabels(labels);
 
-        HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements, log);
-        if (cpuMemoryLimiter != null) {
-            //You have to reset binds and reset network unfortunately...
-            cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
-            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
-                cpuMemoryLimiter.withNetworkMode("mini_kb_default");
-            }
-            cntCmd.withHostConfig(cpuMemoryLimiter);
-        }
+//        HostConfig cpuMemoryLimiter = setJobRequirements(resourceRequirements, log);
+//        if (cpuMemoryLimiter != null) {
+//            //You have to reset binds and reset network unfortunately...
+//            cpuMemoryLimiter.withBinds(new Binds(binds.toArray(new Bind[binds.size()])));
+//            if (miniKB != null && !miniKB.isEmpty() && miniKB.equals("true")) {
+//                cpuMemoryLimiter.withNetworkMode("mini_kb_default");
+//            }
+//            cntCmd.withHostConfig(cpuMemoryLimiter);
+//        }
 
 
         if (parentCgroup != null) {
@@ -233,6 +234,29 @@ public class DockerRunner {
         return pid;
     }
 
+    public void runAlpineCleaner(File jobdir) throws Exception {
+        cl = createDockerClient();
+
+        String workdir = "/kb/module/work/*";
+        String alpineImageName = "alpine";
+
+        cl.pullImageCmd(alpineImageName)
+                .withTag("latest")
+                .exec(new PullImageResultCallback())
+                .awaitCompletion(30, TimeUnit.SECONDS);
+
+        CreateContainerResponse container
+                = cl.createContainerCmd(alpineImageName)
+                .withCmd("rm" ,"-rf", workdir)
+                .withBinds(Bind.parse(String.format("%s:%s", jobdir.getAbsolutePath(), workdir)))
+                .exec();
+
+        String containerId = container.getId();
+        cl.startContainerCmd(containerId).exec();
+        int containerExitCode = cl.waitContainerCmd(containerId).exec(new WaitContainerResultCallback()).awaitStatusCode();
+        cl.removeContainerCmd(container.getId()).withRemoveVolumes(true).exec();
+    }
+
 
     public File run(
             String imageName,
@@ -303,7 +327,7 @@ public class DockerRunner {
 
             for (Thread t : workers)
                 t.join();
-            log.logNextLine("Job will automatically timeout in " + timeout + " seconds" , false);
+            log.logNextLine("Job will automatically timeout in " + timeout + " seconds", false);
             p.waitFor(Long.parseLong(timeout), TimeUnit.SECONDS);
 
             int containerExitCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
@@ -409,6 +433,11 @@ public class DockerRunner {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                try {
+                    cl.removeContainerCmd(subjobid).withRemoveVolumes(true).exec();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         } else {
             System.out.println("No subjobs to kill");
@@ -507,6 +536,7 @@ public class DockerRunner {
                 long inputMemoryBytes = Long.parseLong(inputMemory) * 1000000L;
                 //cpuMemoryLimiter.withMemory(inputMemoryBytes); //hard memory limit
                 cpuMemoryLimiter.withMemoryReservation(inputMemoryBytes); //soft memory limit
+
                 log.logNextLine("Setting request_memory Requirements to " + inputMemory, false);
                 log.logNextLine("Setting withMemoryReservation  to " + inputMemoryBytes, false);
                 if (Long.parseLong(inputMemory) <= 500) {
