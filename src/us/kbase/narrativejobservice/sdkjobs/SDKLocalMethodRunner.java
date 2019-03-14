@@ -188,7 +188,8 @@ public class SDKLocalMethodRunner {
     /***
      * Create jobShutdownHook for catching shutdown signals
      */
-    public static Thread jobShutdownHook(final URI dockerURI) {
+    public static Thread jobShutdownHook(final Map<String, String> config, final URI dockerURI, final String jobId, final NarrativeJobServiceClient jobSrvClient, final LineLogger log) {
+
         return new Thread() {
                     @Override
                     public void run() {
@@ -196,6 +197,10 @@ public class SDKLocalMethodRunner {
                             new DockerRunner(dockerURI).killSubJobs();
                             File logFile = new File("shutdownhook");
                             FileUtils.writeStringToFile(logFile, "Shutdown hook has run");
+                            jobSrvClient.cancelJob(new CancelJobParams().withJobId(jobId));
+                            String error = String.format("Job was cancelled by an administrator");
+                            finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
+
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -618,7 +623,7 @@ public class SDKLocalMethodRunner {
             timedJobShutdown.setDaemon(true);
             timedJobShutdown.start();
 
-            shutdownHook = jobShutdownHook(dockerURI);
+            shutdownHook = jobShutdownHook(config, dockerURI, jobId, jobSrvClient, log);
             Runtime.getRuntime().addShutdownHook(shutdownHook);
 
             // Calling Runner
