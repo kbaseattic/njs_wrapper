@@ -11,7 +11,7 @@ Version: 1.0.4
 - Updated HPC Runner Script
 - Added dev_tools/readme* files
 - Removed build.xml legacy file
-- Changed job defaults from 5mb memory and 1mb disk to 1024MB mem and 50GB disk
+- Changed job defaults from 5mb memory and 1mb disk to 4 CPU, 6000MB mem and 100GB disk
 - Disabled setting CPU quota with docker and setting soft memory cgroup with docker, instead relying on Condor SLOT cgroups
 - Added condor_job labels to docker containers
 - Added a step to the cleaner script to delete workdir directories for successfully run jobs
