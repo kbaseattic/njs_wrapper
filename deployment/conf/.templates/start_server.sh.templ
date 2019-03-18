@@ -2,7 +2,7 @@
 # If there is an environment variable "POOL_PASSWORD" write it out to the 
 # condor pool password file before starting the java services
 if [ "$POOL_PASSWORD" ] ; then
-    su -c kbase /usr/sbin/condor_store_cred -p "$POOL_PASSWORD" -f `condor_config_val SEC_PASSWORD_FILE`
+    su -m -c kbase /usr/sbin/condor_store_cred -p "$POOL_PASSWORD" -f `condor_config_val SEC_PASSWORD_FILE`
 fi
 
 JAVA_OPTS="-Djava.awt.headless=true -server \
