@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dockerjava.api.model.AccessMode;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.Volume;
-import com.github.dockerjava.shaded.org.apache.log4j.helpers.LogLog;
 import com.google.common.html.HtmlEscapers;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
