@@ -167,7 +167,7 @@ dependencies {
     implementation 'jetty:jetty-all:7.0.0'
     implementation 'jna:jna:3.4.0'
     implementation 'servlet:servlet-api:2.5'
-    implementation 'syslog4j:syslog4j:0.9.46'
+//    implementation 'syslog4j:syslog4j:0.9.46'
     implementation 'junit:junit:4.9'
     implementation 'kbase:auth:0.4.4'
     implementation 'jackson:jackson-annotations:2.2.3'

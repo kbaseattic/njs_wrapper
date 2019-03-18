@@ -26,6 +26,11 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
+import java.util.logging.Logger;
+import java.util.logging.Level;
+
+
+
 public class ExecEngineMongoDb {
 	private DBCollection taskCol;
 	private DBCollection logCol;
@@ -51,6 +56,10 @@ public class ExecEngineMongoDb {
 			final String user,
 			final String pwd)
 			throws Exception {
+
+		Logger mongoLogger = Logger.getLogger( "org.mongodb.driver" );
+		mongoLogger.setLevel(Level.INFO); // e.g. or Log.WARNING, etc.
+		
 		final DB mongo = buildMongo(hosts, db, user, pwd).getDB(db);
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
@@ -68,6 +77,9 @@ public class ExecEngineMongoDb {
 		} catch (DuplicateKeyException e) {
 			//version is already there so do nothing
 		}
+
+
+
 	}
 	
 	private Map<String, Object> toMap(final Object obj) {
