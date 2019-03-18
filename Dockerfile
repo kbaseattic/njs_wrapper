@@ -15,4 +15,10 @@ COPY --chown=kbase deployment/ /kb/deployment/
 COPY --from=build /njs/dist/NJSWrapper.war /kb/deployment/jettybase/webapps/root.war
 COPY --from=build /njs/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
+ENV JETTY_HOME /jetty
+
+RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
+&& wget https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/8.1.21.v20160908/jetty-distribution-8.1.21.v20160908.tar.gz \
+&& tar -xvf jetty-distribution-8.1.21.v20160908 && rm -rf jetty-distribution-8.1.21.v20160908
+
 ENTRYPOINT [ "/kb/deployment/bin/dockerize" ]
