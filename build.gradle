@@ -173,7 +173,7 @@ dependencies {
     implementation 'jackson:jackson-annotations:2.2.3'
     implementation 'jackson:jackson-core:2.2.3'
     implementation 'jackson:jackson-databind:2.2.3'
-    implementation 'kbase:kbase-common:0.0.23'
+    implementation 'kbase:kbase-common:0.0.25'
     implementation 'kbase:WorkspaceClient:0.6.0'
     implementation 'derby:derby:10.10.1.1'
     implementation 'easymock:easymock:3.2'
