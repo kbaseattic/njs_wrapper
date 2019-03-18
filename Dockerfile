@@ -8,7 +8,7 @@ RUN echo "About to build $BRANCH" &&  cd /njs && ./gradlew buildAll
 
 FROM kbase/condor-worker
 # Copy configs for dockerize
-RUN rm -rf /kb/deployment/
+RUN rm -rf /kb/deployment/conf/
 COPY --chown=kbase deployment/ /kb/deployment/
 
 # Copy War and Fat Jar into root.war and for distribution to the worker nodes in /kb/deployment/lib
