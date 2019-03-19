@@ -345,10 +345,12 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
 
 
     public void setUpLogger() {
+
         final Logger rootLogger = ((Logger) LoggerFactory.getLogger(
                 org.slf4j.Logger.ROOT_LOGGER_NAME));
-        rootLogger.setLevel(Level.OFF);
+        rootLogger.setLevel(Level.INFO);
         rootLogger.detachAndStopAllAppenders();
+
     }
 
 
