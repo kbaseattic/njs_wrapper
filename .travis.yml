@@ -3,6 +3,11 @@ dist: trusty
 services:
   - docker
   
+addons:
+apt:
+  packages:
+    - docker-ce
+  
 sudo: required
 language: java
 jdk:
@@ -16,7 +21,7 @@ before_install:
   - cd mini_kb; docker-compose -f execution-engine.yml pull; docker-compose -f execution-engine.yml up -d
   - df -h
   - docker ps
-  - echo "127.0.0.1 nginx" >> /etc/hosts/
+  - echo "127.0.0.1 nginx" >> /etc/hosts
   - cat /etc/hosts
   - gradle test
   
