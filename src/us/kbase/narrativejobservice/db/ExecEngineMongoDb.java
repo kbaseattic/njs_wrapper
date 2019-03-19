@@ -26,10 +26,6 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
-import java.util.logging.Logger;
-import java.util.logging.Level;
-
-
 
 public class ExecEngineMongoDb {
 	private DBCollection taskCol;
@@ -56,9 +52,6 @@ public class ExecEngineMongoDb {
 			final String user,
 			final String pwd)
 			throws Exception {
-
-		Logger mongoLogger = Logger.getLogger( "org.mongodb.driver" );
-		mongoLogger.setLevel(Level.INFO); // e.g. or Log.WARNING, etc.
 		
 		final DB mongo = buildMongo(hosts, db, user, pwd).getDB(db);
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
