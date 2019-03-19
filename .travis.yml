@@ -18,10 +18,11 @@ before_install:
   - sudo apt-get install -y ant-optional
   - sudo pip install sphinx
   - git clone https://github.com/bio-boris/mini_kb.git
-  - cd mini_kb; docker-compose -f execution-engine.yml pull; docker-compose -f execution-engine.yml up -d
+  - time cd mini_kb; docker-compose -f execution-engine.yml pull;
+  - time cd mini_kb; docker-compose -f execution-engine.yml up -d
   - df -h
   - docker ps
-  - echo "127.0.0.1 nginx" >> /etc/hosts
+  - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
   - gradle test
   
