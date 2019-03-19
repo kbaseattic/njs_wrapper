@@ -1,4 +1,8 @@
 dist: trusty
+
+services:
+  - docker
+  
 sudo: required
 language: java
 jdk:
@@ -7,6 +11,10 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y ant-optional
   - sudo pip install sphinx
+  - git clone https://github.com/kbase/mini_kb.git
+  - cd mini_kb; docker-compose -f execution-engine.yml pull; docker-compose -f execution-engine.yml up -d
+  - docker ps
+  - gradle test
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
     - secure: "GEbQy4zR5hhHDzjoThGyCHZVmpEWKduwR/sZ1sR8csOYrfYqQTHinhAMY+KAdUhjJfWGwR9l2v2xkhyokzdADhKOqZJo7jkkioPEtENdocTWMYq7Qedg6kUCzcAutURIBCcoJtW4vrpGZ+1YR4vB8BhA11KA62QUbsQY3ds/LTg="
