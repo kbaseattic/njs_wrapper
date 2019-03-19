@@ -17,9 +17,11 @@ COPY --from=build /njs/dist/NJSWrapper-all.jar /kb/deployment/lib/
 
 ENV JETTY_HOME /jetty
 
-RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
-&& wget https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/9.4.15.v20190215/jetty-distribution-9.4.15.v20190215.tar.gz \
-&& tar -xvf jetty-distribution-9.4.15.v20190215.tar.gz && rm -rf jetty-distribution-9.4.15.v20190215.tar.gz && mv jetty-distribution-9.4.15.v20190215/* $JETTY_HOME
+#RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
+#&& wget https://repo1.maven.org/maven2/org/eclipse/jetty/jetty-distribution/9.4.15.v20190215/jetty-distribution-9.4.15.v20190215.tar.gz \
+#&& tar -xvf jetty-distribution-9.4.15.v20190215.tar.gz && rm -rf jetty-distribution-9.4.15.v20190215.tar.gz && mv jetty-distribution-9.4.15.v20190215/* $JETTY_HOME
+
+RUN mkdir $JETTY_HOME && cd $JETTY_HOME && tar -xvf /kb/deployment/jetty.tgz && mv jetty/* .
 
 RUN chmod 777 /etc/condor
 
