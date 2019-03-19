@@ -18,13 +18,13 @@ before_install:
   - sudo apt-get install -y ant-optional
   - sudo pip install sphinx
   - git clone https://github.com/bio-boris/mini_kb.git
-  - time cd mini_kb; docker-compose -f execution-engine.yml pull;
-  - time cd mini_kb; docker-compose -f execution-engine.yml up -d
+  - cd mini_kb; time docker-compose -f execution-engine.yml pull;
+  - cd mini_kb; time docker-compose -f execution-engine.yml up -d
   - df -h
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
-  - gradle test
+  - cd kbase/njs_wrapper; gradle test
   
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
