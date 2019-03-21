@@ -26,6 +26,7 @@ import com.mongodb.MongoClientOptions;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 
+
 public class ExecEngineMongoDb {
 	private DBCollection taskCol;
 	private DBCollection logCol;
@@ -51,6 +52,7 @@ public class ExecEngineMongoDb {
 			final String user,
 			final String pwd)
 			throws Exception {
+		
 		final DB mongo = buildMongo(hosts, db, user, pwd).getDB(db);
 		taskCol = mongo.getCollection(COL_EXEC_TASKS);
 		logCol = mongo.getCollection(COL_EXEC_LOGS);
@@ -68,6 +70,9 @@ public class ExecEngineMongoDb {
 		} catch (DuplicateKeyException e) {
 			//version is already there so do nothing
 		}
+
+
+
 	}
 	
 	private Map<String, Object> toMap(final Object obj) {

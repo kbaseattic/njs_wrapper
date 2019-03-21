@@ -1,10 +1,8 @@
 #!/bin/sh
-#
-
 # If there is an environment variable "POOL_PASSWORD" write it out to the 
 # condor pool password file before starting the java services
 if [ "$POOL_PASSWORD" ] ; then
-    /usr/sbin/condor_store_cred -p "$POOL_PASSWORD" -f `condor_config_val SEC_PASSWORD_FILE`
+    su kbase -m -c "/usr/sbin/condor_store_cred -p \"$POOL_PASSWORD\" -f `condor_config_val SEC_PASSWORD_FILE`"
 fi
 
 JAVA_OPTS="-Djava.awt.headless=true -server \
@@ -13,4 +11,4 @@ JAVA_OPTS="-Djava.awt.headless=true -server \
 
 # This script assumes that the docker base image includes a runnable JETTY environment
 # that provides $JETTY_HOME. Currently the base image is built on library/jetty:jre8
-exec java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar
+exec su kbase -m -c "java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"

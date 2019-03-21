@@ -37,6 +37,11 @@ import us.kbase.common.service.UObject;
 import us.kbase.narrativejobservice.db.ExecEngineMongoDb;
 import us.kbase.narrativejobservice.sdkjobs.ErrorLogger;
 import us.kbase.narrativejobservice.sdkjobs.SDKMethodRunner;
+
+import org.slf4j.LoggerFactory;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+
 //END_HEADER
 
 /**
@@ -338,9 +343,19 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
     }
     //END_CLASS_HEADER
 
+
+    public void setUpLogger() {
+
+        final Logger rootLogger = ((Logger) LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME));
+        rootLogger.setLevel(Level.OFF);
+        rootLogger.detachAndStopAllAppenders();
+    }
+
+
     public NarrativeJobServiceServer() throws Exception {
         super("NarrativeJobService");
         //BEGIN_CONSTRUCTOR
+        setUpLogger();
         logger = new ErrorLogger() {
             @Override
             public void logErr(Throwable err) {
@@ -352,6 +367,8 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
                 NarrativeJobServiceServer.this.logErr(message);
             }
         };
+
+
         String authUrl = config().get(CFG_PROP_AUTH_SERVICE_URL);
         if (authUrl == null) {
             throw new IllegalStateException("Deployment configuration parameter is not defined: " +

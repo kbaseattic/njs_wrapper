@@ -293,13 +293,9 @@ public class CondorUtils {
     }
 
     /**
-     * Get a list of jobs ids and job statuses for all jobs recorded in condor
-     *
-     * @return A List of job IDS and their respective statuses.
-     * @throws Exception
+     * Useful for condor autoformat commands with two return columns
      */
-    public static HashMap<String, String> getAllJobStates() throws Exception {
-        String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "JobStatus"};
+    private static HashMap<String, String> autoFormatHelper(String[] cmdScript) throws Exception{
         List<String> processResult = runProcess(cmdScript).stdout;
         HashMap<String, String> JobStates = new HashMap<>();
         for (String line : processResult) {
@@ -308,6 +304,31 @@ public class CondorUtils {
         }
         return JobStates;
     }
+
+    /**
+     * Get a list of running/idle jobs and their statuses
+     *
+     * @return A List of job IDS and their respective statuses.
+     * @throws Exception
+     */
+    public static HashMap<String, String> getIdleAndRunningJobs() throws Exception{
+        //NEVER EVER USE QUOTES OR ESCAPED QUOTES FOR CONDOR COMMANDS! THEY DON'T WORK!
+        String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 1 || JobStatus == 2", "-af", "JobBatchName", "JobStatus"};
+        return autoFormatHelper(cmdScript);
+    }
+    /**
+     * Get a list of jobs ids and job statuses for all jobs recorded in condor
+     *
+     * @return A List of job IDS and their respective statuses.
+     * @throws Exception
+     */
+    public static HashMap<String, String> getAllJobStates() throws Exception {
+        String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "JobStatus"};
+        return autoFormatHelper(cmdScript);
+    }
+
+
+
 
     /**
      * Get job state from condor_q with the LastJobStatus param

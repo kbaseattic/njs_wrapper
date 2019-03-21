@@ -48,7 +48,7 @@ public class ReaperService {
     public List<String> getIncompleteJobs() {
 
         final List<String> idList = new ArrayList<>();
-        BasicDBObject query = new BasicDBObject("complete", false);
+        BasicDBObject query = new BasicDBObject("complete", new BasicDBObject("$ne", true));
         DBCursor cursor = coll.find(query);
         try {
             while (cursor.hasNext()) {
@@ -73,20 +73,38 @@ public class ReaperService {
         List<String> incompleteJobs = this.getIncompleteJobs();
 
         //Give condor a chance to catch up
-        Thread.sleep(30000);
+        Thread.sleep(15000);
 
-        HashMap<String, String> runningCondorJobs = CondorUtils.getAllJobStates();
+        HashMap<String, String> idleAndRunningJobs = CondorUtils.getIdleAndRunningJobs();
+
+        int run_count = 0;
+        int idle_count = 0;
+        int unknown = 0;
+
+        for (String jobID : idleAndRunningJobs.keySet()) {
+            String status = idleAndRunningJobs.get(jobID);
+            if (status.equals("1"))
+                run_count += 1;
+            else if (status.equals("2"))
+                idle_count += 1;
+            else
+                unknown += 1;
+        }
 
         List<String> deadJobs = new ArrayList<>();
+        int dead = 0;
+        int alive = 0;
         for (String jobID : incompleteJobs) {
-            if (runningCondorJobs.containsKey(jobID)) {
-                String status = runningCondorJobs.get(jobID);
-                if (status == "3" || status == "6")
-                    deadJobs.add(jobID);
-            } else {
+            if (!idleAndRunningJobs.containsKey(jobID)) {
+                System.out.println(jobID + " is dead");
                 deadJobs.add(jobID);
+                dead++;
+            } else {
+                System.out.println(jobID + " is still alive!");
+                alive++;
             }
         }
+        System.out.println(String.format("Num of jobs running=%d idle=%d unknown=%d alive=%d dead=%d", run_count, idle_count, unknown, alive, dead));
         return deadJobs;
     }
 
@@ -120,16 +138,15 @@ public class ReaperService {
     }
 
 
-
     /**
      * Purge a list of jobs
      *
      * @param ghostJobs The Jobs To Purge
-     * @param message The Status to Update them With
+     * @param message   The Status to Update them With
      * @return
      * @throws Exception
      */
-    public BulkWriteResult purgeListOfJobs( List<String> ghostJobs, String message) throws Exception {
+    public BulkWriteResult purgeListOfJobs(List<String> ghostJobs, String message) throws Exception {
 
         BulkWriteResult result;
         if (ghostJobs.size() > 0) {
