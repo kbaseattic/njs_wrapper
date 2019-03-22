@@ -46,8 +46,8 @@ script:
   - whoami
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - ./gradlew test --tests TestAlpineDeleteRunner --info
-  - ./gradlew test --tests DockerTest
+#   - ./gradlew test --tests TestAlpineDeleteRunner --info PASSING
+#   - ./gradlew test --tests DockerTest PASSING
   - ./gradlew test --tests ExecEngineMongoDbTest --info --scan
 #   - make build-docker-image
 after_success:
