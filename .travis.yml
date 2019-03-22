@@ -32,7 +32,7 @@ env:
     - secure: "GEbQy4zR5hhHDzjoThGyCHZVmpEWKduwR/sZ1sR8csOYrfYqQTHinhAMY+KAdUhjJfWGwR9l2v2xkhyokzdADhKOqZJo7jkkioPEtENdocTWMYq7Qedg6kUCzcAutURIBCcoJtW4vrpGZ+1YR4vB8BhA11KA62QUbsQY3ds/LTg="
     - secure: "NbHt1OUyrTXmN+tYAFcGH3mxlxraDKJ6WQNTJTG+u+wTOzh2MU1bf59l+oanvqlydpd7ZzG7c2cUpje5hvBMEV9s9jwdWqTlGXHWpcU3a1wZdNOkkAPK0Cb3opabRLwIqjovaoAAouSJCq/jUADzhusjrZcn5JVA7sSpYyJT3uE="
 script:
-  - cd; ./gradlew test
+  - pwd; ./gradlew test
   - ls kbase/njs_wrapper
   - docker pull kbase/kb_jre
   - make build-docker-image
