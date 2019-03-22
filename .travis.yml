@@ -35,9 +35,9 @@ script:
   - whoami
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - ./gradlew test --tests TestAlpineDeleteRunner
+  - ./gradlew test --tests TestAlpineDeleteRunner --info
   - ./gradlew test --tests DockerTest
   - ./gradlew test --tests DExecEngineMongoDbTest
-  - make build-docker-image
+#   - make build-docker-image
 after_success:
   - IMAGE_NAME=kbase/kb_njs_wrapper ./build/push2dockerhub.sh
