@@ -33,7 +33,7 @@ before_install:
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
-  - mkdir /mnt/condor; chmod 777 /mnt/condor;
+  - sudo mkdir /mnt/condor; sudo chmod 777 /mnt/condor;
 
   
 env:
