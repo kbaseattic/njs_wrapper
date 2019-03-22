@@ -35,7 +35,7 @@ script:
   - whoami
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - pwd; ./gradlew test
+  - pwd; ./gradlew test --debug
   - make build-docker-image
 after_success:
   - IMAGE_NAME=kbase/kb_njs_wrapper ./build/push2dockerhub.sh
