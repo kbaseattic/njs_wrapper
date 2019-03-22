@@ -31,7 +31,7 @@ before_install:
 #   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
 #   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
   - /usr/bin/mongod --version
-  - rm -rf /usr/bin/mongod
+  - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
