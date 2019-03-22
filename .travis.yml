@@ -38,10 +38,12 @@ before_install:
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
 
 
-# install:
-#   - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
-#   - tar xzf mongodb-linux-x86_64-3.6.6.tgz
-#   - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
+install:
+  - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
+  - tar xzf mongodb-linux-x86_64-3.6.6.tgz
+  - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
+  - ln -s /usr/bin/mongod ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod
+  - ln -s /usr/bin/mongo ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongo
   
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
