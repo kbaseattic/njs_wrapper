@@ -37,11 +37,7 @@ before_install:
 
 
 install:
-
-  - sudo apt-get purge mongodb mongodb-clients mongodb-server mongodb-dev mongo
-  - sudo apt-get autoremove
   - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
-  - /usr/bin/mongod --version
   - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
   - tar xzf mongodb-linux-x86_64-3.6.6.tgz
   - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
