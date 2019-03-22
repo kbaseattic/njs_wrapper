@@ -11,7 +11,7 @@ dist: trusty
 
 services:
   - docker
-#   - mongodb
+
   
 addons:
 apt:
@@ -23,25 +23,23 @@ language: java
 jdk:
   - openjdk8
 before_install:
-  - df -h
-  - ls -lhtr
+
 #   - sudo apt-get -qq update
 #   - sudo apt-get install -y ant-optional
 #   - sudo pip install sphinx
 #   - git clone https://github.com/bio-boris/mini_kb.git
 #   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
 #   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
-  - df -h
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
 
 
-install:
-  - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
-  - tar xzf mongodb-linux-x86_64-3.6.6.tgz
-  - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
+# install:
+#   - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
+#   - tar xzf mongodb-linux-x86_64-3.6.6.tgz
+#   - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
   
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
