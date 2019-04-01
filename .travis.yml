@@ -30,6 +30,7 @@ before_install:
 #   - git clone https://github.com/bio-boris/mini_kb.git
 #   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
 #   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
+# Might have to sed the config files twice to start up catalog
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
