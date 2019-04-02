@@ -252,9 +252,9 @@ public class CondorUtils {
         if (jobID == null) {
             throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
         }
-        if (!optClassAds.containsKey("debugMode")) {
-            condorSubmitFile.delete();
-        }
+//        if (!optClassAds.containsKey("debugMode")) {
+//            condorSubmitFile.delete();
+//        }
         return jobID;
     }
 
@@ -305,6 +305,20 @@ public class CondorUtils {
         return JobStates;
     }
 
+
+
+    /**
+     * Get a list of running/idle/held jobs and their statuses
+     *
+     * @return A List of job IDS and their respective statuses.
+     * @throws Exception
+     */
+    public static HashMap<String, String> getIdleOrRunningOrHeldJobs() throws Exception{
+        //NEVER EVER USE QUOTES OR ESCAPED QUOTES FOR CONDOR COMMANDS! THEY DON'T WORK!
+        String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 1 || JobStatus == 2 || JobStatus == 5", "-af", "JobBatchName", "JobStatus"};
+        return autoFormatHelper(cmdScript);
+    }
+    
     /**
      * Get a list of running/idle jobs and their statuses
      *
