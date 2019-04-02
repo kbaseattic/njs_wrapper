@@ -75,15 +75,15 @@ public class ReaperService {
         //Give condor a chance to catch up
         Thread.sleep(15000);
 
-        HashMap<String, String> idleAndRunningJobs = CondorUtils.getIdleOrRunningOrHeldJobs();
+        HashMap<String, String> idleRunningHeldJobs = CondorUtils.getIdleOrRunningOrHeldJobs();
 
         int run_count = 0;
         int idle_count = 0;
         int unknown = 0;
         int held_count = 0;
 
-        for (String jobID : idleAndRunningJobs.keySet()) {
-            String status = idleAndRunningJobs.get(jobID);
+        for (String jobID : idleRunningHeldJobs.keySet()) {
+            String status = idleRunningHeldJobs.get(jobID);
             if (status.equals("1"))
                 run_count++;
             else if (status.equals("2"))
@@ -98,7 +98,7 @@ public class ReaperService {
         int dead = 0;
         int alive = 0;
         for (String jobID : incompleteJobs) {
-            if (!idleAndRunningJobs.containsKey(jobID)) {
+            if (!idleRunningHeldJobs.containsKey(jobID)) {
                 System.out.println(jobID + " is dead");
                 deadJobs.add(jobID);
                 dead++;
