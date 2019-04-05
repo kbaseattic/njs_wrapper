@@ -198,6 +198,11 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         return new LinkedHashSet<String>(Arrays.asList(ret.split(Pattern.quote(","))));
     }
 
+    private static String nullIfWhitespace(final String s) {
+        return s == null || s.trim().isEmpty() ? null : s.trim();
+    }
+
+
     public static ExecEngineMongoDb getMongoDb(Map<String, String> config) throws Exception {
         if (db == null) {
             String hosts = config.get(CFG_PROP_MONGO_HOSTS);
@@ -206,8 +211,9 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
             String dbname = config.get(CFG_PROP_MONGO_DBNAME);
             if (dbname == null)
                 throw new IllegalStateException("Parameter " + CFG_PROP_MONGO_DBNAME + " is not defined in configuration");
-            db = new ExecEngineMongoDb(hosts, dbname, config.get(CFG_PROP_MONGO_USER),
-                    config.get(CFG_PROP_MONGO_PWD));
+            String user = nullIfWhitespace(config.get(CFG_PROP_MONGO_USER));
+            String pwd = nullIfWhitespace(config.get(CFG_PROP_MONGO_PWD));
+            db = new ExecEngineMongoDb(hosts, dbname, user, pwd);
         }
         return db;
     }
