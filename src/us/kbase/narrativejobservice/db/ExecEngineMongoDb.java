@@ -252,15 +252,25 @@ public class ExecEngineMongoDb {
 				false);
 	}
 
+
+	private static String nullIfWhitespace(final String s) {
+		return s == null || s.trim().isEmpty() ? null : s.trim();
+	}
+
 	private static MongoClient buildMongo(
 			final String host,
 			final String db,
 			final String user,
 			final String pwd) {
 		//TODO ZLATER MONGO handle shards & replica sets
-		if (user != null) {
+
+		final String userName = nullIfWhitespace(user);
+		final String password = nullIfWhitespace(pwd);
+
+
+		if (userName != null) {
 			final MongoCredential creds = MongoCredential.createCredential(
-					user, db, pwd.toCharArray());
+					userName, db, password.toCharArray());
 			// unclear if and when it's safe to clear the password
 			return new MongoClient(new ServerAddress(host), creds,
 					MongoClientOptions.builder().build());
