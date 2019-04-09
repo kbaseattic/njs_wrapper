@@ -29,9 +29,26 @@ public class ReaperServiceServlet implements ServletContextListener {
 
     public void contextInitialized(ServletContextEvent sce) {
 
+
         if ((myThread == null) || (!myThread.isAlive())) {
             final File file = new File("reaper.log");
             final File error_file = new File("reaper.error");
+
+            try {
+                File lock = new File("lock");
+                boolean exists = lock.exists();
+                if (lock.exists()) {
+                    FileUtils.writeStringToFile(file, "Couldn't start up reaper, another instance is running", true);
+                    return;
+                } else {
+                    lock.createNewFile();
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
             Thread myThread = new Thread(new Runnable() {
                 public void run() {
                     try {
