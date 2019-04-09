@@ -61,7 +61,7 @@ public class ReaperServiceScript {
 
         System.out.println(String.format("Found %s incomplete jobs", incompleteJobs.size()));
         for (String ic : incompleteJobs) {
-            System.out.println(ic);
+            //System.out.println(ic);
         }
 
         System.out.println(String.format("Found %s ghost jobs", ghostJobs.size()));
@@ -69,8 +69,10 @@ public class ReaperServiceScript {
             System.out.println(ghost);
         }
 
-
-        if (args.length == 1 && args[0].equals("-purge")) {
+        if (args.length == 1 && args[0].equals("-slack")) {
+            rs.notifySlack(ghostJobs);
+        }
+        else if (args.length == 1 && args[0].equals("-purge")) {
             BulkWriteResult r = rs.purgeGhostJobs();
             System.out.println(String.format("Modified %s entries in mongo", r.getModifiedCount()));
             System.out.println(r);

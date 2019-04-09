@@ -17,8 +17,8 @@ public class ReaperServiceServlet implements ServletContextListener {
     private Thread myThread = null;
     static Map<String, String> config;
 
-
     private ReaperService getReaperService() throws Exception {
+
         Ini config = new Ini(new File(System.getenv("KB_DEPLOYMENT_CONFIG")));
         String host = config.get("NarrativeJobService", "ujs-mongodb-host");
         String dbName = config.get("NarrativeJobService", "ujs-mongodb-database");
@@ -29,9 +29,26 @@ public class ReaperServiceServlet implements ServletContextListener {
 
     public void contextInitialized(ServletContextEvent sce) {
 
+
         if ((myThread == null) || (!myThread.isAlive())) {
             final File file = new File("reaper.log");
             final File error_file = new File("reaper.error");
+
+            try {
+                File lock = new File("lock");
+                boolean exists = lock.exists();
+                if (lock.exists()) {
+                    FileUtils.writeStringToFile(file, "Couldn't start up reaper, another instance is running", true);
+                    return;
+                } else {
+                    lock.createNewFile();
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
             Thread myThread = new Thread(new Runnable() {
                 public void run() {
                     try {
@@ -42,10 +59,9 @@ public class ReaperServiceServlet implements ServletContextListener {
                             FileUtils.writeStringToFile(file, "Running Job Reaper at " + time, true);
                             BulkWriteResult result = r.purgeGhostJobs();
                             if (result != null) {
-                                FileUtils.writeStringToFile(file, result.toString(), true);
-                                System.out.println(result);
+                                FileUtils.writeStringToFile(file, result.toString() + " (" + time + ")\n", true);
                             } else {
-                                FileUtils.writeStringToFile(file, "No Jobs To Purge. \n", true);
+                                FileUtils.writeStringToFile(file, "No Jobs To Purge." + " (" + time + ")\n", true);
                             }
                             //5 Minutes Before Each Run
                             Thread.sleep(1000 * 60 * 5);

@@ -315,7 +315,7 @@ public class CondorUtils {
      */
     public static HashMap<String, String> getIdleOrRunningOrHeldJobs() throws Exception{
         //NEVER EVER USE QUOTES OR ESCAPED QUOTES FOR CONDOR COMMANDS! THEY DON'T WORK!
-        String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 1 || JobStatus == 2 || JobStatus == 5", "-af", "JobBatchName", "JobStatus"};
+        String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 0 || JobStatus == 1 || JobStatus == 2 || JobStatus == 5", "-af", "JobBatchName", "JobStatus"};
         return autoFormatHelper(cmdScript);
     }
 
