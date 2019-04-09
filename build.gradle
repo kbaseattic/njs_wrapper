@@ -172,7 +172,6 @@ dependencies {
     implementation 'jackson:jackson-annotations:2.2.3'
     implementation 'jackson:jackson-core:2.2.3'
     implementation 'jackson:jackson-databind:2.2.3'
-
     implementation 'kbase:WorkspaceClient:0.6.0'
     implementation 'derby:derby:10.10.1.1'
     implementation 'easymock:easymock:3.2'
@@ -186,7 +185,7 @@ dependencies {
     implementation 'jersey:jersey-common:2.11'
     implementation 'hk2:hk2-api:2.3.0-b05'
     implementation 'org.syslog4j:syslog4j:0.9.46'
-    implementation 'kbase:kbase-common:0.0.25'
+    implementation 'kbase:kbase-common:0.0.26'
     implementation 'org.slf4j:slf4j-api:1.7.9'
     implementation 'jersey:jersey-guava:2.11'
     implementation 'jersey:jersey-apache-connector:2.11'
