@@ -17,8 +17,8 @@ public class ReaperServiceServlet implements ServletContextListener {
     private Thread myThread = null;
     static Map<String, String> config;
 
-
     private ReaperService getReaperService() throws Exception {
+
         Ini config = new Ini(new File(System.getenv("KB_DEPLOYMENT_CONFIG")));
         String host = config.get("NarrativeJobService", "ujs-mongodb-host");
         String dbName = config.get("NarrativeJobService", "ujs-mongodb-database");
@@ -42,10 +42,9 @@ public class ReaperServiceServlet implements ServletContextListener {
                             FileUtils.writeStringToFile(file, "Running Job Reaper at " + time, true);
                             BulkWriteResult result = r.purgeGhostJobs();
                             if (result != null) {
-                                FileUtils.writeStringToFile(file, result.toString(), true);
-                                System.out.println(result);
+                                FileUtils.writeStringToFile(file, result.toString() + " (" + time + ")\n", true);
                             } else {
-                                FileUtils.writeStringToFile(file, "No Jobs To Purge. \n", true);
+                                FileUtils.writeStringToFile(file, "No Jobs To Purge." + " (" + time + ")\n", true);
                             }
                             //5 Minutes Before Each Run
                             Thread.sleep(1000 * 60 * 5);
