@@ -185,7 +185,7 @@ dependencies {
     implementation 'jersey:jersey-common:2.11'
     implementation 'hk2:hk2-api:2.3.0-b05'
     implementation 'org.syslog4j:syslog4j:0.9.46'
-    implementation 'kbase:kbase-common:0.0.26'
+    implementation 'kbase:kbase-common:0.0.23'
     implementation 'org.slf4j:slf4j-api:1.7.9'
     implementation 'jersey:jersey-guava:2.11'
     implementation 'jersey:jersey-apache-connector:2.11'
@@ -217,7 +217,9 @@ dependencies {
     implementation 'google:guava:18.0'
     implementation 'apache_commons:commons-io:2.4'
     implementation 'apache_commons:commons-logging:1.1.1'
-    implementation 'apache_commons:commons-lang:2.4'
+    implementation 'apache_
+    
+    s:commons-lang:2.4'
     implementation 'apache_commons:commons-lang3:3.1'
     implementation 'mongo:mongo-java-driver:3.10.1'
     implementation 'bson4jackson:bson4jackson:2.2.0-2.2.0'
