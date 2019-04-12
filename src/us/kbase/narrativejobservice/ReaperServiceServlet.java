@@ -78,7 +78,7 @@ public class ReaperServiceServlet implements ServletContextListener {
                 }
             });
             myThread.isDaemon();
-            myThread.start();
+            //myThread.start();
         } else {
             System.out.println("FAILED TO RUN REAPER");
         }
