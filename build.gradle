@@ -185,7 +185,7 @@ dependencies {
     implementation 'jersey:jersey-common:2.11'
     implementation 'hk2:hk2-api:2.3.0-b05'
     implementation 'org.syslog4j:syslog4j:0.9.46'
-    implementation 'kbase:kbase-common:0.0.23'
+    implementation 'kbase:kbase-common:0.0.25'
     implementation 'org.slf4j:slf4j-api:1.7.9'
     implementation 'jersey:jersey-guava:2.11'
     implementation 'jersey:jersey-apache-connector:2.11'
