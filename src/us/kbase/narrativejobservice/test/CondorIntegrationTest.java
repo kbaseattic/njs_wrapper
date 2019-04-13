@@ -2170,6 +2170,7 @@ public class CondorIntegrationTest {
         String njs_url = props.getProperty("njs_server_url");
         client = new NarrativeJobServiceClient(new URL(njs_url), token);
         client.setIsInsecureHttpConnectionAllowed(true);
+        System.out.println("Creating client with " + njs_url)
     }
 
     private static void stageWSObjects() throws Exception {
