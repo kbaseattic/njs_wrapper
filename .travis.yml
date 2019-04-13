@@ -32,6 +32,8 @@ before_install:
   - git clone https://github.com/bio-boris/mini_kb.git && git checkout justExecutionEngine
   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
+  - echo "Waiting for mini_kb to start"
+  - sleep 120
 
 
 install:
