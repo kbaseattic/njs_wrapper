@@ -33,16 +33,24 @@ before_install:
   - time docker-compose -f execution-engine.yml pull
   - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
-  - sleep 120
+  - sleep 240
+  - curl nginx/services/njs
+  - curl nginx/services/auth
+  - curl nginx/services/catalog
+  - docker-compose -f execution-engine.yml logs njs
+  - docker-compose -f execution-engine.yml logs auth
+  - docker-compose -f execution-engine.yml logs catalog
+  - docker-compose -f execution-engine.yml logs nms
+  - docker-compose -f execution-engine.yml logs 
 
 
-install:
-  - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
-  - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
-  - tar xzf mongodb-linux-x86_64-3.6.6.tgz
-  - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
-  - sudo ln -s  ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod /usr/bin/mongod
-  - sudo ln -s ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongo /usr/bin/mongo 
+# install:
+#   - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
+#   - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
+#   - tar xzf mongodb-linux-x86_64-3.6.6.tgz
+#   - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
+#   - sudo ln -s  ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod /usr/bin/mongod
+#   - sudo ln -s ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongo /usr/bin/mongo 
   
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
@@ -53,6 +61,7 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
+
   # PASSING
   # - ./gradlew test --tests TestAlpineDeleteRunner --info 
   # - ./gradlew test --tests DockerTest PASSING
