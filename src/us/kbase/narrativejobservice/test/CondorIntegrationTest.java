@@ -2071,6 +2071,7 @@ public class CondorIntegrationTest {
     private static CatalogClient getCatalogClientTestMode(AuthToken testModeToken) throws Exception {
         Map<String, String> config = TesterUtils.loadConfig();
         String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        System.out.println("Creating catalog client with " + catUrl + testModeToken);
         CatalogClient cat = new CatalogClient(new URL(catUrl), testModeToken);
         cat.setAllSSLCertificatesTrusted(true);
         cat.setIsInsecureHttpConnectionAllowed(true);
@@ -2090,12 +2091,13 @@ public class CondorIntegrationTest {
         String authEndpoint = props.getProperty("auth_server_url");
 
         tokenTestMode = setupCatalogAdministrator(username, authEndpoint);
+        System.out.println("Got a token " + tokenTestMode);
 
         CatalogClient cc = getCatalogClientTestMode(tokenTestMode);
-
         List<String> cg = new ArrayList<>();
         cg.add("njs,request_cpus=1,request_memory=1,request_disk=1");
         ClientGroupConfig cgc = new ClientGroupConfig().withClientGroups(cg).withModuleName(moduleName).withFunctionName(functionName);
+
         cc.setClientGroupConfig(cgc);
 
         String regId = "Unknown";
@@ -2104,6 +2106,7 @@ public class CondorIntegrationTest {
             String serviceVer = lookupServiceVersion(moduleName);
         } catch (Exception e) {
             regId = registerSimpleApp(tokenTestMode, cc);
+            cc.setClientGroupConfig(cgc);
         }
 
 
