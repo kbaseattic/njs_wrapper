@@ -34,6 +34,14 @@ before_install:
   - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
   - sleep 240
+  - curl nginx/services/njs
+  - curl nginx/services/auth
+  - curl nginx/services/catalog
+  - docker-compose -f execution-engine.yml logs njs
+  - docker-compose -f execution-engine.yml logs auth
+  - docker-compose -f execution-engine.yml logs catalog
+  - docker-compose -f execution-engine.yml logs nms
+  - docker-compose -f execution-engine.yml logs 
 
 
 # install:
@@ -53,11 +61,7 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - curl nginx/services/njs
-  - curl nginx/services/auth
-  - curl nginx/services/catalog
-  - docker logs mini_kb_njs_1
-  - docker-compose -f execution-engine.yml logs
+
   # PASSING
   # - ./gradlew test --tests TestAlpineDeleteRunner --info 
   # - ./gradlew test --tests DockerTest PASSING
