@@ -193,27 +193,12 @@ public class CondorIntegrationTest {
     }
 
 
-    private static void registerUser(String token, String user) {
-        AuthToken token2 = new AuthToken(token, user);
 
-    }
-
-
-    public static void registerSimpleApp(AuthToken inputToken, String authEndpoint) throws Exception {
+    public static String registerSimpleApp(AuthToken inputToken, CatalogClient cat) throws Exception {
         String gitUrl = "https://github.com/bio-boris/simpleapp.git";
         //gitUrl="https://github.com/kbaseapps/kb_maxbin.git"
         //gitUrl = "https://github.com/bio-boris/stress.git";
 
-        Map<String,String> config = TesterUtils.loadConfig();
-        String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
-
-        System.out.println("Catalog URL = " + catUrl);
-
-        System.out.println("Token = " + inputToken);
-
-        CatalogClient cat = new CatalogClient(new URL(catUrl), inputToken);
-        cat.setAllSSLCertificatesTrusted(true);
-        cat.setIsInsecureHttpConnectionAllowed(true);
 
         cat.approveDeveloper(inputToken.getUserName());
 
@@ -235,8 +220,7 @@ public class CondorIntegrationTest {
 //            }
 //            Thread.sleep(1000);
 //        }
-        Thread.sleep(60000);
-
+        return regId;
     }
 
     public static void registerModule(String moduleName, String specfilePath, List typesList) throws Exception {
@@ -380,7 +364,7 @@ public class CondorIntegrationTest {
 //
 //    }
 
-    @Ignore
+
     @Test
     public void testDeleteJob() throws Exception {
         System.out.println("Test [testDeleteJob]");
@@ -391,6 +375,11 @@ public class CondorIntegrationTest {
         System.out.println("ABOUT TO CANCEL: " + jobID);
         Thread.sleep(10000);
         client.cancelJob(new CancelJobParams().withJobId(jobID));
+        JobState cj = client.checkJob(jobID);
+        System.out.println("Job state is " + cj);
+        Thread.sleep(1000);
+        assertEquals(cj,"");
+
     }
 
 
@@ -525,7 +514,6 @@ public class CondorIntegrationTest {
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
 
 
-
         final String[] modMeth = params.getMethod().split("\\.");
         if (modMeth.length != 2) {
             throw new IllegalStateException("Illegal method name: " +
@@ -553,9 +541,6 @@ public class CondorIntegrationTest {
                     moduleName, servVer, se.getLocalizedMessage()));
         }
         System.out.println("Module version is" + mv);
-
-
-
 
 
         String jobId = client.runJob(params);
@@ -1854,7 +1839,7 @@ public class CondorIntegrationTest {
 //        }
 //    }
 
-    public String lookupServiceVersion(String moduleName) throws Exception,
+    public static String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         String ver = cat.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName)).getDev().getGitCommitHash();
@@ -1947,8 +1932,6 @@ public class CondorIntegrationTest {
     }
 
 
-
-
     private static Response catalogRequest(Client CLI, String host, String endpoint, ImmutableMap map, String requestType) {
         final URI target = UriBuilder.fromUri(host).path(endpoint).build();
         final WebTarget wt = CLI.target(target);
@@ -1959,19 +1942,17 @@ public class CondorIntegrationTest {
 
         try {
             Response res;
-            if (requestType.equals("POST")){
+            if (requestType.equals("POST")) {
                 System.out.println("POST RQUEST TO " + endpoint);
                 res = req.post(Entity.json(map));
-            }
-            else {
+            } else {
                 System.out.println("PUT RQUEST TO " + endpoint);
                 res = req.put(Entity.json(map));
             }
             System.out.println(res);
 
             return res;
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             return null;
         }
 
@@ -2017,7 +1998,7 @@ public class CondorIntegrationTest {
 
         //AddRoleToUser
         final String addUserRoleEndpoint = "/testmode/api/V2/testmodeonly/userroles";
-        final String[] customroles = new String[] {"CATALOG_ADMIN"};
+        final String[] customroles = new String[]{"CATALOG_ADMIN"};
         final ImmutableMap addRoleParams = ImmutableMap.of("user", username, "customroles", customroles);
         catalogRequest(CLI, host, addUserRoleEndpoint, addRoleParams, "PUT");
 
@@ -2028,7 +2009,7 @@ public class CondorIntegrationTest {
 
         //NPE here means you couldn't contact auth and get a token
         final Map<String, String> response = r.readEntity(Map.class);
-        return new AuthToken(response.get("token"),username);
+        return new AuthToken(response.get("token"), username);
     }
 
     private static AuthToken setupCatalogAdmin(String username, String authEndpoint) throws Exception {
@@ -2087,6 +2068,15 @@ public class CondorIntegrationTest {
     }
 
 
+    private static CatalogClient getCatalogClientTestMode(AuthToken testModeToken) throws Exception {
+        Map<String, String> config = TesterUtils.loadConfig();
+        String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        CatalogClient cat = new CatalogClient(new URL(catUrl), testModeToken);
+        cat.setAllSSLCertificatesTrusted(true);
+        cat.setIsInsecureHttpConnectionAllowed(true);
+        return cat;
+    }
+
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
@@ -2095,9 +2085,44 @@ public class CondorIntegrationTest {
         token = TesterUtils.token(props);
 
         String username = "wsadmin";
+        String moduleName = "simpleapp";
+        String functionName = "simple_add";
         String authEndpoint = props.getProperty("auth_server_url");
+
         tokenTestMode = setupCatalogAdministrator(username, authEndpoint);
-        //registerSimpleApp(catalogAdminToken, authEndpoint);
+
+        CatalogClient cc = getCatalogClientTestMode(tokenTestMode);
+
+        List<String> cg = new ArrayList<>();
+        cg.add("njs,request_cpus=1,request_memory=1,request_disk=1");
+        ClientGroupConfig cgc = new ClientGroupConfig().withClientGroups(cg).withModuleName(moduleName).withFunctionName(functionName);
+        cc.setClientGroupConfig(cgc);
+
+        String regId = "Unknown";
+        //Register app for subsequent tests
+        try {
+            String serviceVer = lookupServiceVersion(moduleName);
+        } catch (Exception e) {
+            regId = registerSimpleApp(tokenTestMode, cc);
+        }
+
+
+        int seconds = 600;
+        int waitInterval = 10000;
+        int waitIntervalSeconds = waitInterval / 1000;
+        while (seconds > 0) {
+
+            try {
+                String serviceVer = lookupServiceVersion(moduleName);
+                System.out.println(String.format("Success, app is registered %s %s", moduleName, serviceVer));
+                break;
+            } catch (Exception e) {
+                System.out.println("Waiting for app to register:" + moduleName + " reg id:" + regId);
+                Thread.sleep(waitInterval);
+                seconds -= waitIntervalSeconds;
+
+            }
+        }
 
 
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
