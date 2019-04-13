@@ -54,9 +54,9 @@ script:
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
   # PASSING
-  - ./gradlew test --tests TestAlpineDeleteRunner --info 
-  - ./gradlew test --tests DockerTest PASSING
-  - ./gradlew test --tests ExecEngineMongoDbTest --info --scan
+  # - ./gradlew test --tests TestAlpineDeleteRunner --info 
+  # - ./gradlew test --tests DockerTest PASSING
+  # - ./gradlew test --tests ExecEngineMongoDbTest --info --scan
   # WIP
   - ./gradlew test --tests CondorIntegrationTest --info --scan
   
