@@ -33,7 +33,7 @@ before_install:
   - time docker-compose -f execution-engine.yml pull
   - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
-  - sleep 120
+  - sleep 240
 
 
 install:
