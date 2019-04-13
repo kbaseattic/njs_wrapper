@@ -30,8 +30,8 @@ before_install:
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
   - sudo apt-get -qq update
   - git clone https://github.com/bio-boris/mini_kb.git && cd mini_kb && git checkout justExecutionEngine
-  - cd mini_kb; time docker-compose -f execution-engine.yml pull;
-  - cd mini_kb; time docker-compose -f execution-engine.yml up -d
+  - time docker-compose -f execution-engine.yml pull
+  - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
   - sleep 120
 
@@ -53,9 +53,11 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - ./gradlew test --tests TestAlpineDeleteRunner --info PASSING
+  # PASSING
+  - ./gradlew test --tests TestAlpineDeleteRunner --info 
   - ./gradlew test --tests DockerTest PASSING
   - ./gradlew test --tests ExecEngineMongoDbTest --info --scan
+  # WIP
   - ./gradlew test --tests CondorIntegrationTest --info --scan
   
   
