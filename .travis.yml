@@ -1,13 +1,12 @@
 dist: trusty
 
-# before_cache:
-#   - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
-#   - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
-# cache:
-#   directories:
-#     - $HOME/.gradle/caches/
-#     - $HOME/.gradle/wrapper/
-#     - $HOME/mongodb/
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
 
 services:
   - docker
@@ -24,17 +23,15 @@ jdk:
   - openjdk8
   
 before_install:
-#   - sudo apt-get -qq update
-#   - sudo apt-get install -y ant-optional
-#   - sudo pip install sphinx
-#   - git clone https://github.com/bio-boris/mini_kb.git
-#   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
-#   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
 # Might have to sed the config files twice to start up catalog
   - docker ps
   - sudo sh -c "echo '127.0.0.1 nginx' >> /etc/hosts"
   - cat /etc/hosts
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
+  - sudo apt-get -qq update
+  - git clone https://github.com/bio-boris/mini_kb.git && git checkout justExecutionEngine
+  - cd mini_kb; time docker-compose -f execution-engine.yml pull;
+  - cd mini_kb; time docker-compose -f execution-engine.yml up -d
 
 
 install:
@@ -54,9 +51,12 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-#   - ./gradlew test --tests TestAlpineDeleteRunner --info PASSING
-#   - ./gradlew test --tests DockerTest PASSING
+  - ./gradlew test --tests TestAlpineDeleteRunner --info PASSING
+  - ./gradlew test --tests DockerTest PASSING
   - ./gradlew test --tests ExecEngineMongoDbTest --info --scan
+  - ./gradlew test --tests CondorIntegrationTest --info --scan
+  
+  
 #   - make build-docker-image
 after_success:
   - IMAGE_NAME=kbase/kb_njs_wrapper ./build/push2dockerhub.sh
