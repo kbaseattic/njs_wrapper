@@ -29,7 +29,7 @@ before_install:
   - cat /etc/hosts
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
   - sudo apt-get -qq update
-  - git clone https://github.com/bio-boris/mini_kb.git && git checkout justExecutionEngine
+  - git clone https://github.com/bio-boris/mini_kb.git && cd mini_kb && git checkout justExecutionEngine
   - cd mini_kb; time docker-compose -f execution-engine.yml pull;
   - cd mini_kb; time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
