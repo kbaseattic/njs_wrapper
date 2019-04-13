@@ -53,6 +53,9 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
+  - curl localhost/services/njs
+  - curl localhost/services/auth
+  - curl localhost/services/catalog
   # PASSING
   # - ./gradlew test --tests TestAlpineDeleteRunner --info 
   # - ./gradlew test --tests DockerTest PASSING
