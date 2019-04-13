@@ -36,13 +36,13 @@ before_install:
   - sleep 240
 
 
-install:
-  - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
-  - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
-  - tar xzf mongodb-linux-x86_64-3.6.6.tgz
-  - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
-  - sudo ln -s  ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod /usr/bin/mongod
-  - sudo ln -s ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongo /usr/bin/mongo 
+# install:
+#   - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
+#   - cd $HOME/mongodb/; wget http://fastdl.mongodb.org/linux/mongodb-linux-x86_64-3.6.6.tgz
+#   - tar xzf mongodb-linux-x86_64-3.6.6.tgz
+#   - ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod --version
+#   - sudo ln -s  ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongod /usr/bin/mongod
+#   - sudo ln -s ${PWD}/mongodb-linux-x86_64-3.6.6/bin/mongo /usr/bin/mongo 
   
 env:
   global: # The following are for the dockerhub DOCKER_USER and DOCKER_PASS env vars used in the push script
@@ -53,9 +53,11 @@ script:
   - cd ~/build/kbase/njs_wrapper/
   - cp dev_tools/test.cfg.example test.cfg
   - cp dev_tools/deploy_local_minikb.cfg deploy.cfg
-  - curl localhost/services/njs
-  - curl localhost/services/auth
-  - curl localhost/services/catalog
+  - curl nginx/services/njs
+  - curl nginx/services/auth
+  - curl nginx/services/catalog
+  - docker logs mini_kb_njs_1
+  - docker-compose -f execution-engine.yml logs
   # PASSING
   # - ./gradlew test --tests TestAlpineDeleteRunner --info 
   # - ./gradlew test --tests DockerTest PASSING
