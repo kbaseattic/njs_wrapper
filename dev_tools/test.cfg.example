@@ -3,7 +3,7 @@
 token=62IYPZGS7O773DBLZZCSE542BP4C2E7G
 
 # URL of the server to test against, usually local or CI
-njs_server_url=http://nginx:8080
+njs_server_url=http://nginx:8080/njs
 
 # Temporary folder for tests
 temp.dir=temp_files
