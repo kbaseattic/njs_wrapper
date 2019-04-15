@@ -44,8 +44,6 @@ before_install:
   - docker-compose -f execution-engine.yml logs catalog
   - docker-compose -f execution-engine.yml logs nms
   - docker-compose -f execution-engine.yml logs 
-  - curl -d '{"method": "NarrativeJobService.status", "version": "1.1", "id": 1, "params": []}' https://nginx/services/njs
-
 
 # install:
 #   - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
