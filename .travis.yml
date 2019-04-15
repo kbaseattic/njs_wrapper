@@ -42,7 +42,6 @@ before_install:
   - docker-compose -f execution-engine.yml logs njs
   - docker-compose -f execution-engine.yml logs auth
   - docker-compose -f execution-engine.yml logs catalog
-  - docker-compose -f execution-engine.yml logs narrative_method_service
 
 
 
