@@ -35,7 +35,7 @@ before_install:
   - time docker-compose -f execution-engine.yml pull
   - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
-  - sleep 240
+  - sleep 600
   - curl -k -m 5 https://nginx/services/njs 
   - curl -k -m 5 https://nginx/services/auth
   - curl -k -m 5 https://nginx/services/catalog 
