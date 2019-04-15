@@ -31,19 +31,8 @@ before_install:
   - cat /etc/hosts
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
   - sudo apt-get -qq update
-  - git clone https://github.com/bio-boris/mini_kb.git && cd mini_kb && git checkout justExecutionEngine
-  - time docker-compose -f execution-engine.yml pull
-  - time docker-compose -f execution-engine.yml up -d
-  - echo "Waiting for mini_kb to start"
-  - sleep 240
-  - curl nginx/services/njs  
-  - curl nginx/services/auth 
-  - curl nginx/services/catalog 
-  - docker-compose -f execution-engine.yml logs njs
-  - docker-compose -f execution-engine.yml logs auth
-  - docker-compose -f execution-engine.yml logs catalog
-  - docker-compose -f execution-engine.yml logs nms
-  - docker-compose -f execution-engine.yml logs 
+  - cd dev_tools && sh start_minikb.sh
+
 
 # install:
 #   - sudo rm -rf /usr/bin/mongod; sudo rm -rf /usr/bin/mongo
