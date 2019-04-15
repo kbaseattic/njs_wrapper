@@ -36,14 +36,15 @@ before_install:
   - time docker-compose -f execution-engine.yml up -d
   - echo "Waiting for mini_kb to start"
   - sleep 240
-  - curl nginx/services/njs
-  - curl nginx/services/auth
-  - curl nginx/services/catalog
+  - curl nginx/services/njs  || ls
+  - curl nginx/services/auth || ls
+  - curl nginx/services/catalog || ls
   - docker-compose -f execution-engine.yml logs njs
   - docker-compose -f execution-engine.yml logs auth
   - docker-compose -f execution-engine.yml logs catalog
   - docker-compose -f execution-engine.yml logs nms
   - docker-compose -f execution-engine.yml logs 
+  - curl -d '{"method": "NarrativeJobService.status", "version": "1.1", "id": 1, "params": []}' https://nginx/services/njs
 
 
 # install:
