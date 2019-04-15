@@ -26,8 +26,8 @@ before_install:
 # Might have to sed the config files twice to start up catalog
   - docker ps
   - sudo chmod 777 /etc/hosts
-  - echo -e '127.0.0.1 nginx\n' >> /etc/hosts"
-  - echo -e '127.0.0.1 ci-mongo\n' >> /etc/hosts"
+  - echo -e '127.0.0.1 nginx\n' >> /etc/hosts
+  - echo -e '127.0.0.1 ci-mongo\n' >> /etc/hosts
   - cat /etc/hosts
   - sudo mkdir -p /mnt/condor; sudo chmod 777 /mnt/condor;
   - sudo apt-get -qq update
