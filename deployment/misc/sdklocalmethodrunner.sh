@@ -21,7 +21,12 @@ fi
 BASE_DIR=$BASE_DIR/$JOBID
 mkdir -p $BASE_DIR && cd $BASE_DIR
 echo "Jar Location = $NJSW_JAR" > jar
-java -cp $NJSW_JAR $JAVA_OPTS us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err
+
+trap "{ kill $pid }" SIGTERM
+
+java -cp $NJSW_JAR $JAVA_OPTS us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
+pid=$!
+wait $pid
 SDKLMR_EXITCODE=$?
 
 java -cp $NJSW_JAR $JAVA_OPTS us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
