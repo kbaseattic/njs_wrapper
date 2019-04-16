@@ -25,4 +25,6 @@ RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
 
 RUN chmod 777 /etc/condor
 
+RUN pip install requests docker slackclient
+
 ENTRYPOINT [ "/kb/deployment/bin/dockerize" ]
