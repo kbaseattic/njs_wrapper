@@ -25,6 +25,8 @@ RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
 
 RUN chmod 777 /etc/condor
 
-RUN pip install requests docker slackclient
+#Install Python3 and Libraries
+RUN yum install -y centos-release-scl && yum install -y rh-python36 && yum update \
+&& pip install requests docker slackclient htcondor
 
 ENTRYPOINT [ "/kb/deployment/bin/dockerize" ]
