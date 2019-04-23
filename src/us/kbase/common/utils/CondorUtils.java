@@ -86,6 +86,7 @@ public class CondorUtils {
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
         csf.add("getenv = false");
+        csf.add("on_exit_hold = ExitCode =!= 0");
         csf.add("requirements = " + reqs.get("requirements_statement"));
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
 
