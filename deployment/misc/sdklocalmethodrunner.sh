@@ -18,21 +18,31 @@ fi
 
 #     export MINI_KB=true
 
+#Set up job and tmp directories
 BASE_DIR=$BASE_DIR/$JOBID
+TMP_DIR=$BASE_DIR/tmp
 mkdir -p $BASE_DIR && cd $BASE_DIR
+mkdir -p $TMP_DIR
 
+#Set up java options
+JAVA_OPTS="-Djava.io.tmpdir=$TMP_DIR "
+ulimit -c unlimited
+
+
+#Move Jar to work directory
 echo "Jar Location = $NJSW_JAR" > jar
 mv $NJSW_JAR njsw.jar
 
-
+#Trap condor_rm
 trap "{ kill $pid }" SIGTERM
 
-ulimit -c unlimited
+#Run the job runner and then clean up after it's done
 
-java -cp njsw.jar $JAVA_OPTS us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
+java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
 pid=$!
 wait $pid
 SDKLMR_EXITCODE=$?
-
-java -cp njsw.jar $JAVA_OPTS us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+touch endsdklmr
+java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+touch endcleanjob
 exit $SDKLMR_EXITCODE
