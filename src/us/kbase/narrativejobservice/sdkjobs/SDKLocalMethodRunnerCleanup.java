@@ -131,7 +131,9 @@ public class SDKLocalMethodRunnerCleanup {
         JobState jobState = jobSrvClient.checkJob(jobId);
         //Job has ran successfully.
         if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
-            log.logNextLine("Cleaning up " + jobDir.toPath().toString(), false);
+            String msg = "Cleaning up " + jobDir.toPath().toString();
+            log.logNextLine(msg, false);
+            System.out.println(msg);
             new DockerRunner(dockerURI).runAlpineCleaner(jobDir);
             FileUtils.forceDelete(jobDir);
             return;
