@@ -202,6 +202,7 @@ dependencies {
     implementation 'hk2:hk2-utils:2.3.0-b05'
     implementation 'jackson:jackson-module-jaxb-annotations:2.1.2'
     implementation 'annotation:javax.annotation-api:1.2'
+    implementation 'javax.activation:activation:1.1.1'
     implementation 'testinfected:jpa-matchers:1.6'
     implementation 'lambdaj:lambdaj:2.3.3'
     implementation 'logback:logback-classic:1.1.2'
