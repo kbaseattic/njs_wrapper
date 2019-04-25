@@ -86,8 +86,11 @@ public class CondorUtils {
         csf.add("output = outfile.txt");
         csf.add("error  = errors.txt");
         csf.add("getenv = false");
+        // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
+        csf.add("JobLeaseDuration = 86400");
         csf.add("requirements = " + reqs.get("requirements_statement"));
+        
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
 
         //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
