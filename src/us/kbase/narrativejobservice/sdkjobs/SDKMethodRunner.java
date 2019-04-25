@@ -877,10 +877,11 @@ public class SDKMethodRunner {
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
+				// Check job postion for queued jobs only
+				//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
 			}
 		}
 
-	//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
 
 
 		Long[] execTimes = getTaskExecTimes(jobId, config);
