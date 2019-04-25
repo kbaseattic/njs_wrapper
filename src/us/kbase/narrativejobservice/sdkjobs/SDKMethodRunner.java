@@ -49,10 +49,7 @@ import us.kbase.narrativejobservice.db.ExecLog;
 import us.kbase.narrativejobservice.db.ExecLogLine;
 import us.kbase.narrativejobservice.db.ExecTask;
 import us.kbase.narrativejobservice.db.SanitizeMongoObject;
-import us.kbase.userandjobstate.CreateJobParams;
-import us.kbase.userandjobstate.InitProgress;
-import us.kbase.userandjobstate.Results;
-import us.kbase.userandjobstate.UserAndJobStateClient;
+import us.kbase.userandjobstate.*;
 import us.kbase.workspace.GetObjectInfoNewParams;
 import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.WorkspaceClient;
@@ -366,10 +363,16 @@ public class SDKMethodRunner {
 		final RunJobParams input = getJobInput(ujsJobId, config);
 		final String jobstage = jobStatus.getE2();
 		if ("started".equals(jobstage)) {
-			ret.add(String.format(
-					"UJS Job %s is already in started state, continuing",
-					ujsJobId));
+
+			String message = String.format(
+					"UJS Job %s is already in started state, continuing job (possibly on another worker)",
+					ujsJobId);
+			ret.add(message);
+			List<LogLine> lines = new ArrayList<>();
+			lines.add(new LogLine().withLine(message).withIsError(1L));g
+			addJobLogs(ujsJobId, lines, auth, config);
 			return ret;
+
 		}
 		try {
 			ujsClient.startJob(ujsJobId, auth.getToken(), "running",
@@ -520,6 +523,9 @@ public class SDKMethodRunner {
 		ujsClient.getJobStatus(ujsJobId);
 		ExecEngineMongoDb db = getDb(config);
 		ExecLog dbLog = db.getExecLog(ujsJobId);
+
+
+
 		if (dbLog == null) {
 			dbLog = new ExecLog();
 			dbLog.setUjsJobId(ujsJobId);
@@ -804,6 +810,30 @@ public class SDKMethodRunner {
 
 
 
+
+
+
+//
+//	public static List<JobState> checkWorkspaceJobs(String workspaceId, AuthToken authPart,
+//                                          Map<String, String> config) throws Exception{
+//
+//        List<JobState> states = new ArrayList<>();
+//        UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+//
+//
+//		ListJobsParams p = new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams();
+//		p.
+//        ujsClient.listJobs2()
+//
+//		nar_jobs = clients.get('user_and_job_state').list_jobs2({
+//				'authstrat': 'kbaseworkspace',
+//				'authparams': [str(ws_id)]
+//            })
+//
+//
+//    }
+
+
 	@SuppressWarnings("unchecked")
 	public static JobState checkJobCondor(String jobId, AuthToken authPart,
 										  Map<String, String> config) throws Exception {
@@ -849,6 +879,10 @@ public class SDKMethodRunner {
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 			}
 		}
+
+	//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
+
+
 		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
 			if (execTimes[0] != null)
