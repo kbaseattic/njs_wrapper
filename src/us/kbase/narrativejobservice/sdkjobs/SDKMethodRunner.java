@@ -369,7 +369,7 @@ public class SDKMethodRunner {
 					ujsJobId);
 			ret.add(message);
 			List<LogLine> lines = new ArrayList<>();
-			lines.add(new LogLine().withLine(message).withIsError(1L));g
+			lines.add(new LogLine().withLine(message).withIsError(1L));
 			addJobLogs(ujsJobId, lines, auth, config);
 			return ret;
 
