@@ -4,6 +4,17 @@ The Execution Engine provides an API for execution of Narrative Methods and Apps
 as well as asynchronous SDK jobs in docker container on AWE workers (it also 
 wraps Narrative Job Service API).
 
+Version: 1.0.5
+--------------
+* javax.activation:activation:1.1.1 for JDK11
+* Remove duplicate deploy configs
+* Change java tmp dir in sdklmr.sh
+* Change job lease in job submit
+* hold exited jobs != 0 in job submit
+* Add more job logs for re-started jobs
+* Add python3 libs
+* Turn off reaper
+
 Version: 1.0.4
 --------------
 - Added coverage testing
