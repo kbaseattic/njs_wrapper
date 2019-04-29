@@ -240,7 +240,7 @@ module NarrativeJobService {
     /*
       Check job for all jobs in a given workspace
     */
-    funcdef listStatusByWorkspace(string workspace_id) returns (list<JobState> job_states) authentication required;
+    funcdef listStatusByWorkspace(wsref workspace_id) returns (list<JobState> job_states) authentication required;
 
 
     typedef structure {
