@@ -23,12 +23,7 @@ import us.kbase.catalog.LogExecStatsParams;
 import us.kbase.catalog.ModuleVersion;
 import us.kbase.catalog.SelectModuleVersion;
 import us.kbase.common.executionengine.JobRunnerConstants;
-import us.kbase.common.service.JsonClientException;
-import us.kbase.common.service.ServerException;
-import us.kbase.common.service.Tuple11;
-import us.kbase.common.service.Tuple7;
-import us.kbase.common.service.UObject;
-import us.kbase.common.service.UnauthorizedException;
+import us.kbase.common.service.*;
 import us.kbase.common.utils.AweUtils;
 import us.kbase.common.utils.CondorUtils;
 import us.kbase.common.utils.CountingOutputStream;
@@ -153,6 +148,15 @@ public class SDKMethodRunner {
 			try {
 				String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
 				saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType, parentJobId, config);
+				try {
+					ujsClient.startJob(ujsJobId, authPart.getToken(),
+							"queued",
+							"queued", new InitProgress().withPtype("none"),
+							null);
+				} catch (ServerException se) {
+					// ignore and continue if the job was just started
+				}
+
 			} catch (Exception e) {
 				throw new IllegalStateException("Couldn't submit condor job: " + e);
 			}
@@ -702,6 +706,32 @@ public class SDKMethodRunner {
 			return checkJobAwe(jobId, authPart, config);
 		}
 	}
+
+	@SuppressWarnings("unchecked")
+	public static List<JobState> listStatusByWorkspace(String workspace, AuthToken authPart,
+													   Map<String, String> config) throws Exception {
+
+		List<JobState> js = new ArrayList<>();
+		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
+
+		List<String> authParams = new ArrayList<>();
+		authParams.add(workspace);
+
+
+		for (Tuple13<String, Tuple2<String, String>, String, String, String,
+				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
+				Long, Long, Tuple2<String, String>, Map<String, String>,
+				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
+
+				String jobId = j.getE1();
+				JobState njsJobState = checkJobCondor(jobId, authPart, config);
+				js.add(njsJobState);
+		}
+		return js;
+	}
+
+
+
 
 	@SuppressWarnings("unchecked")
 	public static JobState checkJobAwe(String jobId, AuthToken authPart,

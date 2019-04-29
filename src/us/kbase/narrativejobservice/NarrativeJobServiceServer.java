@@ -649,6 +649,29 @@ public class NarrativeJobServiceServer extends JsonServerServlet {
         return returnVal;
     }
 
+
+    /**
+     * <p>Original spec-file function name: list_status_by_workspace</p>
+     * <pre>
+     * Get a list of jobs and their statuses, by workspace
+     * </pre>
+     *
+     * @param workspace_id instance of original type "job_id" (A job id.)
+     * @return parameter list of  "job_state" of type {@link us.kbase.narrativejobservice.JobState JobState}
+     */
+    @JsonServerMethod(rpc = "NarrativeJobService.list_status_by_workspace", async = true)
+    public List<JobState> listStatusByWorkspace(String workspace_id, AuthToken authPart, RpcContext jsonRpcContext) throws Exception {
+        List<JobState> returnVal = null;
+        //BEGIN list_status_by_workspace
+        returnVal = SDKMethodRunner.listStatusByWorkspace(workspace_id, authPart, config());
+        //END list_status_by_workspace
+        return returnVal;
+    }
+
+    /**
+     *
+     */
+
     /**
      * <p>Original spec-file function name: check_jobs</p>
      * <pre>
