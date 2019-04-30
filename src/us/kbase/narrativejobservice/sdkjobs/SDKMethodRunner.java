@@ -12,6 +12,9 @@ import java.util.regex.Pattern;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mongodb.WriteConcernException;
 
+import org.joda.time.DateTime;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import us.kbase.auth.AuthConfig;
 import us.kbase.auth.AuthException;
 import us.kbase.auth.AuthToken;
@@ -50,6 +53,10 @@ import us.kbase.workspace.ObjectSpecification;
 import us.kbase.workspace.WorkspaceClient;
 
 public class SDKMethodRunner {
+
+	private final static DateTimeFormatter DATE_FORMATTER =
+			DateTimeFormat.forPattern("yyyy-MM-dd'T'HH:mm:ssZ").withZoneUTC();
+
 	public static final String APP_STATE_QUEUED = "queued";
 	public static final String APP_STATE_STARTED = "in-progress";
 	public static final String APP_STATE_DONE = "completed";
@@ -148,10 +155,12 @@ public class SDKMethodRunner {
 			try {
 				String condorId = CondorUtils.submitToCondorCLI(ujsJobId, authPart, aweClientGroups, newExternalURL, baseDir, optClassAds, getCatalogAdminAuth(config));
 				saveTask(ujsJobId, condorId, jobInput, appJobId, schedulerType, parentJobId, config);
+
+				//Start job in UJS to become available in ujs.list_jobs2(ws)
 				try {
 					ujsClient.startJob(ujsJobId, authPart.getToken(),
-							"queued",
-							"queued", new InitProgress().withPtype("none"),
+							APP_STATE_QUEUED,
+							APP_STATE_QUEUED, new InitProgress().withPtype("none"),
 							null);
 				} catch (ServerException se) {
 					// ignore and continue if the job was just started
@@ -364,33 +373,41 @@ public class SDKMethodRunner {
 			throw new IllegalStateException("Method is currently supported only for " +
 					"switching jobs into stated state");
 		List<String> ret = new ArrayList<String>();
-		final RunJobParams input = getJobInput(ujsJobId, config);
-		final String jobstage = jobStatus.getE2();
-		if ("started".equals(jobstage)) {
+        final RunJobParams input = getJobInput(ujsJobId, config);
+        final String jobstage = jobStatus.getE2();
+        if ("started".equals(jobstage)) {
 
-			String message = String.format(
-					"UJS Job %s is already in started state, continuing job (possibly on another worker)",
-					ujsJobId);
-			ret.add(message);
-			List<LogLine> lines = new ArrayList<>();
-			lines.add(new LogLine().withLine(message).withIsError(1L));
-			addJobLogs(ujsJobId, lines, auth, config);
-			return ret;
+            String message = String.format(
+                    "Updating job status for %s from queued to running",
+                    ujsJobId);
+            ret.add(message);
+            List<LogLine> lines = new ArrayList<>();
+            lines.add(new LogLine().withLine(message).withIsError(0L));
+            addJobLogs(ujsJobId, lines, auth, config);
 
-		}
-		try {
-			ujsClient.startJob(ujsJobId, auth.getToken(), "running",
-					"Execution engine job for " + input.getMethod(),
-					new InitProgress().withPtype("none"), null);
-		} catch (ServerException se) {
-			throw new IllegalStateException(String.format(
-					"Job %s couldn't be started and is in state " +
-							"%s. Server stacktrace:\n%s",
-					ujsJobId, jobstage, se.getData()), se);
-		}
-		updateTaskExecTime(ujsJobId, config, false);
-		return ret;
-	}
+
+			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
+
+            ujsClient.updateJob(ujsJobId, auth.getToken(), "running", null);
+            //is this the fix???
+			updateTaskExecTime(ujsJobId, config, false);
+            return ret;
+
+
+        }
+        try {
+            ujsClient.startJob(ujsJobId, auth.getToken(), "running",
+                    "Execution engine job for " + input.getMethod(),
+                    new InitProgress().withPtype("none"), null);
+        } catch (ServerException se) {
+            throw new IllegalStateException(String.format(
+                    "Job %s couldn't be started and is in state " +
+                            "%s. Server stacktrace:\n%s",
+                    ujsJobId, jobstage, se.getData()), se);
+        }
+        updateTaskExecTime(ujsJobId, config, false);
+        return ret;
+    }
 
 	public static void finishJob(
 			final String ujsJobId,
@@ -717,16 +734,20 @@ public class SDKMethodRunner {
 		List<String> authParams = new ArrayList<>();
 		authParams.add(workspace);
 
-
+		System.out.println("About to check status");
 		for (Tuple13<String, Tuple2<String, String>, String, String, String,
 				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
 				Long, Long, Tuple2<String, String>, Map<String, String>,
 				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
 
 				String jobId = j.getE1();
+				System.out.println("Checking job" + jobId);
 				JobState njsJobState = checkJobCondor(jobId, authPart, config);
+				System.out.println("Job Status is");
+				System.out.println(njsJobState);
 				js.add(njsJobState);
 		}
+		System.out.println("Done checking status ");
 		return js;
 	}
 
@@ -873,11 +894,19 @@ public class SDKMethodRunner {
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
 
+
+//		(1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
+//		(2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.),
+//		(3) parameter "status" of original type "job_status" (A job status string supplied by the reporting service. No more than 200 characters.),
+//		(4) parameter "progress" of original type "total_progress" (The total progress of a job.),
+//		(5) parameter "est_complete" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
+//		(6) parameter "complete" of original type "boolean" (A boolean. 0 = false, other = true.),
+//		(7) parameter "error" of original type "boolean" (A boolean. 0 = false, other = true.)
+
 		String[] subJobs = getDb(config).getSubJobIds(jobId);
 		returnVal.getAdditionalProperties().put("sub_jobs", subJobs);
 
 
-		returnVal.setStatus(new UObject(jobStatus));
 		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
 		FinishJobParams params = null;
 		if (complete) {
@@ -900,112 +929,48 @@ public class SDKMethodRunner {
 			}
 		} else {
 			returnVal.setFinished(0L);
-			String stage = jobStatus.getE2();
-			if (stage != null && stage.equals("started")) {
-				returnVal.setJobState(APP_STATE_STARTED);
-				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
+
+			// (A string that describes the stage of processing of the job.
+			// One of 'created', 'started', 'completed', 'canceled' or 'error'.),
+			String currentStage = jobStatus.getE2();
+
+			//parameter "status" of original type "job_status"
+			// (A job status string supplied by the reporting service. No more than 200 characters.)
+			String currentStatus = jobStatus.getE3();
+
+			System.out.println("Job State is " + currentStatus);
+			if (currentStatus.equals("running")) {
+				returnVal.setJobState("running");
+				returnVal.getAdditionalProperties().put("awe_job_state", "running");
+				returnVal.getAdditionalProperties().put("job_state", "running");
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
-				// Check job postion for queued jobs only
-				//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
+				returnVal.getAdditionalProperties().put("job_state", APP_STATE_QUEUED);
 			}
+
 		}
 
+//			String stage = jobStatus.getE2();
+//			if (stage != null && stage.equals("started")) {
+//				returnVal.setJobState(APP_STATE_STARTED);
+//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
+//			} else {
+//				returnVal.setJobState(APP_STATE_QUEUED);
+//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
+//				// Check job postion for queued jobs only
+		//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
+//			}
+//		}
 
-
-		Long[] execTimes = getTaskExecTimes(jobId, config);
-		if (execTimes != null) {
-			if (execTimes[0] != null)
-				returnVal.withCreationTime(execTimes[0]);
-			if (execTimes[1] != null)
-				returnVal.withExecStartTime(execTimes[1]);
-			if (execTimes[2] != null)
-				returnVal.withFinishTime(execTimes[2]);
-		}
-		return returnVal;
-	}
-
-
-	@SuppressWarnings("unchecked")
-	public static JobState checkJobCondorOld(String jobId, AuthToken authPart,
-									Map<String, String> config) throws Exception {
-		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		String jobState = getJobState(jobId);
-		returnVal.getAdditionalProperties().put("condor_job_id", jobId);
-		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
-				ujsClient.getJobStatus(jobId);
 		returnVal.setStatus(new UObject(jobStatus));
-		boolean complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
-		FinishJobParams params = null;
-		if (complete)
-			params = getJobOutput(jobId, authPart, config);
 
-		if (params == null) {
-			if (jobState == null) {
-				throw new IllegalStateException("Error checking CONDOR job (id=" + jobId + ") " +
-						"for ujs-id=" + jobId + " - state is null.  )");
-			}
-			if ((!jobState.equals("init")) && (!jobState.equals("queued")) &&
-					(!jobState.equals("in-progress"))) {
-				// Let's double-check, what if UJS job was marked as complete while we checked AWE?
-				jobStatus = ujsClient.getJobStatus(jobId);
-				complete = jobStatus.getE6() != null && jobStatus.getE6() == 1L;
-				if (complete) { // Yes, we are switching to "complete" scenario
-					returnVal.setStatus(new UObject(jobStatus));
-					params = getJobOutput(jobId, authPart, config);
-				} else {
-					if (jobState.equals("suspend")) {
-						throw new IllegalStateException("FATAL error in condor job (" + jobState +
-								" for id=" + jobId + ")" + (jobStatus.getE2().equals("created") ?
-								" whereas job script wasn't started at all" : ""));
-					}
-					throw new IllegalStateException(String.format(
-							"Unexpected AWE job state: %s. Job id: %s. Awe job id: %s.",
-							jobState, jobId, jobId));
-				}
-			}
-			if (!complete) {
-				returnVal.getAdditionalProperties().put("awe_job_state", jobState);
-				returnVal.setFinished(0L);
-				String stage = jobStatus.getE2();
-				if (stage != null && stage.equals("started")) {
-					returnVal.setJobState(APP_STATE_STARTED);
-				} else {
-					returnVal.setJobState(APP_STATE_QUEUED);
-					try {
-						String jobPosition = CondorUtils.getJobPriority(jobId);
-						if (jobPosition != null){
-							try{
-								returnVal.setPosition(Long.parseLong(jobPosition));
-							}
-							catch (Exception ignore){};
-						}
 
-					} catch (Exception ignore) {}
-				}
-			}
-		}
-		if (complete) {
-			boolean isCanceled = params.getIsCanceled() == null ? false :
-					(params.getIsCanceled() == 1L);
-			returnVal.setFinished(1L);
-			returnVal.setCanceled(isCanceled ? 1L : 0L);
-			// Next line is here for backward compatibility:
-			returnVal.setCancelled(isCanceled ? 1L : 0L);
-			returnVal.setResult(params.getResult());
-			returnVal.setError(params.getError());
-			if (params.getError() != null) {
-				returnVal.setJobState(APP_STATE_ERROR);
-			} else if (isCanceled) {
-				returnVal.setJobState(APP_STATE_CANCELLED);
-			} else {
-				returnVal.setJobState(APP_STATE_DONE);
-			}
-		}
 		Long[] execTimes = getTaskExecTimes(jobId, config);
+		System.out.println("About to set exec times to");
+		for(Long item : execTimes){
+			System.out.println(item);
+		}
 		if (execTimes != null) {
 			if (execTimes[0] != null)
 				returnVal.withCreationTime(execTimes[0]);
@@ -1016,6 +981,7 @@ public class SDKMethodRunner {
 		}
 		return returnVal;
 	}
+
 
 
 	public static CheckJobsResults checkJobs(CheckJobsParams params, AuthToken auth,
