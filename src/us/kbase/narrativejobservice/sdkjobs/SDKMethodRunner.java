@@ -378,7 +378,7 @@ public class SDKMethodRunner {
         if ("started".equals(jobstage)) {
 
             String message = String.format(
-                    "Updating job status for %s from queued to running",
+                    "Updating job status for %s from 'queued' to 'in-progress'",
                     ujsJobId);
             ret.add(message);
             List<LogLine> lines = new ArrayList<>();
@@ -388,7 +388,7 @@ public class SDKMethodRunner {
 
 			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
 
-            ujsClient.updateJob(ujsJobId, auth.getToken(), "running", null);
+            ujsClient.updateJob(ujsJobId, auth.getToken(), "in-progress", null);
             //is this the fix???
 			updateTaskExecTime(ujsJobId, config, false);
             return ret;
@@ -396,7 +396,7 @@ public class SDKMethodRunner {
 
         }
         try {
-            ujsClient.startJob(ujsJobId, auth.getToken(), "running",
+            ujsClient.startJob(ujsJobId, auth.getToken(), "in-progress",
                     "Execution engine job for " + input.getMethod(),
                     new InitProgress().withPtype("none"), null);
         } catch (ServerException se) {
@@ -734,20 +734,15 @@ public class SDKMethodRunner {
 		List<String> authParams = new ArrayList<>();
 		authParams.add(workspace);
 
-		System.out.println("About to check status");
 		for (Tuple13<String, Tuple2<String, String>, String, String, String,
 				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
 				Long, Long, Tuple2<String, String>, Map<String, String>,
 				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
 
 				String jobId = j.getE1();
-				System.out.println("Checking job" + jobId);
 				JobState njsJobState = checkJobCondor(jobId, authPart, config);
-				System.out.println("Job Status is");
-				System.out.println(njsJobState);
 				js.add(njsJobState);
 		}
-		System.out.println("Done checking status ");
 		return js;
 	}
 
@@ -938,11 +933,10 @@ public class SDKMethodRunner {
 			// (A job status string supplied by the reporting service. No more than 200 characters.)
 			String currentStatus = jobStatus.getE3();
 
-			System.out.println("Job State is " + currentStatus);
-			if (currentStatus.equals("running")) {
-				returnVal.setJobState("running");
-				returnVal.getAdditionalProperties().put("awe_job_state", "running");
-				returnVal.getAdditionalProperties().put("job_state", "running");
+			if (currentStatus.equals("running") || currentStatus.equals("in-progress")) {
+				returnVal.setJobState("in-progress");
+				returnVal.getAdditionalProperties().put("awe_job_state", "in-progress");
+				returnVal.getAdditionalProperties().put("job_state", "in-progress");
 			} else {
 				returnVal.setJobState(APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
@@ -967,10 +961,6 @@ public class SDKMethodRunner {
 
 
 		Long[] execTimes = getTaskExecTimes(jobId, config);
-		System.out.println("About to set exec times to");
-		for(Long item : execTimes){
-			System.out.println(item);
-		}
 		if (execTimes != null) {
 			if (execTimes[0] != null)
 				returnVal.withCreationTime(execTimes[0]);
