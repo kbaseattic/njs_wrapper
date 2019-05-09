@@ -235,7 +235,14 @@ module NarrativeJobService {
         Check if a job is finished and get results/error
     */
     funcdef check_job(job_id job_id) returns (JobState job_state) authentication required;
-    
+
+
+    /*
+      Check job for all jobs in a given workspace
+    */
+    funcdef list_job_statuses(string workspace_id) returns (list<JobState> job_states) authentication required;
+
+
     typedef structure {
         list<job_id> job_ids;
         boolean with_job_params;
