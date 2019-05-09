@@ -395,18 +395,21 @@ public class SDKMethodRunner {
 
 
         }
-        try {
-            ujsClient.startJob(ujsJobId, auth.getToken(), "in-progress",
-                    "Execution engine job for " + input.getMethod(),
-                    new InitProgress().withPtype("none"), null);
-        } catch (ServerException se) {
-            throw new IllegalStateException(String.format(
-                    "Job %s couldn't be started and is in state " +
-                            "%s. Server stacktrace:\n%s",
-                    ujsJobId, jobstage, se.getData()), se);
-        }
-        updateTaskExecTime(ujsJobId, config, false);
         return ret;
+
+//        try {
+//            ujsClient.startJob(ujsJobId, auth.getToken(), "in-progress",
+//                    "Execution engine job for " + input.getMethod(),
+//                    new InitProgress().withPtype("none"), null);
+//
+//        } catch (ServerException se) {
+//            throw new IllegalStateException(String.format(
+//                    "Job %s couldn't be started and is in state " +
+//                            "%s. Server stacktrace:\n%s",
+//                    ujsJobId, jobstage, se.getData()), se);
+//        }
+//
+//        return ret;
     }
 
 	public static void finishJob(
@@ -1151,9 +1154,12 @@ public class SDKMethodRunner {
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
-		Long prevTime = finishTime ? dbTask.getFinishTime() : dbTask.getExecStartTime();
-		if (prevTime == null)
-		    db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+		Long finishTimeMs  = dbTask.getFinishTime();
+		if(finishTimeMs != null)
+			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
+		else
+			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+
 	}
 
 	private static Long[] getTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
