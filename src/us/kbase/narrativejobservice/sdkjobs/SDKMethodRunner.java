@@ -1155,10 +1155,22 @@ public class SDKMethodRunner {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		Long finishTimeMs  = dbTask.getFinishTime();
+
+
+		Long execTimeMS = dbTask.getExecStartTime();
+		if(execTimeMS != null){
+			Long creationTimeMS = dbTask.getCreationTime();
+			Long queueTimeMS = execTimeMS - creationTimeMS;
+			Long queueTime = db.getQueueTime();
+			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
+		}
+
 		if(finishTimeMs != null)
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
 		else
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+
+
 
 	}
 
