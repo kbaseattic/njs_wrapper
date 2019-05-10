@@ -29,8 +29,11 @@ JAVA_OPTS="-Djava.io.tmpdir=$TMP_DIR "
 ulimit -c unlimited
 
 
+date="date +'%s'"
 #Move Jar to work directory
-echo "Jar Location = $NJSW_JAR" > jar
+echo "Jar Location = $NJSW_JAR" > jar_$date
+env > env_$date
+
 mv $NJSW_JAR njsw.jar
 
 #Trap condor_rm
@@ -38,11 +41,14 @@ trap "{ kill $pid }" SIGTERM
 
 #Run the job runner and then clean up after it's done
 
-java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
+java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr_$date.out 2> sdk_lmr_$date.err &
 pid=$!
+
+python cleanup.py $pid &
 wait $pid
 SDKLMR_EXITCODE=$?
+
 touch endsdklmr
-java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup_$date.out 2> cleanup_$date.err
 touch endcleanjob
 exit $SDKLMR_EXITCODE

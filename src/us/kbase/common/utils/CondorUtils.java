@@ -55,6 +55,7 @@ public class CondorUtils {
         String dockerJobTimeout = "docker_job_timeout";
         envVariables.put("DOCKER_JOB_TIMEOUT", reqs.getOrDefault(dockerJobTimeout, "604800"));  //7 Days
 
+        envVariables.put("CONDOR_ID", "$(Cluster).$(Process)");
         envVariables.put("KB_AUTH_TOKEN", token.getToken());
         envVariables.put("KB_ADMIN_AUTH_TOKEN", adminToken.getToken());
         envVariables.put("AWE_CLIENTGROUP", clientGroups);
@@ -78,13 +79,13 @@ public class CondorUtils {
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
+        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker,/kb/deployment/bin/cleanup.py");
         csf.add(requestCpus);
         csf.add(requestMemory);
         csf.add(requestDisk);
-        csf.add("log    = logfile.txt");
-        csf.add("output = outfile.txt");
-        csf.add("error  = errors.txt");
+        csf.add("log    = /mnt/awe/condor/logs/$(Cluster).$(Process)_logfile.txt");
+        csf.add("output = /mnt/awe/condor/logs/$(Cluster).$(Process)_outfile.txt");
+        csf.add("error  = /mnt/awe/condor/logs/$(Cluster).$(Process)_errors.txt");
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");

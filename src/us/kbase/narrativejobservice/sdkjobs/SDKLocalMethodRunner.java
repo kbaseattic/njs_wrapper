@@ -339,8 +339,15 @@ public class SDKLocalMethodRunner {
             rpc.put("params", job.getParams());
             rpc.put("context", context);
             File workDir = new File(jobDir, "workdir");
+            //Delete for job resubs
+            try {
+                workDir.delete();
+            } catch (Exception ignore) {
+            }
             if (!workDir.exists())
                 workDir.mkdir();
+
+
             File scratchDir = new File(workDir, "tmp");
             if (!scratchDir.exists())
                 scratchDir.mkdir();
