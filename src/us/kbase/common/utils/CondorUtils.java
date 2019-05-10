@@ -87,6 +87,7 @@ public class CondorUtils {
         csf.add("output = /mnt/awe/condor/logs/$(Cluster).$(Process)_outfile.txt");
         csf.add("error  = /mnt/awe/condor/logs/$(Cluster).$(Process)_errors.txt");
         csf.add("getenv = false");
+        csf.add("KillSig = SIGTERM");
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
         csf.add("JobLeaseDuration = 86400");

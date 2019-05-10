@@ -254,6 +254,7 @@ public class SDKLocalMethodRunner {
         }
         else {
             System.out.println(parentCgroup);
+            new File(String.format("cgroup_%s.log", Instant.now().getEpochSecond()));
         }
 
 

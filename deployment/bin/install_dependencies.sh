@@ -2,4 +2,4 @@
 
 #Install Python3 Libraries
 source /opt/rh/rh-python36/enable
-pip install requests docker slackclient htcondor
+pip install requests docker slackclient htcondor psutil
