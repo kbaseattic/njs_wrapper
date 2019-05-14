@@ -17,6 +17,9 @@ public class ExecTask {
     private String appJobId;
     @JsonProperty("creation_time")
     private Long creationTime;
+    @JsonProperty("queue_time")
+    private Long queueTime;
+
     @JsonProperty("exec_start_time")
     private Long execStartTime;
     @JsonProperty("finish_time")
@@ -93,6 +96,16 @@ public class ExecTask {
     @JsonProperty("creation_time")
     public void setCreationTime(Long creationTime) {
         this.creationTime = creationTime;
+    }
+
+    @JsonProperty("queue_time")
+    public Long getQueueTime() {
+        return queueTime;
+    }
+
+    @JsonProperty("queue_time")
+    public void setQueueTimeTime(Long queueTime) {
+        this.queueTime = queueTime;
     }
 
     @JsonProperty("exec_start_time")

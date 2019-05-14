@@ -596,6 +596,7 @@ public class SDKLocalMethodRunner {
             labels.put("wsid", "" + job.getWsid());
             labels.put("app_id", "" + job.getAppId());
             labels.put("user_name", token.getUserName());
+            labels.put("njs_endpoint", jobSrvUrl);
 
             Map<String, String> resourceRequirements = new HashMap<String, String>();
 
