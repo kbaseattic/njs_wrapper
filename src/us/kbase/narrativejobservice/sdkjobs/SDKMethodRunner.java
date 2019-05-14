@@ -375,18 +375,23 @@ public class SDKMethodRunner {
 		List<String> ret = new ArrayList<String>();
         final RunJobParams input = getJobInput(ujsJobId, config);
         final String jobstage = jobStatus.getE2();
+        final String status = jobStatus.getE3();
         if ("started".equals(jobstage)) {
 
-            String message = String.format(
-                    "Updating job status for %s from 'queued' to 'in-progress'",
-                    ujsJobId);
-            ret.add(message);
-            List<LogLine> lines = new ArrayList<>();
-            lines.add(new LogLine().withLine(message).withIsError(0L));
-            addJobLogs(ujsJobId, lines, auth, config);
-
-
-			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
+// This message appears in the logs twice for some reason.. Removing it
+// TODO Remove this section or find out why logs happen twice
+//
+//
+//            String message = String.format(
+//                    "Updating job status for %s from '%s'  to 'in-progress' (%s)",
+//                    ujsJobId, status, new Date().getTime() );
+//            ret.add(message);
+//            List<LogLine> lines = new ArrayList<>();
+//            lines.add(new LogLine().withLine(message).withIsError(0L));
+//            addJobLogs(ujsJobId, lines, auth, config);
+//
+//
+//			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
 
             ujsClient.updateJob(ujsJobId, auth.getToken(), "in-progress", null);
             //is this the fix???
@@ -1151,28 +1156,30 @@ public class SDKMethodRunner {
 		return getTaskDescription(ujsJobId, config).getAweJobId();
 	}
 
+	/**
+	 * Update run time, finish time, and queue time.
+	 * */
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		Long finishTimeMs  = dbTask.getFinishTime();
-
-
-		Long execTimeMS = dbTask.getExecStartTime();
-		Long queueTime = dbTask.getQueueTime();
-
-		if(queueTime == null && execTimeMS != null){
-			Long creationTimeMS = dbTask.getCreationTime();
-			Long queueTimeMS = execTimeMS - creationTimeMS;
-			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
-		}
 
 		if(finishTimeMs != null)
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
 		else
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
 
+		System.out.println("Updated exec time " + ujsJobId);
 
-
+		//Refresh the task in order to update the Queue Time
+		dbTask = db.getExecTask(ujsJobId);
+		Long execTimeMS = dbTask.getExecStartTime();
+		Long queueTime = dbTask.getQueueTime();
+		if(queueTime == null && execTimeMS != null){
+			Long creationTimeMS = dbTask.getCreationTime();
+			Long queueTimeMS = execTimeMS - creationTimeMS;
+			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
+		}
 	}
 
 	private static Long[] getTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
