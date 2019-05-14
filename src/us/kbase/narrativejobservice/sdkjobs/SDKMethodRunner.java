@@ -1158,10 +1158,11 @@ public class SDKMethodRunner {
 
 
 		Long execTimeMS = dbTask.getExecStartTime();
-		if(execTimeMS != null){
+		Long queueTime = dbTask.getQueueTime();
+
+		if(queueTime == null && execTimeMS != null){
 			Long creationTimeMS = dbTask.getCreationTime();
 			Long queueTimeMS = execTimeMS - creationTimeMS;
-			Long queueTime = db.getQueueTime();
 			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
 		}
 
