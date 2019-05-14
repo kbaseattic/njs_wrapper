@@ -14,6 +14,10 @@ Version: 1.0.5
 * Add more job logs for re-started jobs
 * Add python3 libs
 * Turn off reaper
+* Changed request_mem default to 25000MB
+* Make CREATED jobs start into STARTED state
+* Update Exec Time based on actual start time
+* Clobbered Queue Time
 
 Version: 1.0.4
 --------------

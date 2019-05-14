@@ -237,6 +237,14 @@ public class ExecEngineMongoDb {
 						new BasicDBObject(finishTime ? "finish_time" : "exec_start_time", time)));
 	}
 
+	public void updateQueueTaskTime(String ujsJobId, long queueTime)
+			throws Exception {
+		//inputs
+		taskCol.update(new BasicDBObject(PK_EXEC_TASKS, ujsJobId),
+				new BasicDBObject("$set",
+						new BasicDBObject("queue_time" , queueTime)));
+	}
+
 	public String getServiceProperty(String propId) throws Exception {
 		// check input
 		final DBObject dbo = propCol.findOne(new BasicDBObject(PK_SRV_PROPS, propId),
