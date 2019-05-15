@@ -495,9 +495,19 @@ public class SDKMethodRunner {
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
 			String gitCommitHash = input.getServiceVer();
 			Long[] execTimes = getTaskExecTimes(ujsJobId, config);
-			long creationTime = execTimes[0];
-			long execStartTime = execTimes[1];
-			long finishTime = execTimes[2];
+
+			long creationTime = -1L;
+			long execStartTime = -1L;
+			long finishTime = -1L;
+
+
+			if (execTimes != null) {
+				creationTime = execTimes[0];
+				execStartTime = execTimes[1];
+				finishTime = execTimes[2];
+			}
+
+
 			boolean isError = params.getError() != null;
 			String errorMessage = null;
 			try {
@@ -1162,14 +1172,20 @@ public class SDKMethodRunner {
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
-		Long finishTimeMs  = dbTask.getFinishTime();
+		Long finishTimeMs;
 
+		try {
+			finishTimeMs = dbTask.getFinishTime();
+		}
+		catch (NullPointerException e){
+			finishTimeMs = System.currentTimeMillis();
+		}
+
+		//Not Null = already finished
 		if(finishTimeMs != null)
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
-		else
+		else //Not finished, updating
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
-
-		System.out.println("Updated exec time " + ujsJobId);
 
 		//Refresh the task in order to update the Queue Time
 		dbTask = db.getExecTask(ujsJobId);
