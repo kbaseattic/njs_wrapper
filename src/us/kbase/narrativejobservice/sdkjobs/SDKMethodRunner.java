@@ -495,9 +495,19 @@ public class SDKMethodRunner {
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
 			String gitCommitHash = input.getServiceVer();
 			Long[] execTimes = getTaskExecTimes(ujsJobId, config);
-			long creationTime = execTimes[0];
-			long execStartTime = execTimes[1];
-			long finishTime = execTimes[2];
+
+			long creationTime = -1;
+			long execStartTime = -1;
+			long finishTime = -1;
+			
+
+			if (execTimes != null) {
+				creationTime = execTimes[0];
+				execStartTime = execTimes[1];
+				finishTime = execTimes[2];
+			}
+
+
 			boolean isError = params.getError() != null;
 			String errorMessage = null;
 			try {
@@ -1164,9 +1174,10 @@ public class SDKMethodRunner {
 		ExecTask dbTask = db.getExecTask(ujsJobId);
 		Long finishTimeMs  = dbTask.getFinishTime();
 
+		//Not Null = already finished
 		if(finishTimeMs != null)
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
-		else
+		else //Not finished, updating
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
 
 		System.out.println("Updated exec time " + ujsJobId);
