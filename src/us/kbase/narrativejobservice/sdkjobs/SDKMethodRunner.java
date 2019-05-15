@@ -499,7 +499,7 @@ public class SDKMethodRunner {
 			long creationTime = -1;
 			long execStartTime = -1;
 			long finishTime = -1;
-			
+
 
 			if (execTimes != null) {
 				creationTime = execTimes[0];
@@ -1172,16 +1172,21 @@ public class SDKMethodRunner {
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
-		Long finishTimeMs  = dbTask.getFinishTime();
+		Long finishTimeMs;
+
+		try {
+			finishTimeMs = dbTask.getFinishTime();
+		}
+		catch (NullPointerException e){
+			finishTimeMs = System.currentTimeMillis();
+		}
 
 		//Not Null = already finished
 		if(finishTimeMs != null)
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
 		else //Not finished, updating
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
-
-		System.out.println("Updated exec time " + ujsJobId);
-
+		
 		//Refresh the task in order to update the Queue Time
 		dbTask = db.getExecTask(ujsJobId);
 		Long execTimeMS = dbTask.getExecStartTime();
