@@ -496,9 +496,9 @@ public class SDKMethodRunner {
 			String gitCommitHash = input.getServiceVer();
 			Long[] execTimes = getTaskExecTimes(ujsJobId, config);
 
-			long creationTime = -1;
-			long execStartTime = -1;
-			long finishTime = -1;
+			long creationTime = -1L;
+			long execStartTime = -1L;
+			long finishTime = -1L;
 
 
 			if (execTimes != null) {
@@ -1186,7 +1186,7 @@ public class SDKMethodRunner {
 			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
 		else //Not finished, updating
 			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
-		
+
 		//Refresh the task in order to update the Queue Time
 		dbTask = db.getExecTask(ujsJobId);
 		Long execTimeMS = dbTask.getExecStartTime();
