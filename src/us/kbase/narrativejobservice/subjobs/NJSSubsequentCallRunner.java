@@ -92,6 +92,7 @@ public class NJSSubsequentCallRunner extends SubsequentCallRunner {
         labels.put("module_name", moduleName);
         labels.put("module_version", moduleVersion.getVersion());
         labels.put("user_name", token.getUserName());
+        labels.put("njs_endpoint", config.getNjswURL().toString());
 
         String cgroupParent = null;
         try{
