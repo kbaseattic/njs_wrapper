@@ -375,18 +375,23 @@ public class SDKMethodRunner {
 		List<String> ret = new ArrayList<String>();
         final RunJobParams input = getJobInput(ujsJobId, config);
         final String jobstage = jobStatus.getE2();
+        final String status = jobStatus.getE3();
         if ("started".equals(jobstage)) {
 
-            String message = String.format(
-                    "Updating job status for %s from 'queued' to 'in-progress'",
-                    ujsJobId);
-            ret.add(message);
-            List<LogLine> lines = new ArrayList<>();
-            lines.add(new LogLine().withLine(message).withIsError(0L));
-            addJobLogs(ujsJobId, lines, auth, config);
-
-
-			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
+// This message appears in the logs twice for some reason.. Removing it
+// TODO Remove this section or find out why logs happen twice
+//
+//
+//            String message = String.format(
+//                    "Updating job status for %s from '%s'  to 'in-progress' (%s)",
+//                    ujsJobId, status, new Date().getTime() );
+//            ret.add(message);
+//            List<LogLine> lines = new ArrayList<>();
+//            lines.add(new LogLine().withLine(message).withIsError(0L));
+//            addJobLogs(ujsJobId, lines, auth, config);
+//
+//
+//			String tomorrow = DATE_FORMATTER.print(new DateTime().plusDays(1));
 
             ujsClient.updateJob(ujsJobId, auth.getToken(), "in-progress", null);
             //is this the fix???
@@ -395,18 +400,21 @@ public class SDKMethodRunner {
 
 
         }
-        try {
-            ujsClient.startJob(ujsJobId, auth.getToken(), "in-progress",
-                    "Execution engine job for " + input.getMethod(),
-                    new InitProgress().withPtype("none"), null);
-        } catch (ServerException se) {
-            throw new IllegalStateException(String.format(
-                    "Job %s couldn't be started and is in state " +
-                            "%s. Server stacktrace:\n%s",
-                    ujsJobId, jobstage, se.getData()), se);
-        }
-        updateTaskExecTime(ujsJobId, config, false);
         return ret;
+
+//        try {
+//            ujsClient.startJob(ujsJobId, auth.getToken(), "in-progress",
+//                    "Execution engine job for " + input.getMethod(),
+//                    new InitProgress().withPtype("none"), null);
+//
+//        } catch (ServerException se) {
+//            throw new IllegalStateException(String.format(
+//                    "Job %s couldn't be started and is in state " +
+//                            "%s. Server stacktrace:\n%s",
+//                    ujsJobId, jobstage, se.getData()), se);
+//        }
+//
+//        return ret;
     }
 
 	public static void finishJob(
@@ -444,7 +452,12 @@ public class SDKMethodRunner {
 			// will throw an error here if user doesn't have rights to cancel
 			ujsClient.cancelJob(ujsJobId, "canceled by user");
 			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-			updateTaskExecTime(ujsJobId, config, true);
+
+			try{
+				updateTaskExecTime(ujsJobId, config, true);
+			}
+			catch (NullPointerException e){
+			}
 			return;
 		}
 		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
@@ -487,9 +500,19 @@ public class SDKMethodRunner {
 			String funcName = parts.length > 1 ? parts[1] : parts[0];
 			String gitCommitHash = input.getServiceVer();
 			Long[] execTimes = getTaskExecTimes(ujsJobId, config);
-			long creationTime = execTimes[0];
-			long execStartTime = execTimes[1];
-			long finishTime = execTimes[2];
+
+			long creationTime = -1L;
+			long execStartTime = -1L;
+			long finishTime = -1L;
+
+
+			if (execTimes != null) {
+				creationTime = execTimes[0];
+				execStartTime = execTimes[1];
+				finishTime = execTimes[2];
+			}
+
+
 			boolean isError = params.getError() != null;
 			String errorMessage = null;
 			try {
@@ -909,6 +932,8 @@ public class SDKMethodRunner {
 
 			boolean isCanceled = params.getIsCanceled() == null ? false :
 					(params.getIsCanceled() == 1L);
+
+
 			returnVal.setFinished(1L);
 			returnVal.setCanceled(isCanceled ? 1L : 0L);
 			// Next line is here for backward compatibility:
@@ -937,7 +962,15 @@ public class SDKMethodRunner {
 				returnVal.setJobState("in-progress");
 				returnVal.getAdditionalProperties().put("awe_job_state", "in-progress");
 				returnVal.getAdditionalProperties().put("job_state", "in-progress");
-			} else {
+			}
+			else if (currentStage.equals(APP_STATE_CANCELED) || currentStage.equals(APP_STATE_CANCELLED)) {
+				returnVal.setFinished(1L);
+				returnVal.setCanceled(1L);
+				returnVal.setJobState(APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("job_state", APP_STATE_CANCELED);
+			}
+			else {
 				returnVal.setJobState(APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("job_state", APP_STATE_QUEUED);
@@ -1148,12 +1181,38 @@ public class SDKMethodRunner {
 		return getTaskDescription(ujsJobId, config).getAweJobId();
 	}
 
+	/**
+	 * Update run time, finish time, and queue time.
+	 * */
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
-		Long prevTime = finishTime ? dbTask.getFinishTime() : dbTask.getExecStartTime();
-		if (prevTime == null)
-		    db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+
+		Long finishTimeMs = dbTask.getFinishTime();
+
+		//Not Null = already finished
+		if(finishTimeMs != null)
+			db.updateExecTaskTime(ujsJobId, finishTime, finishTimeMs);
+		else //Not finished, updating
+			db.updateExecTaskTime(ujsJobId, finishTime, System.currentTimeMillis());
+
+		//Refresh the task in order to update the Queue Time
+		dbTask = db.getExecTask(ujsJobId);
+		Long execTimeMS = dbTask.getExecStartTime();
+		Long queueTime = dbTask.getQueueTime();
+		if(queueTime == null && execTimeMS != null){
+			Long creationTimeMS = dbTask.getCreationTime();
+			Long queueTimeMS = execTimeMS - creationTimeMS;
+			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
+		}
+	}
+
+	/**
+	 * Update run finish time
+	 * */
+	private static void updateTaskExecTimeCancel(String ujsJobId, Map<String, String> config) throws Exception {
+		ExecEngineMongoDb db = getDb(config);
+		db.updateExecTaskTime(ujsJobId, true, System.currentTimeMillis());
 	}
 
 	private static Long[] getTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
