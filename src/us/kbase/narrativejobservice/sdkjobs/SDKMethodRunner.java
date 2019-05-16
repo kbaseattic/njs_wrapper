@@ -452,7 +452,12 @@ public class SDKMethodRunner {
 			// will throw an error here if user doesn't have rights to cancel
 			ujsClient.cancelJob(ujsJobId, "canceled by user");
 			getDb(config).addExecTaskResult(ujsJobId, jobOutput);
-			updateTaskExecTime(ujsJobId, config, true);
+
+			try{
+				updateTaskExecTime(ujsJobId, config, true);
+			}
+			catch (NullPointerException e){
+			}
 			return;
 		}
 		final String jobOwner = ujsClient.getJobOwner(ujsJobId);
@@ -927,6 +932,8 @@ public class SDKMethodRunner {
 
 			boolean isCanceled = params.getIsCanceled() == null ? false :
 					(params.getIsCanceled() == 1L);
+
+
 			returnVal.setFinished(1L);
 			returnVal.setCanceled(isCanceled ? 1L : 0L);
 			// Next line is here for backward compatibility:
@@ -955,7 +962,15 @@ public class SDKMethodRunner {
 				returnVal.setJobState("in-progress");
 				returnVal.getAdditionalProperties().put("awe_job_state", "in-progress");
 				returnVal.getAdditionalProperties().put("job_state", "in-progress");
-			} else {
+			}
+			else if (currentStage.equals(APP_STATE_CANCELED) || currentStage.equals(APP_STATE_CANCELLED)) {
+				returnVal.setFinished(1L);
+				returnVal.setCanceled(1L);
+				returnVal.setJobState(APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("job_state", APP_STATE_CANCELED);
+			}
+			else {
 				returnVal.setJobState(APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
 				returnVal.getAdditionalProperties().put("job_state", APP_STATE_QUEUED);
@@ -1172,14 +1187,8 @@ public class SDKMethodRunner {
 	private static void updateTaskExecTime(String ujsJobId, Map<String, String> config, boolean finishTime) throws Exception {
 		ExecEngineMongoDb db = getDb(config);
 		ExecTask dbTask = db.getExecTask(ujsJobId);
-		Long finishTimeMs;
 
-		try {
-			finishTimeMs = dbTask.getFinishTime();
-		}
-		catch (NullPointerException e){
-			finishTimeMs = System.currentTimeMillis();
-		}
+		Long finishTimeMs = dbTask.getFinishTime();
 
 		//Not Null = already finished
 		if(finishTimeMs != null)
@@ -1196,6 +1205,14 @@ public class SDKMethodRunner {
 			Long queueTimeMS = execTimeMS - creationTimeMS;
 			db.updateQueueTaskTime(ujsJobId, queueTimeMS);
 		}
+	}
+
+	/**
+	 * Update run finish time
+	 * */
+	private static void updateTaskExecTimeCancel(String ujsJobId, Map<String, String> config) throws Exception {
+		ExecEngineMongoDb db = getDb(config);
+		db.updateExecTaskTime(ujsJobId, true, System.currentTimeMillis());
 	}
 
 	private static Long[] getTaskExecTimes(String ujsJobId, Map<String, String> config) throws Exception {
