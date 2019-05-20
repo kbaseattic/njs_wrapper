@@ -89,7 +89,10 @@ public class CondorUtils {
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
         csf.add("JobLeaseDuration = 86400");
+        // 7 day max job retirement time for condor_drain
+        csf.add("MaxJobRetirementTime = 604800");
         csf.add("requirements = " + reqs.get("requirements_statement"));
+        
         
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
 
