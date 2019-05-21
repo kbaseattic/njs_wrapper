@@ -25,9 +25,10 @@ mkdir -p $BASE_DIR && cd $BASE_DIR
 mkdir -p $TMP_DIR
 
 #Set up java options
-JAVA_OPTS="-Djava.io.tmpdir=$TMP_DIR "
+
 ulimit -c unlimited
 
+java -Djava.io.tmpdir=$TMP_DIR -XX:+PrintFlagsFinal  -XshowSettings:vm -version &> java_stats
 
 #Move Jar to work directory
 echo "Jar Location = $NJSW_JAR" > jar
@@ -38,11 +39,11 @@ trap "{ kill $pid }" SIGTERM
 
 #Run the job runner and then clean up after it's done
 
-java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
+java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
 pid=$!
 wait $pid
 SDKLMR_EXITCODE=$?
 touch endsdklmr
-java $JAVA_OPTS -cp njsw.jar  us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
 touch endcleanjob
 exit $SDKLMR_EXITCODE
