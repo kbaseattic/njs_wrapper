@@ -82,9 +82,9 @@ public class CondorUtils {
         csf.add(requestCpus);
         csf.add(requestMemory);
         csf.add(requestDisk);
-        csf.add("log    = logfile.txt");
-        csf.add("output = outfile.txt");
-        csf.add("error  = errors.txt");
+        csf.add(String.format("log    = %s/logfile.txt", baseDir));
+        csf.add(String.format("output = %s/outfile.txt", baseDir ));
+        csf.add(String.format("error  = %s/errors.txt", baseDir ));
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
