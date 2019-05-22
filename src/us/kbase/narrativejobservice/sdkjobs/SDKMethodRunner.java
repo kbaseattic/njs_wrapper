@@ -761,10 +761,16 @@ public class SDKMethodRunner {
 				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
 				Long, Long, Tuple2<String, String>, Map<String, String>,
 				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
-
-				String jobId = j.getE1();
-				JobState njsJobState = checkJobCondor(jobId, authPart, config);
-				js.add(njsJobState);
+					Tuple7<String, String, String, Long, String, Long, Long> jobStatus = new Tuple7<String, String, String, Long, String, Long, Long>();
+					jobStatus.setE1(j.getE6().getE2());
+					jobStatus.setE2(j.getE4());
+					jobStatus.setE3(j.getE5());
+					jobStatus.setE4(j.getE7().getE1());
+					jobStatus.setE5(j.getE6().getE3());
+					jobStatus.setE6(j.getE8());
+					jobStatus.setE7(j.getE9());
+					JobState njsJobState = checkJobCondor(j.getE1(), jobStatus, authPart, config);
+					js.add(njsJobState);
 		}
 		return js;
 	}
@@ -902,16 +908,24 @@ public class SDKMethodRunner {
 //
 //    }
 
-
 	@SuppressWarnings("unchecked")
 	public static JobState checkJobCondor(String jobId, AuthToken authPart,
 										  Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
+		return checkJobCondor(jobId, jobStatus, authPart, config);
+	}
 
+
+	@SuppressWarnings("unchecked")
+	public static JobState checkJobCondor(String jobId,
+										  Tuple7<String, String, String, Long, String, Long, Long> jobStatus,
+										  AuthToken authPart,
+										  Map<String, String> config) throws Exception {
+		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 
 //		(1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
 //		(2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.),
@@ -978,20 +992,7 @@ public class SDKMethodRunner {
 
 		}
 
-//			String stage = jobStatus.getE2();
-//			if (stage != null && stage.equals("started")) {
-//				returnVal.setJobState(APP_STATE_STARTED);
-//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
-//			} else {
-//				returnVal.setJobState(APP_STATE_QUEUED);
-//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
-//				// Check job postion for queued jobs only
-		//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
-//			}
-//		}
-
 		returnVal.setStatus(new UObject(jobStatus));
-
 
 		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
