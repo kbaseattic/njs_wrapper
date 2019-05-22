@@ -24,13 +24,17 @@ public class CondorUtils {
      * @param adminToken                  The admin token used for bind mounts, stored in configs
      * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement, csv format
      * @param kbaseEndpoint               The URL of the NJS Server
-     * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/
      * @return The generated condor submit file
      * @throws IOException
      */
     private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroupsAndRequirements, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds) throws IOException {
         HashMap<String, String> reqs = clientGroupsAndRequirements(clientGroupsAndRequirements);
         String clientGroups = reqs.get("client_group");
+        String jobDir = baseDir + "/" + ujsJobId;
+
+        File logdir = new File(String.format("/logs/%s/%s", token.getUserName(), ujsJobId));
+        logdir.mkdirs();
 
         HashMap<String, String> envVariables = new HashMap<>();
         String requestCpus = "request_cpus = 4";
@@ -60,6 +64,9 @@ public class CondorUtils {
         envVariables.put("AWE_CLIENTGROUP", clientGroups);
         envVariables.put("BASE_DIR", baseDir);
         envVariables.put("UJS_JOB_ID", ujsJobId);
+        envVariables.put("JOB_DIR", jobDir);
+
+
         envVariables.put("CONDOR_ID", "$(Cluster).$(Process)");
 
         List<String> environment = new ArrayList<String>();
@@ -77,24 +84,53 @@ public class CondorUtils {
         csf.add("universe = vanilla");
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
+        //TODO maybe add ON_EXIT_OR_EVICT
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
+
+        //Can I add this?
+        //csf.add(String.format("remote_initialdir = %s", jobDir));
+
+
+
+        String[] transfer_files = new String[]{"/kb/deployment/lib/NJSWrapper-all.jar",
+                "/kb/deployment/bin/mydocker",
+                "/kb/deployment/misc/pre.sh",
+                "/kb/deployment/misc/post.sh",
+        };
+
+        csf.add(String.format("transfer_input_files = %s", String.join(",", transfer_files)));
         csf.add(requestCpus);
         csf.add(requestMemory);
         csf.add(requestDisk);
-        csf.add(String.format("log    = %s/logfile.txt", baseDir));
-        csf.add(String.format("output = %s/outfile.txt", baseDir ));
-        csf.add(String.format("error  = %s/errors.txt", baseDir ));
+
+
+
+
+        //Condor log relative to submit machine
+        csf.add(String.format("log = %s/log.txt", logdir));
+        //Relative to execute machine
+//        csf.add(String.format("output = %s/outfile.txt", jobDir ));
+//        csf.add(String.format("error  = %s/errors.txt", jobDir ));
+
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
+        // Allow up to 24 hours of no response from job
         csf.add("JobLeaseDuration = 86400");
         // 7 day max job retirement time for condor_drain
         csf.add("MaxJobRetirementTime = 604800");
         csf.add("requirements = " + reqs.get("requirements_statement"));
-        
-        
+
+
+        //TODO Use  ENV as Variable
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
+        csf.add(String.format("+PreEnvironment = \"%s\"", String.join(" ", environment)));
+        csf.add(String.format("+PostEnvironment = \"%s\"", String.join(" ", environment)));
+
+        csf.add("+PreCmd = pre.sh");
+        csf.add("+PostCmd = post.sh");
+
+
 
         //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
@@ -236,7 +272,7 @@ public class CondorUtils {
      * @param token         The token of the user of the submitted job
      * @param clientGroups  The AWE Client Group
      * @param kbaseEndpoint The URL of the NJS Server
-     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/
      * @param adminToken    The admin token used for bind mounts, stored in configs
      * @return String condor job id Range
      * @throws Exception
@@ -260,7 +296,7 @@ public class CondorUtils {
             throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
         }
         if (!optClassAds.containsKey("debugMode")) {
-            condorSubmitFile.delete();
+        //    condorSubmitFile.delete();
         }
         return jobID;
     }
