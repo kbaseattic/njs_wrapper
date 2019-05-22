@@ -761,7 +761,15 @@ public class SDKMethodRunner {
 				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
 				Long, Long, Tuple2<String, String>, Map<String, String>,
 				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
-					JobState njsJobState = checkJobCondor(j, authPart, config);
+					Tuple7<String, String, String, Long, String, Long, Long> jobStatus = new Tuple7<String, String, String, Long, String, Long, Long>();
+					jobStatus.setE1(j.getE6().getE2());
+					jobStatus.setE2(j.getE4());
+					jobStatus.setE3(j.getE5());
+					jobStatus.setE4(j.getE7().getE1());
+					jobStatus.setE5(j.getE6().getE3());
+					jobStatus.setE6(j.getE8());
+					jobStatus.setE7(j.getE9());
+					JobState njsJobState = checkJobCondor(j.getE1(), jobStatus, authPart, config);
 					js.add(njsJobState);
 		}
 		return js;
@@ -901,101 +909,23 @@ public class SDKMethodRunner {
 //    }
 
 	@SuppressWarnings("unchecked")
-	public static JobState checkJobCondor(
-		Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String, String>, String, Results> jobInfo,
-		AuthToken authPart,
-		Map<String, String> config) throws Exception {
-		// That jobInfo Tuple is a monster. Whoa.
-		String jobId = jobInfo.getE1();
-		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
-		String[] subJobs = getDb(config).getSubJobIds(jobId);
-		returnVal.getAdditionalProperties().put("sub_jobs", subJobs);
-
-		boolean complete = jobInfo.getE8() != null && jobInfo.getE8() == 1L;
-		FinishJobParams params = null;
-		if (complete) {
-			params = getJobOutput(jobId, authPart, config);
-
-			boolean isCanceled = params.getIsCanceled() == null ? false :
-					(params.getIsCanceled() == 1L);
-
-
-			returnVal.setFinished(1L);
-			returnVal.setCanceled(isCanceled ? 1L : 0L);
-			// Next line is here for backward compatibility:
-			returnVal.setCancelled(isCanceled ? 1L : 0L);
-			returnVal.setResult(params.getResult());
-			returnVal.setError(params.getError());
-			if (params.getError() != null) {
-				returnVal.setJobState(APP_STATE_ERROR);
-			} else if (isCanceled) {
-				returnVal.setJobState(APP_STATE_CANCELLED);
-			} else {
-				returnVal.setJobState(APP_STATE_DONE);
-			}
-		} else {
-			returnVal.setFinished(0L);
-
-			// (A string that describes the stage of processing of the job.
-			// One of 'created', 'started', 'completed', 'canceled' or 'error'.),
-			String currentStage = jobInfo.getE4();
-
-			//parameter "status" of original type "job_status"
-			// (A job status string supplied by the reporting service. No more than 200 characters.)
-			String currentStatus = jobInfo.getE5();
-
-			if (currentStatus.equals("running") || currentStatus.equals("in-progress")) {
-				returnVal.setJobState("in-progress");
-				returnVal.getAdditionalProperties().put("awe_job_state", "in-progress");
-				returnVal.getAdditionalProperties().put("job_state", "in-progress");
-			}
-			else if (currentStage.equals(APP_STATE_CANCELED) || currentStage.equals(APP_STATE_CANCELLED)) {
-				returnVal.setFinished(1L);
-				returnVal.setCanceled(1L);
-				returnVal.setJobState(APP_STATE_CANCELED);
-				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_CANCELED);
-				returnVal.getAdditionalProperties().put("job_state", APP_STATE_CANCELED);
-			}
-			else {
-				returnVal.setJobState(APP_STATE_QUEUED);
-				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
-				returnVal.getAdditionalProperties().put("job_state", APP_STATE_QUEUED);
-			}
-
-		}
-
-		Tuple7<String, String, String, Long, String, Long, Long> jobStatus = new Tuple7<String, String, String, Long, String, Long, Long>();
-		jobStatus.setE1(jobInfo.getE6().getE2());
-		jobStatus.setE2(jobInfo.getE4());
-		jobStatus.setE3(jobInfo.getE5());
-		jobStatus.setE4(jobInfo.getE7().getE1());
-		jobStatus.setE5(jobInfo.getE6().getE3());
-		jobStatus.setE6(jobInfo.getE8());
-		jobStatus.setE7(jobInfo.getE9());
-		returnVal.setStatus(new UObject(jobStatus));
-
-		Long[] execTimes = getTaskExecTimes(jobId, config);
-		if (execTimes != null) {
-			if (execTimes[0] != null)
-				returnVal.withCreationTime(execTimes[0]);
-			if (execTimes[1] != null)
-				returnVal.withExecStartTime(execTimes[1]);
-			if (execTimes[2] != null)
-				returnVal.withFinishTime(execTimes[2]);
-		}
-		return returnVal;
-	}
-
-	@SuppressWarnings("unchecked")
 	public static JobState checkJobCondor(String jobId, AuthToken authPart,
 										  Map<String, String> config) throws Exception {
 		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
-		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 		UserAndJobStateClient ujsClient = getUjsClient(authPart, config);
 		Tuple7<String, String, String, Long, String, Long, Long> jobStatus =
 				ujsClient.getJobStatus(jobId);
+		return checkJobCondor(jobId, jobStatus, authPart, config);
+	}
 
+
+	@SuppressWarnings("unchecked")
+	public static JobState checkJobCondor(String jobId,
+										  Tuple7<String, String, String, Long, String, Long, Long> jobStatus,
+										  AuthToken authPart,
+										  Map<String, String> config) throws Exception {
+		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
 
 //		(1) parameter "last_update" of original type "timestamp" (A time in the format YYYY-MM-DDThh:mm:ssZ, where Z is the difference in time to UTC in the format +/-HHMM, eg: 2012-12-17T23:24:06-0500 (EST time) 2013-04-03T08:56:32+0000 (UTC time)),
 //		(2) parameter "stage" of original type "job_stage" (A string that describes the stage of processing of the job. One of 'created', 'started', 'completed', 'canceled' or 'error'.),
