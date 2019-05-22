@@ -79,7 +79,9 @@ public class CondorUtils {
         String arguments = String.join(" ", args);
         List<String> csf = new ArrayList<String>();
         csf.add("universe = vanilla");
-        csf.add(String.format("accounting_group = %s", token.getUserName()));
+        csf.add(String.format("+AccountingGroup  = \"%s\"", token.getUserName()));
+        csf.add(String.format("Concurrency_Limits = %s", token.getUserName()));
+
         csf.add("+Owner = \"condor_pool\"");
         csf.add("universe = vanilla");
         csf.add("executable = " + executable);
