@@ -761,10 +761,8 @@ public class SDKMethodRunner {
 				Tuple3<String, String, String>, Tuple3<Long, Long, String>,
 				Long, Long, Tuple2<String, String>, Map<String, String>,
 				String, Results> j : ujsClient.listJobs2(new ListJobsParams().withAuthstrat("kbaseworkspace").withAuthparams(authParams))) {
-
-				String jobId = j.getE1();
-				JobState njsJobState = checkJobCondor(jobId, authPart, config);
-				js.add(njsJobState);
+					JobState njsJobState = checkJobCondor(j, authPart, config);
+					js.add(njsJobState);
 		}
 		return js;
 	}
@@ -902,6 +900,92 @@ public class SDKMethodRunner {
 //
 //    }
 
+	@SuppressWarnings("unchecked")
+	public static JobState checkJobCondor(
+		Tuple13<String, Tuple2<String, String>, String, String, String, Tuple3<String, String, String>, Tuple3<Long, Long, String>, Long, Long, Tuple2<String, String>, Map<String, String>, String, Results> jobInfo,
+		AuthToken authPart,
+		Map<String, String> config) throws Exception {
+		// That jobInfo Tuple is a monster. Whoa.
+		String jobId = jobInfo.getE1();
+		String ujsUrl = config.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL);
+		JobState returnVal = new JobState().withJobId(jobId).withUjsUrl(ujsUrl);
+		String[] subJobs = getDb(config).getSubJobIds(jobId);
+		returnVal.getAdditionalProperties().put("sub_jobs", subJobs);
+
+		boolean complete = jobInfo.getE8() != null && jobInfo.getE8() == 1L;
+		FinishJobParams params = null;
+		if (complete) {
+			params = getJobOutput(jobId, authPart, config);
+
+			boolean isCanceled = params.getIsCanceled() == null ? false :
+					(params.getIsCanceled() == 1L);
+
+
+			returnVal.setFinished(1L);
+			returnVal.setCanceled(isCanceled ? 1L : 0L);
+			// Next line is here for backward compatibility:
+			returnVal.setCancelled(isCanceled ? 1L : 0L);
+			returnVal.setResult(params.getResult());
+			returnVal.setError(params.getError());
+			if (params.getError() != null) {
+				returnVal.setJobState(APP_STATE_ERROR);
+			} else if (isCanceled) {
+				returnVal.setJobState(APP_STATE_CANCELLED);
+			} else {
+				returnVal.setJobState(APP_STATE_DONE);
+			}
+		} else {
+			returnVal.setFinished(0L);
+
+			// (A string that describes the stage of processing of the job.
+			// One of 'created', 'started', 'completed', 'canceled' or 'error'.),
+			String currentStage = jobInfo.getE4();
+
+			//parameter "status" of original type "job_status"
+			// (A job status string supplied by the reporting service. No more than 200 characters.)
+			String currentStatus = jobInfo.getE5();
+
+			if (currentStatus.equals("running") || currentStatus.equals("in-progress")) {
+				returnVal.setJobState("in-progress");
+				returnVal.getAdditionalProperties().put("awe_job_state", "in-progress");
+				returnVal.getAdditionalProperties().put("job_state", "in-progress");
+			}
+			else if (currentStage.equals(APP_STATE_CANCELED) || currentStage.equals(APP_STATE_CANCELLED)) {
+				returnVal.setFinished(1L);
+				returnVal.setCanceled(1L);
+				returnVal.setJobState(APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_CANCELED);
+				returnVal.getAdditionalProperties().put("job_state", APP_STATE_CANCELED);
+			}
+			else {
+				returnVal.setJobState(APP_STATE_QUEUED);
+				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
+				returnVal.getAdditionalProperties().put("job_state", APP_STATE_QUEUED);
+			}
+
+		}
+
+		Tuple7<String, String, String, Long, String, Long, Long> jobStatus = new Tuple7<String, String, String, Long, String, Long, Long>();
+		jobStatus.setE1(jobInfo.getE6().getE2());
+		jobStatus.setE2(jobInfo.getE4());
+		jobStatus.setE3(jobInfo.getE5());
+		jobStatus.setE4(jobInfo.getE7().getE1());
+		jobStatus.setE5(jobInfo.getE6().getE3());
+		jobStatus.setE6(jobInfo.getE8());
+		jobStatus.setE7(jobInfo.getE9());
+		returnVal.setStatus(new UObject(jobStatus));
+
+		Long[] execTimes = getTaskExecTimes(jobId, config);
+		if (execTimes != null) {
+			if (execTimes[0] != null)
+				returnVal.withCreationTime(execTimes[0]);
+			if (execTimes[1] != null)
+				returnVal.withExecStartTime(execTimes[1]);
+			if (execTimes[2] != null)
+				returnVal.withFinishTime(execTimes[2]);
+		}
+		return returnVal;
+	}
 
 	@SuppressWarnings("unchecked")
 	public static JobState checkJobCondor(String jobId, AuthToken authPart,
@@ -978,20 +1062,7 @@ public class SDKMethodRunner {
 
 		}
 
-//			String stage = jobStatus.getE2();
-//			if (stage != null && stage.equals("started")) {
-//				returnVal.setJobState(APP_STATE_STARTED);
-//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_STARTED);
-//			} else {
-//				returnVal.setJobState(APP_STATE_QUEUED);
-//				returnVal.getAdditionalProperties().put("awe_job_state", APP_STATE_QUEUED);
-//				// Check job postion for queued jobs only
-		//	returnVal.setPosition(UObject.transformObjectToObject(posData.get("position"), Long.class));
-//			}
-//		}
-
 		returnVal.setStatus(new UObject(jobStatus));
-
 
 		Long[] execTimes = getTaskExecTimes(jobId, config);
 		if (execTimes != null) {
