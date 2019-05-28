@@ -108,11 +108,11 @@ public class CondorUtils {
 
 
 
-        //Condor log relative to submit machine
-        csf.add(String.format("log = %s/log.txt", logdir));
-        //Relative to execute machine
-//        csf.add(String.format("output = %s/outfile.txt", jobDir ));
-//        csf.add(String.format("error  = %s/errors.txt", jobDir ));
+        /* Condor log relative to submit machine, except when spooled.
+           Output and Error are relative to the execute dir on the execute host
+         */
+
+        csf.add(String.format("log = %s.log", ujsJobId));
 
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
