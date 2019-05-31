@@ -88,8 +88,6 @@ public class CondorUtils {
         csf.add("universe = vanilla");
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
-        csf.add("ShouldTransferFiles = YES");
-
 
         //TODO maybe add ON_EXIT_OR_EVICT
         csf.add("when_to_transfer_output = ON_EXIT");
