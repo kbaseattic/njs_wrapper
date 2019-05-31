@@ -148,7 +148,7 @@ public class SDKMethodRunner {
 				optClassAds.put("kb_wsid", "" + params.getWsid());
 			}
 
-			String baseDir = String.format("%s/%s/", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
+			String baseDir = String.format("%s/%s", config.get(NarrativeJobServiceServer.CFG_PROP_CONDOR_JOB_DATA_DIR), authPart.getUserName());
 			String newExternalURL = config.get(NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL);
 			String parentJobId = params.getParentJobId();
 			String schedulerType = "condor";

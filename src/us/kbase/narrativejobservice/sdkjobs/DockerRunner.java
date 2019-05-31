@@ -327,7 +327,7 @@ public class DockerRunner {
 
             for (Thread t : workers)
                 t.join();
-            log.logNextLine("Job will automatically timeout in " + timeout + " seconds", false);
+            log.logNextLine(String.format("Docker Container id %s will automatically timeout in %s seconds", cntId, timeout), false);
             p.waitFor(Long.parseLong(timeout), TimeUnit.SECONDS);
 
             int containerExitCode = cl.waitContainerCmd(cntId).exec(new WaitContainerResultCallback()).awaitStatusCode();
