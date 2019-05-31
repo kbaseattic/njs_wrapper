@@ -25,6 +25,7 @@ mkdir -p $BASE_DIR && cd $BASE_DIR
 mkdir -p $TMP_DIR
 
 #Set up java options
+date=`date +'%s'`
 
 ulimit -c unlimited
 
@@ -39,11 +40,11 @@ trap "{ kill $pid }" SIGTERM
 
 #Run the job runner and then clean up after it's done
 
-java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > sdk_lmr.out 2> sdk_lmr.err &
+java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > "sdk_lmr_$date.out" 2> "sdk_lmr_$date.err" &
 pid=$!
 wait $pid
 SDKLMR_EXITCODE=$?
 touch endsdklmr
-java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > cleanup.out 2> cleanup.err
+java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > "cleanup_$date.out" 2> "cleanup_$date.err"
 touch endcleanjob
 exit $SDKLMR_EXITCODE

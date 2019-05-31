@@ -130,7 +130,7 @@ public class SDKLocalMethodRunnerCleanup {
 
         JobState jobState = jobSrvClient.checkJob(jobId);
         //Job has ran successfully.
-        if (jobState.getFinished() != null && jobState.getFinished() == 1L) {
+        if (jobState.getFinished() != null && jobState.getFinished() == 1L && jobState.getError() != null) {
             String msg = "Cleaning up " + jobDir.toPath().toString();
             log.logNextLine(msg, false);
             System.out.println(msg);
@@ -150,10 +150,10 @@ public class SDKLocalMethodRunnerCleanup {
                     "value starts with \"" + new String(chars) + "...\"";
 
             log.logNextLine(error, true);
-            log.logNextLine("Post Job Cleanup Detected Job Didn't Properly Finish", false);
+            log.logNextLine(String.format("Job %s Failed: Post Job Cleanup Detected Job Didn't Properly Finish", jobId), false);
             SDKLocalMethodRunner.finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);
         } else if (!outputFile.exists() || (outputFile.exists() && outputFile.length() == 0)) {
-            String error = "Couldn't find output file or output file size is empty";
+            String error = String.format("Job %s Failed: Couldn't find output file or output file size is empty", jobId);
             log.logNextLine(error, true);
             log.logNextLine("Post Job Cleanup Detected Job Didn't Properly Finish", false);
             SDKLocalMethodRunner.finishJobPrematurely(error, jobId, log, dockerURI, jobSrvClient);

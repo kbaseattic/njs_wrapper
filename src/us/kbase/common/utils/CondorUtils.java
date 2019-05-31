@@ -130,6 +130,24 @@ public class CondorUtils {
         csf.add("MaxJobRetirementTime = 604800");
         csf.add("requirements = " + reqs.get("requirements_statement"));
 
+        csf.add("CurrentWallTime = ifthenelse(JobStatus==2,CurrentTime-EnteredCurrentStatus,0)");
+        csf.add("Periodic_Remove = ( RemoteWallClockTime > 10080 )");
+        //Periodic Remove
+        csf.add("SUBMIT_ATTRS = $(SUBMIT_ATTRS) CurrentWallTime");
+
+        //Create a default list of submitters in condor and
+
+
+        //Condor health check
+
+
+
+
+
+        #https://indico.cern.ch/event/518392/contributions/2182741/attachments/1296424/1933223/Healcheck_2016_hepsysman.pdf
+
+
+
 
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
         /**
