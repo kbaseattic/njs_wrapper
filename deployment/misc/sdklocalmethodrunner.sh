@@ -24,8 +24,10 @@ TMP_DIR=$BASE_DIR/tmp
 mkdir -p $BASE_DIR && cd $BASE_DIR
 mkdir -p $TMP_DIR
 
+
 #Set up java options
 date=`date +'%s'`
+env > "env_$date"
 
 ulimit -c unlimited
 

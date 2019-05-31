@@ -67,8 +67,6 @@ public class CondorUtils {
         envVariables.put("BASE_DIR", baseDir);
         envVariables.put("UJS_JOB_ID", ujsJobId);
         envVariables.put("JOB_DIR", jobDir);
-
-
         envVariables.put("CONDOR_ID", "$(Cluster).$(Process)");
 
         List<String> environment = new ArrayList<String>();
@@ -108,8 +106,6 @@ public class CondorUtils {
         requestMemory = String.format("request_memory = ifthenelse(MemoryUsage =!= undefined, MAX({MemoryUsage * 3/2, %s}), %s)",
                 requestMemoryLowerBound, requestMemoryLowerBound);
         csf.add(requestMemory);
-
-
         csf.add(requestDisk);
 
 
@@ -137,19 +133,8 @@ public class CondorUtils {
 
         //Create a default list of submitters in condor and
 
-
-        //Condor health check
-
-
-
-
-
-        #https://indico.cern.ch/event/518392/contributions/2182741/attachments/1296424/1933223/Healcheck_2016_hepsysman.pdf
-
-
-
-
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
+
         /**
          TODO Use ENV as Variable
          csf.add(String.format("+PreEnvironment = \"%s\"", String.join(" ", environment)));
@@ -159,7 +144,6 @@ public class CondorUtils {
          **/
 
 
-        //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
         if (optClassAds != null) {
@@ -323,7 +307,7 @@ public class CondorUtils {
             throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
         }
         if (!optClassAds.containsKey("debugMode")) {
-            //    condorSubmitFile.delete();
+            condorSubmitFile.delete();
         }
         return jobID;
     }
