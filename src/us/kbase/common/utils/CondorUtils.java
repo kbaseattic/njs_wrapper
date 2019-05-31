@@ -24,17 +24,22 @@ public class CondorUtils {
      * @param adminToken                  The admin token used for bind mounts, stored in configs
      * @param clientGroupsAndRequirements The AWE Client Group and an optional requirements statement, csv format
      * @param kbaseEndpoint               The URL of the NJS Server
-     * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param baseDir                     The Directory for the job to run in /mnt/awe/condor/username/
      * @return The generated condor submit file
      * @throws IOException
      */
     private static File createCondorSubmitFile(String ujsJobId, AuthToken token, AuthToken adminToken, String clientGroupsAndRequirements, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds) throws IOException {
         HashMap<String, String> reqs = clientGroupsAndRequirements(clientGroupsAndRequirements);
         String clientGroups = reqs.get("client_group");
+        String jobDir = baseDir + "/" + ujsJobId;
+
+        File logdir = new File(String.format("/logs/%s/%s", token.getUserName(), ujsJobId));
+        logdir.mkdirs();
 
         HashMap<String, String> envVariables = new HashMap<>();
         String requestCpus = "request_cpus = 4";
-        String requestMemory = "request_memory = 25000MB";
+        String requestMemory = "request_memory = 25000";
+        String requestMemoryLowerBound = "25000";
         String requestDisk = "request_disk = 100GB";
 
         //Default at MB for now
@@ -45,6 +50,7 @@ public class CondorUtils {
         }
         String requestMemoryKey = "request_memory";
         if (reqs.containsKey(requestMemoryKey)) {
+            requestMemoryLowerBound = reqs.get(requestMemoryKey);
             requestMemory = String.format("%s = %sMB", requestMemoryKey, reqs.get(requestMemoryKey));
             envVariables.put(requestMemoryKey, reqs.get(requestMemoryKey));
         }
@@ -60,6 +66,7 @@ public class CondorUtils {
         envVariables.put("AWE_CLIENTGROUP", clientGroups);
         envVariables.put("BASE_DIR", baseDir);
         envVariables.put("UJS_JOB_ID", ujsJobId);
+        envVariables.put("JOB_DIR", jobDir);
         envVariables.put("CONDOR_ID", "$(Cluster).$(Process)");
 
         List<String> environment = new ArrayList<String>();
@@ -72,28 +79,69 @@ public class CondorUtils {
         String arguments = String.join(" ", args);
         List<String> csf = new ArrayList<String>();
         csf.add("universe = vanilla");
-        csf.add(String.format("accounting_group = %s", token.getUserName()));
+        csf.add(String.format("+AccountingGroup  = \"%s\"", token.getUserName()));
+
+        //Concurrency Limits based on default
+        csf.add(String.format("Concurrency_Limits = %s", token.getUserName()));
+
         csf.add("+Owner = \"condor_pool\"");
         csf.add("universe = vanilla");
         csf.add("executable = " + executable);
         csf.add("ShouldTransferFiles = YES");
+
+        //TODO maybe add ON_EXIT_OR_EVICT
         csf.add("when_to_transfer_output = ON_EXIT");
-        csf.add("transfer_input_files = /kb/deployment/lib/NJSWrapper-all.jar,/kb/deployment/bin/mydocker");
+
+        String[] transfer_files = new String[]{"/kb/deployment/lib/NJSWrapper-all.jar",
+                "/kb/deployment/bin/mydocker",
+                "/kb/deployment/misc/pre.sh",
+                "/kb/deployment/misc/post.sh",
+        };
+
+        csf.add(String.format("transfer_input_files = %s", String.join(",", transfer_files)));
         csf.add(requestCpus);
+        //Dynamically Request memory 1.5X
+        requestMemory = String.format("request_memory = ifthenelse(MemoryUsage =!= undefined, MAX({MemoryUsage * 3/2, %s}), %s)",
+                requestMemoryLowerBound, requestMemoryLowerBound);
         csf.add(requestMemory);
         csf.add(requestDisk);
-        csf.add("log    = logfile.txt");
-        csf.add("output = outfile.txt");
-        csf.add("error  = errors.txt");
+
+
+        /* Condor log relative to submit machine, except when spooled.
+           If this dir doesn't exist bad things will happen
+           Output and Error are relative to the execute dir on the execute host
+         */
+
+        csf.add(String.format("log = %s/%s.log", logdir, ujsJobId));
+        csf.add(String.format("output = %s/%s.out", logdir, ujsJobId));
+
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
         csf.add("on_exit_hold = ExitCode =!= 0");
+        // Allow up to 24 hours of no response from job
         csf.add("JobLeaseDuration = 86400");
+        // 7 day max job retirement time for condor_drain
+        csf.add("MaxJobRetirementTime = 604800");
         csf.add("requirements = " + reqs.get("requirements_statement"));
-        
+
+        csf.add("CurrentWallTime = ifthenelse(JobStatus==2,CurrentTime-EnteredCurrentStatus,0)");
+        csf.add("Periodic_Remove = ( RemoteWallClockTime > 10080 )");
+        //Periodic Remove
+        csf.add("SUBMIT_ATTRS = $(SUBMIT_ATTRS) CurrentWallTime");
+
+        //Create a default list of submitters in condor and
+
         csf.add(String.format("environment = \"%s\"", String.join(" ", environment)));
 
-        //csf.add(String.format("environment = \"KB_AUTH_TOKEN=%s KB_ADMIN_AUTH_TOKEN=%s AWE_CLIENTGROUP=%s BASE_DIR=%s\"", token.getToken(), adminToken.getToken(), clientGroups, baseDir));
+        /**
+         TODO Use ENV as Variable
+         csf.add(String.format("+PreEnvironment = \"%s\"", String.join(" ", environment)));
+         csf.add(String.format("+PostEnvironment = \"%s\"", String.join(" ", environment)));
+         csf.add("+PreCmd = \"pre.sh\"");
+         csf.add("+PostCmd = \"post.sh\"");
+         **/
+
+
         csf.add("arguments = " + arguments);
         csf.add("batch_name = " + ujsJobId);
         if (optClassAds != null) {
@@ -233,7 +281,7 @@ public class CondorUtils {
      * @param token         The token of the user of the submitted job
      * @param clientGroups  The AWE Client Group
      * @param kbaseEndpoint The URL of the NJS Server
-     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/JOBID
+     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/
      * @param adminToken    The admin token used for bind mounts, stored in configs
      * @return String condor job id Range
      * @throws Exception
@@ -299,7 +347,7 @@ public class CondorUtils {
     /**
      * Useful for condor autoformat commands with two return columns
      */
-    private static HashMap<String, String> autoFormatHelper(String[] cmdScript) throws Exception{
+    private static HashMap<String, String> autoFormatHelper(String[] cmdScript) throws Exception {
         List<String> processResult = runProcess(cmdScript).stdout;
         HashMap<String, String> JobStates = new HashMap<>();
         for (String line : processResult) {
@@ -310,14 +358,13 @@ public class CondorUtils {
     }
 
 
-
     /**
      * Get a list of running/idle/held jobs and their statuses
      *
      * @return A List of job IDS and their respective statuses.
      * @throws Exception
      */
-    public static HashMap<String, String> getIdleOrRunningOrHeldJobs() throws Exception{
+    public static HashMap<String, String> getIdleOrRunningOrHeldJobs() throws Exception {
         //NEVER EVER USE QUOTES OR ESCAPED QUOTES FOR CONDOR COMMANDS! THEY DON'T WORK!
         String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 0 || JobStatus == 1 || JobStatus == 2 || JobStatus == 5", "-af", "JobBatchName", "JobStatus"};
         return autoFormatHelper(cmdScript);
@@ -329,11 +376,12 @@ public class CondorUtils {
      * @return A List of job IDS and their respective statuses.
      * @throws Exception
      */
-    public static HashMap<String, String> getIdleAndRunningJobs() throws Exception{
+    public static HashMap<String, String> getIdleAndRunningJobs() throws Exception {
         //NEVER EVER USE QUOTES OR ESCAPED QUOTES FOR CONDOR COMMANDS! THEY DON'T WORK!
         String[] cmdScript = new String[]{"condor_q", "-constraint", "JobStatus == 1 || JobStatus == 2", "-af", "JobBatchName", "JobStatus"};
         return autoFormatHelper(cmdScript);
     }
+
     /**
      * Get a list of jobs ids and job statuses for all jobs recorded in condor
      *
@@ -344,8 +392,6 @@ public class CondorUtils {
         String[] cmdScript = new String[]{"condor_q", "-af", "JobBatchName", "JobStatus"};
         return autoFormatHelper(cmdScript);
     }
-
-
 
 
     /**
