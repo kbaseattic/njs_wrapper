@@ -125,7 +125,7 @@ public class CondorUtils {
         csf.add("requirements = " + reqs.get("requirements_statement"));
 
         csf.add("CurrentWallTime = ifthenelse(JobStatus==2,CurrentTime-EnteredCurrentStatus,0)");
-        csf.add("Periodic_Remove = ( RemoteWallClockTime > 10080 )");
+        csf.add("Periodic_Remove = ( RemoteWallClockTime > 604800 )");
         //Periodic Remove
         csf.add("SUBMIT_ATTRS = $(SUBMIT_ATTRS) CurrentWallTime");
 
