@@ -33,7 +33,9 @@ public class CondorUtils {
         String clientGroups = reqs.get("client_group");
         String jobDir = baseDir + "/" + ujsJobId;
 
-        File logdir = new File(String.format("/logs/%s/%s", token.getUserName(), ujsJobId));
+        File logdir = new File(String.format("/submit/logs/%s/%s", token.getUserName(), ujsJobId));
+
+
         logdir.mkdirs();
 
         HashMap<String, String> envVariables = new HashMap<>();
@@ -125,7 +127,7 @@ public class CondorUtils {
         csf.add("requirements = " + reqs.get("requirements_statement"));
 
         csf.add("CurrentWallTime = ifthenelse(JobStatus==2,CurrentTime-EnteredCurrentStatus,0)");
-        csf.add("Periodic_Remove = ( RemoteWallClockTime > 10080 )");
+        csf.add("Periodic_Remove = ( RemoteWallClockTime > 604800 )");
         //Periodic Remove
         csf.add("SUBMIT_ATTRS = $(SUBMIT_ATTRS) CurrentWallTime");
 
@@ -151,8 +153,9 @@ public class CondorUtils {
         }
         csf.add("queue 1");
 
-        System.out.println("ABOUT TO PRINT OUT" + String.format("%s.sub", ujsJobId));
-        File submitFile = new File(String.format("%s.sub", ujsJobId));
+
+        File submitFile = new File(String.format("%s/%s.sub", logdir, ujsJobId));
+        System.out.println("ABOUT TO PRINT OUT:" + submitFile);
         FileUtils.writeLines(submitFile, "UTF-8", csf);
         submitFile.setExecutable(true);
         return submitFile;
@@ -170,14 +173,11 @@ public class CondorUtils {
         System.out.println("Running command: [" + String.join(" ", condorCommand) + "]");
         final Process process = Runtime.getRuntime().exec(condorCommand);
 
-
         List<String> stdOutMessage = IOUtils.readLines(process.getInputStream(), "UTF-8");
         List<String> stdErrMessage = IOUtils.readLines(process.getErrorStream(), "UTF-8");
 
-
         try {
             process.waitFor(30, TimeUnit.SECONDS);
-
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
@@ -288,7 +288,7 @@ public class CondorUtils {
      */
     public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds, AuthToken adminToken) throws Exception {
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
-        String[] cmdScript = {"condor_submit", "-spool", "-terse", condorSubmitFile.getAbsolutePath()};
+        String[] cmdScript = {"condor_submit", "-terse", condorSubmitFile.getAbsolutePath()};
         String jobID = null;
         int retries = 10;
 
