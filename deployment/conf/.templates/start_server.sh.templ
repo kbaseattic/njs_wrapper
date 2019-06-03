@@ -10,11 +10,12 @@ JAVA_OPTS="-Djava.awt.headless=true -server \
                -XX:+UseG1GC"
 
 # Ensure logs and shared directory is readable
-mkdir -p /submit/logs/ && chown kbase /submit/logs/ && chown kbase /submit/
+mkdir -p $CONDOR_SUBMIT_WORKDIR/submit/logs/
+chown kbase $CONDOR_SUBMIT_WORKDIR/submit/ && chown kbase $CONDOR_SUBMIT_WORKDIR/submit/logs/
 
-
-cp /kb/deployment/lib/NJSWrapper-all.jar /submit/
+cp /kb/deployment/lib/NJSWrapper-all.jar $CONDOR_SUBMIT_WORKDIR/submit/
 
 # This script assumes that the docker base image includes a runnable JETTY environment
 # that provides $JETTY_HOME. Currently the base image is built on library/jetty:jre8
+cd $CONDOR_SUBMIT_WORKDIR
 exec su kbase -m -c "java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"

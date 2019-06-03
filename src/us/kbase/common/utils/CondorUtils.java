@@ -33,9 +33,8 @@ public class CondorUtils {
         String clientGroups = reqs.get("client_group");
         String jobDir = baseDir + "/" + ujsJobId;
 
-        File logdir = new File(String.format("/submit/logs/%s/%s", token.getUserName(), ujsJobId));
-
-
+        //TODO Get from config / env
+        File logdir = new File(String.format("/mnt/awe/condor/submit/logs/%s/%s", token.getUserName(), ujsJobId));
         logdir.mkdirs();
 
         HashMap<String, String> envVariables = new HashMap<>();
@@ -116,6 +115,7 @@ public class CondorUtils {
 
         csf.add(String.format("log = %s/%s.log", logdir, ujsJobId));
         csf.add(String.format("output = %s/%s.out", logdir, ujsJobId));
+        csf.add(String.format("error = %s/%s.err", logdir, ujsJobId));
 
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
