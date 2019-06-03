@@ -1,5 +1,5 @@
 #!/bin/sh
-# If there is an environment variable "POOL_PASSWORD" write it out to the 
+# If there is an environment variable "POOL_PASSWORD" write it out to the
 # condor pool password file before starting the java services
 if [ "$POOL_PASSWORD" ] ; then
     su kbase -m -c "/usr/sbin/condor_store_cred -p \"$POOL_PASSWORD\" -f `condor_config_val SEC_PASSWORD_FILE`"
@@ -17,5 +17,5 @@ cp /kb/deployment/lib/NJSWrapper-all.jar $CONDOR_SUBMIT_WORKDIR/submit/
 
 # This script assumes that the docker base image includes a runnable JETTY environment
 # that provides $JETTY_HOME. Currently the base image is built on library/jetty:jre8
-#cd $CONDOR_SUBMIT_WORKDIR
-exec su - kbase -c "java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"
+
+exec su -m kbase -c "java -DSTOP.PORT=8079 -DSTOP.KEY=foo -Djetty.home=$JETTY_HOME -jar $JETTY_HOME/start.jar"
