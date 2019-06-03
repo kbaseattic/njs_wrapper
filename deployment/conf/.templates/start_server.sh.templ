@@ -9,8 +9,11 @@ JAVA_OPTS="-Djava.awt.headless=true -server \
                -Xms{{ default .Env.min_memory "1000" }}m -Xmx{{ default .Env.max_memory "3000" }}m \
                -XX:+UseG1GC"
 
-# Ensure logs directory is readable
-chown kbase /logs/
+# Ensure logs and shared directory is readable
+mkdir -p /submit/logs/ && chown kbase /submit/logs/ && chown kbase /submit/
+
+
+cp /kb/deployment/lib/NJSWrapper-all.jar /submit/
 
 # This script assumes that the docker base image includes a runnable JETTY environment
 # that provides $JETTY_HOME. Currently the base image is built on library/jetty:jre8

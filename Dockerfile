@@ -23,7 +23,9 @@ RUN mkdir $JETTY_HOME && cd $JETTY_HOME \
 
 #RUN mkdir $JETTY_HOME && cd $JETTY_HOME && tar -xvf /kb/deployment/jetty.tgz && mv jetty/* .
 
-RUN mkdir /logs/ && chmod 777 /logs/ && chmod 777 /etc/condor
+RUN chmod 777 /etc/condor
+
+
 
 #Install Python3 and Libraries
 RUN yum install -y centos-release-scl && yum -y update && yum install -y rh-python36
