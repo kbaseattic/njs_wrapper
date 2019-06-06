@@ -9,7 +9,7 @@ import requests
 from bson.objectid import ObjectId
 from configparser import ConfigParser
 import time
-from feeds_client import feeds_service_client
+from .feeds_client import feeds_service_client
 
 from pymongo import MongoClient, database, collection
 
@@ -82,11 +82,17 @@ class njs_jobs():
     def find_dead_jobs(self, jobs, condor_jobs, attributes):
         cj = {}
         for j in condor_jobs:
+            if 'JobBatchName' not in j:
+                continue
+
             cj[j['JobBatchName']] = j['JobStatus']
 
         dead_jobs = []
 
         for job in jobs:
+            if 'JobBatchName' not in job:
+                continue
+
             row = ([str(job.get(x, None)) for x in attributes])
             id = row[0]
             if id in cj.keys():

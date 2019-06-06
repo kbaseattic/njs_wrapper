@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 import datetime
-from utils import send_slack_message
+from .utils import send_slack_message
 import os
 import sys
 
