@@ -42,7 +42,7 @@ trap "{ kill $pid }" SIGTERM
 
 #Run the job runner and then clean up after it's done
 
-java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > "sdk_lmr_$date.out" 2> "sdk_lmr_$date.err" &
+java ${JAVA_OPTS} -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > "sdk_lmr_$date.out" 2> "sdk_lmr_$date.err" &
 pid=$!
 wait $pid
 SDKLMR_EXITCODE=$?
