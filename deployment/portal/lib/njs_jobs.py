@@ -33,7 +33,7 @@ class njs_jobs():
         parser.read(os.environ['KB_DEPLOYMENT_CONFIG'])
         return parser
 
-    @staticmethod
+
     def get_ujs_connection(self) -> MongoClient:
         parser = self.get_config()
         ujs_host = parser.get('NarrativeJobService', 'ujs-mongodb-host')
@@ -42,7 +42,7 @@ class njs_jobs():
         ujs_pwd = parser.get('NarrativeJobService', 'ujs-mongodb-pwd')
         return MongoClient(ujs_host, 27017, username=ujs_user, password=ujs_pwd, authSource=ujs_db)
 
-    @staticmethod
+
     def get_njs_connection(self) -> MongoClient:
         parser = self.get_config()
         njs_host = parser.get('NarrativeJobService', 'mongodb-host')
@@ -51,7 +51,7 @@ class njs_jobs():
         njs_pwd = parser.get('NarrativeJobService', 'mongodb-pwd')
         return MongoClient(njs_host, 27017, username=njs_user, password=njs_pwd, authSource=njs_db)
 
-    @staticmethod
+
     def get_ujs_database(self) -> database:
         return self.get_ujs_connection().get_database(
             self.get_config().get('NarrativeJobService', 'ujs-mongodb-database'))
@@ -66,7 +66,7 @@ class njs_jobs():
         if os.geteuid() == 0:
             sys.exit('Cannot run script as root. Need access to htcondor password file')
 
-    @staticmethod
+
     def get_incomplete_jobs(self) -> collection:
         jobstate = self.get_ujs_database().get_collection('jobstate')
         return jobstate.find({'complete': {'$ne': True}})
