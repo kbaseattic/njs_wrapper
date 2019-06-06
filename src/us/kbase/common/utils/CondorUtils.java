@@ -34,8 +34,15 @@ public class CondorUtils {
         String jobDir = baseDir + "/" + ujsJobId;
 
         //TODO Get from config / env
-        File logdir = new File(String.format("/mnt/awe/condor/submit/logs/%s/%s", token.getUserName(), ujsJobId));
-        logdir.mkdirs();
+//        File logdir = new File(String.format("/mnt/awe/condor/submit/logs/%s", token.getUserName(), ujsJobId));
+//        logdir.mkdirs();
+//
+//        File logFile = new File(String.format("%s/%s.log", logdir, ujsJobId));
+//        File outFile = new File(String.format("%s/%s.out", logdir, ujsJobId));
+//        File errorFile = new File(String.format("%s/%s.err", logdir, ujsJobId));
+//        logFile.createNewFile();
+
+
 
         HashMap<String, String> envVariables = new HashMap<>();
         String requestCpus = "request_cpus = 4";
@@ -102,8 +109,10 @@ public class CondorUtils {
         csf.add(String.format("transfer_input_files = %s", String.join(",", transfer_files)));
         csf.add(requestCpus);
         //Dynamically Request memory 1.5X
-        requestMemory = String.format("request_memory = ifthenelse(MemoryUsage =!= undefined, MAX({MemoryUsage * 3/2, %s}), %s)",
-                requestMemoryLowerBound, requestMemoryLowerBound);
+//        requestMemory = String.format("request_memory = ifthenelse(MemoryUsage =!= undefined, MAX({MemoryUsage * 3/2, %s}), %s)",
+//                requestMemoryLowerBound, requestMemoryLowerBound);
+//
+
         csf.add(requestMemory);
         csf.add(requestDisk);
 
@@ -113,9 +122,9 @@ public class CondorUtils {
            Output and Error are relative to the execute dir on the execute host
          */
 
-        csf.add(String.format("log = %s/%s.log", logdir, ujsJobId));
-        csf.add(String.format("output = %s/%s.out", logdir, ujsJobId));
-        csf.add(String.format("error = %s/%s.err", logdir, ujsJobId));
+//        csf.add(String.format("log = %s", logFile));
+//        csf.add(String.format("output = %s", outFile));
+//        csf.add(String.format("error = %s", errorFile));
 
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
@@ -126,10 +135,8 @@ public class CondorUtils {
         csf.add("MaxJobRetirementTime = 604800");
         csf.add("requirements = " + reqs.get("requirements_statement"));
 
-        csf.add("CurrentWallTime = ifthenelse(JobStatus==2,CurrentTime-EnteredCurrentStatus,0)");
         csf.add("Periodic_Remove = ( RemoteWallClockTime > 604800 )");
         //Periodic Remove
-        csf.add("SUBMIT_ATTRS = $(SUBMIT_ATTRS) CurrentWallTime");
 
         //Create a default list of submitters in condor and
 
@@ -154,8 +161,9 @@ public class CondorUtils {
         csf.add("queue 1");
 
 
-        File submitFile = new File(String.format("%s/%s.sub", logdir, ujsJobId));
-        System.out.println("ABOUT TO PRINT OUT:" + submitFile);
+        //3 File submitFile = new File(String.format("%s/%s.sub", logdir, ujsJobId));
+        File submitFile = new File(String.format("%s.sub",  ujsJobId));
+
         FileUtils.writeLines(submitFile, "UTF-8", csf);
         submitFile.setExecutable(true);
         return submitFile;
@@ -274,6 +282,43 @@ public class CondorUtils {
         return input.replaceAll("[^0-9A-Za-z=_]", "");
     }
 
+
+    /**
+     * Call condor_submit with the ujsJobId as batch job name
+     *
+     * @param ujsJobId      The UJS job id
+     * @param token         The token of the user of the submitted job
+     * @param clientGroups  The AWE Client Group
+     * @param kbaseEndpoint The URL of the NJS Server
+     * @param baseDir       The Directory for the job to run in /mnt/awe/condor/username/
+     * @param adminToken    The admin token used for bind mounts, stored in configs
+     * @return String condor job id Range
+     * @throws Exception
+     */
+//    public static String submitToCondorCLI_new(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds, AuthToken adminToken) throws Exception {
+//        File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
+//        String[] cmdScript = new String[]{"/kb/deployment/misc/condor_submit.sh", condorSubmitFile.getAbsolutePath()};
+//        String jobID = null;
+//        int retries = 10;
+//
+//        String stderr = null;
+//        while (jobID == null && retries > 0) {
+//            CondorResponse r = runProcess(cmdScript);
+//            if (r.success)
+//                jobID = r.stdout.get(0);
+//
+//            stderr = String.join(", ", r.stderr);
+//            retries--;
+//        }
+//        if (jobID == null) {
+//            throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
+//        }
+//        if (!optClassAds.containsKey("debugMode")) {
+//            condorSubmitFile.delete();
+//        }
+//        return jobID;
+//    }
+
     /**
      * Call condor_submit with the ujsJobId as batch job name
      *
@@ -288,7 +333,8 @@ public class CondorUtils {
      */
     public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds, AuthToken adminToken) throws Exception {
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
-        String[] cmdScript = {"condor_submit", "-terse", condorSubmitFile.getAbsolutePath()};
+        String[] cmdScript = {"condor_submit", "-terse", "-spool" , condorSubmitFile.getAbsolutePath()};
+
         String jobID = null;
         int retries = 10;
 
@@ -305,7 +351,7 @@ public class CondorUtils {
             throw new IllegalStateException("Error running condorCommand: \n" + String.join(" ", cmdScript) + "\n" + stderr + "\n");
         }
         if (!optClassAds.containsKey("debugMode")) {
-            condorSubmitFile.delete();
+//            condorSubmitFile.delete();
         }
         return jobID;
     }
