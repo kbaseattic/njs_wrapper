@@ -13,16 +13,19 @@ def send_slack_message(message):
     """
     # ee_notifications_channel
     webhook_url = os.environ.get("SLACK_WEBHOOK_URL", sys.exit("No Slack webhook url"))
-    slack_data = {'text': message}
+    slack_data = {"text": message}
     requests.post(
-        webhook_url, data=json.dumps(slack_data),
-        headers={'Content-Type': 'application/json'}
+        webhook_url,
+        data=json.dumps(slack_data),
+        headers={"Content-Type": "application/json"},
     )
 
 
 def fail():
     now = str(datetime.datetime.now())
-    send_slack_message("Couldn't check condor_q either due to timeout or command failure " + now)
+    send_slack_message(
+        "Couldn't check condor_q either due to timeout or command failure " + now
+    )
 
 
 def succeed(time):
@@ -30,11 +33,11 @@ def succeed(time):
     send_slack_message("Successfully ran condor_q in  " + str(time) + " seconds " + now)
 
 
-while (True):
+while True:
     start = time.time()
     p = subprocess.check_call("condor_q > /dev/null", shell=True)
     if p == 0:
-        elapsed = (time.time() - start)
+        elapsed = time.time() - start
     #    succeed(elapsed)
     else:
         fail()
