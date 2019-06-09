@@ -12,7 +12,7 @@ def send_slack_message(message):
     """
     :param message: Escaped Message to send to slack
     """
-    if(len(message) > 15000):
+    if len(message) > 15000:
         return send_slack_message_chunks(message)
 
     # ee_notifications_channel
@@ -24,11 +24,12 @@ def send_slack_message(message):
         headers={"Content-Type": "application/json"},
     )
 
+
 def send_slack_message_chunks(message):
 
     window = 15000
 
-    for m in [message[i:i + window] for i in range(0, len(message),window)]:
+    for m in [message[i : i + window] for i in range(0, len(message), window)]:
         time.sleep(1)
         webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
         slack_data = {"text": m}

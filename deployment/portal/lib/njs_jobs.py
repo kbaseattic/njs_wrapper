@@ -28,7 +28,6 @@ class njs_jobs:
     njs_jobs_collection = "exec_tasks"
     ujs_jobs_collection = "jobstate"
 
-
     @staticmethod
     def get_config() -> ConfigParser:
         parser = ConfigParser()
@@ -236,8 +235,6 @@ class njs_jobs:
             # f.writelines("\t".join(self.attributes) + "\n")
             f.writelines("\n".join(self.dead_jobs))
 
-
-
     def purge_dead_jobs(self, dryrun=True):
         """
         Save logs of failed jobs marked as ERROR/CANCELED in DATABASE #TODO TRY THIS OUT IN BROWSER AND SEE WHAT HAPPENS
@@ -270,8 +267,8 @@ class njs_jobs:
         pass
 
     def notify_user(self, job):
-        user = job['user']
-        job_id = job['_id']
+        user = job["user"]
+        job_id = job["_id"]
 
         message = f"Attn {user}: Due to a system error on {job['created']}, job {job_id} has failed. We are very sorry for the inconvenience. Plese resubmit the job. "
         if "app_id" in job and job["app_id"] is not None:
@@ -287,22 +284,22 @@ class njs_jobs:
             user=user, message=message, job_id=job_id, app_name=job["app_id"]
         )
 
-
         return message
 
     def notify_users(self, job):
         #
         pass
 
-    #TODO Save Logs
-    #TODO Create a little database so you don't send double feed messages
-    #TODO Send the feed messages
-    #TODO Mark the Database as Done
-    #TODO Have a function that can read a log and resend messages based on that and database above
-    #TODO Make a "Portal Function" to scan job log and spit out events
-    #TODO Test out Holding Jobs (aka cgroups memory limit?) or just manually hold them and then resume them and look at LOGS and such
-    #TODO Create a new database that combines NJS and UJS and then build an API around that
-    #TODO REMOVE CLEANUP SCRIPT AND REPLACE IT WITH A PYHTHON CLEANUP SCRIPT
+    # TODO Save Logs
+    # TODO Create a little database so you don't send double feed messages
+    # TODO Send the feed messages
+    # TODO Mark the Database as Done
+    # TODO Have a function that can read a log and resend messages based on that and database above
+    # TODO Make a "Portal Function" to scan job log and spit out events
+    # TODO Test out Holding Jobs (aka cgroups memory limit?) or just manually hold them and then resume them and look at LOGS and such
+    # TODO Create a new database that combines NJS and UJS and then build an API around that
+    # TODO REMOVE CLEANUP SCRIPT AND REPLACE IT WITH A PYHTHON CLEANUP SCRIPT
+
 
 if __name__ == "__main__":
     m = njs_jobs()

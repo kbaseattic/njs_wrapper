@@ -58,8 +58,7 @@ class feeds_client:
             logging.INFO(url)
             logging.INFO(note)
 
-
-    #TODO How do you annotate this?
+    # TODO How do you annotate this?
     @classmethod
     def feeds_service_client(cls):
         service_token = os.environ.get("FEEDS_SERVICE_TOKEN")
