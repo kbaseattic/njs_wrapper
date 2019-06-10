@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import datetime
 import sys
+from memory_profiler import profile
 
 from lib.njs_jobs import njs_jobs
 
@@ -38,7 +39,7 @@ from lib.njs_jobs import njs_jobs
 
 class MigrateDatabases:
     documents = []
-    threshold = 1000
+    threshold = 5000
 
     ujs_mongo_jobs = njs_jobs.get_ujs_database().get_collection(
         njs_jobs.ujs_jobs_collection
@@ -47,6 +48,7 @@ class MigrateDatabases:
         njs_jobs.njs_jobs_collection
     )
 
+    @profile
     def insert_many(self):
         now = str(datetime.datetime.now())
         print(f"About to insert  {len(self.documents)} records at {now}")
@@ -54,6 +56,7 @@ class MigrateDatabases:
         njs_mongo_jobs_collection.insert_many(self.documents)
         self.documents = []
 
+    @profile
     def insert_record(self, document):
         self.documents.append(document)
         if len(self.documents) > self.threshold:
@@ -63,7 +66,6 @@ class MigrateDatabases:
         ujs_cursor = self.ujs_mongo_jobs.find()
         for job in ujs_cursor:
             ujs_id = str(job["_id"])
-            del job["_id"]
             new_entry = {"ujs_job_id": ujs_id}
             for key in job.keys():
                 new_entry[key] = job[key]
@@ -95,5 +97,5 @@ class MigrateDatabases:
         self.insert_many()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     MigrateDatabases().go()

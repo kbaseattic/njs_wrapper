@@ -3,14 +3,19 @@ import os
 import sys
 import time
 from configparser import ConfigParser
+from typing import Dict, List
 
 import htcondor
-from pymongo import MongoClient, database, collection
+from bson.objectid import ObjectId
+from pymongo import MongoClient, database
 
+from .NarrativeJobServiceClient import NarrativeJobService
 from .feeds_client import feeds_client
-
-from typing import Dict, Tuple, Sequence, List
 from .utils import send_slack_message
+
+
+# TODO Should I be closing mongo connections to prevent a memory leak?
+# TODO should I make the staticmethods stateful instead?
 
 
 class njs_jobs:
@@ -26,6 +31,7 @@ class njs_jobs:
     }
 
     njs_jobs_collection = "exec_tasks"
+    njs_logs_collection = "exec_logs"
     ujs_jobs_collection = "jobstate"
 
     @staticmethod
@@ -74,27 +80,45 @@ class njs_jobs:
             sys.exit("Cannot run script as root. Need access to htcondor password file")
 
     @staticmethod
-    def get_njs_jobs(jobs) -> List[Dict]:
+    def get_njs_jobs(job_ids) -> List[Dict]:
         jobstate = njs_jobs.get_njs_database().get_collection("exec_tasks")
         return list(
             jobstate.find(
-                {"ujs_job_id": {"$in": jobs}},
+                {"ujs_job_id": {"$in": job_ids}},
                 projection=["ujs_job_id", "job_input", "task_id"],
             )
         )
 
     @staticmethod
-    def get_njs_job(job) -> List[Dict]:
+    def get_njs_job(job_id) -> List[Dict]:
         jobstate = njs_jobs.get_njs_database().get_collection("exec_tasks")
         return list(
             jobstate.find(
-                {"ujs_job_id": {"$in": job}},
+                {"ujs_job_id": {"$in": job_id}},
                 projection=["ujs_job_id", "job_input", "task_id"],
             )
         )
 
     @staticmethod
-    def get_njs_jobs_by_id(ujs_job_ids) -> Dict[str, Dict]:
+    def get_ujs_job(job_id: Dict) -> List[Dict]:
+        jobstate = njs_jobs.get_njs_database().get_collection(
+            njs_jobs.ujs_jobs_collection
+        )
+        return jobstate.find_one({"ujs_job_id": {"$eq": job_id}})
+
+    @staticmethod
+    def is_job_complete(job_id):
+        jobstate = (
+            njs_jobs.get_ujs_database()
+                .get_collection("jobstate")
+                .find_one({"_id": ObjectId(job_id)})
+        )
+        if jobstate["complete"] is True or jobstate["error"] is True:
+            return True
+        return False
+
+    @staticmethod
+    def _get_njs_jobs_by_id(ujs_job_ids) -> Dict[str, Dict]:
 
         jobs_by_id = {}
         desired_input_fields = ["app_id", "wsid", "method"]
@@ -204,7 +228,7 @@ class njs_jobs:
             if condor_job_status not in [1, 2]:
                 incomplete_jobs[job_id] = job
 
-        njs_jobs = self.get_njs_jobs_by_id(list(incomplete_jobs.keys()))
+        njs_jobs = self._get_njs_jobs_by_id(list(incomplete_jobs.keys()))
 
         for job_id in njs_jobs.keys():
             njs_job = njs_jobs[job_id]
@@ -265,6 +289,36 @@ class njs_jobs:
     def set_job_to_error(self, job):
         print(f"Setting {job} to error in UJS")
         pass
+
+    def process_failed_job(self, job_id, user_token=None):
+        """
+        # Notify User via feed
+        # Notify Slack
+        # Update job status
+        # Add Log Lines
+        # Mark job as cancelled or completed in condor
+        # Should I add new admin endpoints to NJS
+        :return:
+        """
+        job = self.get_ujs_job(job_id)
+        # notification =  self.notify_user(job)
+        notification = f"Updating job status and marking it as error in the db for {job_id}"
+        send_slack_message(notification)
+        self.update_job_log(message=notification, user_token=user_token, job_id=job_id)
+
+    def update_job_log(self, message, job_id, user_token):
+        if user_token is None:
+            try:
+                logs_collection = self.get_ujs_database().get_collection(self.njs_logs_collection)
+                logs_collection.find_one(job_id)
+                logs_collection.update("")
+            except Exception:
+                msg = "Couldn't update log for " + job_id + " with message " + message
+                send_slack_message(msg)
+
+        else:
+            with NarrativeJobService(url="http://ci.kbase.us", token=user_token) as njsc:
+                njsc.add_job_logs(job_id=job_id, lines=list(message))
 
     def notify_user(self, job):
         user = job["user"]
