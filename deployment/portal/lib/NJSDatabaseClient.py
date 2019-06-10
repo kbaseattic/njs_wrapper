@@ -66,8 +66,6 @@ class NJSDatabaseClient:
         self._get_jobs_collection().replace_one(filter={"ujs_job_id": {"$eq": job_id}}, replacement=replacement_document)
 
 
-
-
 if __name__ == "__main__":
     ndc = NJSDatabaseClient()
     ujs_job_id = "565f5b6ee4b0a6527cead4a2"
