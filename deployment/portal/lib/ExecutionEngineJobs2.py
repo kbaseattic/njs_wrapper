@@ -5,20 +5,23 @@ import time
 from configparser import ConfigParser
 from typing import Dict, List
 
-import htcondor
+try:
+    import htcondor
+except Exception as e:
+    raise e
+
+
 from bson.objectid import ObjectId
 from pymongo import MongoClient, database
 
-from .NarrativeJobServiceClient import NarrativeJobService
-from .feeds_client import feeds_client
-from .utils import send_slack_message
+from lib.clients.NJSDatabaseClient import NJSDatabaseClient
+from lib.clients.UJSDatabaseClient import UJSDatabaseClient
+from lib.clients.NarrativeJobServiceClient import NarrativeJobService
+from lib.clients.feeds_client import feeds_client
+from lib.utils import send_slack_message
 
 
-# TODO Should I be closing mongo connections to prevent a memory leak?
-# TODO should I make the staticmethods stateful instead?
-
-
-class njs_jobs:
+class ExecutionEngineJobs:
     jsc = {
         "0": "Unexepanded",
         1: "Idle",
@@ -30,49 +33,26 @@ class njs_jobs:
         -1: "Not found in condor",
     }
 
-    njs_jobs_collection = "exec_tasks"
-    njs_logs_collection = "exec_logs"
-    ujs_jobs_collection = "jobstate"
 
-    @staticmethod
-    def get_config() -> ConfigParser:
-        parser = ConfigParser()
-        parser.read(os.environ["KB_DEPLOYMENT_CONFIG"])
-        return parser
 
-    @staticmethod
-    def get_ujs_connection() -> MongoClient:
-        parser = njs_jobs.get_config()
-        ujs_host = parser.get("NarrativeJobService", "ujs-mongodb-host")
-        ujs_db = parser.get("NarrativeJobService", "ujs-mongodb-database")
-        ujs_user = parser.get("NarrativeJobService", "ujs-mongodb-user")
-        ujs_pwd = parser.get("NarrativeJobService", "ujs-mongodb-pwd")
-        return MongoClient(
-            ujs_host, 27017, username=ujs_user, password=ujs_pwd, authSource=ujs_db
-        )
 
-    @staticmethod
-    def get_njs_connection() -> MongoClient:
-        parser = njs_jobs.get_config()
-        njs_host = parser.get("NarrativeJobService", "mongodb-host")
-        njs_db = parser.get("NarrativeJobService", "mongodb-database")
-        njs_user = parser.get("NarrativeJobService", "mongodb-user")
-        njs_pwd = parser.get("NarrativeJobService", "mongodb-pwd")
-        return MongoClient(
-            njs_host, 27017, username=njs_user, password=njs_pwd, authSource=njs_db
-        )
 
-    @staticmethod
-    def get_ujs_database() -> database:
-        return njs_jobs.get_ujs_connection().get_database(
-            njs_jobs.get_config().get("NarrativeJobService", "ujs-mongodb-database")
-        )
 
-    @staticmethod
-    def get_njs_database() -> database:
-        return njs_jobs.get_njs_connection().get_database(
-            njs_jobs.get_config().get("NarrativeJobService", "mongodb-database")
-        )
+# TODO Should I be closing mongo connections to prevent a memory leak?
+# TODO should I make the staticmethods stateful instead?
+
+
+class ExecutionEngineJobs:
+    jsc = {
+        "0": "Unexepanded",
+        1: "Idle",
+        2: "Running",
+        3: "Removed",
+        4: "Completed",
+        5: "Held",
+        6: "Submission_err",
+        -1: "Not found in condor",
+    }
 
     @staticmethod
     def check_if_not_root():
@@ -81,7 +61,7 @@ class njs_jobs:
 
     @staticmethod
     def get_njs_jobs(job_ids) -> List[Dict]:
-        jobstate = njs_jobs.get_njs_database().get_collection("exec_tasks")
+        jobstate = ExecutionEngineJobs.get_njs_database().get_collection("exec_tasks")
         return list(
             jobstate.find(
                 {"ujs_job_id": {"$in": job_ids}},
@@ -91,7 +71,7 @@ class njs_jobs:
 
     @staticmethod
     def get_njs_job(job_id) -> List[Dict]:
-        jobstate = njs_jobs.get_njs_database().get_collection("exec_tasks")
+        jobstate = ExecutionEngineJobs.get_njs_database().get_collection("exec_tasks")
         return list(
             jobstate.find(
                 {"ujs_job_id": {"$in": job_id}},
@@ -101,15 +81,15 @@ class njs_jobs:
 
     @staticmethod
     def get_ujs_job(job_id: Dict) -> List[Dict]:
-        jobstate = njs_jobs.get_njs_database().get_collection(
-            njs_jobs.ujs_jobs_collection
+        jobstate = ExecutionEngineJobs.get_njs_database().get_collection(
+            ExecutionEngineJobs.ujs_jobs_collection
         )
         return jobstate.find_one({"ujs_job_id": {"$eq": job_id}})
 
     @staticmethod
     def is_job_complete(job_id):
-        jobstate = (
-            njs_jobs.get_ujs_database()
+        jobstate =
+            ExecutionEngineJobs.get_ujs_database()
                 .get_collection("jobstate")
                 .find_one({"_id": ObjectId(job_id)})
         )
@@ -123,7 +103,7 @@ class njs_jobs:
         jobs_by_id = {}
         desired_input_fields = ["app_id", "wsid", "method"]
 
-        for job in njs_jobs.get_njs_jobs(ujs_job_ids):
+        for job in ExecutionEngineJobs.get_njs_jobs(ujs_job_ids):
             job_id = job.get("ujs_job_id", None)
             if job_id is None:
                 continue
@@ -175,11 +155,11 @@ class njs_jobs:
 
     @staticmethod
     def get_condor_jobs_all() -> Dict[str, Dict]:
-        return njs_jobs.get_condor_jobs()
+        return ExecutionEngineJobs.get_condor_jobs()
 
     @staticmethod
     def get_non_held_non_running_condor_jobs() -> Dict[str, Dict]:
-        return njs_jobs.get_condor_jobs(requirements="JobStatus != 2 && JobStatus !=1")
+        return ExecutionEngineJobs.get_condor_jobs(requirements="JobStatus != 2 && JobStatus !=1")
 
     def __init__(self):
         self.check_if_not_root()
@@ -306,12 +286,11 @@ class njs_jobs:
         send_slack_message(notification)
         self.update_job_log(message=notification, user_token=user_token, job_id=job_id)
 
+
     def update_job_log(self, message, job_id, user_token):
         if user_token is None:
             try:
-                logs_collection = self.get_ujs_database().get_collection(self.njs_logs_collection)
-                logs_collection.find_one(job_id)
-                logs_collection.update("")
+
             except Exception:
                 msg = "Couldn't update log for " + job_id + " with message " + message
                 send_slack_message(msg)
@@ -356,6 +335,6 @@ class njs_jobs:
 
 
 if __name__ == "__main__":
-    m = njs_jobs()
-    njs_jobs.log_dead_jobs()
+    m = ExecutionEngineJobs()
+    ExecutionEngineJobs.log_dead_jobs()
     feeds_client = feeds_client.feeds_service_client()

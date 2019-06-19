@@ -7,6 +7,7 @@
 ############################################################
 
 from __future__ import print_function
+
 # the following is a hack to get the baseclient to import whether we're in a
 # package or not. This makes pep8 unhappy hence the annotations.
 try:
@@ -18,35 +19,47 @@ except ImportError:
 
 
 class NarrativeJobService(object):
-
     def __init__(
-            self, url=None, timeout=30 * 60, user_id=None,
-            password=None, token=None, ignore_authrc=False,
-            trust_all_ssl_certificates=False,
-            auth_svc='https://ci.kbase.us/services/auth/api/legacy/KBase/Sessions/Login'):
+        self,
+        url=None,
+        timeout=30 * 60,
+        user_id=None,
+        password=None,
+        token=None,
+        ignore_authrc=False,
+        trust_all_ssl_certificates=False,
+        auth_svc="https://ci.kbase.us/services/auth/api/legacy/KBase/Sessions/Login",
+    ):
         if url is None:
-            raise ValueError('A url is required')
+            raise ValueError("A url is required")
         self._service_ver = None
         self._client = _BaseClient(
-            url, timeout=timeout, user_id=user_id, password=password,
-            token=token, ignore_authrc=ignore_authrc,
+            url,
+            timeout=timeout,
+            user_id=user_id,
+            password=password,
+            token=token,
+            ignore_authrc=ignore_authrc,
             trust_all_ssl_certificates=trust_all_ssl_certificates,
-            auth_svc=auth_svc)
+            auth_svc=auth_svc,
+        )
 
     def list_config(self, context=None):
         """
         :returns: instance of mapping from String to String
         """
-        return self._client.call_method('NarrativeJobService.list_config',
-                                        [], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.list_config", [], self._service_ver, context
+        )
 
     def ver(self, context=None):
         """
         Returns the current running version of the NarrativeJobService.
         :returns: instance of String
         """
-        return self._client.call_method('NarrativeJobService.ver',
-                                        [], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.ver", [], self._service_ver, context
+        )
 
     def status(self, context=None):
         """
@@ -59,8 +72,9 @@ class NarrativeJobService(object):
            Long, parameter "config" of mapping from String to String,
            parameter "git_commit" of String
         """
-        return self._client.call_method('NarrativeJobService.status',
-                                        [], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.status", [], self._service_ver, context
+        )
 
     def run_job(self, params, context=None):
         """
@@ -114,8 +128,9 @@ class NarrativeJobService(object):
            "parent_job_id" of String
         :returns: instance of type "job_id" (A job id.)
         """
-        return self._client.call_method('NarrativeJobService.run_job',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.run_job", [params], self._service_ver, context
+        )
 
     def get_job_params(self, job_id, context=None):
         """
@@ -169,8 +184,9 @@ class NarrativeJobService(object):
            "parent_job_id" of String, (2) parameter "config" of mapping from
            String to String
         """
-        return self._client.call_method('NarrativeJobService.get_job_params',
-                                        [job_id], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.get_job_params", [job_id], self._service_ver, context
+        )
 
     def update_job(self, params, context=None):
         """
@@ -182,8 +198,9 @@ class NarrativeJobService(object):
         :returns: instance of type "UpdateJobResults" -> structure: parameter
            "messages" of list of String
         """
-        return self._client.call_method('NarrativeJobService.update_job',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.update_job", [params], self._service_ver, context
+        )
 
     def add_job_logs(self, job_id, lines, context=None):
         """
@@ -193,8 +210,12 @@ class NarrativeJobService(object):
            (@range [0,1])
         :returns: instance of Long
         """
-        return self._client.call_method('NarrativeJobService.add_job_logs',
-                                        [job_id, lines], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.add_job_logs",
+            [job_id, lines],
+            self._service_ver,
+            context,
+        )
 
     def get_job_logs(self, params, context=None):
         """
@@ -210,8 +231,9 @@ class NarrativeJobService(object):
            parameter "is_error" of type "boolean" (@range [0,1]), parameter
            "last_line_number" of Long
         """
-        return self._client.call_method('NarrativeJobService.get_job_logs',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.get_job_logs", [params], self._service_ver, context
+        )
 
     def finish_job(self, job_id, params, context=None):
         """
@@ -231,8 +253,12 @@ class NarrativeJobService(object):
            parameter "is_cancelled" of type "boolean" (@range [0,1]),
            parameter "is_canceled" of type "boolean" (@range [0,1])
         """
-        return self._client.call_method('NarrativeJobService.finish_job',
-                                        [job_id, params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.finish_job",
+            [job_id, params],
+            self._service_ver,
+            context,
+        )
 
     def check_job(self, job_id, context=None):
         """
@@ -265,8 +291,9 @@ class NarrativeJobService(object):
            of Long, parameter "cancelled" of type "boolean" (@range [0,1]),
            parameter "canceled" of type "boolean" (@range [0,1])
         """
-        return self._client.call_method('NarrativeJobService.check_job',
-                                        [job_id], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.check_job", [job_id], self._service_ver, context
+        )
 
     def list_job_statuses(self, workspace_id, context=None):
         """
@@ -299,8 +326,12 @@ class NarrativeJobService(object):
            of Long, parameter "cancelled" of type "boolean" (@range [0,1]),
            parameter "canceled" of type "boolean" (@range [0,1])
         """
-        return self._client.call_method('NarrativeJobService.list_job_statuses',
-                                        [workspace_id], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.list_job_statuses",
+            [workspace_id],
+            self._service_ver,
+            context,
+        )
 
     def check_jobs(self, params, context=None):
         """
@@ -388,16 +419,18 @@ class NarrativeJobService(object):
            parameter "code" of Long, parameter "message" of String, parameter
            "error" of String
         """
-        return self._client.call_method('NarrativeJobService.check_jobs',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.check_jobs", [params], self._service_ver, context
+        )
 
     def cancel_job(self, params, context=None):
         """
         :param params: instance of type "CancelJobParams" -> structure:
            parameter "job_id" of type "job_id" (A job id.)
         """
-        return self._client.call_method('NarrativeJobService.cancel_job',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.cancel_job", [params], self._service_ver, context
+        )
 
     def check_job_canceled(self, params, context=None):
         """
@@ -413,5 +446,9 @@ class NarrativeJobService(object):
            [0,1]), parameter "canceled" of type "boolean" (@range [0,1]),
            parameter "ujs_url" of String
         """
-        return self._client.call_method('NarrativeJobService.check_job_canceled',
-                                        [params], self._service_ver, context)
+        return self._client.call_method(
+            "NarrativeJobService.check_job_canceled",
+            [params],
+            self._service_ver,
+            context,
+        )

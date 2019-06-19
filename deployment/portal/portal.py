@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from .lib.njs_jobs import njs_jobs
+from .lib.ExecutionEngineJobs import ExecutionEngineJobs
 from .lib.utils import send_slack_message
 
 
@@ -11,7 +11,7 @@ class Portal:
         pass
 
     def handle_job_hold_exit_fail(self, jobBatchName):
-        job = njs_jobs()
+        job = ExecutionEngineJobs()
 
         complete = job.is_job_complete(jobBatchName)
         if complete:
@@ -19,7 +19,7 @@ class Portal:
             send_slack_message(msg)
             pass
         else:
-            njs_jobs.process_failed_job(jobBatchName)
+            ExecutionEngineJobs.process_failed_job(jobBatchName)
 
     def handle_job_hold_exit_success(self):
         pass

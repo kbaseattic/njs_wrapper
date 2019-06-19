@@ -16,10 +16,10 @@ class Log(Document):
     lines = EmbeddedDocumentField(Line, default=[])
 
 
-connect('exec_engine')
+connect("exec_engine")
 
 
 line = Line(line="This is a log", line_pos=0, is_error=True)
 log = Log(ujs_job_id="ujs_id", original_line_count=1, stored_line_count=1, lines=line)
 
-#TODO Mimic log in EXECENGINEDB?
+# TODO Mimic log in EXECENGINEDB?
