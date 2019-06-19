@@ -20,7 +20,9 @@ class NJSDatabaseClient:
 
     @staticmethod
     def _get_config() -> ConfigParser:
-        return ConfigParser().read(os.environ["KB_DEPLOYMENT_CONFIG"])
+        parser = ConfigParser()
+        parser.read(os.environ.get("KB_DEPLOYMENT_CONFIG"))
+        return parser
 
     def _get_njs_connection(self) -> MongoClient:
         parser = self.parser

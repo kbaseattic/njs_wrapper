@@ -21,7 +21,9 @@ class UJSDatabaseClient:
 
     @staticmethod
     def _get_config() -> ConfigParser:
-        return ConfigParser().read(os.environ["KB_DEPLOYMENT_CONFIG"])
+        parser = ConfigParser()
+        parser.read(os.environ.get("KB_DEPLOYMENT_CONFIG"))
+        return parser
 
     def _get_ujs_connection(self) -> MongoClient:
         parser = self.parser
@@ -51,4 +53,3 @@ class UJSDatabaseClient:
             {"ujs_job_id": {"$eq": job_id}}, projection=projection
         )
 
-   
