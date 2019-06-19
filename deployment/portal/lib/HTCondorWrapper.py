@@ -30,8 +30,10 @@ class HTCondorWrapper:
         # Job is unexpanded idle or running, it will complete
         job_status = job.get('JobStatus', -1)
         if job_status in [0, 1, 2, ]:
+            print(f"This job will complete because its status is {job_status}")
             return True
         if job_status in [3, 4, 6, -1]:
+            print(f"This job will NOT COMPLETE complete because its status is {job_status}")
             return False
         if job_status == 5:
             job_hold_reason = job.get('HoldReason', None)
@@ -41,6 +43,8 @@ class HTCondorWrapper:
             if job hold reason is NOT the preemption hold thing
             return True
             """
+            print(f"This HELD JOB will NOT COMPLETE complete because its status is {job_status}")
+
             return False
 
 
