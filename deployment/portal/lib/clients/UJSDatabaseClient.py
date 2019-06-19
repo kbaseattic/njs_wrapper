@@ -41,15 +41,19 @@ class UJSDatabaseClient:
     def get_jobs_collection(self) -> collection:
         return self._get_jobs_database().get_collection(self.ujs_jobs_collection)
 
-    def get_jobs(self, job_ids: List[ObjectId], projection=None) -> cursor:
+    def get_jobs(self, job_ids: List, projection=None) -> cursor:
+        object_ids = []
+        for job_id in job_ids:
+            object_ids.append(ObjectId(job_id))
+
         return [
             self.get_jobs_collection().find(
-                {"ujs_job_id": {"$in": job_ids}}, projection=projection
+                {"_id": {"$in": object_ids}}, projection=projection
             )
         ]
 
-    def get_job(self, job_id: ObjectId, projection=None) -> Dict:
+    def get_job(self, job_id: str, projection=None) -> Dict:
         return self.get_jobs_collection().find_one(
-            {"ujs_job_id": {"$eq": job_id}}, projection=projection
+            {"_id": {"$eq": ObjectId(job_id)}}, projection=projection
         )
 

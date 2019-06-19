@@ -74,7 +74,7 @@ class ExecutionEngineJobs:
 
     def purge_incomplete_jobs(self):
         incomplete_jobs = self.get_incomplete_jobs()
-        njs_jobs = self.njs_db.get_jobs_by_ujs_ids(incomplete_jobs.keys())
+        njs_jobs = self.njs_db.get_jobs_by_ujs_ids(list(incomplete_jobs.keys()))
 
 
 
@@ -82,7 +82,9 @@ class ExecutionEngineJobs:
             if job_id in njs_jobs:
                 print(job_id, njs_jobs[job_id])
             else:
-                print(f"Job {job_id} not found in njs")
+                job = self.ujs_db.get_job(job_id)
+                print(f"Job {job_id} not found in njs {job}")
+
 
             #message = generateMessage()
             #send_slack_message(message)
@@ -90,7 +92,7 @@ class ExecutionEngineJobs:
 
 
 
-        for job_id in incomplete_jobs():
+        for job_id in incomplete_jobs:
             pass
 
             # Send message to slack
