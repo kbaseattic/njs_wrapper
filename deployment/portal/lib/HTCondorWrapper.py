@@ -28,6 +28,7 @@ class HTCondorWrapper:
         If the job is Held, make sure the Hold Reason is not the HELD state from before
         """
         # Job is unexpanded idle or running, it will complete
+        print(job)
         job_status = job.get('JobStatus', -1)
         job_name = job.get("JobBatchName")
         if job_status in [0, 1, 2, ]:

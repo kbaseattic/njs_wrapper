@@ -65,8 +65,8 @@ class ExecutionEngineJobs:
 
         # Store incomplete jobs
         for job_id in incomplete_ujs_jobs.keys():
-            condor_job = incomplete_ujs_jobs[job_id]
-            if job_id in condor_jobs:
+            condor_job = condor_jobs.get(job_id,None)
+            if condor_job is not None:
                 if HTCondorWrapper.job_will_complete(condor_job):
                     continue
 
@@ -137,7 +137,7 @@ class ExecutionEngineJobs:
 
             user_name = incomplete_jobs[job_id]['user']
             fc.notify_users_workspace(user=user_name, message=message, job_id=job_id,
-                                      dryRun=dry_run,
+                                      dry_run=dry_run,
                                       app_name=app_name)
 
             self.mark_job_as_purged(job_id, dry_run=dry_run)
