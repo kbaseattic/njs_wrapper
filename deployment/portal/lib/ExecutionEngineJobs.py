@@ -46,7 +46,7 @@ class ExecutionEngineJobs:
             incomplete_jobs = self.get_incomplete_jobs()
 
         logging.info(
-            f"Found {icc} incomplete jobs. Of these, {len(incomplete_jobs.keys())} are actually incomplete")
+            f"{len(incomplete_jobs.keys())} are actually incomplete")
         now = time.time()
 
         dead_jobs_fp = f"{now}.{len(incomplete_jobs)}.dead_jobs"
@@ -62,7 +62,7 @@ class ExecutionEngineJobs:
         incomplete_ujs_jobs = self._find_incomplete_ujs_jobs()
         condor_jobs = HTCondorWrapper.get_condor_q_jobs()
         icc = len(incomplete_ujs_jobs.keys())
-        print(f"Found {icc} incomplete_jobs")
+        logging.info(f"Found {icc} incomplete_jobs (before checking their status in condor)")
 
         incomplete_jobs = {}
 
@@ -104,7 +104,7 @@ class ExecutionEngineJobs:
         if dryRun is True:
             logging.info(f"About to mark {job_id} as completed in ujs")
         else:
-            self.ujs_db.get_jobs_collection().update_one(filter={'_id' : ObjectId(job_id)})
+            self.ujs_db.mark_job_as_purged(job_id)
             self.log_purged_job(job_id)
 
     def log_purged_job(self,):
