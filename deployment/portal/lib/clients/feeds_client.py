@@ -26,7 +26,7 @@ class feeds_client:
         return requests.get(url, timeout=1, headers={"Authorization": self.admin_token})
 
     def notify_users_workspace(
-        self, user, message, job_id, app_name, alert_level="error", dryRun=True
+        self, user, message, job_id, app_name, alert_level="error", dry_run=True
     ):
         """
         This is a hack as the job object is not working
@@ -50,7 +50,7 @@ class feeds_client:
         url = f"{self.service_url}/{self.api_version}/notification"
         logging.info("About to send [message] request to " + url)
 
-        if dryRun is False:
+        if dry_run is False:
             return requests.post(
                 url, json=note, headers={"Authorization": self.admin_token}
             )
