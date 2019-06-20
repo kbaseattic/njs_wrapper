@@ -37,7 +37,7 @@ class UJSDatabaseClient:
 
     def mark_job_as_purged(self, job_id):
         filter = {"_id": ObjectId(job_id)}
-        update = {"$set": {"complete": True, "Error": True}}
+        update = {"$set": {"complete": True, "error": True}}
         self.get_jobs_collection().update_one(filter=filter, update=update)
 
     def _get_jobs_database(self) -> database:

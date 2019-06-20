@@ -122,13 +122,9 @@ class ExecutionEngineJobs:
         messages = []
         fc = feeds_client.feeds_service_client()
 
-        print(incomplete_jobs)
-
         for job_id in incomplete_jobs.keys():
             app_name = None
             ujs_job = incomplete_jobs[job_id]
-            print("Ujs job is" + job_id)
-            print(ujs_job)
             if job_id in njs_jobs.keys():
                 njs_job = njs_jobs[job_id]
                 message = (self.generate_error_message(ujs_job=ujs_job,
