@@ -1,13 +1,13 @@
 import logging
-from typing import Dict
-import datetime
 import time
+from typing import Dict
 
 from pymongo import collection
 
 from lib.HTCondorWrapper import HTCondorWrapper
 from lib.clients.NJSDatabaseClient import NJSDatabaseClient
 from lib.clients.UJSDatabaseClient import UJSDatabaseClient
+from lib.clients.feeds_client import feeds_client
 from lib.utils import send_slack_message
 
 logging.basicConfig(level=logging.DEBUG)
@@ -72,34 +72,57 @@ class ExecutionEngineJobs:
             incomplete_jobs[job_id] = condor_job
         return incomplete_jobs
 
+    def generate_error_message(self, ujs_job=None, njs_job=None):
+        if ujs_job is None:
+            logging.error("Programming error")
+
+        id = ujs_job['_id']
+        username = ujs_job['user']
+        wsid = ujs_job['authparam']
+
+        message = f"Attn {ujs_job['user']}: Due to a system error on {ujs_job['created']}, job {ujs_job['_id']} has failed. We are very sorry for the inconvenience. Plese resubmit the job. "
+
+        # TODO specific endpoint
+
+        message += f" URL=https://narrative.kbase.us/narrative/ws.{job['wsid']}"
+
+        if njs_job is not None:
+
+            if "app_id" in njs_job and njs_job["app_id"] is not None:
+                message += f" AppID[{job['app_id']}]"
+            if "method" in njs_job and njs_job["method"] is not None:
+                message += f" Method[{job['method']}]"
+            # if "wsid" in njs_job and njs_job["wsid"] is not None:
+
+        return message
+
     def purge_incomplete_jobs(self):
         incomplete_jobs = self.get_incomplete_jobs()
         njs_jobs = self.njs_db.get_jobs_by_ujs_ids(list(incomplete_jobs.keys()))
 
+        messages = []
+        fc = feeds_client.feeds_service_client()
 
-
-        for job_id in incomplete_jobs:
-            if job_id in njs_jobs:
-                print(job_id, njs_jobs[job_id])
+        for job_id in incomplete_jobs.keys():
+            if job_id in njs_jobs.keys():
+                message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id],
+                                                       njs_job=njs_jobs[job_id]))
+                messages.append(message)
             else:
-                job = self.ujs_db.get_job(job_id)
-                print(f"Job {job_id} not found in njs {job}")
+                message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id]))
+                messages.append(message)
 
+            user_name = incomplete_jobs[job_id]['user']
+            fc.notify_users_workspace(user=user_name, message=message, job_id=job_id, dryRun=True )
 
-            #message = generateMessage()
-            #send_slack_message(message)
+        send_slack_message("\n".join(messages))
 
+   
 
+        # TODO Create admin endpoint for logging in NJS and append info to end of job log
 
-
-        for job_id in incomplete_jobs:
-            pass
-
-            # Send message to slack
-            # Send message to feed
-            # Mark as incomplete in UJS
-
-
-
+        # Send message to slack
+        # Send message to feed
+        # Mark as incomplete in UJS
 
         pass
