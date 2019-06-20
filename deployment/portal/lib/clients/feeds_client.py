@@ -48,7 +48,7 @@ class feeds_client:
             "context": {"text": message},
         }
         url = f"{self.service_url}/{self.api_version}/notification"
-        logging.info("About to send [message]request to " + url)
+        logging.info("About to send [message] request to " + url)
 
         if dryRun is False:
             return requests.post(

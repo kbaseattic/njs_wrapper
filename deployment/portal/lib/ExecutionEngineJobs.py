@@ -34,12 +34,16 @@ class ExecutionEngineJobs:
         self.njs_db = NJSDatabaseClient()
         self.ujs_db = UJSDatabaseClient()
 
-    def log_incomplete_jobs(self):
+
+
+
+    def log_incomplete_jobs(self, incomplete_jobs=None):
         """
         This function is for testing purposes
         :return:
         """
-        incomplete_jobs = self.get_incomplete_jobs()
+        if incomplete_jobs is None:
+            incomplete_jobs = self.get_incomplete_jobs()
 
         logging.info(
             f"Found {icc} incomplete jobs. Of these, {len(incomplete_jobs.keys())} are actually incomplete")
@@ -96,8 +100,24 @@ class ExecutionEngineJobs:
 
         return message
 
+    def mark_job_as_purged(self,job_id,dryRun=True):
+        if dryRun is True:
+            logging.info(f"About to mark {job_id} as completed in ujs")
+        else:
+            self.ujs_db.get_jobs_collection().update_one(filter={'_id' : ObjectId(job_id)})
+            self.log_purged_job(job_id)
+
+    def log_purged_job(self,):
+        """
+        Write to a file
+        :return:
+        """
+        pass
+
     def purge_incomplete_jobs(self):
         incomplete_jobs = self.get_incomplete_jobs()
+        self.log_incomplete_jobs(incomplete_jobs=incomplete_jobs)
+
         njs_jobs = self.njs_db.get_jobs_by_ujs_ids(list(incomplete_jobs.keys()))
 
         messages = []
@@ -122,7 +142,11 @@ class ExecutionEngineJobs:
             fc.notify_users_workspace(user=user_name, message=message, job_id=job_id, dryRun=True,
                                       app_name=app_name)
 
+            self.mark_job_as_purged(job_id,dryRun=True)
+
         send_slack_message("\n".join(messages))
+
+
 
         # TODO Create admin endpoint for logging in NJS and append info to end of job log
 

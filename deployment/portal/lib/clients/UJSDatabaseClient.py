@@ -35,6 +35,11 @@ class UJSDatabaseClient:
             ujs_host, 27017, username=ujs_user, password=ujs_pwd, authSource=ujs_db
         )
 
+    def mark_job_as_purged(self, job_id):
+        filter = {"_id": ObjectId(job_id)}
+        update = {"$set": {"complete": True, "Error": True}}
+        self.get_jobs_collection().update_one(filter=filter, update=update)
+
     def _get_jobs_database(self) -> database:
         return self._get_ujs_connection().get_database(self.njs_db_name)
 
@@ -56,4 +61,3 @@ class UJSDatabaseClient:
         return self.get_jobs_collection().find_one(
             {"_id": {"$eq": ObjectId(job_id)}}, projection=projection
         )
-
