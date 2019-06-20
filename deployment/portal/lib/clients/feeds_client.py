@@ -2,7 +2,7 @@ import requests
 import json
 import logging
 import datetime
-from .utils import send_slack_message
+from lib.utils import send_slack_message
 import os
 import sys
 
@@ -55,8 +55,8 @@ class feeds_client:
                 url, json=note, headers={"Authorization": self.admin_token}
             )
         else:
-            logging.INFO(url)
-            logging.INFO(note)
+            logging.info(url)
+            logging.info(note)
 
     # TODO How do you annotate this?
     @classmethod

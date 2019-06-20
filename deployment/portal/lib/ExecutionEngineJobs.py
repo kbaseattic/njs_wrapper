@@ -84,14 +84,14 @@ class ExecutionEngineJobs:
 
         # TODO specific endpoint
 
-        message += f" URL=https://narrative.kbase.us/narrative/ws.{job['wsid']}"
+        message += f" URL=https://narrative.kbase.us/narrative/ws.{wsid}"
 
         if njs_job is not None:
 
             if "app_id" in njs_job and njs_job["app_id"] is not None:
-                message += f" AppID[{job['app_id']}]"
+                message += f" AppID[{njs_job['app_id']}]"
             if "method" in njs_job and njs_job["method"] is not None:
-                message += f" Method[{job['method']}]"
+                message += f" Method[{njs_job['method']}]"
             # if "wsid" in njs_job and njs_job["wsid"] is not None:
 
         return message
@@ -104,20 +104,25 @@ class ExecutionEngineJobs:
         fc = feeds_client.feeds_service_client()
 
         for job_id in incomplete_jobs.keys():
+            app_name = None
             if job_id in njs_jobs.keys():
+                njs_job = njs_jobs[job_id]
                 message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id],
-                                                       njs_job=njs_jobs[job_id]))
+                                                       njs_job=njs_job))
+
+                if "app_id" in njs_job and njs_job["app_id"] is not None:
+                    app_name = njs_job['app_id']
+
                 messages.append(message)
             else:
                 message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id]))
                 messages.append(message)
 
             user_name = incomplete_jobs[job_id]['user']
-            fc.notify_users_workspace(user=user_name, message=message, job_id=job_id, dryRun=True )
+            fc.notify_users_workspace(user=user_name, message=message, job_id=job_id, dryRun=True,
+                                      app_name=app_name)
 
         send_slack_message("\n".join(messages))
-
-   
 
         # TODO Create admin endpoint for logging in NJS and append info to end of job log
 
