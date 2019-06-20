@@ -1,4 +1,5 @@
 import logging
+import sys
 import time
 from typing import Dict
 
@@ -21,12 +22,12 @@ class ExecutionEngineJobs:
 
         :return:
         """
-
         jobstate = self.ujs_db.get_jobs_collection()
         incomplete_jobs = list(jobstate.find({"complete": {"$ne": True}}))
         ij = {}
         for job in incomplete_jobs:
-            ij[str(job['_id'])] = job
+            job_id = str(job['_id'])
+            ij[job_id] = job
         return ij
 
     def __init__(self):
@@ -65,17 +66,18 @@ class ExecutionEngineJobs:
 
         # Store incomplete jobs
         for job_id in incomplete_ujs_jobs.keys():
-            condor_job = condor_jobs.get(job_id,None)
+            condor_job = condor_jobs.get(job_id, None)
             if condor_job is not None:
                 if HTCondorWrapper.job_will_complete(condor_job):
                     continue
-
-            incomplete_jobs[job_id] = condor_job
+            #Save UJS JOB
+            incomplete_jobs[job_id] = incomplete_ujs_jobs[job_id]
         return incomplete_jobs
 
     def generate_error_message(self, ujs_job=None, njs_job=None):
         if ujs_job is None:
             logging.error("Programming error")
+            sys.exit(1)
 
         id = ujs_job['_id']
         username = ujs_job['user']
@@ -104,7 +106,7 @@ class ExecutionEngineJobs:
             self.ujs_db.mark_job_as_purged(job_id)
             self.log_purged_job(job_id)
 
-    def log_purged_job(self, ):
+    def log_purged_job(self, job_id ):
         """
         Write to a file
         :return:
@@ -120,11 +122,16 @@ class ExecutionEngineJobs:
         messages = []
         fc = feeds_client.feeds_service_client()
 
+        print(incomplete_jobs)
+
         for job_id in incomplete_jobs.keys():
             app_name = None
+            ujs_job = incomplete_jobs[job_id]
+            print("Ujs job is" + job_id)
+            print(ujs_job)
             if job_id in njs_jobs.keys():
                 njs_job = njs_jobs[job_id]
-                message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id],
+                message = (self.generate_error_message(ujs_job=ujs_job,
                                                        njs_job=njs_job))
 
                 if "app_id" in njs_job and njs_job["app_id"] is not None:
@@ -132,7 +139,7 @@ class ExecutionEngineJobs:
 
                 messages.append(message)
             else:
-                message = (self.generate_error_message(ujs_job=incomplete_jobs[job_id]))
+                message = (self.generate_error_message(ujs_job=ujs_job))
                 messages.append(message)
 
             user_name = incomplete_jobs[job_id]['user']
