@@ -88,18 +88,17 @@ class ExecutionEngineJobs:
         # TODO specific endpoint
 
         if njs_job is not None:
-
             if "app_id" in njs_job and njs_job["app_id"] is not None:
                 message += f" AppID[{njs_job['app_id']}]"
+            elif "job_input" in njs_job and njs_job["job_input"] is not None:
+                if 'app_id' in njs_job['job_input']:
+                    message += f" AppID[{njs_job['job_input']['method']}]"
+
             if "method" in njs_job and njs_job["method"] is not None:
                 message += f" Method[{njs_job['method']}]"
-
-            if "job_input" in njs_job and njs_job["job_input"] is not None:
-                for key in ["method", "app_id"]:
-                    if key in njs_job["job_input"]:
-                        message += f" {key}[{njs_job['job_input'][key]}]]"
-
-                message += f" Method[{njs_job['job_input']['method']}]"
+            elif "job_input" in njs_job and njs_job["job_input"] is not None:
+                if 'method' in njs_job['job_input']:
+                    message += f" Method[{njs_job['job_input']['method']}]"
 
         message += f" https://narrative.kbase.us/narrative/ws.{wsid}"
 
