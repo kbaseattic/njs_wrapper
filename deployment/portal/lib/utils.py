@@ -5,8 +5,6 @@ import json
 import time
 
 
-
-
 def send_slack_message(message):
     if os.environ.get("SLACK_WEBHOOK_URL") is None:
         sys.exit("FAILURE: Webhook URL (SLACK_WEBHOOK_URL) is not available")

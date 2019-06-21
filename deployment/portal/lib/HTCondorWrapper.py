@@ -3,9 +3,20 @@ import sys
 from typing import Dict
 
 import htcondor
+import enum
 
 
 class HTCondorWrapper:
+    class JobStatusCodes(enum.Enum):
+        UNEXPANDED = 0
+        IDLE = 1
+        RUNNING = 2
+        REMOVED = 3
+        COMPLETED = 4
+        HELD = 5
+        SUBMISSION_ERROR = 6
+        NOT_FOUND = -1
+
     jsc = {
         "0": "Unexepanded",
         1: "Idle",
@@ -29,26 +40,31 @@ class HTCondorWrapper:
         """
         # Job is unexpanded idle or running, it will complete
         print(job)
-        job_status = job.get('JobStatus', -1)
+        job_status = job.get("JobStatus", -1)
         job_name = job.get("JobBatchName")
-        if job_status in [0, 1, 2, ]:
-            print(f"This job will complete because its status is {job_status} {job_name}")
+        if job_status in [0, 1, 2]:
+            print(
+                f"This job will complete because its status is {job_status} {job_name}"
+            )
             return True
         if job_status in [3, 4, 6, -1]:
-            print(f"This job will NOT COMPLETE complete because its status is {job_status} {job_name}")
+            print(
+                f"This job will NOT COMPLETE complete because its status is {job_status} {job_name}"
+            )
             return False
-        if job_status == 5:
-            job_hold_reason = job.get('HoldReason', None)
+        if job_status == HELD:
+            job_hold_reason = job.get("HoldReason", None)
             if job_hold_reason is None:
-                raise Exception("Something is wrong with job" + job.get('JobBatchName'))
+                raise Exception("Something is wrong with job" + job.get("JobBatchName"))
             """
             if job hold reason is NOT the preemption hold thing
             return True
             """
-            print(f"This HELD JOB will NOT COMPLETE complete because its status is {job_status} {job_name}")
+            print(
+                f"This HELD JOB will NOT COMPLETE complete because its status is {job_status} {job_name}"
+            )
 
             return False
-
 
     @staticmethod
     def _check_if_not_root():

@@ -13,6 +13,7 @@ class MigrateDatabases:
     GET UJS Record, Get corresponding NJS record, combine the two and save them in a new
     collection, using the UJS ID as the primary key
     """
+
     documents = []
     threshold = 5000
 

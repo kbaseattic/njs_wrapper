@@ -16,7 +16,9 @@ from pymongo import MongoClient, database, collection, cursor
 class UJSDatabaseClient:
     def __init__(self):
         self.parser = self._get_config()
-        self.njs_db_name = self.parser.get("NarrativeJobService", "ujs-mongodb-database")
+        self.njs_db_name = self.parser.get(
+            "NarrativeJobService", "ujs-mongodb-database"
+        )
         self.ujs_jobs_collection = "jobstate"
 
     @staticmethod

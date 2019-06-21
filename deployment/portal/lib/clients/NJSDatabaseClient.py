@@ -4,7 +4,7 @@ from configparser import ConfigParser
 from typing import Dict
 import logging
 from pymongo import MongoClient, database, collection, cursor
-
+import sys
 
 # TODO Should I be closing mongo connections to prevent a memory leak?
 # TODO should I make the staticmethods stateful instead?
@@ -46,20 +46,17 @@ class NJSDatabaseClient:
     def get_all_jobs(self) -> cursor:
         return self.get_jobs_collection().find()
 
-
     def get_jobs_by_ujs_ids(self, job_ids, projection=None) -> cursor:
-        jobs =  self.get_jobs_collection().find(
-                {"ujs_job_id": {"$in": job_ids}}, projection=projection
-            )
+
+        jobs = self.get_jobs_collection().find(
+            {"ujs_job_id": {"$in": job_ids}}, projection=projection
+        )
 
         return_jobs = {}
         for job in jobs:
-            return_jobs[job['ujs_job_id']] = job
+            return_jobs[job["ujs_job_id"]] = job
 
         return return_jobs
-
-
-
 
     def get_jobs(self, job_ids, projection=None) -> cursor:
         return [
