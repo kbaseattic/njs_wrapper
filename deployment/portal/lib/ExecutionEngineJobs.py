@@ -131,11 +131,6 @@ class ExecutionEngineJobs:
         for job_id in incomplete_jobs.keys():
             app_name = None
             ujs_job = incomplete_jobs[job_id]
-            if job_id is "5d084131e4b0529123369902":
-                print("Found 5d084131e4b0529123369902 ")
-                njs_job = njs_jobs[job_id]
-                print(njs_job)
-                sys.exit(1)
 
             if job_id in njs_jobs.keys():
                 njs_job = njs_jobs[job_id]
@@ -161,7 +156,6 @@ class ExecutionEngineJobs:
 
             self.mark_job_as_purged(job_id, dry_run=dry_run)
 
-        sys.exit(1)
         send_slack_message("\n".join(messages))
 
         # TODO Create admin endpoint for logging in NJS and append info to end of job log
