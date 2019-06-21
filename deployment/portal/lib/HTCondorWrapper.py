@@ -52,7 +52,7 @@ class HTCondorWrapper:
                 f"This job will NOT COMPLETE complete because its status is {job_status} {job_name}"
             )
             return False
-        if job_status == HELD:
+        if job_status == 5:
             job_hold_reason = job.get("HoldReason", None)
             if job_hold_reason is None:
                 raise Exception("Something is wrong with job" + job.get("JobBatchName"))
