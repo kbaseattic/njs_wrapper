@@ -20,7 +20,7 @@ fi
 
 #Set up job and tmp directories
 LOG_DIR=$BASE_DIR/$JOBID/
-mkdir $LOG_DIR
+mkdir -p $LOG_DIR
 
 # Fix for java error not accepting relative paths
 BASE_DIR=`pwd`/$JOBID/work/
