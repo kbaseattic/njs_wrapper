@@ -19,7 +19,11 @@ fi
 #     export MINI_KB=true
 
 #Set up job and tmp directories
-BASE_DIR=$BASE_DIR/$JOBID
+LOG_DIR=$BASE_DIR/$JOBID/
+mkdir -p $LOG_DIR
+
+# Fix for java error not accepting relative paths
+BASE_DIR=`pwd`/$JOBID/work/
 TMP_DIR=$BASE_DIR/tmp
 mkdir -p $BASE_DIR && cd $BASE_DIR
 mkdir -p $TMP_DIR
@@ -49,4 +53,8 @@ SDKLMR_EXITCODE=$?
 touch endsdklmr
 java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > "cleanup_$date.out" 2> "cleanup_$date.err"
 touch endcleanjob
+
+cp * $LOG_DIR/
+
 exit $SDKLMR_EXITCODE
+
