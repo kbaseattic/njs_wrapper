@@ -113,9 +113,9 @@ public class CondorUtils {
            Output and Error are relative to the execute dir on the execute host
          */
 
-        csf.add(String.format("log = %s/%s.log", logdir, ujsJobId));
-        csf.add(String.format("output = %s/%s.out", logdir, ujsJobId));
-        csf.add(String.format("error = %s/%s.err", logdir, ujsJobId));
+//         csf.add(String.format("log = %s/%s.log", logdir, ujsJobId));
+//         csf.add(String.format("output = %s/%s.out", logdir, ujsJobId));
+//         csf.add(String.format("error = %s/%s.err", logdir, ujsJobId));
 
         csf.add("getenv = false");
         // Fix for rescheduling running jobs.
