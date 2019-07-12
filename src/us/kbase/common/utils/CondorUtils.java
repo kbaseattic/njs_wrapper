@@ -228,7 +228,7 @@ public class CondorUtils {
         reqs.put("client_group", clientGroup);
 
         List<String> requirementsStatement = new ArrayList<String>();
-        requirementsStatement.add(String.format("(CLIENTGROUP == \"%s\")", clientGroup));
+            requirementsStatement.add(String.format("regexp(\"%s\",CLIENTGROUP)", clientGroup));
 
 
         for (int i = 1; i < items.length; i++) {
