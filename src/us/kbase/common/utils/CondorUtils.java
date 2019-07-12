@@ -288,7 +288,7 @@ public class CondorUtils {
      */
     public static String submitToCondorCLI(String ujsJobId, AuthToken token, String clientGroups, String kbaseEndpoint, String baseDir, HashMap<String, String> optClassAds, AuthToken adminToken) throws Exception {
         File condorSubmitFile = createCondorSubmitFile(ujsJobId, token, adminToken, clientGroups, kbaseEndpoint, baseDir, optClassAds);
-        String[] cmdScript = {"condor_submit", "-terse", condorSubmitFile.getAbsolutePath()};
+        String[] cmdScript = {"condor_submit", "-terse", "-spool" , condorSubmitFile.getAbsolutePath()};
         String jobID = null;
         int retries = 10;
 
