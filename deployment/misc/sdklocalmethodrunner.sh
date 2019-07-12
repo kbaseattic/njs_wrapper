@@ -59,7 +59,7 @@ touch endsdklmr
 java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > "cleanup_$date.out" 2> "cleanup_$date.err"
 touch endcleanjob
 
-cp -R * $LOG_DIR
+cp * $LOG_DIR
 
 exit $SDKLMR_EXITCODE
 
