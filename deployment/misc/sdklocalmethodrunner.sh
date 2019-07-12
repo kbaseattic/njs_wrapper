@@ -18,10 +18,19 @@ fi
 
 #     export MINI_KB=true
 
+
+
+
+
 #Set up job and tmp directories
-BASE_DIR=$BASE_DIR/$JOBID
+LOG_DIR=$BASE_DIR
+mkdir -p $LOG_DIR
+
+# Fix for java error not accepting relative paths
+BASE_DIR=`pwd`/$JOBID/work/
+
+
 TMP_DIR=$BASE_DIR/tmp
-mkdir -p $BASE_DIR && cd $BASE_DIR
 mkdir -p $TMP_DIR
 
 
@@ -42,11 +51,15 @@ trap "{ kill $pid }" SIGTERM
 
 #Run the job runner and then clean up after it's done
 
-java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > "sdk_lmr_$date.out" 2> "sdk_lmr_$date.err" &
+java ${JAVA_OPTS} -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunner $JOBID $KBASE_ENDPOINT > "sdk_lmr_$date.out" 2> "sdk_lmr_$date.err" &
 pid=$!
 wait $pid
 SDKLMR_EXITCODE=$?
 touch endsdklmr
 java -Djava.io.tmpdir=$TMP_DIR -cp njsw.jar us.kbase.narrativejobservice.sdkjobs.SDKLocalMethodRunnerCleanup $JOBID $KBASE_ENDPOINT > "cleanup_$date.out" 2> "cleanup_$date.err"
 touch endcleanjob
+
+cp * $LOG_DIR
+
 exit $SDKLMR_EXITCODE
+
