@@ -46,11 +46,16 @@ class NJSDatabaseClient:
                 print("Skipping",job_id)
                 continue
             else:
-                print(
-                    "About to make njs record job_output from null to {} for [" + str(job_id) + "]")
-            print(j['job_output'])
+                if j['job_output'] is None:
+                    print(
+                        "About to make njs record job_output from null to {} for [" + str(job_id) + "]")
+                else:
+                    print("Not going to actually do it for ", job_id)
+                    continue
+
             if dryRun is False:
-                jobs_collection.find_one_and_update({'ujs_job_id' : job_id}, {"$set" : {'job_output' : {}}})
+                if j['job_output'] is None:
+                    jobs_collection.find_one_and_update({'ujs_job_id' : job_id}, {"$set" : {'job_output' : {}}})
 
 
 
