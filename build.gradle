@@ -27,6 +27,14 @@ buildDir = "gradle_build_directory"
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
+
+if (hasProperty('buildScan')) {
+    buildScan {
+        termsOfServiceUrl = 'https://gradle.com/terms-of-service'
+        termsOfServiceAgree = 'yes'
+    }
+}
+
 compileJava {
     sourceCompatibility = project.sourceCompatibility
     targetCompatibility = project.targetCompatibility
@@ -183,6 +191,7 @@ dependencies {
     implementation 'jaxrs:javax.ws.rs-api:2.0'
     implementation 'jersey:jersey-client:2.11'
     implementation 'jersey:jersey-common:2.11'
+    implementation 'org.glassfish.jersey.media:jersey-media-json-jackson:2.11'
     implementation 'hk2:hk2-api:2.3.0-b05'
     implementation 'org.syslog4j:syslog4j:0.9.46'
     implementation 'kbase:kbase-common:0.0.25'

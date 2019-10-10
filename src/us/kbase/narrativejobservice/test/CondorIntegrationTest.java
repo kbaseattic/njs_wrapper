@@ -12,7 +12,9 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.Reader;
 import java.net.ServerSocket;
+import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,13 +30,28 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.zip.GZIPInputStream;
 
+import com.fasterxml.jackson.databind.util.JSONPObject;
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import junit.framework.Assert;
 
+import org.apache.http.*;
+import org.apache.http.annotation.Immutable;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ajax.JSONObjectConvertor;
 import org.eclipse.jetty.util.log.Log;
 import org.eclipse.jetty.util.log.Logger;
+
+import org.glassfish.jersey.client.ClientConfig;
 import org.ini4j.InvalidFileFormatException;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -46,21 +63,7 @@ import com.google.common.collect.ImmutableMap;
 
 
 import us.kbase.auth.AuthToken;
-import us.kbase.catalog.CatalogClient;
-import us.kbase.catalog.ClientGroupConfig;
-import us.kbase.catalog.ClientGroupFilter;
-import us.kbase.catalog.GetSecureConfigParamsInput;
-import us.kbase.catalog.LogExecStatsParams;
-import us.kbase.catalog.ModuleInfo;
-import us.kbase.catalog.ModuleVersion;
-import us.kbase.catalog.ModuleVersionInfo;
-import us.kbase.catalog.SecureConfigParameter;
-import us.kbase.catalog.SelectModuleVersion;
-import us.kbase.catalog.SelectModuleVersionParams;
-import us.kbase.catalog.SelectOneModuleParams;
-import us.kbase.catalog.VolumeMount;
-import us.kbase.catalog.VolumeMountConfig;
-import us.kbase.catalog.VolumeMountFilter;
+import us.kbase.catalog.*;
 import us.kbase.common.service.JsonClientCaller;
 import us.kbase.common.service.JsonClientException;
 import us.kbase.common.service.JsonServerMethod;
@@ -111,11 +114,31 @@ import us.kbase.common.service.JsonTokenStream;
 
 import org.apache.commons.lang3.ArrayUtils;
 
+import javax.ws.rs.Produces;
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.UriBuilder;
+
+
+import javax.ws.rs.client.Client;
+import javax.ws.rs.client.ClientBuilder;
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.client.Invocation.Builder;
+import javax.ws.rs.core.Form;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.NewCookie;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.ext.MessageBodyReader;
 
 
 @SuppressWarnings("unchecked")
 public class CondorIntegrationTest {
     private static AuthToken token = null;
+    private static AuthToken tokenTestMode = null;
     private static NarrativeJobServiceClient client = null;
     private static File workDir = null;
     private static File mongoDir = null;
@@ -152,31 +175,55 @@ public class CondorIntegrationTest {
                     .toFormatter();
 
 
-
-
-
-
-    public static void requestOwnership(WorkspaceClient wc, String moduleName) throws  Exception{
+    public static void requestOwnership(WorkspaceClient wc, String moduleName) throws Exception {
         try {
             wc.requestModuleOwnership(moduleName);
-            System.out.println("REQUESTING OWNERSHIP OF " + moduleName );
-        }
-        catch(ServerException e){
+            System.out.println("REQUESTING OWNERSHIP OF " + moduleName);
+        } catch (ServerException e) {
             System.out.println(e);
         }
         try {
             String approveModeRequestCommand = "{" + "\"command\": \"approveModRequest\" " + ',' + "\"module\":" + '"' + moduleName + '"' + "}";
             System.out.println(approveModeRequestCommand);
             UObject response = wc.administer(UObject.fromJsonString(approveModeRequestCommand));
-        }
-        catch (ServerException e){
+        } catch (ServerException e) {
             System.out.println(e);
         }
 
     }
 
 
-    public static void registerModule(String moduleName,  String specfilePath, List typesList) throws Exception{
+
+    public static String registerSimpleApp(AuthToken inputToken, CatalogClient cat) throws Exception {
+        String gitUrl = "https://github.com/bio-boris/simpleapp.git";
+        //gitUrl="https://github.com/kbaseapps/kb_maxbin.git"
+        //gitUrl = "https://github.com/bio-boris/stress.git";
+
+
+        cat.approveDeveloper(inputToken.getUserName());
+
+        String regId = cat.registerRepo(new RegisterRepoParams().withGitUrl(gitUrl));
+        System.out.println("Registration ID for [" + gitUrl + "]: " + regId);
+        List<String> logLines = new ArrayList<String>();
+        System.out.println("Logs:");
+//        while (true) {
+//            BuildLog log = cat.getParsedBuildLog(
+//                    new GetBuildLogParams().withRegistrationId(regId));
+//            for (int i = logLines.size(); i < log.getLog().size(); i++) {
+//                String line = log.getLog().get(i).getContent().trim();
+//                logLines.add(line);
+//                System.out.println("[" + (i + 1) + "] " + line);
+//            }
+//            String state = log.getRegistration();
+//            if (state != null && (state.equals("error") || state.equals("complete"))) {
+//                break;
+//            }
+//            Thread.sleep(1000);
+//        }
+        return regId;
+    }
+
+    public static void registerModule(String moduleName, String specfilePath, List typesList) throws Exception {
         WorkspaceClient wc = getWsClient(token, TesterUtils.loadConfig());
         String username = token.getUserName();
         requestOwnership(wc, moduleName);
@@ -198,20 +245,20 @@ public class CondorIntegrationTest {
     }
 
 
-    public static void registerTypes() throws Exception{
+    public static void registerTypes() throws Exception {
         //Check registration for list of modules
 
-        try{
-            List typesList =  Arrays.asList("ContigSet", "Genome", "GenomeComparison","Pangenome");
-            registerModule("KBaseGenomes","./test_data/specfiles/KBaseGenomes.spec", typesList);
-        }catch (Exception e){
+        try {
+            List typesList = Arrays.asList("ContigSet", "Genome", "GenomeComparison", "Pangenome");
+            registerModule("KBaseGenomes", "./test_data/specfiles/KBaseGenomes.spec", typesList);
+        } catch (Exception e) {
             System.out.println(e);
         }
 
-        try{
+        try {
             List typesList = Arrays.asList("AType", "AHandle", "ARef");
-            registerModule("Empty","./test_data/specfiles/Empty.spec", typesList);
-        }catch (Exception e){
+            registerModule("Empty", "./test_data/specfiles/Empty.spec", typesList);
+        } catch (Exception e) {
             System.out.println(e);
         }
     }
@@ -254,7 +301,7 @@ public class CondorIntegrationTest {
 //    }
 
 
-    public static String runApp(String moduleName, String methodName, String serviceVer, String jsonInput) throws Exception{
+    public static String runApp(String moduleName, String methodName, String serviceVer, String jsonInput) throws Exception {
         execStats.clear();
         Map<String, String> meta = new HashMap<String, String>();
         meta.put("foo", "bar");
@@ -266,13 +313,13 @@ public class CondorIntegrationTest {
     }
 
 
-    public static JobState checkJobStatusCompletein60(String jobId) throws Exception{
+    public static JobState checkJobStatusCompletein60(String jobId) throws Exception {
         JobState ret = null;
         for (int i = 0; i < 30; i++) {
             try {
                 ret = client.checkJobs(new CheckJobsParams().withJobIds(
                         Arrays.asList(jobId)).withWithJobParams(1L)).getJobStates().get(jobId);
-                if (ret!= null && ret.getFinished() != null && ret.getFinished() == 1L) {
+                if (ret != null && ret.getFinished() != null && ret.getFinished() == 1L) {
                     System.out.println("Job finished: " + ret.getFinished());
                     return ret;
                 }
@@ -283,7 +330,7 @@ public class CondorIntegrationTest {
                 throw ex;
             }
         }
-        if(ret == null){
+        if (ret == null) {
             throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
         }
         return null;
@@ -317,21 +364,28 @@ public class CondorIntegrationTest {
 //
 //    }
 
-    @Ignore @Test
-    public void testDeleteJob() throws Exception{
+
+    @Test
+    public void testDeleteJob() throws Exception {
         System.out.println("Test [testDeleteJob]");
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
-        String jobID = runApp(moduleName,methodName,serviceVer,"{\"base_number\":\"101\"}");
+        String jobID = runApp(moduleName, methodName, serviceVer, "{\"base_number\":\"101\"}");
         System.out.println("ABOUT TO CANCEL: " + jobID);
         Thread.sleep(10000);
         client.cancelJob(new CancelJobParams().withJobId(jobID));
+        JobState cj = client.checkJob(jobID);
+        System.out.println("Job state is " + cj);
+        Thread.sleep(1000);
+        assertEquals(cj,"");
+
     }
 
 
-    @Ignore @Test
-    public void testSimpleJobWithParent() throws Exception{
+    @Ignore
+    @Test
+    public void testSimpleJobWithParent() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
         System.out.println("Test [testSimpleJobWithParent]");
@@ -365,12 +419,12 @@ public class CondorIntegrationTest {
         String jobId_child2 = client.runJob(params3);
         assertNotNull(jobId_child2);
 
-       JobState ret = client.checkJob(jobId);
+        JobState ret = client.checkJob(jobId);
         List<String> child_jobs = new ArrayList<String>();
         child_jobs.add(jobId_child1);
         child_jobs.add(jobId_child2);
 
-        List<String> subjobs = (List<String>)ret.getAdditionalProperties().get("sub_jobs");
+        List<String> subjobs = (List<String>) ret.getAdditionalProperties().get("sub_jobs");
         System.out.println("Asserting child jobs match sub jobs");
         System.out.println(subjobs);
         System.out.println(child_jobs);
@@ -383,6 +437,7 @@ public class CondorIntegrationTest {
     }
 
 
+    @Ignore
     @Test
     public void testSimpleJobWithSleep() throws Exception {
         Properties props = TesterUtils.props();
@@ -416,11 +471,11 @@ public class CondorIntegrationTest {
         File[] list = f.listFiles();
 
         System.out.println("Examining:" + id_path);
-        for(int i = 0; i < 45; i++){
+        for (int i = 0; i < 45; i++) {
             Thread.sleep(2000);
             list = f.listFiles();
             System.out.println("Docker job ids are:");
-            if(list != null) {
+            if (list != null) {
                 for (File item : list) {
                     System.out.println(item);
                 }
@@ -432,14 +487,14 @@ public class CondorIntegrationTest {
 
         System.out.println("Checking to see if jobs have exited");
 
-        if(list != null) {
+        if (list != null) {
             for (File item : list) {
                 System.out.println(item);
             }
         }
     }
 
-    @Ignore @Test
+    @Test
     public void testSimpleJob() throws Exception {
         Properties props = TesterUtils.props();
         String njs_url = props.getProperty("njs_server_url");
@@ -452,15 +507,46 @@ public class CondorIntegrationTest {
         String moduleName = "simpleapp";
         String methodName = "simple_add";
         String serviceVer = lookupServiceVersion(moduleName);
+        System.out.println("Service version is" + serviceVer);
         RunJobParams params = new RunJobParams().withMethod(
                 moduleName + "." + methodName).withServiceVer(serviceVer)
                 .withAppId("myapp/foo").withMeta(meta).withWsid(testWsID)
                 .withParams(Arrays.asList(UObject.fromJsonString("{\"base_number\":\"101\"}")));
+
+
+        final String[] modMeth = params.getMethod().split("\\.");
+        if (modMeth.length != 2) {
+            throw new IllegalStateException("Illegal method name: " +
+                    params.getMethod());
+        }
+        final String moduleName2 = modMeth[0];
+
+        CatalogClient catClient = getCatalogClient(tokenTestMode, TesterUtils.loadConfig());
+
+        final String servVer;
+        if (params.getServiceVer() == null ||
+                params.getServiceVer().isEmpty()) {
+            servVer = "release";
+        } else {
+            servVer = params.getServiceVer();
+        }
+        final ModuleVersion mv;
+        try {
+            mv = catClient.getModuleVersion(new SelectModuleVersion()
+                    .withModuleName(moduleName2)
+                    .withVersion(servVer));
+        } catch (ServerException se) {
+            throw new IllegalArgumentException(String.format(
+                    "Error looking up module %s with version %s: %s",
+                    moduleName, servVer, se.getLocalizedMessage()));
+        }
+        System.out.println("Module version is" + mv);
+
+
         String jobId = client.runJob(params);
         assertNotNull(jobId);
         System.out.println("Submitted job and got: " + jobId);
         JobState ret = null;
-
 
 
         long FinishState = 0;
@@ -468,14 +554,12 @@ public class CondorIntegrationTest {
             try {
                 Thread.sleep(2000);
                 ret = client.checkJob(jobId);
-                if(ret==null){
+                if (ret == null) {
                     System.out.println(String.format("jobid%s is not yet finished", jobId));
                     continue;
-                }
-                else if (ret.getFinished() != null && ret.getFinished() == 1L) {
+                } else if (ret.getFinished() != null && ret.getFinished() == 1L) {
                     break;
-                }
-                else{
+                } else {
                     System.out.println(ret);
                 }
 
@@ -484,7 +568,7 @@ public class CondorIntegrationTest {
                 throw ex;
             }
         }
-        if(ret == null){
+        if (ret == null) {
             throw new IllegalStateException("(Are you root?) Error: couldn't check job:" + jobId);
         }
         if (ret.getFinished() != null && ret.getFinished() == 1L) {
@@ -779,16 +863,16 @@ public class CondorIntegrationTest {
                 .getLine());
         // Let's check that AWE script is done
         String aweServerUrl = "http://localhost:" + awePort;
-        String aweJobId = (String)res.getAdditionalProperties()
+        String aweJobId = (String) res.getAdditionalProperties()
                 .get("awe_job_id");
         String aweState = null;
         for (int i = 0; i < 5; i++) {
             Map<String, Object> aweJob = AweUtils.getAweJobDescr(
                     aweServerUrl, aweJobId, token);
             Map<String, Object> aweData =
-                    (Map<String, Object>)aweJob.get("data");
+                    (Map<String, Object>) aweJob.get("data");
             if (aweData != null)
-                aweState = (String)aweData.get("state");
+                aweState = (String) aweData.get("state");
             if (aweState != null && aweState.equals(SDKMethodRunner.APP_STATE_DONE))
                 break;
             Thread.sleep(1000);
@@ -818,7 +902,7 @@ public class CondorIntegrationTest {
         List<Map<String, Object>> parjobs =
                 (List<Map<String, Object>>) params.get("jobs");
         if (params.containsKey("jobs")) {
-            List<List<Map<String,Object>>> gotjobs =
+            List<List<Map<String, Object>>> gotjobs =
                     (List<List<Map<String, Object>>>) got.get("jobs");
             assertNotNull("missing jobs", gotjobs);
             assertThat("not same number of jobs", gotjobs.size(),
@@ -1102,7 +1186,7 @@ public class CondorIntegrationTest {
                 is(msg));
     }
 
-    private void failJobWSRefs(List<String> refs, String exp) throws Exception{
+    private void failJobWSRefs(List<String> refs, String exp) throws Exception {
         UObject mt = new UObject(new HashMap<String, String>());
         try {
             runJob("foo", "bar", "baz", mt, refs);
@@ -1113,7 +1197,7 @@ public class CondorIntegrationTest {
     }
 
     private void failJob(String moduleMeth, String release, String exp)
-            throws Exception{
+            throws Exception {
         UObject mt = new UObject(new HashMap<String, String>());
         try {
             runJob(moduleMeth, release, mt, null);
@@ -1129,7 +1213,9 @@ public class CondorIntegrationTest {
         public String ver;
         public String commit;
 
-        public SubActionSpec (){}
+        public SubActionSpec() {
+        }
+
         public SubActionSpec withMod(String mod) {
             this.module = mod;
             return this;
@@ -1149,6 +1235,7 @@ public class CondorIntegrationTest {
             this.commit = commit;
             return this;
         }
+
         public String getVerRel() {
             if (release == null) {
                 return ver;
@@ -1156,6 +1243,7 @@ public class CondorIntegrationTest {
             return ver + "-" + release;
         }
     }
+
     private JobState runJobAndCheckProvenance(
             String moduleName,
             String methodName,
@@ -1168,7 +1256,7 @@ public class CondorIntegrationTest {
             throws IOException, JsonClientException, InterruptedException,
             ServerException, Exception, InvalidFileFormatException {
         List<String> wsobjrefs = new LinkedList<String>();
-        for (String o: wsobjs) {
+        for (String o : wsobjs) {
             wsobjrefs.add(testWsName + "/" + o);
         }
         JobState res = runJob(moduleName, methodName, release, methparams,
@@ -1220,14 +1308,14 @@ public class CondorIntegrationTest {
                 pa.getMethodParams().get(0).asClassInstance(Map.class),
                 is(methparams.asClassInstance(Map.class)));
         Set<String> wsobjrefs = new HashSet<String>();
-        for (String o: wsobjs) {
+        for (String o : wsobjs) {
             wsobjrefs.add(testWsName + "/" + o);
         }
         assertThat("correct incoming ws objs",
                 new HashSet<String>(pa.getInputWsObjects()),
                 is(wsobjrefs));
         Iterator<String> reswo = pa.getResolvedWsObjects().iterator();
-        for (String wso: pa.getInputWsObjects()) {
+        for (String wso : pa.getInputWsObjects()) {
             String ref = NAME2REF.get(wso.replace(testWsName + "/", ""));
             assertThat("ref remapped correctly", reswo.next(), is(ref));
         }
@@ -1239,7 +1327,7 @@ public class CondorIntegrationTest {
         CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         assertThat("correct # of subactions",
                 gotsas.size(), is(expsas.size()));
-        for (SubActionSpec sa: expsas) {
+        for (SubActionSpec sa : expsas) {
             if (sa.commit == null) {
                 sa.commit = getMVI(cat.getModuleInfo(
                         new SelectOneModuleParams().withModuleName(sa.module)),
@@ -1751,7 +1839,7 @@ public class CondorIntegrationTest {
 //        }
 //    }
 
-    public String lookupServiceVersion(String moduleName) throws Exception,
+    public static String lookupServiceVersion(String moduleName) throws Exception,
             IOException, InvalidFileFormatException, JsonClientException {
         CatalogClient cat = getCatalogClient(token, TesterUtils.loadConfig());
         String ver = cat.getModuleInfo(new SelectOneModuleParams().withModuleName(moduleName)).getDev().getGitCommitHash();
@@ -1786,10 +1874,260 @@ public class CondorIntegrationTest {
         return ret;
     }
 
+
+    public static HttpResponse http(String url, String body, String type) throws IOException {
+
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().build()) {
+
+            HttpEntityEnclosingRequestBase request;
+
+            if (type.equals("post")) {
+                request = new HttpPost(url);
+            } else {
+                request = new HttpPut(url);
+            }
+
+
+            StringEntity params = new StringEntity(body);
+            request.addHeader("content-type", "application/json");
+            request.setEntity(params);
+            //httpClient.execute(request);
+            HttpResponse result = httpClient.execute(request);
+            return result;
+        } catch (IOException ex) {
+        }
+        return null;
+    }
+
+
+    private static void printHttpResponse(HttpResponse result) {
+        HttpEntity he = result.getEntity();
+        try {
+            InputStream response = he.getContent();
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> jsonMap = mapper.readValue(response, Map.class);
+            Object err = jsonMap.getOrDefault("error", null);
+            if (!err.toString().equals("null"))
+                System.err.println(err);
+            else
+                System.out.println(jsonMap);
+        } catch (Exception e) {
+            System.err.println(result);
+        }
+    }
+
+    private static void createUser(String authEndpoint, Entity parameters) {
+        final URI createUserEndpoint = UriBuilder.fromUri(authEndpoint).path("/testmode/api/V2/testmodeonly/user/")
+                .build();
+    }
+
+    private static void createRole(String authEndpoint, Entity parameters) {
+        final URI createUserEndpoint = UriBuilder.fromUri(authEndpoint).path("/testmode/api/V2/testmodeonly/user/")
+                .build();
+    }
+
+    private static void addUserToRole(String authEndpoint, Entity parameters) {
+        final URI createUserEndpoint = UriBuilder.fromUri(authEndpoint).path("/testmode/api/V2/testmodeonly/user/")
+                .build();
+    }
+
+
+    private static Response catalogRequest(Client CLI, String host, String endpoint, ImmutableMap map, String requestType) {
+        final URI target = UriBuilder.fromUri(host).path(endpoint).build();
+        final WebTarget wt = CLI.target(target);
+        final Builder req = wt.request();
+
+
+        System.out.println(map);
+
+        try {
+            Response res;
+            if (requestType.equals("POST")) {
+                System.out.println("POST RQUEST TO " + endpoint);
+                res = req.post(Entity.json(map));
+            } else {
+                System.out.println("PUT RQUEST TO " + endpoint);
+                res = req.put(Entity.json(map));
+            }
+            System.out.println(res);
+
+            return res;
+        } catch (Exception e) {
+            return null;
+        }
+
+    }
+
+//    @SuppressWarnings("unchecked")
+//    public static  Map<String, Object>  req(){
+//
+//
+//        final String host = "http://nginx/services/auth";
+//        final URI target = UriBuilder.fromUri(host).path("/testmode/api/V2/testmodeonly/user/")
+//                .build();
+//        final WebTarget wt = CLI.target(target);
+//        final Builder req = wt.request();
+//
+//        try {
+//            final Response res = req.post(Entity.json(ImmutableMap.of("user", "whee2", "display", "whoo")));
+//            final Map<String, Object> response = res.readEntity(Map.class);
+//            return response;
+//        }
+//        catch (Exception e){
+//            return null;
+//        }
+//    }
+
+
+    private static AuthToken setupCatalogAdministrator(String username, String authEndpoint) {
+
+        ClientConfig config = new ClientConfig();
+        config.register(JacksonJsonProvider.class);
+        final Client CLI = ClientBuilder.newClient();
+        final String host = "http://nginx/services/auth";
+
+        final String addUserEndpoint = "/testmode/api/V2/testmodeonly/user/";
+        final ImmutableMap addUserParams = ImmutableMap.of("user", username, "display", username);
+        catalogRequest(CLI, host, addUserEndpoint, addUserParams, "POST");
+
+        //AddRole
+        final String addRoleEndpoint = "/testmode/api/V2/testmodeonly/customroles";
+        final String CATALOG_ADMIN = "CATALOG_ADMIN";
+        final ImmutableMap addCustomRolesParams = ImmutableMap.of("id", CATALOG_ADMIN, "desc", CATALOG_ADMIN);
+        catalogRequest(CLI, host, addRoleEndpoint, addCustomRolesParams, "POST");
+
+        //AddRoleToUser
+        final String addUserRoleEndpoint = "/testmode/api/V2/testmodeonly/userroles";
+        final String[] customroles = new String[]{"CATALOG_ADMIN"};
+        final ImmutableMap addRoleParams = ImmutableMap.of("user", username, "customroles", customroles);
+        catalogRequest(CLI, host, addUserRoleEndpoint, addRoleParams, "PUT");
+
+        //Token
+        final String tokenEndpoint = "/testmode/api/V2/testmodeonly/token";
+        final ImmutableMap getTokenParams = ImmutableMap.of("user", username, "type", "Login");
+        Response r = catalogRequest(CLI, host, tokenEndpoint, getTokenParams, "POST");
+
+        //NPE here means you couldn't contact auth and get a token
+        final Map<String, String> response = r.readEntity(Map.class);
+        return new AuthToken(response.get("token"), username);
+    }
+
+    private static AuthToken setupCatalogAdmin(String username, String authEndpoint) throws Exception {
+        //This only lasts for 1 hour, if tests run longer than that it won't work
+
+        //Is there an authclient I could use?
+
+
+        String createUserEndpoint = authEndpoint + "/testmode/api/v2/testmodeonly/user";
+        System.out.println("About to register user:" + username + " at " + createUserEndpoint);
+
+        HttpResponse r = http(createUserEndpoint, String.format("{\"user\" : \"%s\",\"display\": \"%s\" }", username, username), "post");
+        printHttpResponse(r);
+
+        //Create catalog role
+        String role = "CATALOG_ADMIN";
+        String createCustomRoleEndpoint = authEndpoint + "/testmode/api/V2/testmodeonly/customroles";
+        System.out.println("About to register role:" + role + " at " + createCustomRoleEndpoint);
+        HttpResponse r2 = http(createCustomRoleEndpoint, String.format("{\"id\" : \"%s\", \"desc\": \"%s\" }", role, role), "post");
+        printHttpResponse(r2);
+
+        //Add role to admin
+        String addCustomRoleEndpoint = authEndpoint + "/testmode/api/V2/testmodeonly/userroles";
+        System.out.println("About to add role:" + role + " to:" + username + " at " + addCustomRoleEndpoint);
+        HttpResponse r3 = http(addCustomRoleEndpoint, String.format("{\"user\" : \"%s\", \"customroles\": [\"%s\"] }", username, role), "put");
+        printHttpResponse(r3);
+
+        //Get login token
+        String getTokenEndpoint = authEndpoint + "/testmode/api/V2/testmodeonly/token";
+        String tokenType = "Login";
+        System.out.println("About to get token for :" + username + " type:" + tokenType + " at " + getTokenEndpoint);
+        HttpResponse r4 = http(getTokenEndpoint, String.format("{\"user\" : \"%s\", \"type\": \"%s\" }", username, tokenType), "post");
+        try {
+            System.out.println("About to print response");
+            System.out.println(r4);
+
+            System.out.println("About to print entity");
+            System.out.println(r4.getEntity().getContentType());
+            System.out.println(r4.getEntity().getContentLength());
+
+
+            InputStream content = r4.getEntity().getContent();
+            Map<String, Object> jsonMap = new ObjectMapper().readValue(content, Map.class);
+            System.out.print("JSON MAP IS");
+            System.out.print(jsonMap);
+            return new AuthToken(jsonMap.get("token").toString(), username);
+        } catch (Exception e) {
+            System.out.println("Couldn't get token for " + username);
+//            System.out.println(r4);
+//            System.out.println();
+//            System.out.println(r4.getEntity().getContent());
+//            Map<String, Object> jsonMap = new ObjectMapper().readValue(r4.getEntity().getContent(), Map.class);
+//            System.out.println(jsonMap);
+        }
+        return null;
+    }
+
+
+    private static CatalogClient getCatalogClientTestMode(AuthToken testModeToken) throws Exception {
+        Map<String, String> config = TesterUtils.loadConfig();
+        String catUrl = config.get(NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL);
+        System.out.println("Creating catalog client with " + catUrl + testModeToken);
+        CatalogClient cat = new CatalogClient(new URL(catUrl), testModeToken);
+        cat.setAllSSLCertificatesTrusted(true);
+        cat.setIsInsecureHttpConnectionAllowed(true);
+        return cat;
+    }
+
     @BeforeClass
     public static void beforeClass() throws Exception {
         Properties props = TesterUtils.props();
+
+
         token = TesterUtils.token(props);
+
+        String username = "wsadmin";
+        String moduleName = "simpleapp";
+        String functionName = "simple_add";
+        String authEndpoint = props.getProperty("auth_server_url");
+
+        tokenTestMode = setupCatalogAdministrator(username, authEndpoint);
+        System.out.println("Got a token " + tokenTestMode);
+
+        CatalogClient cc = getCatalogClientTestMode(tokenTestMode);
+        List<String> cg = new ArrayList<>();
+        cg.add("njs,request_cpus=1,request_memory=1,request_disk=1");
+        ClientGroupConfig cgc = new ClientGroupConfig().withClientGroups(cg).withModuleName(moduleName).withFunctionName(functionName);
+
+        cc.setClientGroupConfig(cgc);
+
+        String regId = "Unknown";
+        //Register app for subsequent tests
+        try {
+            String serviceVer = lookupServiceVersion(moduleName);
+        } catch (Exception e) {
+            regId = registerSimpleApp(tokenTestMode, cc);
+            cc.setClientGroupConfig(cgc);
+        }
+
+
+        int seconds = 600;
+        int waitInterval = 10000;
+        int waitIntervalSeconds = waitInterval / 1000;
+        while (seconds > 0) {
+
+            try {
+                String serviceVer = lookupServiceVersion(moduleName);
+                System.out.println(String.format("Success, app is registered %s %s", moduleName, serviceVer));
+                break;
+            } catch (Exception e) {
+                System.out.println("Waiting for app to register:" + moduleName + " reg id:" + regId);
+                Thread.sleep(waitInterval);
+                seconds -= waitIntervalSeconds;
+
+            }
+        }
+
+
         workDir = TesterUtils.prepareWorkDir(new File("temp_files"),
                 "awe-integration");
         mongoDir = new File(workDir, "mongo");
@@ -1799,10 +2137,11 @@ public class CondorIntegrationTest {
         File binDir = new File(njsServiceDir, "bin");
         String authUrl = TesterUtils.loadConfig().get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL);
 
+
         /**
-        if(authUrl.contains("localhost") || authUrl.contains("nginx")) {
-            catalogWrapper = startupCatalogWrapper();
-        }
+         if(authUrl.contains("localhost") || authUrl.contains("nginx")) {
+         catalogWrapper = startupCatalogWrapper();
+         }
          **/
         String machineName = java.net.InetAddress.getLocalHost().getHostName();
         machineName = machineName == null ? "nowhere" : machineName.toLowerCase().replaceAll("[^\\dA-Za-z_]|\\s", "_");
@@ -1831,6 +2170,7 @@ public class CondorIntegrationTest {
         String njs_url = props.getProperty("njs_server_url");
         client = new NarrativeJobServiceClient(new URL(njs_url), token);
         client.setIsInsecureHttpConnectionAllowed(true);
+        System.out.println("Creating client with " + njs_url);
     }
 
     private static void stageWSObjects() throws Exception {
@@ -1874,7 +2214,8 @@ public class CondorIntegrationTest {
             try {
                 njsService.stop();
                 System.out.println(njsServiceDir.getName() + " was stopped");
-            } catch (Exception ignore) {}
+            } catch (Exception ignore) {
+            }
         }
         if (mongo != null) {
             mongo.destroy(false);
@@ -1898,250 +2239,6 @@ public class CondorIntegrationTest {
         System.out.println();
     }
 
-    private static int startupAweServer(String aweServerExePath, File dir, int mongoPort,
-                                        String authUrl, AuthToken token) throws Exception {
-        //auth-service-url = https://ci.kbase.us/auth2services/auth/api/legacy/KBase/Sessions/Login
-        //globus_token_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/goauth/token?grant_type=client_credentials
-        //globus_profile_url = https://ci.kbase.us/auth2services/auth/api/legacy/globus/users
-        String globusUrl = "https://nexus.api.globusonline.org";
-        if (authUrl != null && authUrl.endsWith("KBase/Sessions/Login")) {
-            globusUrl = authUrl.replace("KBase/Sessions/Login", "globus");
-        }
-        if (aweServerExePath == null) {
-            aweServerExePath = "awe-server";
-        }
-        if (!dir.exists())
-            dir.mkdirs();
-        File dataDir = new File(dir, "data");
-        dataDir.mkdir();
-        File logsDir = new File(dir, "logs");
-        logsDir.mkdir();
-        File siteDir = new File(dir, "site");
-        siteDir.mkdir();
-        File siteJsDir = new File(siteDir, "js");
-        siteJsDir.mkdir();
-        writeFileLines(Arrays.asList("var RetinaConfig = {}"), new File(siteJsDir, "config.js.tt"));
-        File awfDir = new File(dir, "awfs");
-        awfDir.mkdir();
-        int port = findFreePort();
-        File configFile = new File(dir, "awe.cfg");
-        writeFileLines(Arrays.asList(
-                "[Admin]",
-                "email=shock-admin@kbase.us",
-                "users=" + token.getUserName(),
-                "[Anonymous]",
-                "read=true",
-                "write=true",
-                "delete=true",
-                "cg_read=false",
-                "cg_write=false",
-                "cg_delete=false",
-                "[Args]",
-                "debuglevel=0",
-                "[Auth]",
-                "globus_token_url=" + globusUrl + "/goauth/token?grant_type=client_credentials",
-                "globus_profile_url=" + globusUrl + "/users",
-                "client_auth_required=false",
-                "[Directories]",
-                "data=" + dataDir.getAbsolutePath(),
-                "logs=" + logsDir.getAbsolutePath(),
-                "site=" + siteDir.getAbsolutePath(),
-                "awf=" + awfDir.getAbsolutePath(),
-                "[Mongodb]",
-                "hosts=localhost:" + mongoPort,
-                "database=AWEDB",
-                "[Mongodb-Node-Indices]",
-                "id=unique:true",
-                "[Ports]",
-                "site-port=" + findFreePort(),
-                "api-port=" + port,
-                "[External]",
-                "api-url=http://localhost:" + port + "/"
-        ), configFile);
-        File scriptFile = new File(dir, "start_awe_server.sh");
-        writeFileLines(Arrays.asList(
-                "#!/bin/bash",
-                "cd " + dir.getAbsolutePath(),
-                aweServerExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
-                "echo $pid > pid.txt"
-        ), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(dir);
-        Exception err = null;
-        for (int n = 0; n < aweServerInitWaitSeconds; n++) {
-            Thread.sleep(1000);
-            try {
-                InputStream is = new URL("http://localhost:" + port + "/job/").openStream();
-                ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> ret = mapper.readValue(is, Map.class);
-                if (ret.containsKey("limit") && ret.containsKey("total_count")) {
-                    err = null;
-                    break;
-                } else {
-                    err = new Exception("AWE server response doesn't match expected data: " +
-                            mapper.writeValueAsString(ret));
-                }
-            } catch (Exception ex) {
-                err = ex;
-            }
-        }
-        if (err != null) {
-            File errorFile = new File(new File(logsDir, "server"), "error.log");
-            if (errorFile.exists())
-                for (String l : readFileLines(errorFile))
-                    System.err.println("AWE server error: " + l);
-            throw new IllegalStateException("AWE server couldn't startup in " + aweServerInitWaitSeconds +
-                    " seconds (" + err.getMessage() + ")", err);
-        }
-        System.out.println(dir.getName() + " was started up");
-        return port;
-    }
-
-    private static int startupAweClient(String aweClientExePath, File dir, int aweServerPort,
-                                        File binDir) throws Exception {
-        if (aweClientExePath == null) {
-            aweClientExePath = "awe-client";
-        }
-        if (!dir.exists())
-            dir.mkdirs();
-        File dataDir = new File(dir, "data");
-        dataDir.mkdir();
-        File logsDir = new File(dir, "logs");
-        logsDir.mkdir();
-        File workDir = new File(dir, "work");
-        workDir.mkdir();
-        int port = findFreePort();
-        File configFile = new File(dir, "awec.cfg");
-        writeFileLines(Arrays.asList(
-                "[Directories]",
-                "data=" + dataDir.getAbsolutePath(),
-                "logs=" + logsDir.getAbsolutePath(),
-                "[Args]",
-                "debuglevel=0",
-                "[Client]",
-                "workpath=" + workDir.getAbsolutePath(),
-                "supported_apps=" + NarrativeJobServiceServer.AWE_CLIENT_SCRIPT_NAME,
-                "serverurl=http://localhost:" + aweServerPort + "/",
-                "group=kbase",
-                "name=kbase-client",
-                "auto_clean_dir=false",
-                "worker_overlap=false",
-                "print_app_msg=true",
-                "clientgroup_token=",
-                "pre_work_script=",
-                "pre_work_script_args="
-        ), configFile);
-        File scriptFile = new File(dir, "start_awe_client.sh");
-        writeFileLines(Arrays.asList(
-                "#!/bin/bash",
-                "cd " + dir.getAbsolutePath(),
-                "export PATH=" + binDir.getAbsolutePath() + ":$PATH",
-                "export AWE_CLIENTGROUP=test_client_group",
-                aweClientExePath + " --conf " + configFile.getAbsolutePath() + " >out.txt 2>err.txt & pid=$!",
-                "echo $pid > pid.txt"
-        ), scriptFile);
-        ProcessHelper.cmd("bash", scriptFile.getCanonicalPath()).exec(dir);
-        Exception err = null;
-        for (int n = 0; n < aweClientInitWaitSeconds; n++) {
-            Thread.sleep(1000);
-            try {
-                InputStream is = new URL("http://localhost:" + aweServerPort + "/client/").openStream();
-                ObjectMapper mapper = new ObjectMapper();
-                Map<String, Object> ret = mapper.readValue(is, Map.class);
-                if (ret.containsKey("data") &&
-                        ((List<Object>)ret.get("data")).size() > 0) {
-                    err = null;
-                    break;
-                } else {
-                    err = new Exception("AWE client response doesn't match expected data: " +
-                            mapper.writeValueAsString(ret));
-                }
-            } catch (Exception ex) {
-                err = ex;
-            }
-        }
-        if (err != null) {
-            File errorFile = new File(new File(logsDir, "client"), "error.log");
-            if (errorFile.exists())
-                for (String l : readFileLines(errorFile))
-                    System.err.println("AWE client error: " + l);
-            throw new IllegalStateException("AWE client couldn't startup in " + aweClientInitWaitSeconds +
-                    " seconds (" + err.getMessage() + ")", err);
-        }
-        System.out.println(dir.getName() + " was started up");
-        return port;
-    }
-
-    private static Server startupNJSService(File dir, File binDir, int awePort,
-                                            int catalogPort, int mongoPort, AuthToken token) throws Exception {
-        if (!dir.exists())
-            dir.mkdirs();
-        if (!binDir.exists())
-            binDir.mkdirs();
-        int exitCode = ProcessHelper.cmd("ant", "script", "-Djardir=" + dir.getAbsolutePath(),
-                "-Dbindir=" + binDir.getAbsolutePath()).exec(new File(".")).getProcess().exitValue();
-        if (exitCode != 0)
-            throw new IllegalStateException("Error compiling command line script");
-        initSilentJettyLogger();
-        File configFile = new File(dir, "deploy.cfg");
-        int port = findFreePort();
-        Map<String, String> origConfig = TesterUtils.loadConfig();
-        List<String> configLines = new ArrayList<String>(Arrays.asList(
-                "[" + NarrativeJobServiceServer.SERVICE_DEPLOYMENT_NAME + "]",
-                NarrativeJobServiceServer.CFG_PROP_SCRATCH + "=" + dir.getAbsolutePath(),
-                NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_JOBSTATUS_SRV_URL),
-                NarrativeJobServiceServer.CFG_PROP_SHOCK_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_SHOCK_URL),
-                NarrativeJobServiceServer.CFG_PROP_AWE_SRV_URL + "=http://localhost:" + awePort + "/",
-                NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_DOCKER_REGISTRY_URL),
-                NarrativeJobServiceServer.CFG_PROP_ADMIN_USER_NAME + "=kbasetest,rsutormin",
-                NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_WORKSPACE_SRV_URL),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_SRV_URL + "=http://localhost:" + catalogPort,
-                NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_KBASE_ENDPOINT),
-                NarrativeJobServiceServer.CFG_PROP_SELF_EXTERNAL_URL + "=http://localhost:" + port + "/",
-                NarrativeJobServiceServer.CFG_PROP_REF_DATA_BASE + "=" + dir.getCanonicalPath(),
-                NarrativeJobServiceServer.CFG_PROP_CATALOG_ADMIN_TOKEN + "=" + token.getToken(),
-                NarrativeJobServiceServer.CFG_PROP_DEFAULT_AWE_CLIENT_GROUPS + "=kbase",
-                NarrativeJobServiceServer.CFG_PROP_AWE_READONLY_ADMIN_TOKEN + "=" + token.getToken(),
-                NarrativeJobServiceServer.CFG_PROP_MONGO_HOSTS + "=localhost:" + mongoPort,
-                NarrativeJobServiceServer.CFG_PROP_MONGO_DBNAME + "=exec_engine",
-                NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL + "=" + origConfig.get(NarrativeJobServiceServer.CFG_PROP_AUTH_SERVICE_URL)
-        ));
-        String dockerURI = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI);
-        if (dockerURI != null)
-            configLines.add(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_DOCKER_URI + "=" + dockerURI);
-        String callbackNetworks = origConfig.get(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS);
-        if (callbackNetworks != null)
-            configLines.add(NarrativeJobServiceServer.CFG_PROP_AWE_CLIENT_CALLBACK_NETWORKS + "=" + callbackNetworks);
-        writeFileLines(configLines, configFile);
-        System.setProperty("KB_DEPLOYMENT_CONFIG", configFile.getAbsolutePath());
-        Server jettyServer = new Server(port);
-        ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
-        context.setContextPath("/");
-        jettyServer.setHandler(context);
-        context.addServlet(new ServletHolder(new NarrativeJobServiceServer()),"/*");
-        jettyServer.start();
-        Exception err = null;
-        JsonClientCaller caller = new JsonClientCaller(new URL("http://localhost:" + port + "/"));
-        for (int n = 0; n < njsJobWaitSeconds; n++) {
-            Thread.sleep(1000);
-            try {
-                caller.jsonrpcCall("Unknown", new ArrayList<String>(), null, false, false);
-            } catch (ServerException ex) {
-                if (ex.getMessage().contains("Can not find method [NarrativeJobService.Unknown] in server class")) {
-                    err = null;
-                    break;
-                } else {
-                    err = ex;
-                }
-            } catch (Exception ex) {
-                err = ex;
-            }
-        }
-        if (err != null)
-            throw new IllegalStateException("NarrativeJobService couldn't startup in " +
-                    njsJobWaitSeconds + " seconds (" + err.getMessage() + ")", err);
-        System.out.println(dir.getName() + " was started up");
-        return jettyServer;
-    }
 
     private static Server startupCatalogWrapper() throws Exception {
         initSilentJettyLogger();
@@ -2151,7 +2248,7 @@ public class CondorIntegrationTest {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
         jettyServer.setHandler(context);
-        context.addServlet(new ServletHolder(catalogSrv),"/*");
+        context.addServlet(new ServletHolder(catalogSrv), "/*");
         jettyServer.start();
         Exception err = null;
         JsonClientCaller caller = new JsonClientCaller(new URL("http://localhost:" + port + "/"));
@@ -2180,35 +2277,55 @@ public class CondorIntegrationTest {
     public static void initSilentJettyLogger() {
         Log.setLog(new Logger() {
             @Override
-            public void warn(String arg0, Object arg1, Object arg2) {}
+            public void warn(String arg0, Object arg1, Object arg2) {
+            }
+
             @Override
-            public void warn(String arg0, Throwable arg1) {}
+            public void warn(String arg0, Throwable arg1) {
+            }
+
             @Override
-            public void warn(String arg0) {}
+            public void warn(String arg0) {
+            }
+
             @Override
-            public void setDebugEnabled(boolean arg0) {}
+            public void setDebugEnabled(boolean arg0) {
+            }
+
             @Override
             public boolean isDebugEnabled() {
                 return false;
             }
+
             @Override
-            public void info(String arg0, Object arg1, Object arg2) {}
+            public void info(String arg0, Object arg1, Object arg2) {
+            }
+
             @Override
-            public void info(String arg0) {}
+            public void info(String arg0) {
+            }
+
             @Override
             public String getName() {
                 return null;
             }
+
             @Override
             public Logger getLogger(String arg0) {
                 return this;
             }
+
             @Override
-            public void debug(String arg0, Object arg1, Object arg2) {}
+            public void debug(String arg0, Object arg1, Object arg2) {
+            }
+
             @Override
-            public void debug(String arg0, Throwable arg1) {}
+            public void debug(String arg0, Throwable arg1) {
+            }
+
             @Override
-            public void debug(String arg0) {}
+            public void debug(String arg0) {
+            }
         });
     }
 
@@ -2222,7 +2339,8 @@ public class CondorIntegrationTest {
                 ProcessHelper.cmd("kill", pid).exec(dir);
                 System.out.println(dir.getName() + " was stopped");
             }
-        } catch (Exception ignore) {}
+        } catch (Exception ignore) {
+        }
     }
 
     private static void writeFileLines(List<String> lines, File targetFile) throws IOException {
@@ -2252,7 +2370,8 @@ public class CondorIntegrationTest {
     private static int findFreePort() {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
-        } catch (IOException e) {}
+        } catch (IOException e) {
+        }
         throw new IllegalStateException("Can not find available port in system");
     }
 

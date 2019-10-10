@@ -1,11 +1,15 @@
-# A KBase user ID and password.
-token=*****
+# A KBase token 
+# For mini_kb, use the token from https://github.com/kbase/mini_kb/blob/master/deployment/conf/njs-wrapper-minikb.ini#L18
+token=62IYPZGS7O773DBLZZCSE542BP4C2E7G
 
 # URL of the server to test against, usually local or CI
-njs_server_url=http://localhost:8080
+njs_server_url=http://nginx:8080/njs
 
 # Temporary folder for tests
 temp.dir=temp_files
+
+# Default condor dir
+condor.dir=/mnt/condor
 
 # Path to the MongoDB executable. Omit to use mongod found on the path.
 #test-mongod-exe=/kb/runtime/bin/mongod
